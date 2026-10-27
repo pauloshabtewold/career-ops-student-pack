@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+# Personal data never belongs in the pack; these paths exist only inside a user's career-ops clone.
+data/
+cv.md
+.env
+.env.*
+config/student.yml
+config/profile.yml
+documents/
+output/
+coverage/
+*.log
