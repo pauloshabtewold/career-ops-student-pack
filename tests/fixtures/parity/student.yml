@@ -1,0 +1,36 @@
+# Synthetic parity fixture. Copy it outside the repo, align tracks and graduation dates with the baseline clone's
+# cycle, then pass the copy as --student-config. Every value here is invented.
+# software-cs is a shipped preset whose calendar yields four terms for a late-2026 date, so cycle and prefilter are
+# not vacuous. judgment_keywords are listed explicitly because the fail-audit allowance depends on them; keep them
+# equal to the pack defaults.
+onboarding:
+  complete: true
+presets:
+  - software-cs
+tracks:
+  - kind: internship
+    graduation: "2029-05"
+  - kind: newgrad
+    graduation: "2029-05"
+experience_years: 0
+timezone: America/Chicago
+locations:
+  - Remote
+daily_target: 10
+rank:
+  weights: {}
+  metros: []
+  marquee: []
+  parent_companies: {}
+dealbreakers: []
+judgment_keywords:
+  - grad
+  - graduation
+  - term
+  - experience
+  - level
+  - start
+  - clearance
+  - contract
+  - pay
+  - location

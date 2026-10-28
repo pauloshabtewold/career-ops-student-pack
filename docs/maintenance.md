@@ -37,7 +37,20 @@ A preset not reviewed for 60 days is shown to students as unmaintained by the in
 
 ## Parity run
 
-Before a release that changes triage, merge or ranking, run `node tools/parity.mjs` with explicit `--source`, `--scratch` and `--student-config` arguments pointing outside this repository. It works on copies, deletes them when it finishes, and writes counts only to `docs/parity-report.md`. It exits 130 on SIGINT and 143 on SIGTERM and removes the copies either way.
+Before a release that changes triage, merge or ranking, run the harness on copies of a career-ops checkout:
+
+1. Copy `tests/fixtures/parity/student.yml` to a directory outside this repository and set tracks and graduation dates to match the baseline clone's cycle. Keep `judgment_keywords` equal to the pack defaults, otherwise fail-audit reports residual rows. The harness refuses a config with no preset or no track.
+2. Run `node tools/parity.mjs` with `--source`, `--scratch` and `--student-config` pointing outside this repository. It works on copies, deletes them when it finishes, and writes counts only to `docs/parity-report.md`. It exits 0 on pass or explained, 1 on a failed stage, stage error or crashed run, 2 on a usage error (nothing is created), 130 on SIGINT and 143 on SIGTERM, and removes the copies every time.
+
+Some differences are by design. The harness derives an allowance for each from the run's own outputs and fails on any residual:
+
+- merge-staging: the pack merge-post reviews Pending rows. The allowance is 2 x (flagged + joined) + dropped from its stats.
+- rank-queue: both sides cap picks per company with different caps and weights, so the allowance covers swaps of postings inside companies that both sides pick.
+- fail-audit: the allowance covers baseline-only rows outside the configured `judgment_keywords` and title pre-filter rows.
+
+The maintainer reviews the residual. It comes from rank-queue companies present on one side only, fail-audit pack-only rows (per-install exclusions in the baseline local scripts) and baseline-only rows the pack keywords match.
+
+Before reading prefilter counts, align the copied fixture's tracks and graduation dates with the baseline clone's cycle. The baseline prefilter computes its own cycle for the run date, while the pack reads the cycle file the harness writes. Otherwise the baseline and pack apply the term-not-in-cycle rule to different terms and prefilter shows residual that is not a pack bug.
 
 ## Upstream setup in CI
 

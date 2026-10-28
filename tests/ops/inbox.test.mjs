@@ -303,3 +303,54 @@ test('M-008-S11 the gmail-plugin backend runs plugins.mjs run gmail and says rep
     s.cleanup();
   }
 });
+
+async function runWithStatusCode(s, messages, statusCode) {
+  const input = join(s.root, 'msgs.json');
+  writeFileSync(input, JSON.stringify(messages));
+  const lines = [];
+  const runner = async (argv) => ({ code: argv[0] === 'set-status.mjs' ? statusCode : 0, stdout: '' });
+  const argv = ['--backend', 'connector', '--input', input, '--root', s.root, '--data-dir', s.data, '--today', TODAY];
+  const code = await main(argv, { runner, assessmentDomains: ASSESS, out: (l) => lines.push(String(l)) });
+  return { code, lines };
+}
+
+const ASSESS_MSG = () => msg('m-201', 'Assessments <no-reply@mail.assess.example.com>', 'Northwind Robotics: your online assessment', 'Please complete the coding assessment by 2026-11-02.');
+const REPLY_MSG = () => msg('m-202', 'Contoso Analytics Recruiting <recruiting@contosoanalytics.example.com>', 'Re: question about the Analyst Intern role', 'Thanks for your note. The team sits in Austin and works hybrid, and the role is paid.');
+
+// M-002-S1
+test('M-002-S1 a failed set-status for an assessment prints no marked notice and lists the failure', async () => {
+  const s = setup();
+  try {
+    const res = await runWithStatusCode(s, [ASSESS_MSG()], 1);
+    const notices = res.lines.filter((l) => l.startsWith('notice: '));
+    assert.ok(!notices.some((l) => l.includes('marked')), notices.join('\n'));
+    assert.ok(!res.lines.some((l) => l.includes('marked')));
+    assert.ok(section(res.lines, /status updates applied/i).some((l) => l.includes('set-status failed (exit 1)')));
+  } finally {
+    s.cleanup();
+  }
+});
+
+// M-002-S1
+test('M-002-S1 a failed set-status for a reply prints no marked notice and lists the failure', async () => {
+  const s = setup();
+  try {
+    const res = await runWithStatusCode(s, [REPLY_MSG()], 1);
+    assert.ok(!res.lines.some((l) => l.startsWith('notice: ') && l.includes('marked')));
+    assert.ok(section(res.lines, /status updates applied/i).some((l) => l.includes('set-status failed (exit 1)')));
+  } finally {
+    s.cleanup();
+  }
+});
+
+// M-002-S2
+test('M-002-S2 a successful set-status prints the marked status notice', async () => {
+  const s = setup();
+  try {
+    const res = await runWithStatusCode(s, [ASSESS_MSG(), REPLY_MSG()], 0);
+    assert.ok(res.lines.includes('notice: Northwind Robotics: marked Assessment'), res.lines.join('\n'));
+    assert.ok(res.lines.includes('notice: Contoso Analytics: marked Responded'), res.lines.join('\n'));
+  } finally {
+    s.cleanup();
+  }
+});

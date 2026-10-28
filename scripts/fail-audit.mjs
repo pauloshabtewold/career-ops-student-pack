@@ -19,9 +19,14 @@ export const DEFAULT_JUDGMENT_KEYWORDS = ['grad', 'graduation', 'term', 'experie
 const AUDIT_HEADER = ['date', 'url', 'verdict', 'score', 'reason'];
 const AUDIT_RE = /^AUDIT:\s*(KEEP|WRONG)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*(.*)$/;
 
+// One predicate shared with tools/parity-compare.mjs so the parity explanation applies exactly what pickRows applies.
+export function judgmentPattern(keywords) {
+  return new RegExp(`\\b(${keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');
+}
+
 export function pickRows(doc, { n = 20, keywords = DEFAULT_JUDGMENT_KEYWORDS }) {
   const sec = getSection(doc, 'Skipped');
-  const re = new RegExp(`\\b(${keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');
+  const re = judgmentPattern(keywords);
   const rows = [];
   (sec?.lines ?? []).forEach((line) => {
     const row = parseRow(line);
