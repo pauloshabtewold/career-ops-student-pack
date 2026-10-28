@@ -143,9 +143,20 @@ export function buildConfig(answers) {
       resume_variants: answers.resume_variants,
       mailbox: { backend: answers.mailbox_backend ?? 'connector' },
       schedule: { time: answers.schedule_time },
-      rank: { weights: {}, metros: answers.locations, marquee: answers.priority_companies ?? [], parent_companies: {} },
+      // Knob defaults are no-ops; written out so a student can find each key in a fresh student.yml.
+      rank: {
+        weights: {},
+        metros: answers.locations,
+        marquee: answers.priority_companies ?? [],
+        parent_companies: {},
+        company_caps: {},
+        intern_only: [],
+        one_track_per_company: false,
+        ignore_words: [],
+      },
       dealbreakers: answers.dealbreakers ?? [],
       judgment_keywords: [],
+      audit: { exclude_reasons: [], require_triage: false, keyword_match: 'word' },
     },
   );
   validateConfig(cfg);
