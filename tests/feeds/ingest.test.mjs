@@ -28,7 +28,8 @@ const stats = async (s) => (await readTsv(join(s.data, 'student-github-stats.tsv
 test('M-003-S7 manifest declares the ingest hook, no env and no LinkedIn host', () => {
   const m = JSON.parse(readFileSync(new URL('../../plugins/github-lists/manifest.json', import.meta.url), 'utf8'));
   assert.equal(m.id, 'github-lists');
-  assert.equal(m.version, '1.0.0');
+  // Any edit to the plugin bumps its version (check-plugin-versions), so only the shape is pinned here.
+  assert.match(m.version, /^[1-9]\d*\.\d+\.\d+$/);
   assert.equal(m.apiVersion, 1);
   assert.deepEqual(m.hooks, ['ingest']);
   assert.equal(m.jobPostings, true);
