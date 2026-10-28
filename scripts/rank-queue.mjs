@@ -163,11 +163,11 @@ function pickTop(scored, appliedToday, perDay, n, remainder = () => Infinity) {
   return picks;
 }
 
-// Two cap names that fold to one key keep the smaller cap: a student listing two spellings of one company gets the stricter limit.
 // Cap, track and reserved-slot inputs. The cap count is the larger of the tracker rows and the logged submits, so a
 // tracker row later marked Rejected still uses its slot while its logged submit exists.
 function blockRules({ config, pending, keyOf, history, submitted }) {
   const caps = new Map();
+// Two cap names that fold to one key keep the smaller cap: a student listing two spellings of one company gets the stricter limit.
   for (const [name, cap] of Object.entries(config.rank?.company_caps ?? {})) {
     const key = keyOf(name);
     caps.set(key, Math.min(caps.get(key) ?? Infinity, cap));

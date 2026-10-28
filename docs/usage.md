@@ -80,7 +80,7 @@ If two rows of a company carry `reserved-slot`, the one listed first in `pipelin
 
 The track check uses only applications already made, so one list can still show both tracks of a new company; the submit-time confirmation asks before the second is used.
 
-The list header counts rows hidden by caps, track rules or a reserved slot as blocked. Its "(N waiting on referral timing)" count also includes rows held with `hold=DATE`, not only rows waiting on referral timing.
+The list header counts rows hidden by track rules or a reserved slot as blocked, and rows of a company that has already reached its cap. When a cap leaves partial room (cap 3, 2 applied, 3 eligible rows), the list shows only the remaining number and the trimmed rows are not counted. Its "(N waiting on referral timing)" count also includes rows held with `hold=DATE`, not only rows waiting on referral timing.
 
 ## Turning things off
 
