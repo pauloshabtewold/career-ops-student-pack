@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // CI helper: builds a throwaway career-ops checkout at a released tag, installs the pack into it, applies a
 // synthetic answers file and writes doctor.json. Used by ci.yml, canary.yml and audit-presets.yml.
-// Usage: upstream-setup.mjs --out <new dir> [--version X.Y.Z] [--pack <dir>] [--answers <file>]
+// Usage: upstream-setup.mjs --out <new dir> [--version X.Y.Z] [--pack <dir>] [--answers <file>] [--resume <file>]
 //   --version defaults to compat.json upstream.max. Prints the checkout path on the last line.
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
@@ -27,7 +27,7 @@ export function npmCli() {
   return found;
 }
 
-export function setupUpstream({ out, version, pack = PACK_ROOT, answers = join('tests', 'fixtures', 'answers', 'cs.json'), runner = defaultRunner }) {
+export function setupUpstream({ out, version, pack = PACK_ROOT, answers = join('tests', 'fixtures', 'answers', 'cs.json'), resume = join('tests', 'fixtures', 'resumes', 'cs.md'), runner = defaultRunner }) {
   const dest = resolve(out);
   if (existsSync(dest) && readdirSync(dest).length) throw new UsageError('--out exists and is not empty');
   mkdirSync(dirname(dest), { recursive: true });
@@ -39,15 +39,17 @@ export function setupUpstream({ out, version, pack = PACK_ROOT, answers = join('
   cpSync(pack, student, { recursive: true, filter: (src) => !['.git', 'node_modules'].includes(basename(src)) });
   runner(process.execPath, [join('student', 'install.mjs'), '--yes'], { cwd: dest });
   runner(process.execPath, [join('student', 'interview', 'apply-answers.mjs'), join(student, answers)], { cwd: dest });
+  // A real student gets cv.md from the interview; doctor requires it, so the synthetic setup supplies a fixture resume.
+  copyFileSync(join(student, resume), join(dest, 'cv.md'));
   const doctor = join(dest, 'doctor.json');
   writeFileSync(doctor, runner(process.execPath, ['doctor.mjs', '--json'], { cwd: dest }));
   return { dest, doctor, tag };
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { common: false, flags: { out: 'string', version: 'string', pack: 'string', answers: 'string' } });
+  const { flags } = parseArgs(process.argv.slice(2), { common: false, flags: { out: 'string', version: 'string', pack: 'string', answers: 'string', resume: 'string' } });
   if (!flags.out) throw new UsageError('--out <dir> is required');
-  const res = setupUpstream({ out: flags.out, version: flags.version, pack: flags.pack ? resolve(flags.pack) : PACK_ROOT, answers: flags.answers });
+  const res = setupUpstream({ out: flags.out, version: flags.version, pack: flags.pack ? resolve(flags.pack) : PACK_ROOT, answers: flags.answers, resume: flags.resume });
   console.log(res.dest);
   return 0;
 }

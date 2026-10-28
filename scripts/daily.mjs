@@ -8,7 +8,7 @@ import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readF
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, acquireLock, releaseLock } from '../lib/dir-lock.mjs';
@@ -165,21 +165,35 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
 
 async function main() {
   const { flags } = parseArgs(process.argv.slice(2), { flags: { 'log-file': 'string' } });
-  const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
-  let timezone = '';
+  let paths = null;
   try {
-    timezone = (await loadStudentConfig({ root: paths.root }))?.timezone ?? '';
-  } catch {
-    timezone = '';
+    paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
+    let timezone = '';
+    try {
+      timezone = (await loadStudentConfig({ root: paths.root }))?.timezone ?? '';
+    } catch {
+      timezone = '';
+    }
+    const clock = createClock({ today: flags.today, timezone });
+    return await dailyRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today: clock.today(), now: clock.now, logFile: flags.logFile });
+  } catch (err) {
+    // The scheduler must see exit 0 even when a step or the setup fails, so unexpected errors are logged and swallowed.
+    // Usage errors are the caller's mistake and still exit 2 through runCli.
+    if (err instanceof UsageError) throw err;
+    const line = `student-daily: stopped (${oneLine(err.message)})`;
+    if (paths) {
+      try {
+        mkdirSync(paths.dataDir, { recursive: true });
+        appendFileSync(join(paths.dataDir, 'run-log.md'), `END ${new Date().toISOString()} ${line}\n`);
+      } catch {
+        // the console line below is the only record left
+      }
+    }
+    console.log(line);
+    return 0;
   }
-  const clock = createClock({ today: flags.today, timezone });
-  return dailyRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today: clock.today(), now: clock.now, logFile: flags.logFile });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  // Config problems and unexpected errors are logged by the run; the scheduler must still see exit 0.
-  await runCli(() => main().catch((err) => {
-    console.log(`student-daily: stopped (${oneLine(err.message)})`);
-    return 0;
-  }));
+  await runCli(main);
 }

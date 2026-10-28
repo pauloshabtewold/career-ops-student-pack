@@ -14,8 +14,9 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs, runCli } from '../lib/args.mjs';
 
 // Stored as char codes so this file never contains the literal strings it hunts for;
 // the maintainer's pre-push grep would otherwise flag the lint itself.
@@ -137,20 +138,13 @@ export function lintRoot(root) {
 }
 
 function main(argv) {
-  let root = process.cwd();
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--root' && argv[i + 1]) root = argv[++i];
-    else {
-      console.error(`usage: ${basename(process.argv[1])} [--root <dir>]`);
-      return 2;
-    }
-  }
-  const findings = lintRoot(root);
+  const { flags } = parseArgs(argv, { common: false, flags: { root: 'string' } });
+  const findings = lintRoot(flags.root ?? process.cwd());
   for (const f of findings) console.log(`${f.file}:${f.line} ${f.rule} ${f.detail}`);
   console.log(findings.length ? `pii-lint: ${findings.length} finding(s)` : 'pii-lint: clean');
   return findings.length ? 1 : 0;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.exitCode = main(process.argv.slice(2));
+  await runCli(() => main(process.argv.slice(2)));
 }
