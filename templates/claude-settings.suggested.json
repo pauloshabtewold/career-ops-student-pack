@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node student/scripts/session-start.mjs:*)",
+      "Bash(node student/scripts/budget.mjs:*)",
+      "Bash(node student/scripts/cycle.mjs:*)",
+      "Bash(node student/scripts/prefilter.mjs:*)",
+      "Bash(node student/scripts/apply-triage.mjs:*)",
+      "Bash(node student/scripts/merge-post.mjs:*)",
+      "Bash(node student/scripts/rank-queue.mjs:*)",
+      "Bash(node student/scripts/check-resume.mjs:*)",
+      "Bash(node student/scripts/liveness-sweep.mjs:*)",
+      "Bash(node student/scripts/handshake-import.mjs:*)",
+      "Bash(node student/update.mjs:*)",
+      "Bash(node plugins.mjs run github-lists:*)",
+      "Bash(node doctor.mjs --json:*)",
+      "Bash(node set-status.mjs:*)"
+    ]
+  }
+}
