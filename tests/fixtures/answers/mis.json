@@ -1,0 +1,73 @@
+{
+  "identity": {
+    "name": "Riley Sampleton",
+    "email": "riley.sampleton@example.edu",
+    "phone": "415-555-0141"
+  },
+  "presets": [
+    "mis-business-analytics"
+  ],
+  "tracks": [
+    {
+      "kind": "newgrad",
+      "graduation": "2027-05",
+      "resume_variant": "mis-main"
+    }
+  ],
+  "experience_years": 0,
+  "locations": [
+    "Chicago, IL",
+    "Remote"
+  ],
+  "work_authorization": "US citizen",
+  "needs_sponsorship": false,
+  "dealbreakers": [
+    "commission[- ]only"
+  ],
+  "priority_companies": [
+    "Example Advisory LLP"
+  ],
+  "blacklist": [
+    "Example Staffing Group"
+  ],
+  "target_employers": [
+    {
+      "name": "Example mis Target 1",
+      "careers_url": "https://careers.example.com/mis/1"
+    },
+    {
+      "name": "Example mis Target 2",
+      "careers_url": "https://careers.example.com/mis/2"
+    }
+  ],
+  "sources_chosen": [
+    "github-lists"
+  ],
+  "mailbox_backend": "connector",
+  "spend_tier": "standard",
+  "automation": "scheduled-discovery",
+  "daily_target": 8,
+  "score_floor": 4,
+  "switches": {
+    "outreach": "drafts",
+    "handshake": "on",
+    "submission": "user"
+  },
+  "limits": {
+    "message_per_day": 4
+  },
+  "timezone": "America/New_York",
+  "schedule_time": "06:30",
+  "resume_variants": [
+    {
+      "name": "mis-main",
+      "track": "newgrad",
+      "graduation": "2027-05",
+      "page_limit": 1
+    }
+  ],
+  "archetypes": [
+    "Business analyst",
+    "Technology consulting analyst"
+  ]
+}
