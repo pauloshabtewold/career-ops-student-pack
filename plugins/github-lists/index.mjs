@@ -2,9 +2,10 @@
 // Reads student-github-sources.json (registry) and student-cycle.json from ctx.dataRoot; ctx.preset carries
 // early_career and title_rules. The plugin runs
 // as a hashed copy in plugins.local/, so everything it needs lives in this directory.
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { LIMITS } from './_limits.mjs';
-import { appendStats, loadSidecarKeys, readJson, upsertSidecar, urlKey } from './_io.mjs';
+import { appendStats, loadSidecarKeys, readJson, upsertSidecar, urlKey, writeJsonAtomic } from './_io.mjs';
 import { parseSource } from './_parsers.mjs';
 import { isEligible } from './_eligibility.mjs';
 import { resolveAggregator } from './_resolve.mjs';
@@ -59,14 +60,21 @@ export default {
       const stat = { date: today, name: source.name, fetched: 0, eligible: 0, unique_new: 0, parse_errors: 0, failed: 0 };
       stats.push(stat);
       let parsed;
+      let hash;
       try {
         const text = await fetchListText(ctx, rawUrl(source), sleep);
+        hash = createHash('sha256').update(text).digest('hex');
         parsed = parseSource(text, { format: source.format, kind: source.kind, field_map: source.field_map, today });
       } catch (err) {
         stat.failed = 1;
+        source.failed_parses = Number(source.failed_parses ?? 0) + 1;
         ctx.log?.(`github-lists: ${source.name} failed: ${err.message}`);
         continue;
       }
+      source.failed_parses = 0;
+      if (hash !== source.last_hash) source.last_push = today;
+      source.last_push ??= today;
+      source.last_hash = hash;
       stat.fetched = parsed.rows.length;
       stat.parse_errors = parsed.parseErrors;
       const eligible = parsed.rows
@@ -84,7 +92,13 @@ export default {
       }
     }
 
+    for (const source of sources) {
+      const stat = stats.find((t) => t.name === source.name);
+      if (stat && !stat.failed) source.last_unique = stat.unique_new > 0 ? today : (source.last_unique ?? today);
+    }
+
     if (!ctx.dryRun) {
+      writeJsonAtomic(join(dataDir, 'student-github-sources.json'), registry);
       await appendStats(join(dataDir, 'student-github-stats.tsv'), STATS_HEADER, stats);
       await upsertSidecar(sidecarFile, sidecarRows);
     }

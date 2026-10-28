@@ -51,9 +51,9 @@ export function maintain(registry, today) {
   for (const s of registry.sources) {
     if (s.status !== 'active' && s.status !== 'trial') continue;
     const age = daysBetween(s.added ?? today, today);
-    const quietFor = (date) => daysBetween(date ?? s.added ?? today, today);
-    const stalePush = quietFor(s.last_push) > DISCOVERY.retire_days;
-    const noUnique = quietFor(s.last_unique) > DISCOVERY.retire_days;
+    const quietFor = (date) => daysBetween(date, today);
+    const stalePush = Boolean(s.last_push) && quietFor(s.last_push) > DISCOVERY.retire_days;
+    const noUnique = Boolean(s.last_unique) && quietFor(s.last_unique) > DISCOVERY.retire_days;
     const failing = Number(s.failed_parses ?? 0) >= DISCOVERY.failed_parses;
     if (stalePush || noUnique || failing) {
       const reason = failing ? `${DISCOVERY.failed_parses} failed parses` : stalePush ? 'no push in 30 days' : 'no unique rows in 30 days';

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
-import { deepMerge, parseConfig, validateConfig } from '../lib/config.mjs';
+import { deepMerge, validateConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
 import { runCycle } from '../scripts/cycle.mjs';
@@ -233,7 +233,7 @@ function writeSources({ answers, merged, paths, today, out, read }) {
   const fresh = (merged?.sources.github_lists ?? [])
     .filter((g) => !chosen.size || chosen.has('github-lists') || chosen.has(g.name))
     .filter((g) => !have.has(`${g.repo}/${g.path}`))
-    .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_checked: today, last_pushed: null, notes: 'preset' }));
+    .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_push: null, last_unique: null, failed_parses: 0, notes: 'preset' }));
   out('data/student-github-sources.json', `${JSON.stringify({ version: 1, rules: { ...merged?.title_rules, early_career: merged?.early_career ?? '' }, sources: [...prior.sources, ...fresh] }, null, 2)}\n`);
   const entries = [...(answers.blacklist ?? []).map((n) => [n, 'user blacklist']), ...(answers.priority_companies ?? []).map((n) => [n, 'priority company'])];
   if (entries.length) out('data/blacklist.md', blacklistRows(read('data/blacklist.md'), entries, today));
