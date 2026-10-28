@@ -44,6 +44,90 @@ export function snapshot({ dataDir, today, keep }) {
   return dropped.length;
 }
 
+// Returns the held lock, or null when a live run owns it; a holder past the run lock age is a hung run and is replaced.
+async function acquireRunLock(lockFile, staleMs, now) {
+  const lockOptions = { staleMs, timeoutMs: 0 };
+  try {
+    return { lock: await acquireLock(lockFile, lockOptions), owner: null };
+  } catch (err) {
+    if (!(err instanceof LockTimeoutError)) throw err;
+    const startedAt = Date.parse(err.owner?.started_at ?? '');
+    if (Number.isFinite(startedAt) && now().getTime() - startedAt >= staleMs && err.owner?.token) {
+      releaseLock(err.lockDir, err.owner.token);
+      const lock = await acquireLock(lockFile, lockOptions).catch(() => null);
+      if (lock) return { lock, owner: null };
+    }
+    return { lock: null, owner: err.owner };
+  }
+}
+
+function runSteps({ root, dataDir, packRoot, today, config, limits, runner, results }) {
+  const step = (name, fn) => {
+    try {
+      results.push({ name, ok: true, detail: oneLine(fn()) });
+    } catch (err) {
+      results.push({ name, ok: false, detail: oneLine(err.stderr || err.stdout || err.message) || 'failed' });
+    }
+  };
+  const upstream = (script, args = []) => runner(process.execPath, [join(root, script), ...args], { cwd: root, timeout: STEP_TIMEOUT_MS });
+  const pack = (script, args = []) => runner(process.execPath, [join(packRoot, 'scripts', script), ...args, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: STEP_TIMEOUT_MS });
+
+  if (!config) {
+    results.push({ name: 'config', ok: false, detail: 'config/student.yml is missing; run the personalization interview' });
+    return;
+  }
+  let dropped = 0;
+  step('snapshot', () => {
+    dropped = snapshot({ dataDir, today, keep: limits.snapshots_kept });
+    return `kept the newest ${limits.snapshots_kept}, removed ${dropped}`;
+  });
+  const markerFile = join(dataDir, '.student-monthly');
+  if (monthlyDue(today, readIf(markerFile))) {
+    step('cycle', () => pack('cycle.mjs'));
+    step('discover-github-lists', () => pack('discover-github-lists.mjs'));
+    step('audit-portals', () => upstream('audit-portals.mjs', ['--summary']));
+    writeFileSync(markerFile, `${today.slice(0, 7)}\n`);
+  }
+  step('github-lists', () => upstream('plugins.mjs', ['run', 'github-lists']));
+  step('scan', () => upstream('scan.mjs'));
+  if (isSunday(today)) step('liveness-sweep', () => pack('liveness-sweep.mjs'));
+  step('merge-post', () => pack('merge-post.mjs', ['--today', today]));
+  step('prefilter+triage', () => {
+    const verdicts = pack('prefilter.mjs');
+    if (!verdicts.trim()) return 'no title-level rejects';
+    const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-'));
+    try {
+      const file = join(tmp, 'prefilter.txt');
+      writeFileSync(file, verdicts);
+      return pack('apply-triage.mjs', [file]);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+}
+
+// Writes the digest and returns the number of failed steps.
+function writeDigest({ dataDir, today, results }) {
+  const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
+  const failed = results.filter((r) => !r.ok);
+  const digest = [
+    `# Student daily run ${today}`,
+    '',
+    '## Steps',
+    ...results.map((r) => `- ${r.name}: ${r.ok ? 'ok' : 'FAILED'}${r.detail ? ` (${r.detail})` : ''}`),
+    '',
+    '## Failures',
+    ...(failed.length ? failed.map((r) => `- ${r.name}`) : ['- none']),
+    '',
+    '## Pipeline',
+    `- Pending rows: ${pending}`,
+    '',
+  ].join('\n');
+  mkdirSync(join(dataDir, 'digest'), { recursive: true });
+  writeFileSync(join(dataDir, 'digest', `student-${today}.md`), digest);
+  return failed.length;
+}
+
 export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, runner = defaultRunner }) {
   const say = (line) => {
     console.log(line);
@@ -56,93 +140,20 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
 
   const config = await loadStudentConfig({ root });
   const limits = config ? effectiveLimits(config).values : effectiveLimits({}).values;
-  const staleMs = limits.run_lock_hours * HOUR_MS;
-  const lockOptions = { staleMs, timeoutMs: 0 };
-  const lockFile = join(dataDir, '.student-daily');
-  let lock;
-  try {
-    lock = await acquireLock(lockFile, lockOptions);
-  } catch (err) {
-    if (!(err instanceof LockTimeoutError)) throw err;
-    const startedAt = Date.parse(err.owner?.started_at ?? '');
-    if (Number.isFinite(startedAt) && Date.now() - startedAt >= staleMs && err.owner?.token) {
-      // A holder past the run lock age is a hung run: its lock is replaced.
-      releaseLock(err.lockDir, err.owner.token);
-      lock = await acquireLock(lockFile, lockOptions).catch(() => null);
-    }
-    if (!lock) {
-      log(`ABORT ${stamp()} student-daily: another run holds the lock (pid ${err.owner?.pid ?? 'unknown'})`);
-      say('student-daily: another run is in progress; nothing ran');
-      return 0;
-    }
+  const { lock, owner } = await acquireRunLock(join(dataDir, '.student-daily'), limits.run_lock_hours * HOUR_MS, now);
+  if (!lock) {
+    log(`ABORT ${stamp()} student-daily: another run holds the lock (pid ${owner?.pid ?? 'unknown'})`);
+    say('student-daily: another run is in progress; nothing ran');
+    return 0;
   }
 
   const results = [];
-  const step = (name, fn) => {
-    try {
-      results.push({ name, ok: true, detail: oneLine(fn()) });
-    } catch (err) {
-      results.push({ name, ok: false, detail: oneLine(err.stderr || err.stdout || err.message) || 'failed' });
-    }
-  };
-  const upstream = (script, args = []) => runner(process.execPath, [join(root, script), ...args], { cwd: root, timeout: STEP_TIMEOUT_MS });
-  const pack = (script, args = []) => runner(process.execPath, [join(packRoot, 'scripts', script), ...args, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: STEP_TIMEOUT_MS });
-
   try {
     log(`START ${stamp()} student-daily ${today}`);
-    if (!config) {
-      results.push({ name: 'config', ok: false, detail: 'config/student.yml is missing; run the personalization interview' });
-    } else {
-      let dropped = 0;
-      step('snapshot', () => {
-        dropped = snapshot({ dataDir, today, keep: limits.snapshots_kept });
-        return `kept the newest ${limits.snapshots_kept}, removed ${dropped}`;
-      });
-      const markerFile = join(dataDir, '.student-monthly');
-      const monthly = monthlyDue(today, readIf(markerFile));
-      if (monthly) {
-        step('cycle', () => pack('cycle.mjs'));
-        step('discover-github-lists', () => pack('discover-github-lists.mjs'));
-        step('audit-portals', () => upstream('audit-portals.mjs', ['--summary']));
-        writeFileSync(markerFile, `${today.slice(0, 7)}\n`);
-      }
-      step('github-lists', () => upstream('plugins.mjs', ['run', 'github-lists']));
-      step('scan', () => upstream('scan.mjs'));
-      if (isSunday(today)) step('liveness-sweep', () => pack('liveness-sweep.mjs'));
-      step('merge-post', () => pack('merge-post.mjs', ['--today', today]));
-      step('prefilter+triage', () => {
-        const verdicts = pack('prefilter.mjs');
-        if (!verdicts.trim()) return 'no title-level rejects';
-        const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-'));
-        try {
-          const file = join(tmp, 'prefilter.txt');
-          writeFileSync(file, verdicts);
-          return pack('apply-triage.mjs', [file]);
-        } finally {
-          rmSync(tmp, { recursive: true, force: true });
-        }
-      });
-    }
-
-    const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
-    const failed = results.filter((r) => !r.ok);
-    const digest = [
-      `# Student daily run ${today}`,
-      '',
-      '## Steps',
-      ...results.map((r) => `- ${r.name}: ${r.ok ? 'ok' : 'FAILED'}${r.detail ? ` (${r.detail})` : ''}`),
-      '',
-      '## Failures',
-      ...(failed.length ? failed.map((r) => `- ${r.name}`) : ['- none']),
-      '',
-      '## Pipeline',
-      `- Pending rows: ${pending}`,
-      '',
-    ].join('\n');
-    mkdirSync(join(dataDir, 'digest'), { recursive: true });
-    writeFileSync(join(dataDir, 'digest', `student-${today}.md`), digest);
-    log(`END ${stamp()} student-daily ok=${results.length - failed.length} failed=${failed.length}`);
-    say(`student-daily: ${results.length - failed.length} step(s) ok, ${failed.length} failed; digest at data/digest/student-${today}.md`);
+    runSteps({ root, dataDir, packRoot, today, config, limits, runner, results });
+    const failedCount = writeDigest({ dataDir, today, results });
+    log(`END ${stamp()} student-daily ok=${results.length - failedCount} failed=${failedCount}`);
+    say(`student-daily: ${results.length - failedCount} step(s) ok, ${failedCount} failed; digest at data/digest/student-${today}.md`);
   } catch (err) {
     log(`END ${stamp()} student-daily error=${oneLine(err.message)}`);
     say(`student-daily: stopped early (${oneLine(err.message)})`);

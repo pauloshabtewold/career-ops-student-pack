@@ -84,9 +84,20 @@ const SCHEDULING = /\b(availability|schedul(e|ing)|calendly|book a (time|slot)|(
 const ASKS = /\?|\bplease (send|provide|reply|respond|complete|fill|upload|confirm|let us know)\b/i;
 const DUE = /\b(\d{4}-\d{2}-\d{2})\b/;
 
+const words = (s) => String(s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+// A company name matches only as whole words, so "Apple" never hits "Pineapple Corp"; the longest name wins.
 function findCompany(text, companies) {
-  const flat = compact(text);
-  return companies.find((c) => flat.includes(compact(c.name))) ?? null;
+  const haystack = words(text);
+  const hits = (name) => {
+    const needle = words(name);
+    if (!needle.length) return false;
+    for (let i = 0; i + needle.length <= haystack.length; i++) {
+      if (needle.every((w, k) => haystack[i + k] === w)) return true;
+    }
+    return false;
+  };
+  return companies.filter((c) => hits(c.name)).sort((x, y) => compact(y.name).length - compact(x.name).length)[0] ?? null;
 }
 
 function alertRow(m, label) {
@@ -117,20 +128,21 @@ export function classify(message, ctx) {
       return row ? { ...base, kind: 'alert', ...row } : { ...base, kind: 'ignore' };
     }
   }
-  const company = findCompany(text, ctx.companies) ?? companyFor(domain, ctx.companies);
-  const assess = (ctx.assessmentDomains ?? []).find((d) => underDomain(domain, d.toLowerCase()));
-  if (assess) {
-    const platform = assess.split('.')[0];
-    const due = DUE.exec(text)?.[1] ?? 'unknown';
-    return { ...base, kind: 'assessment', company: company?.name ?? '', note: `OA ${platform}, due ${due}` };
-  }
   const sender = companyFor(domain, ctx.companies);
-  if (!sender) return { ...base, kind: 'ignore' };
-  const info = { ...base, company: sender.name };
-  if (REJECTION.test(text)) return { ...info, kind: 'rejection' };
-  if (CONFIRMATION.test(text)) return { ...info, kind: 'ignore' };
-  if (INTERVIEW.test(text)) return { ...info, kind: 'interview' };
-  if (SCHEDULING.test(text)) return { ...info, kind: 'scheduling' };
+  const assess = (ctx.assessmentDomains ?? []).find((d) => underDomain(domain, d.toLowerCase()));
+  const company = sender ?? (assess ? findCompany(text, ctx.companies) : null);
+  if (!company && !assess) return { ...base, kind: 'ignore' };
+  const info = { ...base, company: company?.name ?? '' };
+  if (company) {
+    if (REJECTION.test(text)) return { ...info, kind: 'rejection' };
+    if (!assess && CONFIRMATION.test(text)) return { ...info, kind: 'ignore' };
+    if (INTERVIEW.test(text)) return { ...info, kind: 'interview' };
+    if (SCHEDULING.test(text)) return { ...info, kind: 'scheduling' };
+  }
+  if (assess) {
+    const due = DUE.exec(text)?.[1] ?? 'unknown';
+    return { ...info, kind: 'assessment', note: `OA ${assess.split('.')[0]}, due ${due}` };
+  }
   if (ASKS.test(text)) return { ...info, kind: 'question' };
   return { ...info, kind: 'reply' };
 }
@@ -166,9 +178,78 @@ const PROPOSAL_TEXT = {
 };
 const UPGRADABLE = /^(evaluated|applied|responded)?$/i;
 
+function loadMessages(backend, flags) {
+  if (backend === 'connector') {
+    if (!flags.input) throw new UsageError('--backend connector needs --input <json file>');
+    return normalize('connector', JSON.parse(readFileSync(flags.input, 'utf8')));
+  }
+  if (!flags.file) throw new UsageError('--backend paste needs --file <text file>');
+  return normalize('paste', readFileSync(flags.file, 'utf8'));
+}
+
+// Two different outcomes for one company on one day cannot both be right, so none is applied.
+function conflictChecker(results) {
+  const keyOf = (m, c) => `${compact(c.company)}|${m.date.slice(0, 10)}`;
+  const outcomes = new Map();
+  for (const { m, c } of results) {
+    if (!c.company || !['assessment', 'reply', 'question', 'rejection', 'interview', 'scheduling'].includes(c.kind)) continue;
+    outcomes.set(keyOf(m, c), new Set([...(outcomes.get(keyOf(m, c)) ?? []), c.kind]));
+  }
+  return (m, c) => c.company && (outcomes.get(keyOf(m, c))?.size ?? 0) > 1;
+}
+
+async function applyStatus({ m, c }, env) {
+  const { companies, flags, runner, paths, out } = env;
+  const entry = companies.find((x) => x.name === c.company);
+  const row = entry?.rows[entry.rows.length - 1];
+  const status = c.kind === 'assessment' ? 'Assessment' : 'Responded';
+  if (!row) out.proposed.push(`- ${m.id} ${PROPOSAL_TEXT.assessment}`);
+  else if (!UPGRADABLE.test(row.status)) out.proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT.held}`);
+  else if (flags.proposeOnly || flags.dryRun) out.proposed.push(`- ${m.id} ${c.company}: set ${status}`);
+  else {
+    const args = ['set-status.mjs', row.num, status, ...(c.kind === 'assessment' ? ['--note', c.note] : [])];
+    const res = await runner(args, { cwd: paths.root });
+    if (res.code !== 0) out.failedIds.add(m.id);
+    out.applied.push(res.code === 0 ? `- ${m.id} ${c.company}: ${status}` : `- ${m.id} ${c.company}: set-status failed (exit ${res.code})`);
+    out.notices.push(`${c.company}: marked ${status}`);
+  }
+}
+
+async function handleResult(item, env) {
+  const { m, c } = item;
+  const { out, clock } = env;
+  if (c.kind === 'suspicious') {
+    out.suspicious.push(`- ${m.id} asks for sensitive details or a link; do not reply or click`);
+    out.notices.push(`suspicious message ${m.id}, see the digest`);
+  } else if (c.kind === 'alert') {
+    const note = [`src=${c.label}`, ...(c.jobId ? [`extid=${c.jobId}`] : []), `imported=${clock.today()}`].join('; ');
+    out.stagingRows.push(`- [ ] needs-url | ${c.company} | ${c.title} | unknown | note: ${note}`);
+  } else if (env.conflicted(m, c)) {
+    out.proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT.conflict}`);
+    out.notices.push(`${c.company}: conflicting mail, check the digest`);
+  } else if (c.kind === 'assessment' || c.kind === 'reply') {
+    await applyStatus(item, env);
+  } else if (PROPOSAL_TEXT[c.kind]) {
+    out.proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT[c.kind]}`);
+    out.notices.push(`${c.company}: mail needs a look, see the digest`);
+  }
+}
+
+function persist({ paths, flags, out, fresh, seenFile }) {
+  mkdirSync(paths.dataDir, { recursive: true });
+  if (out.stagingRows.length) {
+    const stagingFile = join(paths.dataDir, 'pipeline.staging.md');
+    const have = existsSync(stagingFile) ? readFileSync(stagingFile, 'utf8') : '';
+    const add = [...new Set(out.stagingRows)].filter((r) => !have.includes(r.replace(/; imported=[^;]*$/, '')));
+    if (add.length) appendFileSync(stagingFile, `${have && !have.endsWith('\n') ? '\n' : ''}${add.join('\n')}\n`);
+  }
+  const done = flags.proposeOnly ? [] : fresh.filter((m) => !out.failedIds.has(m.id));
+  if (done.length) appendFileSync(seenFile, `${done.map((m) => m.id).join('\n')}\n`);
+}
+
 export async function main(argv, deps = {}) {
   const { flags } = parseArgs(argv, { flags: { backend: 'string', input: 'string', file: 'string', 'propose-only': 'boolean' } });
-  const out = deps.out ?? ((l) => console.log(l));
+  const print = deps.out ?? ((l) => console.log(l));
   const runner = deps.runner ?? defaultRunner;
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const config = await loadStudentConfig({ root: paths.root });
@@ -177,19 +258,11 @@ export async function main(argv, deps = {}) {
 
   if (backend === 'gmail-plugin') {
     const res = await runner(['plugins.mjs', 'run', 'gmail'], { cwd: paths.root });
-    out(`gmail plugin ${res.code === 0 ? 'ran' : `failed (exit ${res.code})`}; it feeds job discovery only, so replies need the connector or paste backend`);
+    print(`gmail plugin ${res.code === 0 ? 'ran' : `failed (exit ${res.code})`}; it feeds job discovery only, so replies need the connector or paste backend`);
     return 0;
   }
 
-  let messages;
-  if (backend === 'connector') {
-    if (!flags.input) throw new UsageError('--backend connector needs --input <json file>');
-    messages = normalize('connector', JSON.parse(readFileSync(flags.input, 'utf8')));
-  } else {
-    if (!flags.file) throw new UsageError('--backend paste needs --file <text file>');
-    messages = normalize('paste', readFileSync(flags.file, 'utf8'));
-  }
-
+  const messages = loadMessages(backend, flags);
   const limits = effectiveLimits(config ?? {}).values;
   const clock = createClock({ today: flags.today, timezone: config?.timezone });
   const cutoff = clock.now().getTime() - limits.inbox_lookback_days * DAY_MS;
@@ -207,66 +280,17 @@ export async function main(argv, deps = {}) {
     fresh.push(m);
   }
   const results = fresh.map((m) => ({ m, c: classify(m, ctx) }));
+  const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set() };
+  const env = { companies, flags, runner, paths, out, clock, conflicted: conflictChecker(results) };
+  for (const item of results) await handleResult(item, env);
 
-  // Two different outcomes for one company on one day cannot both be right, so none is applied.
-  const outcomes = new Map();
-  for (const { m, c } of results) {
-    if (!c.company || !['assessment', 'reply', 'rejection', 'interview', 'scheduling'].includes(c.kind)) continue;
-    const key = `${compact(c.company)}|${m.date.slice(0, 10)}`;
-    outcomes.set(key, new Set([...(outcomes.get(key) ?? []), c.kind]));
-  }
-  const conflicted = (m, c) => c.company && (outcomes.get(`${compact(c.company)}|${m.date.slice(0, 10)}`)?.size ?? 0) > 1;
-
-  const applied = [];
-  const proposed = [];
-  const suspicious = [];
-  const stagingRows = [];
-  const notices = [];
-  for (const { m, c } of results) {
-    if (c.kind === 'suspicious') {
-      suspicious.push(`- ${m.id} asks for sensitive details or a link; do not reply or click`);
-      notices.push(`suspicious message ${m.id}, see the digest`);
-    } else if (c.kind === 'alert') {
-      const note = [`src=${c.label}`, ...(c.jobId ? [`extid=${c.jobId}`] : []), `imported=${clock.today()}`].join('; ');
-      stagingRows.push(`- [ ] needs-url | ${c.company} | ${c.title} | unknown | note: ${note}`);
-    } else if (conflicted(m, c)) {
-      proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT.conflict}`);
-      notices.push(`${c.company}: conflicting mail, check the digest`);
-    } else if (c.kind === 'assessment' || c.kind === 'reply') {
-      const entry = companies.find((x) => x.name === c.company);
-      const row = entry?.rows[entry.rows.length - 1];
-      const status = c.kind === 'assessment' ? 'Assessment' : 'Responded';
-      if (!row) proposed.push(`- ${m.id} ${PROPOSAL_TEXT.assessment}`);
-      else if (!UPGRADABLE.test(row.status)) proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT.held}`);
-      else if (flags.proposeOnly || flags.dryRun) proposed.push(`- ${m.id} ${c.company}: set ${status}`);
-      else {
-        const args = ['set-status.mjs', row.num, status, ...(c.kind === 'assessment' ? ['--note', c.note] : [])];
-        const res = await runner(args, { cwd: paths.root });
-        applied.push(res.code === 0 ? `- ${m.id} ${c.company}: ${status}` : `- ${m.id} ${c.company}: set-status failed (exit ${res.code})`);
-        notices.push(`${c.company}: marked ${status}`);
-      }
-    } else if (PROPOSAL_TEXT[c.kind]) {
-      proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT[c.kind]}`);
-      notices.push(`${c.company}: mail needs a look, see the digest`);
-    }
-  }
-
-  for (const [heading, bullets] of [['Status updates applied', applied], ['Proposed status changes', proposed], ['Suspicious', suspicious]]) {
+  for (const [heading, bullets] of [['Status updates applied', out.applied], ['Proposed status changes', out.proposed], ['Suspicious', out.suspicious]]) {
     if (!bullets.length) continue;
-    for (const l of [`## ${heading}`, ...bullets, '']) out(l);
+    for (const l of [`## ${heading}`, ...bullets, '']) print(l);
   }
-  for (const n of notices.slice(0, limits.notifications_per_run)) out(`notice: ${n}`);
+  for (const n of out.notices.slice(0, limits.notifications_per_run)) print(`notice: ${n}`);
 
-  if (!flags.dryRun) {
-    mkdirSync(paths.dataDir, { recursive: true });
-    if (stagingRows.length) {
-      const stagingFile = join(paths.dataDir, 'pipeline.staging.md');
-      const have = existsSync(stagingFile) ? readFileSync(stagingFile, 'utf8') : '';
-      const add = [...new Set(stagingRows)].filter((r) => !have.includes(r.replace(/; imported=[^;]*$/, '')));
-      if (add.length) appendFileSync(stagingFile, `${have && !have.endsWith('\n') ? '\n' : ''}${add.join('\n')}\n`);
-    }
-    if (fresh.length) appendFileSync(seenFile, `${fresh.map((m) => m.id).join('\n')}\n`);
-  }
+  if (!flags.dryRun) persist({ paths, flags, out, fresh, seenFile });
   return 0;
 }
 
