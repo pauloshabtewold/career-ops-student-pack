@@ -41,7 +41,7 @@ Upstream's ingest keeps only title, URL, company, location and salary. Note toke
 
 `scripts/budget.mjs` is security-critical. Its constants are the limits on LinkedIn messages, applications and page loads. Settings can only tighten a limit. A maximum (daily caps, rolling caps, ceilings) can be set lower; a minimum (score floor, minimum gap between actions, nudge wait days) can be set higher. Values that would loosen a limit are clamped and logged to the action log in the data folder, and no flag, environment variable or argument loosens one. A refusal ends that action type for the period.
 
-`compat.json` holds the SHA-256 of `budget.mjs`. the update script and `scripts/session-start.mjs` compare it and restore an edited file with a git checkout of `scripts/budget.mjs` inside the pack. A ceiling change needs the hash bump in the same commit.
+`compat.json` holds the SHA-256 of `budget.mjs`. The update script and `scripts/session-start.mjs` compare it and restore an edited file with a git checkout of `scripts/budget.mjs` inside the pack. A ceiling change needs the hash bump in the same commit.
 
 Pacing answers with a wait, not a refusal. The agent cannot see the random gap, so it checks more often; that cost is accepted.
 
