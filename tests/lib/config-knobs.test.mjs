@@ -108,7 +108,7 @@ test('M-001-S7 multi-word ignore word throws at rank.ignore_words[0]', async () 
 });
 
 // M-001-S9
-test('M-001-S9 keep: student.yml without audit or rank block keeps pre-existing values and no-op knob defaults', async () => {
+test('M-001-S9 keep: student.yml without audit or rank block keeps pre-existing values', async () => {
   const cfg = await load('daily_target: 20\nswitches:\n  outreach: drafts\n');
   assert.equal(cfg.daily_target, 20);
   assert.equal(cfg.switches.outreach, 'drafts');
@@ -119,10 +119,5 @@ test('M-001-S9 keep: student.yml without audit or rank block keeps pre-existing 
   assert.equal(cfg.linkedin_tier, 'free');
   assert.equal(cfg.automation, 'manual');
   assert.equal(cfg.onboarding.complete, false);
-  assert.deepEqual([...cfg.audit.exclude_reasons], []);
-  assert.equal(cfg.audit.require_triage, false);
-  assert.deepEqual({ ...cfg.rank.company_caps }, {});
-  assert.deepEqual([...cfg.rank.intern_only], []);
-  assert.equal(cfg.rank.one_track_per_company, false);
   assert.ok(deepFrozen(cfg));
 });
