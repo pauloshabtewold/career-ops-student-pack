@@ -8,7 +8,7 @@ import { dirname, join, relative } from 'node:path';
 import { createFakeUpstream } from '../helpers/fake-upstream.mjs';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
 
-const COPY = ['lib', 'scripts', 'plugins', 'templates', 'modes', 'interview', 'compat.json', 'package.json', 'install.mjs', 'update.mjs', 'AGENTS.student.md'];
+const COPY = ['.gitattributes', 'lib', 'scripts', 'plugins', 'templates', 'modes', 'interview', 'compat.json', 'package.json', 'install.mjs', 'update.mjs', 'AGENTS.student.md'];
 const IDENT = {
   GIT_AUTHOR_NAME: 'Example Tester',
   GIT_AUTHOR_EMAIL: 'tester@example.com',
