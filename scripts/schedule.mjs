@@ -6,7 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve, win32 } from 'node:path';
+import { join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -27,8 +27,9 @@ const psq = (s) => `'${String(s).replace(/'/g, "''")}'`;
 
 export function buildPlist({ nodePath, root, time }) {
   const t = parseTime(time);
-  const logs = join(root, 'data', 'logs');
-  const daily = join(root, 'student', 'scripts', 'daily.mjs');
+  // launchd only runs on macOS, so plist paths stay POSIX even when built on Windows.
+  const logs = posix.join(root, 'data', 'logs');
+  const daily = posix.join(root, 'student', 'scripts', 'daily.mjs');
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -51,9 +52,9 @@ export function buildPlist({ nodePath, root, time }) {
     `    <integer>${t.minute}</integer>`,
     '  </dict>',
     '  <key>StandardOutPath</key>',
-    `  <string>${xml(join(logs, 'student-daily.out.log'))}</string>`,
+    `  <string>${xml(posix.join(logs, 'student-daily.out.log'))}</string>`,
     '  <key>StandardErrorPath</key>',
-    `  <string>${xml(join(logs, 'student-daily.err.log'))}</string>`,
+    `  <string>${xml(posix.join(logs, 'student-daily.err.log'))}</string>`,
     '</dict>',
     '</plist>',
     '',
