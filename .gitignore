@@ -11,3 +11,8 @@ documents/
 output/
 coverage/
 *.log
+# Harness output and scratch copies must never be committed.
+parity/
+scratch/
+.student-session.json
+*.tmp

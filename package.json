@@ -1,0 +1,19 @@
+{
+  "name": "career-ops-student-pack",
+  "version": "0.1.0",
+  "description": "Student layer for career-ops: graduation cycle, field presets, job-list feeds, triage queue and budget-enforced outreach limits.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": "^22.13.0 || >=23.4.0"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1",
+    "lint": "node scripts/pii-lint.mjs && node scripts/lint-imports.mjs && node scripts/lint-files.mjs",
+    "hooks": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "js-yaml": "5.5.0"
+  }
+}

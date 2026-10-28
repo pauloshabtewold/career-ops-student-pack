@@ -1,0 +1,31 @@
+# Defaults for every config/student.yml key. A safety release may change this file.
+onboarding:
+  complete: false
+presets: []
+tracks: []
+experience_years: 0
+timezone: ""
+locations: []
+switches:
+  outreach: "on"
+  handshake: "on"
+  submission: agent
+# Becomes scheduled-discovery after the first successful run (set by the interview).
+automation: manual
+spend_tier: standard
+daily_target: 10
+score_floor: 3.5
+linkedin_tier: free
+limits: {}
+resume_variants: []
+mailbox:
+  backend: connector
+schedule:
+  time: "06:00"
+rank:
+  weights: {}
+  metros: []
+  marquee: []
+  parent_companies: {}
+dealbreakers: []
+judgment_keywords: []

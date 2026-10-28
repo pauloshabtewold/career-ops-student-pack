@@ -54,6 +54,10 @@ const RESUME_SECTIONS = [/^#+\s*(work\s+)?experience\b/im, /^#+\s*education\b/im
 
 const TEXT_SIZE_LIMIT = 2 * 1024 * 1024;
 
+// A fixture that shows even one resume section is resume-shaped; elsewhere two sections are needed
+// so ordinary docs that mention "Education" are not flagged.
+const FIXTURE_PREFIX = 'tests/fixtures/';
+
 export function listPublishableFiles(root) {
   const out = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
     cwd: root,
@@ -98,7 +102,8 @@ export function scanText(relPath, text) {
 
   const resumeHits = RESUME_SECTIONS.filter((re) => re.test(text)).length;
   const head = lines.slice(0, 5).join('\n');
-  if (resumeHits >= 2 && !head.includes(SYNTHETIC_MARKER)) {
+  const threshold = relPath.replace(/\\/g, '/').startsWith(FIXTURE_PREFIX) ? 1 : 2;
+  if (resumeHits >= threshold && !head.includes(SYNTHETIC_MARKER)) {
     findings.push({ file: relPath, line: 1, rule: 'resume-shape', detail: `resume-shaped without "${SYNTHETIC_MARKER}" in the first 5 lines` });
   }
   return findings;
