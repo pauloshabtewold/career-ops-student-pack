@@ -19,6 +19,10 @@ export const DEFAULT_JUDGMENT_KEYWORDS = ['grad', 'graduation', 'term', 'experie
 const AUDIT_HEADER = ['date', 'url', 'verdict', 'score', 'reason'];
 const AUDIT_RE = /^AUDIT:\s*(KEEP|WRONG)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*(.*)$/;
 
+export function judgmentPattern(keywords) {
+  throw new Error('judgmentPattern not implemented');
+}
+
 export function pickRows(doc, { n = 20, keywords = DEFAULT_JUDGMENT_KEYWORDS }) {
   const sec = getSection(doc, 'Skipped');
   const re = new RegExp(`\\b(${keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');

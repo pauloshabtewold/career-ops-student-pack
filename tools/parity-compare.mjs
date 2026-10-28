@@ -115,3 +115,26 @@ export function formatReport(results, meta = {}) {
   ];
   return lines.join('\n');
 }
+
+export const NOTES = Object.freeze({});
+export function exitNote(side, exit) {
+  return '';
+}
+export const stageError = (name, note) => ({});
+export const skippedStage = (name, note) => ({});
+export function normalizeCycle(text) {
+  return null;
+}
+export function compareCycle(name, baselineText, packText) {
+  return {};
+}
+export function compareRankQueue(name, baselineText, packText) {
+  return {};
+}
+export function compareFailAudit(name, baselineText, packText, { keywords }) {
+  return {};
+}
+export function mergeAllowance(stdout) {
+  return -1;
+}
+export const REPORT_HEADER = '';
