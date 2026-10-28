@@ -69,31 +69,25 @@ export function syncPlugins({ root, packRoot, upstream, dryRun, say }) {
   }
 }
 
-export async function runUpdate({ root, packRoot, offline = false, dryRun = false, safetyOnly = false, runner = defaultRunner, upstream }) {
-  const lines = [];
-  const say = (l) => lines.push(l);
-  const up = upstream ?? createUpstream({ root, runner });
+function fastForward({ runner, packRoot, dryRun, say }, tag, label) {
+  if (dryRun) {
+    say(`would fast-forward to ${label} ${tag}`);
+    return true;
+  }
+  try {
+    git(runner, packRoot, ['merge', '--ff-only', tag]);
+    say(`pack: updated to ${tag}`);
+    return true;
+  } catch {
+    say(LOCAL_COMMITS);
+    return false;
+  }
+}
+
+// Returns true when a fast-forward failed because the pack has local commits.
+async function updatePack({ packRoot, runner, offline, dryRun, safetyOnly, say }) {
+  const env = { runner, packRoot, dryRun, say };
   let localCommits = false;
-
-  const first = verifyAndRestore({ packRoot, runner });
-  if (first.restored || !first.ok) say(first.message);
-
-  const fastForward = (tag, label) => {
-    if (dryRun) {
-      say(`would fast-forward to ${label} ${tag}`);
-      return true;
-    }
-    try {
-      git(runner, packRoot, ['merge', '--ff-only', tag]);
-      say(`pack: updated to ${tag}`);
-      return true;
-    } catch {
-      localCommits = true;
-      say(LOCAL_COMMITS);
-      return false;
-    }
-  };
-
   if (!offline && !dryRun) {
     try {
       git(runner, packRoot, ['fetch', '--tags']);
@@ -104,34 +98,49 @@ export async function runUpdate({ root, packRoot, offline = false, dryRun = fals
   const safety = newestTag(runner, packRoot, 'safety-*');
   if (safety && !isContained(runner, packRoot, safety)) {
     const verdict = await checkSafetyDiff({ packRoot, base: 'HEAD', head: safety });
-    if (verdict.ok) fastForward(safety, 'safety release');
-    else say(`pack: refused ${safety}: ${verdict.violations[0]}`);
+    if (!verdict.ok) say(`pack: refused ${safety}: ${verdict.violations[0]}`);
+    else if (!fastForward(env, safety, 'safety release')) localCommits = true;
   }
   if (!safetyOnly && !localCommits) {
     const release = newestTag(runner, packRoot, 'v*');
-    if (release && !isContained(runner, packRoot, release)) fastForward(release, 'release');
+    if (release && !isContained(runner, packRoot, release) && !fastForward(env, release, 'release')) localCommits = true;
   }
-  if (!localCommits) syncPlugins({ root, packRoot, upstream: up, dryRun, say });
+  return localCommits;
+}
 
-  if (!offline && !safetyOnly) {
-    const compat = JSON.parse(readFileSync(join(packRoot, 'compat.json'), 'utf8'));
-    let status = null;
-    try {
-      status = up.updateCheck();
-    } catch {
-      say('upstream: update check failed');
-    }
-    if (status?.status === 'update-available') {
-      const remote = status.remote ?? status.latest ?? status.version;
-      if (inRange(remote, compat.upstream)) {
-        if (!dryRun) up.updateApply();
-        say(`upstream: updated to ${remote}`);
-      } else {
-        if (!dryRun) up.updateDismiss(remote);
-        say(`upstream ${remote} is outside what this pack supports (${compat.upstream.min} to ${compat.upstream.max}); not applied`);
-      }
-    }
+function applyUpstream({ status, up, compat, dryRun, say }) {
+  const remote = status.remote ?? status.latest ?? status.version;
+  if (inRange(remote, compat.upstream)) {
+    if (!dryRun) up.updateApply();
+    say(`upstream: updated to ${remote}`);
+    return;
   }
+  if (!dryRun) up.updateDismiss(remote);
+  say(`upstream ${remote} is outside what this pack supports (${compat.upstream.min} to ${compat.upstream.max}); not applied`);
+}
+
+function updateUpstream({ up, packRoot, dryRun, say }) {
+  const compat = JSON.parse(readFileSync(join(packRoot, 'compat.json'), 'utf8'));
+  let status = null;
+  try {
+    status = up.updateCheck();
+  } catch {
+    say('upstream: update check failed');
+  }
+  if (status?.status === 'update-available') applyUpstream({ status, up, compat, dryRun, say });
+}
+
+export async function runUpdate({ root, packRoot, offline = false, dryRun = false, safetyOnly = false, runner = defaultRunner, upstream }) {
+  const lines = [];
+  const say = (l) => lines.push(l);
+  const up = upstream ?? createUpstream({ root, runner });
+
+  const first = verifyAndRestore({ packRoot, runner });
+  if (first.restored || !first.ok) say(first.message);
+
+  const localCommits = await updatePack({ packRoot, runner, offline, dryRun, safetyOnly, say });
+  if (!localCommits) syncPlugins({ root, packRoot, upstream: up, dryRun, say });
+  if (!offline && !safetyOnly) updateUpstream({ up, packRoot, dryRun, say });
 
   const last = verifyAndRestore({ packRoot, runner });
   if (last.restored || !last.ok) say(last.message);

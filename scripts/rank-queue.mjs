@@ -77,25 +77,63 @@ function connectionCounts(csvText, parents) {
   return counts;
 }
 
+function appliedTodayCounts(actionRows, today, parents) {
+  const counts = new Map();
+  for (const r of actionRows) {
+    if (r.action === 'apply.submit' && r.date === today && !/refus|dry/i.test(r.detail ?? '')) {
+      const key = companyKey(r.company, parents);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+function isHeld(state, age, today) {
+  // A referral ask gets three days to be answered before the same company is applied to cold.
+  if (state.askedOn && !state.referred && daysBetween(state.askedOn, today) < 3) return true;
+  // A fresh connection request may still become a referral, so the row waits unless the posting is already old.
+  return Boolean(state.connectOn && !state.warm && !state.referred && daysBetween(state.connectOn, today) < 5 && !(age !== null && age > 14));
+}
+
+function scoreRow({ row, triage, key, age, state }, { weights, marquee, metros, connections, appliedBefore }) {
+  const why = [];
+  const fresh = age === null ? 0.4 : age <= 3 ? 1 : age <= 7 ? 0.8 : age <= 14 ? 0.55 : 0.3;
+  const referral = state.referred ? 1 : 0;
+  const warm = state.warm || connections.get(key) ? 1 : 0;
+  if (state.referred) why.push('referral ready');
+  if (warm) why.push('warm contact');
+  if (age !== null && age <= 3) why.push('fresh');
+  const inMetro = metros.length && metros.some((m) => row.location.toLowerCase().includes(m)) ? 1 : 0;
+  const score =
+    weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral;
+  return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), key, applied: appliedBefore.has(key) };
+}
+
+function pickTop(scored, appliedToday, perDay, n) {
+  const perCompany = new Map(appliedToday);
+  const picks = [];
+  for (const r of scored) {
+    if ((perCompany.get(r.key) ?? 0) >= perDay) continue;
+    perCompany.set(r.key, (perCompany.get(r.key) ?? 0) + 1);
+    picks.push(r);
+    if (picks.length >= n) break;
+  }
+  return picks;
+}
+
 export function rankQueue({ doc, config, today, actionRows = [], contactsText = '', connectionsText = '', applicationsText = '', n }) {
   const { values: limits } = effectiveLimits(config);
   const floor = Math.max(CEILINGS.score_floor.value, limits.score_floor);
   const given = config.rank?.weights ?? {};
-  const weights = Object.keys(given).length ? { triage: 0, age: 0, marquee: 0, metro: 0, warm: 0, referral: 0, ...given } : DEFAULT_WEIGHTS;
   const parents = config.rank?.parent_companies ?? {};
-  const marquee = new Set((config.rank?.marquee ?? []).map((m) => companyKey(m, parents)));
-  const metros = (config.rank?.metros ?? []).map((m) => m.toLowerCase());
+  const scoring = {
+    weights: Object.keys(given).length ? { triage: 0, age: 0, marquee: 0, metro: 0, warm: 0, referral: 0, ...given } : DEFAULT_WEIGHTS,
+    marquee: new Set((config.rank?.marquee ?? []).map((m) => companyKey(m, parents))),
+    metros: (config.rank?.metros ?? []).map((m) => m.toLowerCase()),
+    connections: connectionCounts(connectionsText, parents),
+    appliedBefore: new Set([...applicationsText.matchAll(/^\|\s*\d+\s*\|[^|]*\|\s*([^|]+?)\s*\|/gm)].map((m) => companyKey(m[1], parents))),
+  };
   const contacts = contactState(contactsText, parents);
-  const connections = connectionCounts(connectionsText, parents);
-
-  const appliedToday = new Map();
-  for (const r of actionRows) {
-    if (r.action === 'apply.submit' && r.date === today && !/refus|dry/i.test(r.detail ?? '')) {
-      const key = companyKey(r.company, parents);
-      appliedToday.set(key, (appliedToday.get(key) ?? 0) + 1);
-    }
-  }
-  const appliedBefore = new Set([...applicationsText.matchAll(/^\|\s*\d+\s*\|[^|]*\|\s*([^|]+?)\s*\|/gm)].map((m) => companyKey(m[1], parents)));
 
   const scored = [];
   let held = 0;
@@ -104,39 +142,13 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
     if (!Number.isFinite(triage) || triage < floor) continue;
     const key = companyKey(row.company, parents);
     const age = postingAge(row.notes, today);
-    const why = [];
     const state = contacts.get(key) ?? {};
-    // A referral ask gets three days to be answered before the same company is applied to cold.
-    if (state.askedOn && !state.referred && daysBetween(state.askedOn, today) < 3) {
-      held++;
-      continue;
-    }
-    // A fresh connection request may still become a referral, so the row waits unless the posting is already old.
-    if (state.connectOn && !state.warm && !state.referred && daysBetween(state.connectOn, today) < 5 && !(age !== null && age > 14)) {
-      held++;
-      continue;
-    }
-    const fresh = age === null ? 0.4 : age <= 3 ? 1 : age <= 7 ? 0.8 : age <= 14 ? 0.55 : 0.3;
-    const referral = state.referred ? 1 : 0;
-    const warm = state.warm || connections.get(key) ? 1 : 0;
-    if (state.referred) why.push('referral ready');
-    if (warm) why.push('warm contact');
-    if (age !== null && age <= 3) why.push('fresh');
-    const inMetro = metros.length && metros.some((m) => row.location.toLowerCase().includes(m)) ? 1 : 0;
-    const score =
-      weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral;
-    scored.push({ url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), key, applied: appliedBefore.has(key) });
+    if (isHeld(state, age, today)) held++;
+    else scored.push(scoreRow({ row, triage, key, age, state }, scoring));
   }
   // url as the last key keeps the list identical between runs on the same files.
   scored.sort((a, b) => b.score - a.score || b.triage - a.triage || a.url.localeCompare(b.url));
-  const perCompany = new Map(appliedToday);
-  const picks = [];
-  for (const r of scored) {
-    if ((perCompany.get(r.key) ?? 0) >= limits.per_company_per_day) continue;
-    perCompany.set(r.key, (perCompany.get(r.key) ?? 0) + 1);
-    picks.push(r);
-    if (picks.length >= n) break;
-  }
+  const picks = pickTop(scored, appliedTodayCounts(actionRows, today, parents), limits.per_company_per_day, n);
   return { picks, eligible: scored.length, held };
 }
 

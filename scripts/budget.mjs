@@ -122,125 +122,147 @@ export function drawGapMs(config, rng) {
 
 const result = (status, reason, extra = {}) => ({ status, reason, remaining: null, earliest: null, ...extra });
 
-/**
- * Decides one action. history is the action-log rows; rng draws nothing here (gaps are drawn at log time)
- * but is accepted so callers pass one clock and one rng everywhere.
- */
-export function evaluate({ action, args = {}, history = [], config = {}, session = '', now = new Date() }) {
+function makeContext({ action, args, history, config, session, now }) {
   const { values: L } = effectiveLimits(config);
-  const clock = createClock({ timezone: config.timezone });
-  const local = clock.localTime(now);
-  const today = local.date;
+  const local = createClock({ timezone: config.timezone }).localTime(now);
   const nowMs = now.getTime();
   const rows = history.map((r) => ({ ...r, ms: r.ms ?? Date.parse(r.ts) }));
-  const refuse = (reason, extra = {}) => result('refused', reason, { period: 'day', ...extra });
-  const switches = config.switches ?? {};
-  const group = groupOf(action);
-  const count = (pred) => rows.filter(pred).length;
-  const isToday = (r) => r.date === today;
-  const inWeek = (r) => r.ms > nowMs - 7 * DAY_MS && r.ms <= nowMs;
   const remainingFrom = [];
+  const refuse = (reason, extra = {}) => result('refused', reason, { period: 'day', ...extra });
   const cap = (limit, used, what) => {
     if (used >= limit) return refuse(`${what}: ${used} of ${limit} used`);
     remainingFrom.push(limit - used - 1);
     return null;
   };
+  return {
+    action, args, config, session, L, local, nowMs, rows, remainingFrom, refuse, cap,
+    group: groupOf(action),
+    count: (pred) => rows.filter(pred).length,
+    isToday: (r) => r.date === local.date,
+    inWeek: (r) => r.ms > nowMs - 7 * DAY_MS && r.ms <= nowMs,
+  };
+}
 
-  if (!CHECKABLE.includes(action)) return refuse(`unknown action ${action}`);
-
+function switchRefusal({ group, config, action, refuse }) {
+  const switches = config.switches ?? {};
   if (group === 'handshake' && switches.handshake === 'off') return refuse('handshake is switched off', { period: 'day' });
   if (LINKEDIN_SENDS.includes(action) && switches.outreach !== undefined && switches.outreach !== 'on') {
     return refuse(`outreach is ${switches.outreach}; sends are disabled`);
   }
+  return null;
+}
 
+function warningRefusal({ group, rows, isToday, refuse }) {
   if (group && rows.some((r) => r.action === `${group}.warning` && isToday(r))) {
     return refuse(`${group} warning logged today; no ${group} actions until the next local day`, { scope: group });
   }
+  return null;
+}
 
+function priorRefusal({ action, group, rows, session, isToday, refuse }) {
   const prior = rows.find(
     (r) => r.action === 'budget.refusal' && (r.target === action || r.target === group) && (detailValue(r.detail, 'period') === 'session' ? r.session === session : isToday(r)),
   );
-  if (prior) {
-    const why = /reason=(.*)$/.exec(prior.detail ?? '')?.[1] ?? 'earlier refusal';
-    return refuse(`${action} already refused in this period: ${why}`, { repeat: true, period: detailValue(prior.detail, 'period') ?? 'day' });
-  }
+  if (!prior) return null;
+  const why = /reason=(.*)$/.exec(prior.detail ?? '')?.[1] ?? 'earlier refusal';
+  return refuse(`${action} already refused in this period: ${why}`, { repeat: true, period: detailValue(prior.detail, 'period') ?? 'day' });
+}
 
-  if (group === 'linkedin') {
-    const mins = local.hour * 60 + local.minute;
-    if (mins < toMinutes(CEILINGS.window_start.value) || mins >= toMinutes(CEILINGS.window_end.value)) {
-      return refuse('outside the LinkedIn window of 08:00 to 22:00 local time', { scope: 'linkedin' });
-    }
+function windowRefusal({ group, local, refuse }) {
+  if (group !== 'linkedin') return null;
+  const mins = local.hour * 60 + local.minute;
+  if (mins < toMinutes(CEILINGS.window_start.value) || mins >= toMinutes(CEILINGS.window_end.value)) {
+    return refuse('outside the LinkedIn window of 08:00 to 22:00 local time', { scope: 'linkedin' });
   }
+  return null;
+}
 
-  let stop = null;
-  switch (action) {
-    case 'linkedin.connect': {
-      const tier = config.linkedin_tier === 'premium' && args.tier !== 'free' ? 'premium' : 'free';
-      const connects = rows.filter((r) => r.action === 'linkedin.connect');
-      if (!args.recheck) {
-        if (typeof args.pending !== 'number') return refuse('pending invite count missing; pass --pending');
-        if (args.pending > L.pending_invites_max) return refuse(`${args.pending} pending invites exceed ${L.pending_invites_max}`, { period: 'standing' });
-      }
-      stop =
-        cap(L.connect_per_day, connects.filter(isToday).length, 'connect requests today') ||
-        cap(L.connect_per_rolling_7d, connects.filter(inWeek).length, 'connect requests in the rolling 7 days') ||
-        companyCap(rows, args, L.contacts_per_company, cap);
-      if (!stop && args.length > 0) {
-        const limit = tier === 'premium' ? L.note_len_premium : L.note_len_free;
-        if (args.length > limit) stop = refuse(`note of ${args.length} characters exceeds ${limit} on the ${tier} tier`);
-        else if (tier === 'free') {
-          const notes = connects.filter((r) => inWeek(r) && Number(detailValue(r.detail, 'note')) > 0).length;
-          stop = cap(L.notes_free_per_rolling_7d, notes, 'connection notes in the rolling 7 days');
-        }
-      }
-      break;
-    }
-    case 'linkedin.message': {
-      stop = cap(L.message_per_day, count((r) => r.action === 'linkedin.message' && isToday(r)), 'messages today') || companyCap(rows, args, L.contacts_per_company, cap);
-      const first = !rows.some((r) => r.action === 'linkedin.message' && r.target === args.target);
-      if (!stop && first && args.length > L.opener_len) stop = refuse(`first message of ${args.length} characters exceeds ${L.opener_len}`);
-      break;
-    }
-    case 'linkedin.nudge': {
-      const mine = rows.filter((r) => r.target === args.target);
-      stop = cap(L.nudge_per_target, mine.filter((r) => r.action === 'linkedin.nudge').length, 'nudges to this target') || companyCap(rows, args, L.contacts_per_company, cap);
-      const lastMsg = Math.max(-Infinity, ...mine.filter((r) => r.action === 'linkedin.message').map((r) => r.ms));
-      if (!stop && nowMs - lastMsg < L.nudge_min_days * DAY_MS) {
-        stop = refuse(`last message to this target is under ${L.nudge_min_days} days old`);
-      }
-      break;
-    }
-    case 'linkedin.profile_view':
-      stop = cap(L.profile_view_per_day, count((r) => r.action === action && isToday(r)), 'profile views today');
-      break;
-    case 'linkedin.search_page':
-      stop = cap(L.search_page_per_session, count((r) => r.action === action && r.session === session), 'search pages this session');
-      if (stop) stop.period = 'session';
-      break;
-    case 'handshake.page': {
-      if (!args.search) return refuse('search id missing; pass --search');
-      const used = count((r) => r.action === action && r.session === session && (detailValue(r.detail, 'search') ?? r.target) === args.search);
-      stop = cap(L.pages_per_search_per_session, used, 'handshake pages for this search');
-      if (stop) stop.period = 'session';
-      break;
-    }
-    case 'apply.jd_browser':
-      stop = cap(L.jd_browser_per_session, count((r) => r.action === action && r.session === session), 'browser job descriptions this session');
-      if (stop) stop.period = 'session';
-      break;
-    case 'apply.submit':
-      stop = submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refuse });
-      break;
-    default:
-      break;
-  }
+const PREFLIGHT = [switchRefusal, warningRefusal, priorRefusal, windowRefusal];
+
+function pendingRefusal({ args, L, refuse }) {
+  if (typeof args.pending !== 'number') return refuse('pending invite count missing; pass --pending');
+  if (args.pending > L.pending_invites_max) return refuse(`${args.pending} pending invites exceed ${L.pending_invites_max}`, { period: 'standing' });
+  return null;
+}
+
+function noteRule({ args, config, L, refuse, cap, inWeek }, connects) {
+  if (!(args.length > 0)) return null;
+  const tier = config.linkedin_tier === 'premium' && args.tier !== 'free' ? 'premium' : 'free';
+  const limit = tier === 'premium' ? L.note_len_premium : L.note_len_free;
+  if (args.length > limit) return refuse(`note of ${args.length} characters exceeds ${limit} on the ${tier} tier`);
+  if (tier !== 'free') return null;
+  const notes = connects.filter((r) => inWeek(r) && Number(detailValue(r.detail, 'note')) > 0).length;
+  return cap(L.notes_free_per_rolling_7d, notes, 'connection notes in the rolling 7 days');
+}
+
+function connectRule(ctx) {
+  const { args, L, rows, isToday, inWeek, cap } = ctx;
+  const connects = rows.filter((r) => r.action === 'linkedin.connect');
+  const pending = args.recheck ? null : pendingRefusal(ctx);
+  if (pending) return pending;
+  const stop =
+    cap(L.connect_per_day, connects.filter(isToday).length, 'connect requests today') ||
+    cap(L.connect_per_rolling_7d, connects.filter(inWeek).length, 'connect requests in the rolling 7 days') ||
+    companyCap(rows, args, L.contacts_per_company, cap);
+  return stop || noteRule(ctx, connects);
+}
+
+function messageRule({ args, L, rows, count, isToday, refuse, cap }) {
+  const stop = cap(L.message_per_day, count((r) => r.action === 'linkedin.message' && isToday(r)), 'messages today') || companyCap(rows, args, L.contacts_per_company, cap);
   if (stop) return stop;
+  const first = !rows.some((r) => r.action === 'linkedin.message' && r.target === args.target);
+  return first && args.length > L.opener_len ? refuse(`first message of ${args.length} characters exceeds ${L.opener_len}`) : null;
+}
 
+function nudgeRule({ args, L, rows, nowMs, refuse, cap }) {
+  const mine = rows.filter((r) => r.target === args.target);
+  const stop = cap(L.nudge_per_target, mine.filter((r) => r.action === 'linkedin.nudge').length, 'nudges to this target') || companyCap(rows, args, L.contacts_per_company, cap);
+  if (stop) return stop;
+  const lastMsg = Math.max(-Infinity, ...mine.filter((r) => r.action === 'linkedin.message').map((r) => r.ms));
+  return nowMs - lastMsg < L.nudge_min_days * DAY_MS ? refuse(`last message to this target is under ${L.nudge_min_days} days old`) : null;
+}
+
+function sessionCap({ cap }, limit, used, what) {
+  const stop = cap(limit, used, what);
+  if (stop) stop.period = 'session';
+  return stop;
+}
+
+function handshakePageRule(ctx) {
+  const { action, args, L, session, count, refuse } = ctx;
+  if (!args.search) return refuse('search id missing; pass --search');
+  const used = count((r) => r.action === action && r.session === session && (detailValue(r.detail, 'search') ?? r.target) === args.search);
+  return sessionCap(ctx, L.pages_per_search_per_session, used, 'handshake pages for this search');
+}
+
+const ACTION_RULES = {
+  'linkedin.connect': connectRule,
+  'linkedin.message': messageRule,
+  'linkedin.nudge': nudgeRule,
+  'linkedin.profile_view': (c) => c.cap(c.L.profile_view_per_day, c.count((r) => r.action === c.action && c.isToday(r)), 'profile views today'),
+  'linkedin.search_page': (c) => sessionCap(c, c.L.search_page_per_session, c.count((r) => r.action === c.action && r.session === c.session), 'search pages this session'),
+  'handshake.page': handshakePageRule,
+  'apply.jd_browser': (c) => sessionCap(c, c.L.jd_browser_per_session, c.count((r) => r.action === c.action && r.session === c.session), 'browser job descriptions this session'),
+  'apply.submit': submitRules,
+};
+
+function gapOrOk({ group, rows, nowMs, remainingFrom }) {
   if (group === 'linkedin') {
     const next = Math.max(-Infinity, ...rows.filter((r) => r.action.startsWith('linkedin.')).map((r) => Date.parse(detailValue(r.detail, 'next_allowed') ?? '')).filter(Number.isFinite));
     if (next > nowMs) return result('wait', `LinkedIn gap not elapsed; earliest ${new Date(next).toISOString()}`, { earliest: new Date(next).toISOString() });
   }
   return result('ok', 'within budget', { remaining: remainingFrom.length ? Math.min(...remainingFrom) : null });
+}
+
+/** Decides one action. history is the action-log rows; gaps are drawn at log time, not here. */
+export function evaluate({ action, args = {}, history = [], config = {}, session = '', now = new Date() }) {
+  const ctx = makeContext({ action, args, history, config, session, now });
+  if (!CHECKABLE.includes(action)) return ctx.refuse(`unknown action ${action}`);
+  for (const check of PREFLIGHT) {
+    const refusal = check(ctx);
+    if (refusal) return refusal;
+  }
+  return ACTION_RULES[action]?.(ctx) || gapOrOk(ctx);
 }
 
 function companyCap(rows, args, limit, cap) {
@@ -342,79 +364,61 @@ function describe(res, clock) {
   return `${res.status}: ${res.reason}${res.status === 'ok' && res.remaining !== null ? ` (${res.remaining} left)` : ''}`;
 }
 
-async function main() {
-  const { command, positionals, flags } = parseArgs(process.argv.slice(2), { commands: COMMANDS, flags: FLAGS });
-  const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
-  const file = join(paths.dataDir, 'action-log.tsv');
-  let config;
-  try {
-    config = loadConfig(paths);
-  } catch (err) {
-    if (err instanceof ConfigError) throw new UsageError(err.message);
-    throw err;
-  }
-  const clock = createClock({ today: flags.today, timezone: config.timezone });
-  const sess = readSession(paths.dataDir);
-  const session = sess?.id ?? 'no-session';
-  const history = await readActionLog(file);
-  const mkRow = (action, o = {}) => ({ ts: clock.now().toISOString(), date: clock.today(), session, action, target: '', company: '', approval: '', detail: '', ...o });
-  const write = (rows) => (flags.dryRun ? Promise.resolve() : appendAction(file, rows));
+async function cmdWarning({ positionals, write, mkRow }) {
+  const which = positionals[0];
+  if (!['linkedin', 'handshake'].includes(which)) throw new UsageError('warning expects linkedin or handshake');
+  await write([mkRow(`${which}.warning`)]);
+  console.log(`warning logged: no ${which} actions until the next local day`);
+  return 0;
+}
 
-  if (command === 'warning') {
-    const which = positionals[0];
-    if (!['linkedin', 'handshake'].includes(which)) throw new UsageError('warning expects linkedin or handshake');
-    await write([mkRow(`${which}.warning`)]);
-    console.log(`warning logged: no ${which} actions until the next local day`);
-    return 0;
-  }
+async function cmdDueWithdrawals({ clock, history, flags }) {
+  const cutoff = clock.now().getTime() - CEILINGS.invite_withdraw_days.value * DAY_MS;
+  const closed = new Set(history.filter((r) => r.action === 'linkedin.accept' || r.action === 'linkedin.withdraw').map((r) => r.target));
+  const due = history.filter((r) => r.action === 'linkedin.connect' && r.ms < cutoff && !closed.has(r.target));
+  if (flags.json) console.log(JSON.stringify(due.map((r) => ({ target: r.target, company: r.company, ts: r.ts }))));
+  else if (!due.length) console.log('no withdrawals due');
+  else for (const r of due) console.log(`${r.target}\t${r.company}\t${r.date}`);
+  return 0;
+}
 
-  if (command === 'due-withdrawals') {
-    const cutoff = clock.now().getTime() - CEILINGS.invite_withdraw_days.value * DAY_MS;
-    const closed = new Set(history.filter((r) => r.action === 'linkedin.accept' || r.action === 'linkedin.withdraw').map((r) => r.target));
-    const due = history.filter((r) => r.action === 'linkedin.connect' && r.ms < cutoff && !closed.has(r.target));
-    if (flags.json) console.log(JSON.stringify(due.map((r) => ({ target: r.target, company: r.company, ts: r.ts }))));
-    else if (!due.length) console.log('no withdrawals due');
-    else for (const r of due) console.log(`${r.target}\t${r.company}\t${r.date}`);
-    return 0;
+async function cmdSessionStart({ paths, file, config, clock, sess, history, flags }) {
+  const id = randomUUID().slice(0, 8);
+  const previous = sess?.started ? Date.parse(sess.started) : undefined;
+  if (!flags.dryRun) await logClamps(file, config, clock, id, history);
+  const rows = await readActionLog(file);
+  const clampRows = rows.filter((r) => r.action === 'budget.clamp' && (previous === undefined || r.ms >= previous));
+  const stops = rows.filter((r) => r.date === clock.today() && (r.action.endsWith('.warning') || r.action === 'budget.refusal'));
+  if (!flags.dryRun) {
+    mkdirSync(paths.dataDir, { recursive: true });
+    writeFileSync(sessionFile(paths.dataDir), `${JSON.stringify({ id, started: clock.now().toISOString() })}\n`);
   }
+  console.log(`session ${id}`);
+  for (const r of clampRows) console.log(`clamp: ${r.detail.replace(';', ' (')})`);
+  for (const r of stops) console.log(`stop: ${r.action === 'budget.refusal' ? `${r.target} refused today` : `${r.action} logged today`}`);
+  return 0;
+}
 
-  if (command === 'session-start') {
-    const id = randomUUID().slice(0, 8);
-    const previous = sess?.started ? Date.parse(sess.started) : undefined;
-    if (!flags.dryRun) await logClamps(file, config, clock, id, history);
-    const rows = await readActionLog(file);
-    const clampRows = rows.filter((r) => r.action === 'budget.clamp' && (previous === undefined || r.ms >= previous));
-    const stops = rows.filter((r) => r.date === clock.today() && (r.action.endsWith('.warning') || r.action === 'budget.refusal'));
-    if (!flags.dryRun) {
-      mkdirSync(paths.dataDir, { recursive: true });
-      writeFileSync(sessionFile(paths.dataDir), `${JSON.stringify({ id, started: clock.now().toISOString() })}\n`);
-    }
-    console.log(`session ${id}`);
-    for (const r of clampRows) console.log(`clamp: ${r.detail.replace(';', ' (')})`);
-    for (const r of stops) console.log(`stop: ${r.action === 'budget.refusal' ? `${r.target} refused today` : `${r.action} logged today`}`);
-    return 0;
-  }
+async function cmdStatus({ clock, history, session, flags }) {
+  const today = clock.today();
+  const week = clock.now().getTime() - 7 * DAY_MS;
+  const n = (pred) => history.filter(pred).length;
+  const st = {
+    session,
+    connects_today: n((r) => r.action === 'linkedin.connect' && r.date === today),
+    connects_rolling_7d: n((r) => r.action === 'linkedin.connect' && r.ms > week),
+    messages_today: n((r) => r.action === 'linkedin.message' && r.date === today),
+    profile_views_today: n((r) => r.action === 'linkedin.profile_view' && r.date === today),
+    submits_today: n((r) => r.action === 'apply.submit' && r.date === today),
+    warnings_today: history.filter((r) => r.date === today && r.action.endsWith('.warning')).map((r) => r.action),
+    refusals_today: history.filter((r) => r.date === today && r.action === 'budget.refusal').map((r) => r.target),
+  };
+  if (flags.json) console.log(JSON.stringify(st));
+  else for (const [k, v] of Object.entries(st)) console.log(`${k}: ${Array.isArray(v) ? v.join(', ') || 'none' : v}`);
+  return 0;
+}
 
-  if (command === 'status') {
-    const today = clock.today();
-    const week = clock.now().getTime() - 7 * DAY_MS;
-    const n = (pred) => history.filter(pred).length;
-    const st = {
-      session,
-      connects_today: n((r) => r.action === 'linkedin.connect' && r.date === today),
-      connects_rolling_7d: n((r) => r.action === 'linkedin.connect' && r.ms > week),
-      messages_today: n((r) => r.action === 'linkedin.message' && r.date === today),
-      profile_views_today: n((r) => r.action === 'linkedin.profile_view' && r.date === today),
-      submits_today: n((r) => r.action === 'apply.submit' && r.date === today),
-      warnings_today: history.filter((r) => r.date === today && r.action.endsWith('.warning')).map((r) => r.action),
-      refusals_today: history.filter((r) => r.date === today && r.action === 'budget.refusal').map((r) => r.target),
-    };
-    if (flags.json) console.log(JSON.stringify(st));
-    else for (const [k, v] of Object.entries(st)) console.log(`${k}: ${Array.isArray(v) ? v.join(', ') || 'none' : v}`);
-    return 0;
-  }
-
-  // check and log
+function actionFrom({ command, positionals, flags }) {
   const action = positionals[0];
   if (!action || (!CHECKABLE.includes(action) && !(command === 'log' && OBSERVED.includes(action)))) {
     throw new UsageError(`unknown action ${action ?? '(none)'}`);
@@ -423,29 +427,11 @@ async function main() {
   if (command === 'log' && NEEDS_APPROVAL.includes(action) && !APPROVAL_RE.test(flags.approval ?? '')) {
     throw new UsageError(`${action} needs --approval like "send all" or "submit 1,2"`);
   }
-  const fresh = flags.dryRun ? [] : await logClamps(file, config, clock, session, history);
-  const all = [...history, ...fresh.map((r) => ({ ...r, ms: Date.parse(r.ts) }))];
-  const now = clock.now();
+  return action;
+}
 
-  if (command === 'log' && OBSERVED.includes(action)) {
-    await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail: flags.track ? `track=${flags.track}` : '' })]);
-    console.log(`logged ${action}`);
-    return 0;
-  }
-
-  const res = evaluate({ action, args: argsFrom(flags, command === 'log'), history: all, config, session, now, rng: Math.random });
-  if (res.status === 'refused' && !res.repeat) {
-    const scope = res.scope ?? action;
-    await write([mkRow('budget.refusal', { target: scope, detail: `period=${res.period ?? 'day'};reason=${res.reason}` })]);
-  }
-  if (command === 'check') {
-    console.log(flags.json ? JSON.stringify(res) : describe(res, clock));
-    return EXIT[res.status];
-  }
-  if (res.status !== 'ok') {
-    console.log(flags.json ? JSON.stringify(res) : describe(res, clock));
-    return EXIT[res.status];
-  }
+async function logAllowed({ action, now, env, res }) {
+  const { flags, config, write, mkRow } = env;
   const details = [];
   if (groupOf(action) === 'linkedin') {
     if (flags.length > 0 && action === 'linkedin.connect') details.push(`note=${flags.length}`);
@@ -464,6 +450,54 @@ async function main() {
   ]);
   console.log(flags.json ? JSON.stringify(res) : `logged ${action}`);
   return 0;
+}
+
+async function cmdCheckLog(env) {
+  const { command, flags, file, config, clock, session, history, write, mkRow } = env;
+  const action = actionFrom(env);
+  const fresh = flags.dryRun ? [] : await logClamps(file, config, clock, session, history);
+  const all = [...history, ...fresh.map((r) => ({ ...r, ms: Date.parse(r.ts) }))];
+  const now = clock.now();
+
+  if (command === 'log' && OBSERVED.includes(action)) {
+    await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail: flags.track ? `track=${flags.track}` : '' })]);
+    console.log(`logged ${action}`);
+    return 0;
+  }
+
+  const res = evaluate({ action, args: argsFrom(flags, command === 'log'), history: all, config, session, now });
+  if (res.status === 'refused' && !res.repeat) {
+    const scope = res.scope ?? action;
+    await write([mkRow('budget.refusal', { target: scope, detail: `period=${res.period ?? 'day'};reason=${res.reason}` })]);
+  }
+  if (command === 'check' || res.status !== 'ok') {
+    console.log(flags.json ? JSON.stringify(res) : describe(res, clock));
+    return EXIT[res.status];
+  }
+  return logAllowed({ action, now, env, res });
+}
+
+const COMMAND_HANDLERS = { warning: cmdWarning, 'due-withdrawals': cmdDueWithdrawals, 'session-start': cmdSessionStart, status: cmdStatus };
+
+async function main() {
+  const { command, positionals, flags } = parseArgs(process.argv.slice(2), { commands: COMMANDS, flags: FLAGS });
+  const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
+  const file = join(paths.dataDir, 'action-log.tsv');
+  let config;
+  try {
+    config = loadConfig(paths);
+  } catch (err) {
+    if (err instanceof ConfigError) throw new UsageError(err.message);
+    throw err;
+  }
+  const clock = createClock({ today: flags.today, timezone: config.timezone });
+  const sess = readSession(paths.dataDir);
+  const session = sess?.id ?? 'no-session';
+  const history = await readActionLog(file);
+  const mkRow = (action, o = {}) => ({ ts: clock.now().toISOString(), date: clock.today(), session, action, target: '', company: '', approval: '', detail: '', ...o });
+  const write = (rows) => (flags.dryRun ? Promise.resolve() : appendAction(file, rows));
+  const env = { command, positionals, flags, paths, file, config, clock, sess, session, history, mkRow, write };
+  return (COMMAND_HANDLERS[command] ?? cmdCheckLog)(env);
 }
 
 if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);

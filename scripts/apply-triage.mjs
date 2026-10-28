@@ -36,55 +36,61 @@ const moved = (row, notes) => {
   return formatRow(next);
 };
 
+function browserRow(row, v, inFlagged, acc) {
+  if (Number(v.score) > 0) row.notes.set('triage', v.score);
+  row.notes.set('reason', v.reason);
+  if (inFlagged) {
+    row.notes.set('flag', 'browser-jd');
+    return [formatRow(row)];
+  }
+  acc.toFlagged.push(moved(row, [['flag', 'browser-jd']]));
+  return [];
+}
+
+function judgedRow(row, v, verdict, acc) {
+  row.notes.delete('triage');
+  if (verdict === 'PASS' || verdict === 'MARGINAL') {
+    row.notes.set('triage', v.score);
+    row.notes.set('reason', v.reason);
+    for (const c of v.reason.matchAll(/check=([a-z-]+)/g)) if (!row.notes.has('check')) row.notes.set('check', c[1]);
+    return [formatRow(row)];
+  }
+  if (verdict === 'ANOMALY') acc.toFlagged.push(moved(row, [['flag', 'review'], ['triage', v.score], ['reason', v.reason]]));
+  else acc.toSkipped.push(moved(row, [['triage', v.score], ['reason', v.reason]]));
+  return [];
+}
+
+function triageLine(line, name, verdicts, acc) {
+  const row = parseRow(line);
+  const v = row && verdicts.get(row.url);
+  if (!v) return [line];
+  const inFlagged = name === 'Flagged';
+  let { verdict } = v;
+  if (inFlagged && verdict !== 'EXPIRED' && verdict !== 'BROWSER') return [line];
+  // A JD that addresses the AI is never auto-queued: a person reads it first.
+  if (verdict === 'PASS' && /^ANOMALY/i.test(v.reason)) verdict = 'ANOMALY';
+  acc.found.add(row.url);
+  acc.counts[verdict === 'ANOMALY' ? 'MARGINAL' : verdict]++;
+  if (verdict === 'EXPIRED') {
+    acc.toSkipped.push(moved(row, [['triage', v.score], ['expired', v.reason]]));
+    return [];
+  }
+  if (verdict === 'BROWSER') return browserRow(row, v, inFlagged, acc);
+  return judgedRow(row, v, verdict, acc);
+}
+
 // Mutates doc; returns counts. A row only moves once, and notes keep their order so diffs stay small.
 export function applyVerdicts(doc, verdicts) {
   ensureSections(doc);
   const counts = { PASS: 0, MARGINAL: 0, FAIL: 0, SKIP: 0, EXPIRED: 0, BROWSER: 0, notFound: 0 };
-  const found = new Set();
-  const toFlagged = [];
-  const toSkipped = [];
+  const acc = { counts, found: new Set(), toFlagged: [], toSkipped: [] };
   for (const name of ['Pending', 'Flagged']) {
     const sec = getSection(doc, name);
-    sec.lines = sec.lines.flatMap((line) => {
-      const row = parseRow(line);
-      const v = row && verdicts.get(row.url);
-      if (!v) return [line];
-      let { verdict } = v;
-      const inFlagged = name === 'Flagged';
-      if (inFlagged && verdict !== 'EXPIRED' && verdict !== 'BROWSER') return [line];
-      // A JD that addresses the AI is never auto-queued: a person reads it first.
-      if (verdict === 'PASS' && /^ANOMALY/i.test(v.reason)) verdict = 'ANOMALY';
-      found.add(row.url);
-      counts[verdict === 'ANOMALY' ? 'MARGINAL' : verdict]++;
-      if (verdict === 'EXPIRED') {
-        toSkipped.push(moved(row, [['triage', v.score], ['expired', v.reason]]));
-        return [];
-      }
-      if (verdict === 'BROWSER') {
-        if (Number(v.score) > 0) row.notes.set('triage', v.score);
-        row.notes.set('reason', v.reason);
-        if (inFlagged) {
-          row.notes.set('flag', 'browser-jd');
-          return [formatRow(row)];
-        }
-        toFlagged.push(moved(row, [['flag', 'browser-jd']]));
-        return [];
-      }
-      row.notes.delete('triage');
-      if (verdict === 'PASS' || verdict === 'MARGINAL') {
-        row.notes.set('triage', v.score);
-        row.notes.set('reason', v.reason);
-        for (const c of v.reason.matchAll(/check=([a-z-]+)/g)) if (!row.notes.has('check')) row.notes.set('check', c[1]);
-        return [formatRow(row)];
-      }
-      if (verdict === 'ANOMALY') toFlagged.push(moved(row, [['flag', 'review'], ['triage', v.score], ['reason', v.reason]]));
-      else toSkipped.push(moved(row, [['triage', v.score], ['reason', v.reason]]));
-      return [];
-    });
+    sec.lines = sec.lines.flatMap((line) => triageLine(line, name, verdicts, acc));
   }
-  appendLines(doc, 'Flagged', toFlagged);
-  appendLines(doc, 'Skipped', toSkipped);
-  counts.notFound = [...verdicts.keys()].filter((u) => !found.has(u)).length;
+  appendLines(doc, 'Flagged', acc.toFlagged);
+  appendLines(doc, 'Skipped', acc.toSkipped);
+  counts.notFound = [...verdicts.keys()].filter((u) => !acc.found.has(u)).length;
   return counts;
 }
 
