@@ -1,0 +1,209 @@
+id: policy-government
+name: "Policy, political science, government"
+coverage:
+  level: semi-automated
+  note: "Semi-automated for federal roles through the USAJOBS source you can enable with a free key; think tanks, state and local jobs, and nonprofits stay manual or alert-only."
+title_rules:
+  include:
+    - "policy"
+    - "analyst"
+    - "program"
+    - "research"
+    - "legislative"
+    - "intern"
+    - "fellow"
+    - "pathways"
+    - "public"
+    - "government"
+    - "economist"
+    - "communications"
+  exclude:
+    - "sales"
+    - "recruit"
+    - "nurse"
+    - "driver"
+early_career: "\\b(intern(ship)?|pathways|fellow(ship)?|new ?grad(uate)?|early[- ]career|entry[- ]level|associate|junior|university|recent graduate)\\b"
+recruiting_calendar:
+  rollover_month: 8
+  lead_months: 10
+  terms:
+    - {name: Spring, start_month: 1}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists: []
+  alerts:
+    - name: "USAJOBS"
+      how: "Upstream has a keyed USAJOBS source: enable it after getting a free API key; set HiringPath to student and graduates."
+    - name: "Think tank pages"
+      how: "Check think tank internship pages by hand each term."
+    - name: "Idealist"
+      how: "Idealist bars scraping, so use its email alerts only."
+search_terms:
+  - "policy intern"
+  - "pathways intern"
+  - "legislative intern"
+  - "research assistant policy"
+  - "program analyst entry level"
+seed_employers:
+  - name: "U.S. Department of State"
+    careers_url: https://careers.state.gov
+  - name: "U.S. Department of Commerce"
+    careers_url: https://www.commerce.gov/careers
+  - name: "U.S. Department of Energy"
+    careers_url: https://www.energy.gov/careers
+  - name: "U.S. Department of Education"
+    careers_url: https://www.ed.gov/about/careers
+  - name: "U.S. Department of Health and Human Services"
+    careers_url: https://www.hhs.gov/jobs
+  - name: "U.S. Department of Homeland Security"
+    careers_url: https://www.dhs.gov/homeland-security-careers
+  - name: "U.S. Department of Justice"
+    careers_url: https://www.justice.gov/careers
+  - name: "U.S. Department of Labor"
+    careers_url: https://www.dol.gov/general/jobs
+  - name: "U.S. Department of the Treasury"
+    careers_url: https://careers.treasury.gov
+  - name: "U.S. Department of Transportation"
+    careers_url: https://www.transportation.gov/careers
+  - name: "U.S. Department of Veterans Affairs"
+    careers_url: https://www.va.gov/careers-employment
+  - name: "U.S. Department of Agriculture"
+    careers_url: https://www.usda.gov/careers
+  - name: "U.S. Department of the Interior"
+    careers_url: https://www.doi.gov/careers
+  - name: "U.S. Department of Defense"
+    careers_url: https://www.dodcareers.com
+  - name: "Environmental Protection Agency"
+    careers_url: https://www.epa.gov/careers
+  - name: "General Services Administration"
+    careers_url: https://www.gsa.gov/careers
+  - name: "Government Accountability Office"
+    careers_url: https://www.gao.gov/about/careers
+  - name: "Congressional Budget Office"
+    careers_url: https://www.cbo.gov/about/careers
+  - name: "Library of Congress"
+    careers_url: https://www.loc.gov/careers
+  - name: "Federal Reserve Board"
+    careers_url: https://www.federalreserve.gov/careers
+  - name: "Securities and Exchange Commission"
+    careers_url: https://www.sec.gov/about/careers
+  - name: "Federal Trade Commission"
+    careers_url: https://www.ftc.gov/about-ftc/careers-ftc
+  - name: "Federal Communications Commission"
+    careers_url: https://www.fcc.gov/jobs
+  - name: "Consumer Financial Protection Bureau"
+    careers_url: https://www.consumerfinance.gov/about-us/careers
+  - name: "Social Security Administration"
+    careers_url: https://www.ssa.gov/careers
+  - name: "NASA"
+    careers_url: https://www.nasa.gov/careers
+  - name: "National Science Foundation"
+    careers_url: https://www.nsf.gov/careers
+  - name: "Peace Corps"
+    careers_url: https://www.peacecorps.gov/careers
+  - name: "AmeriCorps"
+    careers_url: https://www.americorps.gov/careers
+  - name: "Smithsonian Institution"
+    careers_url: https://www.si.edu/careers
+  - name: "National Institutes of Health"
+    careers_url: https://jobs.nih.gov
+  - name: "Centers for Disease Control and Prevention"
+    careers_url: https://www.cdc.gov/jobs
+  - name: "Food and Drug Administration"
+    careers_url: https://www.fda.gov/about-fda/jobs-and-training-fda
+  - name: "Federal Emergency Management Agency"
+    careers_url: https://www.fema.gov/about/careers
+  - name: "Internal Revenue Service"
+    careers_url: https://jobs.irs.gov
+  - name: "U.S. Agency for International Development"
+    careers_url: https://www.usaid.gov/careers
+  - name: "World Bank"
+    careers_url: https://www.worldbank.org/en/about/careers
+  - name: "International Monetary Fund"
+    careers_url: https://www.imf.org/en/About/Recruitment
+  - name: "United Nations"
+    careers_url: https://careers.un.org
+  - name: "Brookings Institution"
+    careers_url: https://www.brookings.edu/about-us/careers
+  - name: "RAND Corporation"
+    careers_url: https://www.rand.org/jobs
+  - name: "Urban Institute"
+    careers_url: https://www.urban.org/about/careers
+  - name: "Center for American Progress"
+    careers_url: https://www.americanprogress.org/careers
+  - name: "Heritage Foundation"
+    careers_url: https://www.heritage.org/careers
+  - name: "Cato Institute"
+    careers_url: https://www.cato.org/careers
+  - name: "American Enterprise Institute"
+    careers_url: https://www.aei.org/careers
+  - name: "Council on Foreign Relations"
+    careers_url: https://www.cfr.org/careers
+  - name: "Carnegie Endowment for International Peace"
+    careers_url: https://www.carnegieendowment.org/about/careers
+  - name: "Center for Strategic and International Studies"
+    careers_url: https://www.csis.org/careers
+  - name: "Mathematica"
+    careers_url: https://www.mathematica.org/careers
+  - name: "MITRE"
+    careers_url: https://www.mitre.org/careers
+  - name: "Booz Allen Hamilton"
+    careers_url: https://www.boozallen.com/careers
+  - name: "Deloitte Government and Public Services"
+    careers_url: https://www.deloitte.com/us/en/careers
+  - name: "Accenture Federal Services"
+    careers_url: https://www.accenture.com/us-en/careers
+  - name: "Leidos"
+    careers_url: https://careers.leidos.com
+  - name: "SAIC"
+    careers_url: https://jobs.saic.com
+  - name: "CACI"
+    careers_url: https://careers.caci.com
+  - name: "ICF"
+    careers_url: https://careers.icf.com
+  - name: "Abt Associates"
+    careers_url: https://www.abtassociates.com/careers
+  - name: "RTI International"
+    careers_url: https://www.rti.org/careers
+  - name: "American Institutes for Research"
+    careers_url: https://www.air.org/careers
+  - name: "Gates Foundation"
+    careers_url: https://www.gatesfoundation.org/about/careers
+  - name: "Ford Foundation"
+    careers_url: https://www.fordfoundation.org/careers
+  - name: "Robert Wood Johnson Foundation"
+    careers_url: https://www.rwjf.org/careers
+  - name: "Rockefeller Foundation"
+    careers_url: https://www.rockefellerfoundation.org/careers
+  - name: "Bloomberg Philanthropies"
+    careers_url: https://www.bloomberg.org/careers
+  - name: "Open Society Foundations"
+    careers_url: https://www.opensocietyfoundations.org/careers
+  - name: "Teach For America"
+    careers_url: https://www.teachforamerica.org/careers
+  - name: "City of New York"
+    careers_url: https://www.cityjobs.nyc.gov
+  - name: "City of Chicago"
+    careers_url: https://www.chicago.gov/city/en/depts/dhr
+  - name: "City of Los Angeles"
+    careers_url: https://careers.lacity.org
+  - name: "City of Seattle"
+    careers_url: https://www.seattle.gov/jobs
+  - name: "State of California"
+    careers_url: https://www.calcareers.ca.gov
+  - name: "State of Texas"
+    careers_url: https://www.hr.sao.texas.gov
+  - name: "State of New York"
+    careers_url: https://careers.ny.gov
+  - name: "State of Virginia"
+    careers_url: https://jobs.virginia.gov
+assessment_domains:
+  - "hirevue.com"
+  - "usajobs.gov"
+archetypes:
+  - "Policy analyst"
+  - "Federal Pathways intern"
+  - "Legislative or campaign staff"
+  - "Program or research associate"
+employer_policies: []

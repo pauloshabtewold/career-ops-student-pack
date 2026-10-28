@@ -1,0 +1,39 @@
+id: byo-employer-list
+name: "Bring your own employer list"
+coverage:
+  level: discovery-only
+  note: "Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails."
+title_rules:
+  include: []
+  exclude:
+    - "sales representative"
+    - "recruit"
+    - "driver"
+early_career: "\\b(intern(ship)?|externship|residency|fellow(ship)?|new ?grad(uate)?|early[- ]career|entry[- ]level|assistant|associate|junior|trainee|apprentice)\\b"
+recruiting_calendar:
+  rollover_month: 7
+  lead_months: 12
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 2}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists: []
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save a search for your field and turn on email alerts."
+    - name: "LinkedIn job alerts"
+      how: "Create alerts for your target titles and employers."
+    - name: "Employer career pages"
+      how: "Add each target employer career page when the interview asks for your employer list."
+search_terms: []
+seed_employers: []
+assessment_domains:
+  - "hirevue.com"
+  - "shl.com"
+  - "pymetrics.com"
+archetypes:
+  - "Your first-choice role"
+  - "A close alternative role"
+employer_policies: []

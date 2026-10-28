@@ -1,0 +1,219 @@
+id: accounting
+name: "Accounting"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: one community list covers audit and tax on a 7-day rolling window and is polled daily; the Big Four and mid-tier firms come from the employer list below."
+title_rules:
+  include:
+    - "audit"
+    - "tax"
+    - "accounting"
+    - "assurance"
+    - "advisory"
+    - "financial reporting"
+    - "forensic"
+    - "risk"
+    - "internal audit"
+    - "staff"
+    - "associate"
+  exclude:
+    - "sales representative"
+    - "recruit"
+    - "nurse"
+    - "driver"
+early_career: "\\b(intern(ship)?|busy[- ]season|new ?grad(uate)?|early[- ]career|entry[- ]level|staff|associate|campus|university|rotational)\\b"
+recruiting_calendar:
+  rollover_month: 7
+  lead_months: 12
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 2}
+    - {name: Summer, start_month: 6}
+    - {name: Fall, start_month: 9}
+sources:
+  github_lists:
+    - name: jobright-account-intern
+      repo: jobright-ai/2026-Account-Internship
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: jobright-account-newgrad
+      repo: jobright-ai/2026-Account-New-Grad
+      path: README.md
+      format: markdown-table
+      kind: newgrad
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save searches for audit intern, tax intern and assurance associate."
+    - name: "Firm career sites"
+      how: "Winter busy-season internships are posted on each firm site in the spring and summer."
+search_terms:
+  - "audit intern"
+  - "tax intern"
+  - "assurance associate"
+  - "accounting intern"
+  - "advisory intern"
+seed_employers:
+  - name: "Deloitte"
+    careers_url: https://www.deloitte.com/us/en/careers
+  - name: "PwC"
+    careers_url: https://www.pwc.com/us/en/careers
+  - name: "EY"
+    careers_url: https://www.ey.com/en_us/careers
+  - name: "KPMG"
+    careers_url: https://www.kpmgcareers.com
+  - name: "Grant Thornton"
+    careers_url: https://www.grantthornton.com/careers
+  - name: "BDO USA"
+    careers_url: https://www.bdo.com/careers
+  - name: "RSM US"
+    careers_url: https://www.rsmus.com/careers
+  - name: "Baker Tilly"
+    careers_url: https://www.bakertilly.com/careers
+  - name: "CohnReznick"
+    careers_url: https://www.cohnreznick.com/careers
+  - name: "Crowe"
+    careers_url: https://www.crowe.com/careers
+  - name: "Moss Adams"
+    careers_url: https://www.mossadams.com/careers
+  - name: "Plante Moran"
+    careers_url: https://www.plantemoran.com/careers
+  - name: "CBIZ"
+    careers_url: https://www.cbiz.com/careers
+  - name: "Forvis Mazars"
+    careers_url: https://www.forvismazars.us/careers
+  - name: "Cherry Bekaert"
+    careers_url: https://www.cbh.com/careers
+  - name: "Eide Bailly"
+    careers_url: https://www.eidebailly.com/careers
+  - name: "Marcum"
+    careers_url: https://www.marcumllp.com/careers
+  - name: "EisnerAmper"
+    careers_url: https://www.eisneramper.com/careers
+  - name: "Withum"
+    careers_url: https://www.withum.com/careers
+  - name: "Citrin Cooperman"
+    careers_url: https://www.citrincooperman.com/careers
+  - name: "Armanino"
+    careers_url: https://www.armanino.com/careers
+  - name: "Aprio"
+    careers_url: https://www.aprio.com/careers
+  - name: "Wipfli"
+    careers_url: https://www.wipfli.com/careers
+  - name: "Clifton Larson Allen"
+    careers_url: https://www.claconnect.com/careers
+  - name: "Weaver"
+    careers_url: https://www.weaver.com/careers
+  - name: "Frazier & Deeter"
+    careers_url: https://www.frazierdeeter.com/careers
+  - name: "Mayer Hoffman McCann"
+    careers_url: https://www.mhmcpa.com/careers
+  - name: "Whitley Penn"
+    careers_url: https://www.whitleypenn.com/careers
+  - name: "Warren Averett"
+    careers_url: https://www.warrenaverett.com/careers
+  - name: "Johnson Lambert"
+    careers_url: https://www.johnsonlambert.com/careers
+  - name: "Sikich"
+    careers_url: https://www.sikich.com/careers
+  - name: "Kaufman Rossin"
+    careers_url: https://www.kaufmanrossin.com/careers
+  - name: "Anchin"
+    careers_url: https://www.anchin.com/careers
+  - name: "Berdon"
+    careers_url: https://www.berdonllp.com/careers
+  - name: "Friedman LLP"
+    careers_url: https://www.friedmanllp.com/careers
+  - name: "Raymond James"
+    careers_url: https://www.raymondjames.com/careers
+  - name: "JPMorgan Chase"
+    careers_url: https://careers.jpmorgan.com
+  - name: "Bank of America"
+    careers_url: https://campus.bankofamerica.com
+  - name: "Wells Fargo"
+    careers_url: https://www.wellsfargojobs.com
+  - name: "Citi"
+    careers_url: https://jobs.citi.com
+  - name: "Goldman Sachs"
+    careers_url: https://www.goldmansachs.com/careers
+  - name: "Morgan Stanley"
+    careers_url: https://www.morganstanley.com/careers
+  - name: "Capital One"
+    careers_url: https://www.capitalonecareers.com
+  - name: "American Express"
+    careers_url: https://www.aexp.com/careers
+  - name: "Fidelity Investments"
+    careers_url: https://jobs.fidelity.com
+  - name: "Vanguard"
+    careers_url: https://www.vanguardjobs.com
+  - name: "BlackRock"
+    careers_url: https://careers.blackrock.com
+  - name: "Prudential Financial"
+    careers_url: https://www.prudential.com/careers
+  - name: "MetLife"
+    careers_url: https://www.metlife.com/about-us/careers
+  - name: "Allstate"
+    careers_url: https://www.allstate.jobs
+  - name: "State Farm"
+    careers_url: https://www.statefarm.com/careers
+  - name: "Nationwide"
+    careers_url: https://careers.nationwide.com
+  - name: "Liberty Mutual"
+    careers_url: https://jobs.libertymutualgroup.com
+  - name: "Chubb"
+    careers_url: https://careers.chubb.com
+  - name: "Travelers"
+    careers_url: https://www.travelers.com/careers
+  - name: "Walmart"
+    careers_url: https://careers.walmart.com
+  - name: "Target"
+    careers_url: https://corporate.target.com/careers
+  - name: "The Home Depot"
+    careers_url: https://careers.homedepot.com
+  - name: "Amazon"
+    careers_url: https://www.amazon.jobs
+  - name: "Microsoft"
+    careers_url: https://careers.microsoft.com
+  - name: "Apple"
+    careers_url: https://jobs.apple.com
+  - name: "Alphabet"
+    careers_url: https://careers.google.com
+  - name: "Meta"
+    careers_url: https://www.metacareers.com
+  - name: "Ford Motor Company"
+    careers_url: https://corporate.ford.com/careers
+  - name: "General Motors"
+    careers_url: https://search-careers.gm.com
+  - name: "Procter & Gamble"
+    careers_url: https://www.pgcareers.com
+  - name: "PepsiCo"
+    careers_url: https://www.pepsicojobs.com
+  - name: "The Coca-Cola Company"
+    careers_url: https://careers.coca-colacompany.com
+  - name: "Johnson & Johnson"
+    careers_url: https://jobs.jnj.com
+  - name: "Pfizer"
+    careers_url: https://www.pfizer.com/about/careers
+  - name: "Lockheed Martin"
+    careers_url: https://www.lockheedmartinjobs.com
+  - name: "Boeing"
+    careers_url: https://jobs.boeing.com
+  - name: "Honeywell"
+    careers_url: https://careers.honeywell.com
+  - name: "General Electric"
+    careers_url: https://careers.ge.com
+  - name: "FedEx"
+    careers_url: https://careers.fedex.com
+  - name: "UPS"
+    careers_url: https://www.jobs-ups.com
+assessment_domains:
+  - "hirevue.com"
+  - "shl.com"
+  - "pymetrics.com"
+  - "criteriacorp.com"
+archetypes:
+  - "Audit and assurance"
+  - "Tax"
+  - "Advisory or risk"
+  - "Corporate accounting"
+employer_policies: []

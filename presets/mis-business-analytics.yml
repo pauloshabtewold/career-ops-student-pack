@@ -1,0 +1,229 @@
+id: mis-business-analytics
+name: "MIS, information systems, business analytics"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: nothing is MIS-specific, so analyst lists plus title rules feed the queue, and the employer list below carries consulting and rotational programs."
+title_rules:
+  include:
+    - "analyst"
+    - "business"
+    - "systems"
+    - "information technology"
+    - " it "
+    - "data"
+    - "technology consult"
+    - "erp"
+    - "sap"
+    - "salesforce"
+    - "technology risk"
+    - "it audit"
+    - "cybersecurity"
+    - "solutions"
+    - "technical program"
+    - "rotational"
+  exclude:
+    - "sales representative"
+    - "nurse"
+    - "recruit"
+    - "driver"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst i|associate|rotational|leadership program|university|campus)\\b"
+recruiting_calendar:
+  rollover_month: 6
+  lead_months: 13
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 2}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists:
+    - name: jobright-ba-intern
+      repo: jobright-ai/2026-Business-Analyst-Internship
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: jobright-ba-newgrad
+      repo: jobright-ai/2026-Business-Analyst-New-Grad
+      path: README.md
+      format: markdown-table
+      kind: newgrad
+    - name: jobright-da-intern
+      repo: jobright-ai/2026-Data-Analysis-Internship
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: jobright-da-newgrad
+      repo: jobright-ai/2026-Data-Analysis-New-Grad
+      path: README.md
+      format: markdown-table
+      kind: newgrad
+    - name: simplify-intern
+      repo: SimplifyJobs/Summer2027-Internships
+      path: .github/scripts/listings.json
+      format: simplify-json
+      kind: internship
+    - name: simplify-newgrad
+      repo: SimplifyJobs/New-Grad-Positions
+      path: .github/scripts/listings.json
+      format: simplify-json
+      kind: newgrad
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save searches for business analyst, systems analyst and technology consultant."
+    - name: "LinkedIn job alerts"
+      how: "Alerts for technology consulting and IT rotational programs."
+search_terms:
+  - "business analyst intern"
+  - "systems analyst intern"
+  - "technology consultant analyst"
+  - "data analyst intern"
+  - "IT rotational program"
+seed_employers:
+  - name: "Accenture"
+    careers_url: https://www.accenture.com/us-en/careers
+  - name: "Deloitte"
+    careers_url: https://www.deloitte.com/us/en/careers
+  - name: "PwC"
+    careers_url: https://www.pwc.com/us/en/careers
+  - name: "EY"
+    careers_url: https://www.ey.com/en_us/careers
+  - name: "KPMG"
+    careers_url: https://www.kpmgcareers.com
+  - name: "IBM"
+    careers_url: https://www.ibm.com/careers
+  - name: "Oracle"
+    careers_url: https://www.oracle.com/careers
+  - name: "SAP"
+    careers_url: https://jobs.sap.com
+  - name: "Salesforce"
+    careers_url: https://www.salesforce.com/company/careers
+  - name: "ServiceNow"
+    careers_url: https://www.servicenow.com/careers
+  - name: "Workday"
+    careers_url: https://www.workday.com/en-us/company/careers
+  - name: "Cisco"
+    careers_url: https://jobs.cisco.com
+  - name: "Dell Technologies"
+    careers_url: https://jobs.dell.com
+  - name: "HP"
+    careers_url: https://jobs.hp.com
+  - name: "Hewlett Packard Enterprise"
+    careers_url: https://careers.hpe.com
+  - name: "Capgemini"
+    careers_url: https://www.capgemini.com/us-en/careers
+  - name: "Cognizant"
+    careers_url: https://careers.cognizant.com
+  - name: "Infosys"
+    careers_url: https://www.infosys.com/careers
+  - name: "Booz Allen Hamilton"
+    careers_url: https://www.boozallen.com/careers
+  - name: "Leidos"
+    careers_url: https://careers.leidos.com
+  - name: "CACI"
+    careers_url: https://careers.caci.com
+  - name: "SAIC"
+    careers_url: https://jobs.saic.com
+  - name: "Visa"
+    careers_url: https://corporate.visa.com/en/jobs
+  - name: "Mastercard"
+    careers_url: https://careers.mastercard.com
+  - name: "PayPal"
+    careers_url: https://www.paypal.com/us/webapps/mpp/jobs
+  - name: "Capital One"
+    careers_url: https://www.capitalonecareers.com
+  - name: "American Express"
+    careers_url: https://www.aexp.com/careers
+  - name: "JPMorgan Chase"
+    careers_url: https://careers.jpmorgan.com
+  - name: "Bank of America"
+    careers_url: https://campus.bankofamerica.com
+  - name: "Wells Fargo"
+    careers_url: https://www.wellsfargojobs.com
+  - name: "Citi"
+    careers_url: https://jobs.citi.com
+  - name: "UnitedHealth Group"
+    careers_url: https://careers.unitedhealthgroup.com
+  - name: "CVS Health"
+    careers_url: https://jobs.cvshealth.com
+  - name: "Walmart"
+    careers_url: https://careers.walmart.com
+  - name: "Target"
+    careers_url: https://corporate.target.com/careers
+  - name: "The Home Depot"
+    careers_url: https://careers.homedepot.com
+  - name: "Lowe's"
+    careers_url: https://talent.lowes.com
+  - name: "Costco"
+    careers_url: https://www.costco.com/jobs.html
+  - name: "Kroger"
+    careers_url: https://careers.kroger.com
+  - name: "FedEx"
+    careers_url: https://careers.fedex.com
+  - name: "UPS"
+    careers_url: https://www.jobs-ups.com
+  - name: "General Electric"
+    careers_url: https://careers.ge.com
+  - name: "Honeywell"
+    careers_url: https://careers.honeywell.com
+  - name: "3M"
+    careers_url: https://www.3m.com/3M/en_US/careers-us
+  - name: "Procter & Gamble"
+    careers_url: https://www.pgcareers.com
+  - name: "PepsiCo"
+    careers_url: https://www.pepsicojobs.com
+  - name: "The Coca-Cola Company"
+    careers_url: https://careers.coca-colacompany.com
+  - name: "Johnson & Johnson"
+    careers_url: https://jobs.jnj.com
+  - name: "State Farm"
+    careers_url: https://www.statefarm.com/careers
+  - name: "Allstate"
+    careers_url: https://www.allstate.jobs
+  - name: "Progressive"
+    careers_url: https://www.progressive.com/careers
+  - name: "Nationwide"
+    careers_url: https://careers.nationwide.com
+  - name: "Liberty Mutual"
+    careers_url: https://jobs.libertymutualgroup.com
+  - name: "USAA"
+    careers_url: https://www.usaajobs.com
+  - name: "Fidelity Investments"
+    careers_url: https://jobs.fidelity.com
+  - name: "Charles Schwab"
+    careers_url: https://www.schwabjobs.com
+  - name: "Vanguard"
+    careers_url: https://www.vanguardjobs.com
+  - name: "Microsoft"
+    careers_url: https://careers.microsoft.com
+  - name: "Amazon"
+    careers_url: https://www.amazon.jobs
+  - name: "Adobe"
+    careers_url: https://www.adobe.com/careers
+  - name: "Intuit"
+    careers_url: https://jobs.intuit.com
+  - name: "Autodesk"
+    careers_url: https://www.autodesk.com/careers
+  - name: "Chubb"
+    careers_url: https://careers.chubb.com
+  - name: "Marsh McLennan"
+    careers_url: https://www.marshmclennan.com/careers
+  - name: "Aon"
+    careers_url: https://www.aon.com/careers
+  - name: "Ford Motor Company"
+    careers_url: https://corporate.ford.com/careers
+  - name: "General Motors"
+    careers_url: https://search-careers.gm.com
+  - name: "Lockheed Martin"
+    careers_url: https://www.lockheedmartinjobs.com
+assessment_domains:
+  - "hackerrank.com"
+  - "codesignal.com"
+  - "hirevue.com"
+  - "shl.com"
+  - "pymetrics.com"
+archetypes:
+  - "Business or data analyst"
+  - "Technology consultant"
+  - "IT rotational program"
+  - "ERP or CRM analyst"
+employer_policies: []

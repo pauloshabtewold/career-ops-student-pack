@@ -1,0 +1,299 @@
+id: software-cs
+name: "Software engineering, computer science"
+coverage:
+  level: automated
+  note: "Automated: the community internship and new-grad lists for software, data, ML and product roles are read daily, plus the company boards below."
+title_rules:
+  include:
+    - "software"
+    - "engineer"
+    - "developer"
+    - "swe"
+    - "sde"
+    - "data"
+    - "machine learning"
+    - "ml "
+    - "ai "
+    - "product manag"
+    - "backend"
+    - "frontend"
+    - "full.?stack"
+    - "platform"
+    - "infrastructure"
+    - "security"
+  exclude:
+    - "sales"
+    - "recruit"
+    - "account executive"
+    - "marketing"
+    - "nurse"
+    - "clinical"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|university|campus|junior|associate|engineer i|software engineer i)\\b"
+recruiting_calendar:
+  rollover_month: 7
+  lead_months: 12
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 2}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists:
+    - name: simplify-intern
+      repo: SimplifyJobs/Summer2027-Internships
+      path: .github/scripts/listings.json
+      format: simplify-json
+      kind: internship
+    - name: simplify-newgrad
+      repo: SimplifyJobs/New-Grad-Positions
+      path: .github/scripts/listings.json
+      format: simplify-json
+      kind: newgrad
+    - name: vansh-intern
+      repo: vanshb03/Summer2027-Internships
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: vansh-newgrad
+      repo: vanshb03/New-Grad-2027
+      path: README.md
+      format: markdown-table
+      kind: newgrad
+    - name: speedy-intern
+      repo: speedyapply/2027-SWE-College-Jobs
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: speedy-newgrad
+      repo: speedyapply/2027-SWE-College-Jobs
+      path: NEW_GRAD_USA.md
+      format: markdown-table
+      kind: newgrad
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save a software search on Handshake and turn on email alerts."
+    - name: "LinkedIn job alerts"
+      how: "Create alerts for software engineer intern and new grad."
+search_terms:
+  - "software engineer intern"
+  - "new grad software engineer"
+  - "data engineer intern"
+  - "machine learning intern"
+  - "product manager intern"
+seed_employers:
+  - name: "Stripe"
+    careers_url: https://boards.greenhouse.io/stripe
+  - name: "Airbnb"
+    careers_url: https://boards.greenhouse.io/airbnb
+  - name: "Databricks"
+    careers_url: https://boards.greenhouse.io/databricks
+  - name: "Cloudflare"
+    careers_url: https://boards.greenhouse.io/cloudflare
+  - name: "Datadog"
+    careers_url: https://boards.greenhouse.io/datadog
+  - name: "Pinterest"
+    careers_url: https://boards.greenhouse.io/pinterest
+  - name: "Lyft"
+    careers_url: https://boards.greenhouse.io/lyft
+  - name: "DoorDash"
+    careers_url: https://boards.greenhouse.io/doordashusa
+  - name: "Instacart"
+    careers_url: https://boards.greenhouse.io/instacart
+  - name: "Coinbase"
+    careers_url: https://boards.greenhouse.io/coinbase
+  - name: "Robinhood"
+    careers_url: https://boards.greenhouse.io/robinhood
+  - name: "Figma"
+    careers_url: https://boards.greenhouse.io/figma
+  - name: "Asana"
+    careers_url: https://boards.greenhouse.io/asana
+  - name: "Dropbox"
+    careers_url: https://boards.greenhouse.io/dropbox
+  - name: "Twilio"
+    careers_url: https://boards.greenhouse.io/twilio
+  - name: "Okta"
+    careers_url: https://boards.greenhouse.io/okta
+  - name: "MongoDB"
+    careers_url: https://boards.greenhouse.io/mongodb
+  - name: "Elastic"
+    careers_url: https://boards.greenhouse.io/elastic
+  - name: "GitLab"
+    careers_url: https://boards.greenhouse.io/gitlab
+  - name: "Reddit"
+    careers_url: https://boards.greenhouse.io/reddit
+  - name: "Discord"
+    careers_url: https://boards.greenhouse.io/discord
+  - name: "Duolingo"
+    careers_url: https://boards.greenhouse.io/duolingo
+  - name: "Squarespace"
+    careers_url: https://boards.greenhouse.io/squarespace
+  - name: "Etsy"
+    careers_url: https://boards.greenhouse.io/etsy
+  - name: "Affirm"
+    careers_url: https://boards.greenhouse.io/affirm
+  - name: "Brex"
+    careers_url: https://boards.greenhouse.io/brex
+  - name: "Chime"
+    careers_url: https://boards.greenhouse.io/chime
+  - name: "Samsara"
+    careers_url: https://boards.greenhouse.io/samsara
+  - name: "Anduril"
+    careers_url: https://boards.greenhouse.io/andurilindustries
+  - name: "Scale AI"
+    careers_url: https://boards.greenhouse.io/scaleai
+  - name: "Roblox"
+    careers_url: https://boards.greenhouse.io/roblox
+  - name: "Unity"
+    careers_url: https://boards.greenhouse.io/unity3d
+  - name: "Epic Games"
+    careers_url: https://boards.greenhouse.io/epicgames
+  - name: "Riot Games"
+    careers_url: https://boards.greenhouse.io/riotgames
+  - name: "Zscaler"
+    careers_url: https://boards.greenhouse.io/zscaler
+  - name: "HubSpot"
+    careers_url: https://boards.greenhouse.io/hubspot
+  - name: "Mixpanel"
+    careers_url: https://boards.greenhouse.io/mixpanel
+  - name: "Amplitude"
+    careers_url: https://boards.greenhouse.io/amplitude
+  - name: "Gusto"
+    careers_url: https://boards.greenhouse.io/gusto
+  - name: "Benchling"
+    careers_url: https://boards.greenhouse.io/benchling
+  - name: "Vercel"
+    careers_url: https://boards.greenhouse.io/vercel
+  - name: "Webflow"
+    careers_url: https://boards.greenhouse.io/webflow
+  - name: "Anthropic"
+    careers_url: https://boards.greenhouse.io/anthropic
+  - name: "Notion"
+    careers_url: https://jobs.ashbyhq.com/notion
+  - name: "OpenAI"
+    careers_url: https://jobs.ashbyhq.com/openai
+  - name: "Ramp"
+    careers_url: https://jobs.ashbyhq.com/ramp
+  - name: "Linear"
+    careers_url: https://jobs.ashbyhq.com/linear
+  - name: "Rippling"
+    careers_url: https://jobs.ashbyhq.com/rippling
+  - name: "Supabase"
+    careers_url: https://jobs.ashbyhq.com/supabase
+  - name: "Cohere"
+    careers_url: https://jobs.ashbyhq.com/cohere
+  - name: "Palantir"
+    careers_url: https://jobs.lever.co/palantir
+  - name: "Spotify"
+    careers_url: https://jobs.lever.co/spotify
+  - name: "Kraken"
+    careers_url: https://jobs.lever.co/kraken
+  - name: "Plaid"
+    careers_url: https://jobs.lever.co/plaid
+  - name: "Mistral AI"
+    careers_url: https://jobs.lever.co/mistral
+  - name: "Nuro"
+    careers_url: https://jobs.lever.co/nuro
+  - name: "Waymo"
+    careers_url: https://boards.greenhouse.io/waymo
+  - name: "Cruise"
+    careers_url: https://boards.greenhouse.io/cruise
+  - name: "Block"
+    careers_url: https://boards.greenhouse.io/block
+  - name: "Toast"
+    careers_url: https://boards.greenhouse.io/toast
+  - name: "Peloton"
+    careers_url: https://boards.greenhouse.io/peloton
+  - name: "Zillow"
+    careers_url: https://boards.greenhouse.io/zillow
+  - name: "Slack"
+    careers_url: https://boards.greenhouse.io/slack
+  - name: "Grammarly"
+    careers_url: https://boards.greenhouse.io/grammarly
+  - name: "Carta"
+    careers_url: https://boards.greenhouse.io/carta
+  - name: "Airtable"
+    careers_url: https://boards.greenhouse.io/airtable
+  - name: "Segment"
+    careers_url: https://boards.greenhouse.io/segment
+  - name: "PagerDuty"
+    careers_url: https://boards.greenhouse.io/pagerduty
+  - name: "New Relic"
+    careers_url: https://boards.greenhouse.io/newrelic
+  - name: "Fastly"
+    careers_url: https://boards.greenhouse.io/fastly
+  - name: "Confluent"
+    careers_url: https://boards.greenhouse.io/confluent
+  - name: "Snowflake"
+    careers_url: https://boards.greenhouse.io/snowflakecomputing
+  - name: "Nextdoor"
+    careers_url: https://boards.greenhouse.io/nextdoor
+  - name: "Strava"
+    careers_url: https://boards.greenhouse.io/strava
+  - name: "Wayfair"
+    careers_url: https://boards.greenhouse.io/wayfair
+  - name: "Lucid Software"
+    careers_url: https://boards.greenhouse.io/lucidsoftware
+  - name: "Mapbox"
+    careers_url: https://boards.greenhouse.io/mapbox
+  - name: "Vimeo"
+    careers_url: https://boards.greenhouse.io/vimeo
+  - name: "Twitch"
+    careers_url: https://boards.greenhouse.io/twitch
+  - name: "Sonos"
+    careers_url: https://boards.greenhouse.io/sonos
+  - name: "GoodRx"
+    careers_url: https://boards.greenhouse.io/goodrx
+  - name: "Opendoor"
+    careers_url: https://boards.greenhouse.io/opendoor
+  - name: "Faire"
+    careers_url: https://boards.greenhouse.io/faire
+  - name: "Flexport"
+    careers_url: https://boards.greenhouse.io/flexport
+  - name: "Gemini"
+    careers_url: https://boards.greenhouse.io/gemini
+  - name: "Chainalysis"
+    careers_url: https://boards.greenhouse.io/chainalysis
+  - name: "Imprint"
+    careers_url: https://boards.greenhouse.io/imprint
+  - name: "Glean"
+    careers_url: https://boards.greenhouse.io/gleanwork
+  - name: "Cursor"
+    careers_url: https://jobs.ashbyhq.com/anysphere
+  - name: "Perplexity"
+    careers_url: https://jobs.ashbyhq.com/perplexity
+  - name: "Replit"
+    careers_url: https://jobs.ashbyhq.com/replit
+  - name: "Modal"
+    careers_url: https://jobs.ashbyhq.com/modal
+  - name: "Retool"
+    careers_url: https://jobs.ashbyhq.com/retool
+  - name: "Descript"
+    careers_url: https://jobs.ashbyhq.com/descript
+  - name: "Lattice"
+    careers_url: https://jobs.ashbyhq.com/lattice
+  - name: "Navan"
+    careers_url: https://boards.greenhouse.io/navan
+  - name: "Zapier"
+    careers_url: https://jobs.ashbyhq.com/zapier
+  - name: "Sentry"
+    careers_url: https://boards.greenhouse.io/sentry
+  - name: "Postman"
+    careers_url: https://boards.greenhouse.io/postman
+  - name: "Heap"
+    careers_url: https://boards.greenhouse.io/heap
+  - name: "Intercom"
+    careers_url: https://boards.greenhouse.io/intercom
+  - name: "Calendly"
+    careers_url: https://boards.greenhouse.io/calendly
+assessment_domains:
+  - "hackerrank.com"
+  - "codesignal.com"
+  - "codility.com"
+  - "karat.com"
+  - "hirevue.com"
+archetypes:
+  - "Backend or platform engineer"
+  - "Full-stack engineer"
+  - "Data or ML engineer"
+  - "Associate product manager"
+employer_policies: []

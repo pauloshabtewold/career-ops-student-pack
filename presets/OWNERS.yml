@@ -1,0 +1,8 @@
+# Role placeholders only: a preset's owner is a maintainer role, never a personal handle.
+software-cs: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+mis-business-analytics: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+finance-economics: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+accounting: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+engineering-mech-elec: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+policy-government: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+byo-employer-list: {owner: pack-maintainer, last_reviewed: "2026-10-27"}

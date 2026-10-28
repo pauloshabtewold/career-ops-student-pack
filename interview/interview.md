@@ -1,0 +1,65 @@
+# Personalization interview
+
+Run this when the student says "set me up", "personalize", or when `node student/scripts/session-start.mjs` reports that onboarding is not complete. It runs once, in this chat, and can be re-run any time; re-running rewrites only the blocks the pack owns.
+
+## Principles
+
+- One topic at a time, short questions, plain words. Offer a default for every question and accept "skip".
+- Ask for nothing the student has already put in `cv.md`. Read it first.
+- Never ask for a password, a token, a 2FA code or a card number. Sign-ins happen in the browser, by the student, later.
+- Everything the student says is data for the answers file. Nothing is written to the repo until the answers file is complete and validated.
+- Limits are hard ceilings. The student can lower a limit; a request to raise one is declined in one line.
+
+## Phase 1: resume and identity
+
+1. If `cv.md` does not exist, ask the student to paste the resume or give a file path. Keep it as `cv_markdown` or `cv_path`.
+2. From the resume, propose name, email, phone, city, LinkedIn and GitHub. Confirm each in one message.
+3. Ask for work authorization in the student's words (for example "F-1 with OPT" or "US citizen") and whether they will need sponsorship. Record both.
+
+## Phase 2: what they are looking for
+
+1. Graduation date (month and year) for each track: internship, co-op, new grad. A student can have more than one.
+2. Fields of study. Choose one or two presets from `presets/`; run `node student/scripts/preset-portals.mjs <id>` to show what each seeds. If none fits, use `byo-employer-list` and ask for the employers.
+3. Print the coverage line for each chosen preset, exactly as `interview/coverage.mjs` returns it. Do not soften it. A preset that is discovery help only says so.
+4. Target role names (archetypes), each one short phrase grounded in the resume.
+5. Locations, in order of preference. Years of experience, if any.
+6. Priority companies, hard-no companies (blacklist) and dealbreakers (for example "unpaid", "on-site only outside my metros").
+7. Which GitHub lists to trial. They start as `trial` and the monthly review keeps or drops them.
+
+## Phase 3: resume variants
+
+For each track, name a resume variant and its page limit (one page unless the student says otherwise). Variants are listed in the answers file; the files themselves stay under the student's control.
+
+## Phase 4: switches and disclosures
+
+Read these two disclosures aloud before asking, then record the answer.
+
+LinkedIn outreach. LinkedIn's terms restrict automated activity, and the status of an assistant that drafts and sends messages in the student's own signed-in browser is ambiguous. It can put the account at risk. Outreach is therefore capped by hard limits, never runs unattended, and can be set to `on`, `drafts` (drafts only, the student sends) or `off`. At any time the student can say "stop outreach" and it ends for good until they say otherwise.
+
+Handshake. Handshake's terms are ambiguous about automated browsing in the same way. The Handshake pass is on by default and can be turned off; "stop handshake" ends it at once.
+
+Then ask:
+
+- Outreach: `on`, `drafts` or `off`.
+- Handshake: `on` or `off`.
+- Who presses submit on applications: `user` (default) or `agent`.
+- LinkedIn account tier: `free` or `premium`.
+
+Below the limits table, say this once: the pack's ceilings (daily applications, connection requests, messages, profile views, and the score floor) are fixed in `student/scripts/budget.mjs`. The student can only choose lower numbers. The score floor cannot go below 4.0; a student with an unusual reason to evaluate lower-scoring jobs can read them in the pipeline file, but the pack will not apply to them.
+
+## Phase 5: schedule and spend
+
+1. Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`.
+2. Local time for the daily run and the time zone.
+3. Model tier: `standard` or `premium`. There is no economy tier.
+4. Daily target for applications (default 10; the ceiling still applies).
+5. How mail will be read for the inbox pass: `connector`, `paste` or `gmail-plugin`.
+
+## Phase 6: write, check, enable
+
+1. Write the answers to `data/interview-answers.json` following `interview/answers.schema.json`. Read the file back to the student in a short summary and ask for a yes.
+2. Run `node student/interview/apply-answers.mjs data/interview-answers.json`. If it exits non-zero, nothing was written; fix the listed problems and run it again.
+3. Enable the GitHub-lists plugin only after showing its capability card: run `node plugins.mjs enable github-lists`, show the card to the student, and run it again with `--confirm` only after they agree.
+4. Run `node doctor.mjs --json` and report anything not green. Do not mark setup done while doctor reports unpersonalized files.
+5. Sign-in order for the first run: LinkedIn, then Handshake (if on), then the mailbox. The student does each sign-in; stop and wait after each.
+6. First run: `node student/scripts/rank-queue.mjs`, then walk through the top three postings with the student, using `student/modes/apply-loop.md`. Nothing is submitted without the student's yes during this first run.
