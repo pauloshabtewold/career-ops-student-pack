@@ -16,7 +16,7 @@ For the maintainer. Placeholders: the pack lives at `<pack-url>`; upstream is ca
 
 ## Safety tags
 
-A `safety-*` tag is for a change that makes the pack safer for students: it may only tighten a ceiling in `scripts/budget.mjs` or switch a default off. `safety-tag.yml` runs `scripts/check-safety-tag.mjs <previous> <tag>` and fails on anything looser. Cut one when a platform changes its rules, a warning rate rises, or a limit proves too high. Students receive it on their next `node student/update.mjs`, which runs the same check before applying it.
+A `safety-*` tag is for a change that makes the pack safer for students: it may only tighten a limit in `scripts/budget.mjs` (lower a maximum, raise a minimum) or switch a default off. `safety-tag.yml` runs `scripts/check-safety-tag.mjs <previous> <tag>` and fails on anything looser. Cut one when a platform changes its rules, a warning rate rises, or a limit proves too high. Students receive it on their next `node student/update.mjs`, which runs the same check before applying it.
 
 ## Changing `budget.mjs`
 
@@ -27,7 +27,7 @@ node scripts/compat-hash.mjs --write
 node scripts/compat-hash.mjs --check
 ```
 
-CI runs the check on both operating systems. Raising a ceiling is a normal release, never a safety tag.
+CI runs the check on both operating systems. Loosening a limit is a normal release, never a safety tag.
 
 ## Preset audits
 
@@ -37,4 +37,8 @@ A preset not reviewed for 60 days is shown to students as unmaintained by the in
 
 ## Parity run
 
-Before a release that changes triage, merge or ranking, run `node tools/parity.mjs` with explicit `--source`, `--scratch` and `--student-config` arguments pointing outside this repository. It works on copies, deletes them when it finishes, and writes counts only to `docs/parity-report.md`.
+Before a release that changes triage, merge or ranking, run `node tools/parity.mjs` with explicit `--source`, `--scratch` and `--student-config` arguments pointing outside this repository. It works on copies, deletes them when it finishes, and writes counts only to `docs/parity-report.md`. It exits 130 on SIGINT and 143 on SIGTERM and removes the copies either way.
+
+## Upstream setup in CI
+
+`scripts/ci/upstream-setup.mjs` builds the throwaway career-ops checkout. Pass `--resume <file>` to continue an interrupted setup.

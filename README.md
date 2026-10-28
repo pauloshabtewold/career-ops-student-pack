@@ -66,11 +66,11 @@ This updates the pack and career-ops together and keeps career-ops inside the ve
 - **Inbox.** `node student/scripts/inbox.mjs` reads pasted or connector-provided mail and updates the tracker.
 - **Pilot report.** `node student/scripts/pilot-report.mjs` prints weekly counts and nothing else.
 
-Details are in [docs/usage.md](docs/usage.md).
+Details are in [docs/usage.md](docs/usage.md); the reasoning behind the design is in [docs/architecture.md](docs/architecture.md).
 
 ## Switching things off
 
-LinkedIn outreach and the Handshake pass are on by default. Tell Claude "stop outreach" or "stop handshake" at any time. The caps on messages, applications and page loads are compiled into `student/scripts/budget.mjs`; settings can lower them but never raise them.
+LinkedIn outreach and the Handshake pass are on by default. Tell Claude "stop outreach" or "stop handshake" at any time. The caps on messages, applications and page loads are compiled into `student/scripts/budget.mjs`; settings can only tighten them (lower a maximum, raise a minimum) and never loosen them.
 
 ## Credit
 

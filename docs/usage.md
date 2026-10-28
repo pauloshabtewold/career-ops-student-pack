@@ -46,7 +46,7 @@ The result is `data/digest/student-<date>.md`, with one line per step and a list
 - **paste**: copy the messages into a text file, each with `Id:`, `From:`, `Subject:` and `Date:` lines, a blank line and the body, with a line holding only `---` between messages. Run `node student/scripts/inbox.mjs --backend paste --file data/mail.txt`. Use this when there is no connector.
 - **gmail-plugin**: `node student/scripts/inbox.mjs --backend gmail-plugin` only runs `node plugins.mjs run gmail` for job alerts. It cannot read replies, so use connector or paste for those.
 
-Mail from the last 2 days is read, and each message is read once (ids are kept in `data/.student-inbox-seen`). Assessment invites from known assessment sites set the tracker status to Assessment, and a plain reply from a company in your tracker sets Responded. Rejections, interview requests and scheduling requests are only proposed; you decide. Mail asking for a Social Security number, bank details, a password or a verify link is listed as suspicious: do not answer it. LinkedIn and Handshake job alerts become rows in `data/pipeline.staging.md` that need a link. At most 5 one-line notices are printed per run. Use `--propose-only` to change nothing in the tracker, or `--dry-run` to change nothing at all.
+Mail from the last 2 days is read, and each message is read once (ids are kept in `data/.student-inbox-seen`). A message from an assessment domain sets the tracker status to Assessment, and a plain reply from a company in your tracker sets Responded. Rejections, interview requests and scheduling requests are always proposals; you decide. Two messages from one company on the same day count as a conflict only when one is an Assessment and the other a Responded; you get a note to check by hand. Mail asking for a Social Security number, bank details, a password or a verify link is listed as suspicious: do not answer it. LinkedIn and Handshake job alerts become rows in `data/pipeline.staging.md` that need a link. At most 5 one-line notices are printed per run. Use `--propose-only` to change nothing in the tracker and mark no message as seen, or `--dry-run` to change nothing at all.
 
 ## Pilot report
 
@@ -58,4 +58,4 @@ Mail from the last 2 days is read, and each message is read once (ids are kept i
 - "stop handshake" turns the Handshake pass off.
 - `node student/scripts/schedule.mjs remove` turns the daily run off.
 
-The limits on messages, applications and page loads are fixed in `student/scripts/budget.mjs`. Settings can lower them and never raise them.
+The limits on messages, applications and page loads are fixed in `student/scripts/budget.mjs`. Settings can only tighten them: a maximum can go down and a minimum (score floor, gap between actions, nudge wait days) can go up, never the reverse.
