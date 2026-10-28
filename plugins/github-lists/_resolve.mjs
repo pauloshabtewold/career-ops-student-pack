@@ -47,28 +47,34 @@ export function normTitle(t) {
     .trim();
 }
 
+// Longest common block of x and y as { best, bi, bj }, where bi and bj are the end offsets of the block.
+function longestBlock(x, y) {
+  let best = 0;
+  let bi = 0;
+  let bj = 0;
+  const prev = new Array(y.length + 1).fill(0);
+  for (let i = 1; i <= x.length; i++) {
+    for (let j = y.length; j >= 1; j--) {
+      prev[j] = x[i - 1] === y[j - 1] ? prev[j - 1] + 1 : 0;
+      if (prev[j] <= best) continue;
+      best = prev[j];
+      bi = i;
+      bj = j;
+    }
+  }
+  return { best, bi, bj };
+}
+
+function matchedChars(x, y) {
+  if (!x.length || !y.length) return 0;
+  const { best, bi, bj } = longestBlock(x, y);
+  if (!best) return 0;
+  return best + matchedChars(x.slice(0, bi - best), y.slice(0, bj - best)) + matchedChars(x.slice(bi), y.slice(bj));
+}
+
 // Ratio of matched characters from recursive longest-common-block matching, the measure the Python original used.
 export function seqRatio(a, b) {
-  const matched = (x, y) => {
-    if (!x.length || !y.length) return 0;
-    let best = 0;
-    let bi = 0;
-    let bj = 0;
-    const prev = new Array(y.length + 1).fill(0);
-    for (let i = 1; i <= x.length; i++) {
-      for (let j = y.length; j >= 1; j--) {
-        prev[j] = x[i - 1] === y[j - 1] ? prev[j - 1] + 1 : 0;
-        if (prev[j] > best) {
-          best = prev[j];
-          bi = i;
-          bj = j;
-        }
-      }
-    }
-    if (!best) return 0;
-    return best + matched(x.slice(0, bi - best), y.slice(0, bj - best)) + matched(x.slice(bi), y.slice(bj));
-  };
-  return a.length + b.length ? (2 * matched(a, b)) / (a.length + b.length) : 1;
+  return a.length + b.length ? (2 * matchedChars(a, b)) / (a.length + b.length) : 1;
 }
 
 // Strict: equal after noise removal, or near-equal with identical level tokens ("Engineer II" never matches "Engineer").

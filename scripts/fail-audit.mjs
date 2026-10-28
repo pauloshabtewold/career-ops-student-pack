@@ -13,7 +13,7 @@ import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
 import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, serializePipeline } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { appendTsv } from '../lib/tsv.mjs';
-import { writeAtomic } from './apply-triage.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 
 export const DEFAULT_JUDGMENT_KEYWORDS = ['grad', 'graduation', 'term', 'experience', 'level', 'start', 'clearance', 'contract', 'pay', 'location'];
 const AUDIT_HEADER = ['date', 'url', 'verdict', 'score', 'reason'];

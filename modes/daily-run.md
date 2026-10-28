@@ -1,6 +1,6 @@
 # Daily run, model half
 
-`student/scripts/daily.mjs` does the zero-token half on its own. This file is the template for the optional second half, which runs only in a session the user opens or schedules themselves, after `daily.mjs` has written `data/digest/student-<date>.md`. Each step below runs only when its switch allows it.
+`scripts/daily.mjs` in the student folder does the zero-token half on its own. This file is the template for the optional second half, which runs only in a session the user opens or schedules themselves, after `daily.mjs` has written the digest file student-<date>.md in the data digest folder. Each step below runs only when its switch allows it.
 
 ## Switches
 

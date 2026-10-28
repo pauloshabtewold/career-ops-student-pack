@@ -4,11 +4,11 @@ This guide covers what you do after `node student/install.mjs` has run. Every co
 
 ## Start with the interview
 
-Every Claude Code session begins with `student/scripts/session-start.mjs`. It prints at most six lines: the update result, any budget notes, and a last line that says what happens next. When `config/student.yml` is missing or the interview is not finished, the last line starts with `INTERVIEW:` and Claude runs the personalization interview before anything else.
+Every Claude Code session begins with `scripts/session-start.mjs` from the student folder. It prints at most six lines: the update result, any budget notes, and a last line that says what happens next. When config/student.yml is missing or the interview is not finished, the last line starts with `INTERVIEW:` and Claude runs the personalization interview before anything else.
 
-The interview asks about your field, graduation dates, locations, the LinkedIn and Handshake switches, how you want your mail read and whether to set up a daily schedule. It writes `config/student.yml` from your answers and prints a coverage line that says how many employers and job lists your presets reach. Read that line: a low number means your field is thinly covered and you should add employers by hand.
+The interview asks about your field, graduation dates, locations, the LinkedIn and Handshake switches, how you want your mail read and whether to set up a daily schedule. It writes config/student.yml from your answers and prints a coverage line that says how many employers and job lists your presets reach. Read that line: a low number means your field is thinly covered and you should add employers by hand.
 
-You can say "stop outreach" or "stop handshake" at any time. Both are on by default and either one turns the matching feature off in `config/student.yml`.
+You can say "stop outreach" or "stop handshake" at any time. Both are on by default and either one turns the matching feature off in config/student.yml.
 
 ## Schedule the daily run (optional)
 
@@ -20,13 +20,13 @@ node student/scripts/schedule.mjs status
 node student/scripts/schedule.mjs remove
 ```
 
-`schedule.mjs install` adds a launchd agent on macOS and a Task Scheduler task on Windows. Both use the absolute path of the Node you ran it with and the full path of your career-ops folder. On Windows the task is set to run late if the computer was off at the chosen time and to run on battery. Without `--time` the time from `config/student.yml` is used, which is 06:00 by default. `schedule.mjs remove` takes the job away again. Add `--dry-run` to either command to print what it would do without changing anything.
+`schedule.mjs install` adds a launchd agent on macOS and a Task Scheduler task on Windows. Both use the absolute path of the Node you ran it with and the full path of your career-ops folder. On Windows the task is set to run late if the computer was off at the chosen time and to run on battery. Without `--time` the time from config/student.yml is used, which is 06:00 by default. `schedule.mjs remove` takes the job away again. Add `--dry-run` to either command to print what it would do without changing anything.
 
-Logs go to `data/logs/`.
+Logs go to the logs folder under data.
 
 ## What the daily run does
 
-`node student/scripts/daily.mjs` is the unattended run. It makes no model calls, opens no browser and sends nothing. It takes a run lock in `data/.student-daily.lock`; if another run holds it for under 12 hours, it writes an ABORT line to `data/run-log.md` and stops.
+`node student/scripts/daily.mjs` is the unattended run. It makes no model calls, opens no browser and sends nothing. It takes a run lock in the file .student-daily.lock in the data folder; if another run holds it for under 12 hours, it writes an ABORT line to run-log.md in the data folder and stops.
 
 In order, it:
 
@@ -42,15 +42,15 @@ The result is `data/digest/student-<date>.md`, with one line per step and a list
 
 `node student/scripts/inbox.mjs` reads mail you give it. It never signs in to Gmail and never opens a link. Pick one backend with `--backend`:
 
-- **connector**: Claude searches your mail through the Gmail connector in a session, saves the results to a JSON file in `data/`, and you run `node student/scripts/inbox.mjs --backend connector --input data/mail.json`. Use this when the connector is set up; it is the best fit for replies and assessments.
+- **connector**: Claude searches your mail through the Gmail connector in a session, saves the results to a JSON file in the data folder, and you run `node student/scripts/inbox.mjs --backend connector --input data/mail.json`. Use this when the connector is set up; it is the best fit for replies and assessments.
 - **paste**: copy the messages into a text file, each with `Id:`, `From:`, `Subject:` and `Date:` lines, a blank line and the body, with a line holding only `---` between messages. Run `node student/scripts/inbox.mjs --backend paste --file data/mail.txt`. Use this when there is no connector.
 - **gmail-plugin**: `node student/scripts/inbox.mjs --backend gmail-plugin` only runs `node plugins.mjs run gmail` for job alerts. It cannot read replies, so use connector or paste for those.
 
-Mail from the last 2 days is read, and each message is read once (ids are kept in `data/.student-inbox-seen`). Assessment invites from known assessment sites set the tracker status to Assessment, and a plain reply from a company in your tracker sets Responded. Rejections, interview requests and scheduling requests are only proposed; you decide. Mail asking for a Social Security number, bank details, a password or a verify link is listed as suspicious: do not answer it. LinkedIn and Handshake job alerts become rows in `data/pipeline.staging.md` that need a link. At most 5 one-line notices are printed per run. Use `--propose-only` to change nothing in the tracker, or `--dry-run` to change nothing at all.
+Mail from the last 2 days is read, and each message is read once (ids are kept in the file .student-inbox-seen in the data folder). A message from an assessment domain sets the tracker status to Assessment, and a plain reply from a company in your tracker sets Responded. Rejections, interview requests and scheduling requests are always proposals; you decide. Two messages from one company on the same day count as a conflict only when one is an Assessment and the other a Responded; you get a note to check by hand. Mail asking for a Social Security number, bank details, a password or a verify link is listed as suspicious: do not answer it. LinkedIn and Handshake job alerts become rows in pipeline.staging.md in the data folder that need a link. At most 5 one-line notices are printed per run. Use `--propose-only` to change nothing in the tracker and mark no message as seen, or `--dry-run` to change nothing at all.
 
 ## Pilot report
 
-`node student/scripts/pilot-report.mjs` prints one line per week with counts only: connection requests, accepts and the acceptance rate, messages, warnings, applications submitted, responses, assessments, interviews and offers, and the model cost when `data/student-cost.tsv` exists. It prints no company names, links or message text and sends nothing anywhere, so it is safe to paste into a message to the person running the pilot.
+`node student/scripts/pilot-report.mjs` prints one line per week with counts only: connection requests, accepts and the acceptance rate, messages, warnings, applications submitted, responses, assessments, interviews and offers, and the model cost when student-cost.tsv in the data folder exists. It prints no company names, links or message text and sends nothing anywhere, so it is safe to paste into a message to the person running the pilot.
 
 ## Turning things off
 
@@ -58,4 +58,4 @@ Mail from the last 2 days is read, and each message is read once (ids are kept i
 - "stop handshake" turns the Handshake pass off.
 - `node student/scripts/schedule.mjs remove` turns the daily run off.
 
-The limits on messages, applications and page loads are fixed in `student/scripts/budget.mjs`. Settings can lower them and never raise them.
+The limits on messages, applications and page loads are fixed in `scripts/budget.mjs` in the student folder. Settings can only tighten them: a maximum can go down and a minimum (score floor, gap between actions, nudge wait days) can go up, never the reverse.

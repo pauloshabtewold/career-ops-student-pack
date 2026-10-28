@@ -1,4 +1,4 @@
-// File helpers local to the plugin. They duplicate small parts of lib/ on purpose: a plugin directory is copied
+// File helpers local to the plugin. They mirror small parts of lib/ because a plugin directory is copied
 // verbatim into plugins.local/ and must not reach back into the pack.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';

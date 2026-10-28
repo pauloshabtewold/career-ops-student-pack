@@ -25,3 +25,25 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: node --test --test-concurrency=1
+      - run: node scripts/compat-hash.mjs --check
+      - name: Plugin versions
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-plugin-versions.mjs origin/${{ github.base_ref }}
+
+  upstream-install:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - name: Install into upstream at the newest supported version
+        run: node scripts/ci/upstream-setup.mjs --out ${{ runner.temp }}/upstream
+      - name: Doctor
+        run: node scripts/ci/assert-doctor.mjs ${{ runner.temp }}/upstream/doctor.json

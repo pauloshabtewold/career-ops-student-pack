@@ -91,7 +91,7 @@ function buildRows(tables, kind, today) {
       if (CONTINUATION.has(company)) company = prevCompany;
       else prevCompany = company;
       const cellLink = row[col.link];
-      // Lock and closed markers mean the posting no longer takes applications.
+      // Lock and closed markers mean the posting takes no applications.
       if (/\u{1F512}|closed/iu.test(cellLink) || /\u{1F512}/u.test(row[col.title])) continue;
       const url = firstLink(cellLink);
       if (!url || !company) continue;

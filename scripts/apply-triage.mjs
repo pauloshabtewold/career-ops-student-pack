@@ -5,13 +5,14 @@
 // the row to Flagged because the JD must be read in the browser. EXPIRED and BROWSER also act on Flagged rows;
 // dead is dead wherever the row sits.
 // Usage: apply-triage.mjs <results.txt> [--data-dir D] [--dry-run]    prints JSON counts
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
 import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, serializePipeline } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 
 const VERDICT_RE = /^TRIAGE:\s*(PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*([^|]*)/;
 const clean = (s) => s.replace(/[|;\n]/g, ',').trim();
@@ -25,66 +26,66 @@ export function parseResults(text) {
   return verdicts;
 }
 
-export function writeAtomic(file, text) {
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
-}
-
 const moved = (row, notes) => {
   const next = { ...row, checkbox: null, notes: new Map([...row.notes, ...notes]) };
   return formatRow(next);
 };
 
+function browserRow(row, v, inFlagged, acc) {
+  if (Number(v.score) > 0) row.notes.set('triage', v.score);
+  row.notes.set('reason', v.reason);
+  if (inFlagged) {
+    row.notes.set('flag', 'browser-jd');
+    return [formatRow(row)];
+  }
+  acc.toFlagged.push(moved(row, [['flag', 'browser-jd']]));
+  return [];
+}
+
+function judgedRow(row, v, verdict, acc) {
+  row.notes.delete('triage');
+  if (verdict === 'PASS' || verdict === 'MARGINAL') {
+    row.notes.set('triage', v.score);
+    row.notes.set('reason', v.reason);
+    for (const c of v.reason.matchAll(/check=([a-z-]+)/g)) if (!row.notes.has('check')) row.notes.set('check', c[1]);
+    return [formatRow(row)];
+  }
+  if (verdict === 'ANOMALY') acc.toFlagged.push(moved(row, [['flag', 'review'], ['triage', v.score], ['reason', v.reason]]));
+  else acc.toSkipped.push(moved(row, [['triage', v.score], ['reason', v.reason]]));
+  return [];
+}
+
+function triageLine(line, name, verdicts, acc) {
+  const row = parseRow(line);
+  const v = row && verdicts.get(row.url);
+  if (!v) return [line];
+  const inFlagged = name === 'Flagged';
+  let { verdict } = v;
+  if (inFlagged && verdict !== 'EXPIRED' && verdict !== 'BROWSER') return [line];
+  // A JD that addresses the AI is never auto-queued: a person reads it first.
+  if (verdict === 'PASS' && /^ANOMALY/i.test(v.reason)) verdict = 'ANOMALY';
+  acc.found.add(row.url);
+  acc.counts[verdict === 'ANOMALY' ? 'MARGINAL' : verdict]++;
+  if (verdict === 'EXPIRED') {
+    acc.toSkipped.push(moved(row, [['triage', v.score], ['expired', v.reason]]));
+    return [];
+  }
+  if (verdict === 'BROWSER') return browserRow(row, v, inFlagged, acc);
+  return judgedRow(row, v, verdict, acc);
+}
+
 // Mutates doc; returns counts. A row only moves once, and notes keep their order so diffs stay small.
 export function applyVerdicts(doc, verdicts) {
   ensureSections(doc);
   const counts = { PASS: 0, MARGINAL: 0, FAIL: 0, SKIP: 0, EXPIRED: 0, BROWSER: 0, notFound: 0 };
-  const found = new Set();
-  const toFlagged = [];
-  const toSkipped = [];
+  const acc = { counts, found: new Set(), toFlagged: [], toSkipped: [] };
   for (const name of ['Pending', 'Flagged']) {
     const sec = getSection(doc, name);
-    sec.lines = sec.lines.flatMap((line) => {
-      const row = parseRow(line);
-      const v = row && verdicts.get(row.url);
-      if (!v) return [line];
-      let { verdict } = v;
-      const inFlagged = name === 'Flagged';
-      if (inFlagged && verdict !== 'EXPIRED' && verdict !== 'BROWSER') return [line];
-      // A JD that addresses the AI is never auto-queued: a person reads it first.
-      if (verdict === 'PASS' && /^ANOMALY/i.test(v.reason)) verdict = 'ANOMALY';
-      found.add(row.url);
-      counts[verdict === 'ANOMALY' ? 'MARGINAL' : verdict]++;
-      if (verdict === 'EXPIRED') {
-        toSkipped.push(moved(row, [['triage', v.score], ['expired', v.reason]]));
-        return [];
-      }
-      if (verdict === 'BROWSER') {
-        if (Number(v.score) > 0) row.notes.set('triage', v.score);
-        row.notes.set('reason', v.reason);
-        if (inFlagged) {
-          row.notes.set('flag', 'browser-jd');
-          return [formatRow(row)];
-        }
-        toFlagged.push(moved(row, [['flag', 'browser-jd']]));
-        return [];
-      }
-      row.notes.delete('triage');
-      if (verdict === 'PASS' || verdict === 'MARGINAL') {
-        row.notes.set('triage', v.score);
-        row.notes.set('reason', v.reason);
-        for (const c of v.reason.matchAll(/check=([a-z-]+)/g)) if (!row.notes.has('check')) row.notes.set('check', c[1]);
-        return [formatRow(row)];
-      }
-      if (verdict === 'ANOMALY') toFlagged.push(moved(row, [['flag', 'review'], ['triage', v.score], ['reason', v.reason]]));
-      else toSkipped.push(moved(row, [['triage', v.score], ['reason', v.reason]]));
-      return [];
-    });
+    sec.lines = sec.lines.flatMap((line) => triageLine(line, name, verdicts, acc));
   }
-  appendLines(doc, 'Flagged', toFlagged);
-  appendLines(doc, 'Skipped', toSkipped);
-  counts.notFound = [...verdicts.keys()].filter((u) => !found.has(u)).length;
+  appendLines(doc, 'Flagged', acc.toFlagged);
+  appendLines(doc, 'Skipped', acc.toSkipped);
+  counts.notFound = [...verdicts.keys()].filter((u) => !acc.found.has(u)).length;
   return counts;
 }
 

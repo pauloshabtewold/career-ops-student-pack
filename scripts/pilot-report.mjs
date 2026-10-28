@@ -53,45 +53,52 @@ function trackerRows(text) {
   return out;
 }
 
+function bucket(weeks, week) {
+  if (!weeks.has(week)) weeks.set(week, Object.fromEntries(COUNT_KEYS.map((k) => [k, 0])));
+  return weeks.get(week);
+}
+
+function tallyTracker(text, weeks) {
+  for (const { date, status } of trackerRows(text)) {
+    const week = isoWeek(date);
+    if (!week) continue;
+    const b = bucket(weeks, week);
+    if (RESPONDED.test(status)) b.responses++;
+    if (/^assess/i.test(status)) b.assessments++;
+    else if (/^interview/i.test(status)) b.interviews++;
+    else if (/^offer/i.test(status)) b.offers++;
+  }
+}
+
+function addCosts(rows, col, weeks, cost) {
+  for (const r of rows) {
+    const week = isoWeek(r.date);
+    const n = Number(r[col]);
+    if (!week || !Number.isFinite(n)) continue;
+    cost.set(week, (cost.get(week) ?? 0) + n);
+    bucket(weeks, week);
+  }
+}
+
+async function tallyCost(costFile, weeks) {
+  const cost = new Map();
+  if (!existsSync(costFile)) return cost;
+  const { header, rows } = await readTsv(costFile);
+  const col = ['cost_usd', 'cost', 'usd'].find((c) => header.includes(c));
+  if (col) addCosts(rows, col, weeks, cost);
+  return cost;
+}
+
 export async function pilotReport({ dataDir }) {
   const weeks = new Map();
-  const bucket = (week) => {
-    if (!weeks.has(week)) weeks.set(week, Object.fromEntries(COUNT_KEYS.map((k) => [k, 0])));
-    return weeks.get(week);
-  };
   for (const row of await readActionLog(join(dataDir, 'action-log.tsv'))) {
     const key = LOG_METRICS[row.action];
     const week = isoWeek(row.date || row.ts);
-    if (key && week) bucket(week)[key]++;
+    if (key && week) bucket(weeks, week)[key]++;
   }
   const appsFile = join(dataDir, 'applications.md');
-  if (existsSync(appsFile)) {
-    for (const { date, status } of trackerRows(readFileSync(appsFile, 'utf8'))) {
-      const week = isoWeek(date);
-      if (!week) continue;
-      const b = bucket(week);
-      if (RESPONDED.test(status)) b.responses++;
-      if (/^assess/i.test(status)) b.assessments++;
-      else if (/^interview/i.test(status)) b.interviews++;
-      else if (/^offer/i.test(status)) b.offers++;
-    }
-  }
-  const cost = new Map();
-  const costFile = join(dataDir, 'student-cost.tsv');
-  if (existsSync(costFile)) {
-    const { header, rows } = await readTsv(costFile);
-    const col = ['cost_usd', 'cost', 'usd'].find((c) => header.includes(c));
-    if (col) {
-      for (const r of rows) {
-        const week = isoWeek(r.date);
-        const n = Number(r[col]);
-        if (week && Number.isFinite(n)) {
-          cost.set(week, (cost.get(week) ?? 0) + n);
-          bucket(week);
-        }
-      }
-    }
-  }
+  if (existsSync(appsFile)) tallyTracker(readFileSync(appsFile, 'utf8'), weeks);
+  const cost = await tallyCost(join(dataDir, 'student-cost.tsv'), weeks);
   return [...weeks.keys()].sort().map((week) => {
     const b = weeks.get(week);
     const rate = b.requests ? `${((b.accepts / b.requests) * 100).toFixed(1)}%` : 'n/a';

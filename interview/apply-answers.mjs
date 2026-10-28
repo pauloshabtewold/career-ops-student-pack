@@ -4,15 +4,16 @@
 // can be applied in CI without a model. Nothing is written when validation fails, and onboarding.complete flips to
 // true only after every other file and the cycle computation succeeded.
 // Usage: apply-answers.mjs <answers.json> [--root R] [--today YYYY-MM-DD] [--dry-run]
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
-import { deepMerge, parseConfig, validateConfig } from '../lib/config.mjs';
+import { deepMerge, validateConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 import { runCycle } from '../scripts/cycle.mjs';
 import { CEILINGS, effectiveLimits } from '../scripts/budget.mjs';
 
@@ -60,7 +61,7 @@ const bullets = (items) => (items.length ? items.map((i) => `- ${i}`).join('\n')
 const fill = (template, values) => template.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => (k in values ? values[k] : m));
 const MD_BLOCK = /<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/;
 
-// Replaces the pack block, or appends one after user content; text outside the markers is never changed.
+// Writes the pack block in place of an existing one, or appends one after user content; text outside the markers is never changed.
 export function upsertMarkdownBlock(text, body) {
   const block = `<!-- student-pack:start -->\n${body.trim()}\n<!-- student-pack:end -->`;
   if (MD_BLOCK.test(text)) return text.replace(MD_BLOCK, () => block);
@@ -116,13 +117,6 @@ function portalLines(answers, merged) {
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
-}
-
-function writeFileAtomic(file, text) {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
 }
 
 export function buildConfig(answers) {
@@ -233,7 +227,7 @@ function writeSources({ answers, merged, paths, today, out, read }) {
   const fresh = (merged?.sources.github_lists ?? [])
     .filter((g) => !chosen.size || chosen.has('github-lists') || chosen.has(g.name))
     .filter((g) => !have.has(`${g.repo}/${g.path}`))
-    .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_checked: today, last_pushed: null, notes: 'preset' }));
+    .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_push: null, last_unique: null, failed_parses: 0, notes: 'preset' }));
   out('data/student-github-sources.json', `${JSON.stringify({ version: 1, rules: { ...merged?.title_rules, early_career: merged?.early_career ?? '' }, sources: [...prior.sources, ...fresh] }, null, 2)}\n`);
   const entries = [...(answers.blacklist ?? []).map((n) => [n, 'user blacklist']), ...(answers.priority_companies ?? []).map((n) => [n, 'priority company'])];
   if (entries.length) out('data/blacklist.md', blacklistRows(read('data/blacklist.md'), entries, today));
@@ -252,7 +246,7 @@ export function applyAnswers({ answers, root, packRoot, today, dryRun = false })
     const file = join(paths.root, rel);
     if (keep && existsSync(file)) return;
     written.push(rel);
-    if (!dryRun) writeFileAtomic(file, text);
+    if (!dryRun) writeAtomic(file, text);
   };
   const read = (rel) => (existsSync(join(paths.root, rel)) ? readFileSync(join(paths.root, rel), 'utf8') : '');
 
@@ -267,7 +261,7 @@ export function applyAnswers({ answers, root, packRoot, today, dryRun = false })
     written.push('data/student-cycle.json');
     const done = { ...cfg, onboarding: { complete: true } };
     validateConfig(done);
-    writeFileAtomic(join(paths.root, 'config', 'student.yml'), asYaml(done));
+    writeAtomic(join(paths.root, 'config', 'student.yml'), asYaml(done));
   }
   return { written, notes, clamped: effectiveLimits({ limits: answers.limits ?? {} }).clamps.map((c) => c.key) };
 }

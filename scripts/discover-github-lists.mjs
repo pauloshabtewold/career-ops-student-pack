@@ -3,7 +3,7 @@
 // Uses the unauthenticated GitHub REST search API (10 requests per minute); a run makes at most 10 search calls
 // paced 6 s apart, because the gh CLI needs a login that students do not have.
 // Usage: discover-github-lists.mjs [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--no-search] [--max-add N] [--json]
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, runCli } from '../lib/args.mjs';
@@ -11,7 +11,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { readCycle } from '../lib/cycle-file.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
-import { readTsv } from '../lib/tsv.mjs';
+import { readTsv, writeAtomic } from '../lib/tsv.mjs';
 import { isEligible } from '../plugins/github-lists/_eligibility.mjs';
 import { parseSource } from '../plugins/github-lists/_parsers.mjs';
 import { rawUrl } from '../plugins/github-lists/index.mjs';
@@ -37,13 +37,6 @@ function readRegistry(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
 }
 
-function writeAtomic(file, text) {
-  mkdirSync(resolve(file, '..'), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
-}
-
 // Retire and promote decisions for sources already in the registry.
 export function maintain(registry, today) {
   const events = [];
@@ -51,9 +44,9 @@ export function maintain(registry, today) {
   for (const s of registry.sources) {
     if (s.status !== 'active' && s.status !== 'trial') continue;
     const age = daysBetween(s.added ?? today, today);
-    const quietFor = (date) => daysBetween(date ?? s.added ?? today, today);
-    const stalePush = quietFor(s.last_push) > DISCOVERY.retire_days;
-    const noUnique = quietFor(s.last_unique) > DISCOVERY.retire_days;
+    const quietFor = (date) => daysBetween(date, today);
+    const stalePush = Boolean(s.last_push) && quietFor(s.last_push) > DISCOVERY.retire_days;
+    const noUnique = Boolean(s.last_unique) && quietFor(s.last_unique) > DISCOVERY.retire_days;
     const failing = Number(s.failed_parses ?? 0) >= DISCOVERY.failed_parses;
     if (stalePush || noUnique || failing) {
       const reason = failing ? `${DISCOVERY.failed_parses} failed parses` : stalePush ? 'no push in 30 days' : 'no unique rows in 30 days';
