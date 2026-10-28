@@ -22,6 +22,46 @@ career-ops/                 plain clone of career-ops-hq/career-ops
 
 Supported: macOS and Windows 11, Claude Code, US job markets.
 
+## Requirements
+
+- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code)
+- Node 22.13 or newer, and git
+- A clone of career-ops at version 1.38.0 or newer (the pack refuses to install on an older one)
+
+## Install
+
+Open a terminal in your career-ops folder.
+
+macOS (Terminal):
+
+```
+git clone <pack-url> student
+node student/install.mjs
+```
+
+Windows 11 (PowerShell):
+
+```
+git clone <pack-url> student
+node student/install.mjs
+```
+
+Then open the career-ops folder in Claude Code. The personalization interview starts on its own the first time.
+
+`install.mjs` writes only inside your career-ops folder: it lists `student/` and `CLAUDE.local.md` in `config/local-paths.txt`, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into `plugins.local/`. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again changes nothing.
+
+## Update
+
+```
+node student/update.mjs
+```
+
+This updates the pack and career-ops together and keeps career-ops inside the version range the pack supports. If you committed your own changes inside `student/`, the pack update is skipped and the script says so.
+
+## Switching things off
+
+LinkedIn outreach and the Handshake pass are on by default. Tell Claude "stop outreach" or "stop handshake" at any time. The caps on messages, applications and page loads are compiled into `student/scripts/budget.mjs`; settings can lower them but never raise them.
+
 ## Credit
 
 Built on [career-ops](https://github.com/career-ops-hq/career-ops) by its authors and contributors (MIT). The pack contains no upstream code; it calls upstream scripts as command-line tools and uses upstream's documented plugin API.
