@@ -58,6 +58,16 @@ node student/update.mjs
 
 This updates the pack and career-ops together and keeps career-ops inside the version range the pack supports. If you committed your own changes inside `student/`, the pack update is skipped and the script says so.
 
+## Daily use
+
+- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes `config/student.yml` and offers the daily schedule.
+- **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it.
+- **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and triages without any model call, then writes a digest in `data/digest/`.
+- **Inbox.** `node student/scripts/inbox.mjs` reads pasted or connector-provided mail and updates the tracker.
+- **Pilot report.** `node student/scripts/pilot-report.mjs` prints weekly counts and nothing else.
+
+Details are in [docs/usage.md](docs/usage.md).
+
 ## Switching things off
 
 LinkedIn outreach and the Handshake pass are on by default. Tell Claude "stop outreach" or "stop handshake" at any time. The caps on messages, applications and page loads are compiled into `student/scripts/budget.mjs`; settings can lower them but never raise them.
