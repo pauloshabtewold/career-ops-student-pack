@@ -1,0 +1,48 @@
+{
+  "upstream": {
+    "min": "1.38.0",
+    "max": "1.38.0",
+    "tag_prefix": "career-ops-v"
+  },
+  "budgetSha256": "8bf253a40a0521fe1954b0b68c92b3aa8446d08c7c4fc39ba892a8cb00d5ef17",
+  "pipelineSections": [
+    "Pending",
+    "Flagged",
+    "Skipped",
+    "Processed"
+  ],
+  "lockProtocol": {
+    "suffix": ".lock",
+    "owner": "owner.json",
+    "recover": ".lock.recover"
+  },
+  "cliContracts": {
+    "check-liveness": [
+      "--no-fallback",
+      "--file",
+      "--no-record"
+    ],
+    "set-status": [
+      "--note",
+      "--dry-run"
+    ],
+    "update-system": [
+      "check",
+      "apply --confirm",
+      "dismiss --version"
+    ],
+    "doctor": [
+      "--json"
+    ],
+    "audit-portals": [
+      "--json",
+      "--file",
+      "--baseline"
+    ],
+    "plugins": [
+      "run",
+      "trust",
+      "enable"
+    ]
+  }
+}
