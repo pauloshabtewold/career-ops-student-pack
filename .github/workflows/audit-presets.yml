@@ -1,0 +1,54 @@
+name: audit-presets
+
+on:
+  schedule:
+    - cron: "43 5 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - name: Install into upstream at the newest supported version
+        run: node scripts/ci/upstream-setup.mjs --out ${{ runner.temp }}/upstream
+      - name: Restore last month's output
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/audit-prev
+          key: preset-audit-${{ github.run_id }}
+          restore-keys: preset-audit-
+      - name: Audit each preset
+        run: |
+          mkdir -p "${{ runner.temp }}/audit-now" "${{ runner.temp }}/audit-prev"
+          cd "${{ runner.temp }}/upstream"
+          for file in student/presets/*.yml; do
+            id=$(basename "$file" .yml)
+            [ "$id" = "OWNERS" ] && continue
+            node student/scripts/preset-portals.mjs "$id" > "${{ runner.temp }}/portals-$id.yml"
+            args=(--json --file "${{ runner.temp }}/portals-$id.yml")
+            [ -f "${{ runner.temp }}/audit-prev/$id.json" ] && args+=(--baseline "${{ runner.temp }}/audit-prev/$id.json")
+            node audit-portals.mjs "${args[@]}" > "${{ runner.temp }}/audit-now/$id.json" || true
+          done
+      - name: Open one issue per flagged preset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/ci/audit-issues.mjs --current "${{ runner.temp }}/audit-now" --previous "${{ runner.temp }}/audit-prev" > "${{ runner.temp }}/issues.json"
+          node -e "const i=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));for(const x of i){require('child_process').execFileSync('gh',['issue','create','--repo',process.argv[2],'--title',x.title,'--body',x.body],{stdio:'inherit'})}" "${{ runner.temp }}/issues.json" ${{github.repository}}
+      - name: Keep this month's output for next time
+        run: |
+          rm -rf "${{ runner.temp }}/audit-prev"
+          cp -R "${{ runner.temp }}/audit-now" "${{ runner.temp }}/audit-prev"
+      - uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/audit-prev
+          key: preset-audit-${{ github.run_id }}

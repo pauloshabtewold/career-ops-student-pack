@@ -1,0 +1,80 @@
+name: canary
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.latest.outputs.version }}
+    steps:
+      - id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo career-ops-hq/career-ops --json tagName --jq .tagName)
+          echo "version=${tag#career-ops-v}" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - run: node --test --test-concurrency=1
+      - run: node scripts/ci/upstream-setup.mjs --out ${{ runner.temp }}/upstream --version ${{ needs.resolve.outputs.version }}
+      - run: node scripts/ci/assert-doctor.mjs ${{ runner.temp }}/upstream/doctor.json
+
+  bump:
+    needs: [resolve, test]
+    if: needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - id: bump
+        run: node scripts/ci/bump-compat.mjs ${{ needs.resolve.outputs.version }}
+        continue-on-error: true
+      - name: Open pull request in this repository
+        if: steps.bump.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git switch -c "canary/upstream-$VERSION"
+          git commit -am "Support career-ops $VERSION"
+          git push origin "canary/upstream-$VERSION"
+          gh pr create --repo ${{github.repository}} --title "Support career-ops $VERSION" --body "The canary passed against career-ops $VERSION on macOS and Windows. This raises compat.json upstream.max."
+
+  report:
+    needs: [resolve, test]
+    if: needs.test.result == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open issue in this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --repo ${{github.repository}} --title "Canary failed against career-ops $VERSION" --body "The test job failed. Run: $RUN_URL. Changelog: https://github.com/career-ops-hq/career-ops/releases/tag/career-ops-v$VERSION"

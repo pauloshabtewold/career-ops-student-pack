@@ -1,0 +1,27 @@
+name: safety-tag
+
+on:
+  push:
+    tags: ["safety-*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - name: Compare with the previous release or safety tag
+        env:
+          THIS_TAG: ${{ github.ref_name }}
+        run: |
+          prev=$(git tag --list 'v*' 'safety-*' --sort=-creatordate | grep -vx "$THIS_TAG" | head -n 1)
+          if [ -z "$prev" ]; then echo "no earlier tag to compare with"; exit 1; fi
+          node scripts/check-safety-tag.mjs "$prev" "$THIS_TAG"
