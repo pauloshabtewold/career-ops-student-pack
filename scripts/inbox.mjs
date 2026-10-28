@@ -187,15 +187,18 @@ function loadMessages(backend, flags) {
   return normalize('paste', readFileSync(flags.file, 'utf8'));
 }
 
-// Two different outcomes for one company on one day cannot both be right, so none is applied.
+// WHY: only auto-applied outcomes (Assessment vs Responded) can contradict each other. Proposal-only kinds
+// (rejection, interview, scheduling, question) never call set-status, so they must not suppress an applied outcome.
+const AUTO_KINDS = ['assessment', 'reply'];
+
 function conflictChecker(results) {
   const keyOf = (m, c) => `${compact(c.company)}|${m.date.slice(0, 10)}`;
   const outcomes = new Map();
   for (const { m, c } of results) {
-    if (!c.company || !['assessment', 'reply', 'question', 'rejection', 'interview', 'scheduling'].includes(c.kind)) continue;
+    if (!c.company || !AUTO_KINDS.includes(c.kind)) continue;
     outcomes.set(keyOf(m, c), new Set([...(outcomes.get(keyOf(m, c)) ?? []), c.kind]));
   }
-  return (m, c) => c.company && (outcomes.get(keyOf(m, c))?.size ?? 0) > 1;
+  return (m, c) => AUTO_KINDS.includes(c.kind) && c.company && (outcomes.get(keyOf(m, c))?.size ?? 0) > 1;
 }
 
 async function applyStatus({ m, c }, env) {
