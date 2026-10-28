@@ -197,7 +197,7 @@ async function setupScratch({ source, scratch, studentConfig, packRoot }) {
 const substitute = (args, today, ctx) => args.map((a) => a.replace('{today}', today).replace('{frozen}', ctx.frozen ?? '').replace('{tsv}', ctx.tsv ?? ''));
 
 // The clone keeps its working stage scripts in local/ while the root may hold older generic copies, so local/ wins.
-// null means no such script: the stage reports it instead of spawning a path that exits 1 and reads as a row difference.
+// null means no such script: the stage reports a missing script, so a spawned path that exits 1 is never read as a row difference.
 function localScript(baseline, name) {
   return [join(baseline, 'local', name), join(baseline, name), join(baseline, 'scripts', name)].find((p) => existsSync(p)) ?? null;
 }

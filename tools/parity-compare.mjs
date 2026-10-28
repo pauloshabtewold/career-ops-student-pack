@@ -69,7 +69,7 @@ function diffCounts(a, b) {
   return { added, missing };
 }
 
-// Fixed note vocabulary: a note never carries stage output, stderr or a path, only these strings and exit-code integers.
+// Note vocabulary, a closed set: a note never carries stage output, stderr or a path, only these strings and exit-code integers.
 export const NOTES = Object.freeze({
   baselineMissing: 'baseline script missing',
   packMissing: 'pack script missing',
