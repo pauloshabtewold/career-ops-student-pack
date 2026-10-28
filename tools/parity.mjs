@@ -11,23 +11,28 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
-import { compareFeed, compareStage, formatReport, overallVerdict } from './parity-compare.mjs';
+import { ConfigError, parseConfig } from '../lib/config.mjs';
+import { DEFAULT_JUDGMENT_KEYWORDS } from '../scripts/fail-audit.mjs';
+import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
+import { NOTES, compareCycle, compareFailAudit, compareFeed, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const FIXED_N = '10';
+// The whole candidate set is compared because top-n order follows score formulas that differ by design.
+const LARGE_N = '100000';
 const STAGE_TIMEOUT_MS = 300000;
 const MAX_STAGE_OUTPUT = 64 * 1024 * 1024;
 
 // One entry per deterministic stage. {today}, {frozen} and {tsv} are substituted. capture names a file read after the
 // run in place of stdout. frozen names an earlier stage whose baseline output both sides then consume.
+// compare picks the comparator, dependsOn names a stage whose error voids this one, explain names the allowance source.
 export const STAGES = [
-  { name: 'cycle', local: ['cycle.mjs', '--json', '--today', '{today}'], pack: ['cycle.mjs', '--json', '--today', '{today}'] },
-  { name: 'prefilter', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
-  { name: 'apply-triage', local: ['apply-triage.mjs', '{frozen}'], pack: ['apply-triage.mjs', '{frozen}'], frozen: 'prefilter', capture: join('data', 'pipeline.md') },
-  { name: 'merge-staging', local: ['merge-staging.mjs'], pack: ['merge-post.mjs', '--today', '{today}'], capture: join('data', 'pipeline.md') },
-  { name: 'rank-queue', local: ['rank-queue.mjs', '--json', '--n', FIXED_N, '--today', '{today}'], pack: ['rank-queue.mjs', '--json', '--n', FIXED_N, '--today', '{today}'] },
-  { name: 'fail-audit', local: ['fail-audit.mjs', 'pick', '--n', FIXED_N], pack: ['fail-audit.mjs', 'pick', '--n', FIXED_N] },
-  { name: 'handshake-import', local: ['handshake-import.mjs', '--out', join('data', 'handshake.out.md'), '{tsv}'], pack: ['handshake-import.mjs', '--out', join('data', 'handshake.out.md'), '{tsv}'], capture: join('data', 'handshake.out.md'), needsTsv: true },
+  { name: 'cycle', compare: 'cycle', local: ['cycle.mjs', '--json', '--today', '{today}'], pack: ['cycle.mjs', '--json', '--today', '{today}'] },
+  { name: 'prefilter', compare: 'rows', dependsOn: 'cycle', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
+  { name: 'apply-triage', compare: 'rows', local: ['apply-triage.mjs', '{frozen}'], pack: ['apply-triage.mjs', '{frozen}'], frozen: 'prefilter', capture: join('data', 'pipeline.md') },
+  { name: 'merge-staging', compare: 'rows', explain: 'merge-stats', local: ['merge-staging.mjs'], pack: ['merge-post.mjs', '--today', '{today}'], capture: join('data', 'pipeline.md') },
+  { name: 'rank-queue', compare: 'rank', local: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'], pack: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'] },
+  { name: 'fail-audit', compare: 'audit', local: ['fail-audit.mjs', 'pick', '--n', LARGE_N], pack: ['fail-audit.mjs', 'pick', '--n', LARGE_N] },
+  { name: 'handshake-import', compare: 'rows', local: ['handshake-import.mjs', '--out', join('data', 'handshake.out.md'), '{tsv}'], pack: ['handshake-import.mjs', '--out', join('data', 'handshake.out.md'), '{tsv}'], capture: join('data', 'handshake.out.md'), needsTsv: true },
 ];
 
 // Resolves symlinks in the longest existing prefix so a link cannot hide a scratch dir inside the pack or source.
@@ -64,23 +69,34 @@ export function checkArgs({ source, scratch, studentConfig }, packRoot = PACK_RO
   return { source: src, scratch: scr, studentConfig: cfg, packRoot: pack };
 }
 
+// Parsed before any scratch exists so a bad config is a usage error (exit 2) that creates nothing. Only a ConfigError
+// message (key path plus rule) is forwarded: js-yaml errors embed a snippet of the offending line.
+function checkStudentConfig(file, packRoot = PACK_ROOT) {
+  const text = readFileSync(file, 'utf8');
+  const defaults = readFileSync(join(packRoot, 'templates', 'student.defaults.yml'), 'utf8');
+  let config;
+  try {
+    config = parseConfig(text, defaults);
+  } catch (err) {
+    if (err instanceof ConfigError) throw new UsageError(`--student-config is invalid: ${err.message}`);
+    throw new UsageError('--student-config is not valid YAML');
+  }
+  const hint = 'copy tests/fixtures/parity/student.yml outside the repo and edit it';
+  if (config.presets.length === 0) throw new UsageError(`--student-config selects no preset; ${hint}`);
+  if (config.tracks.length === 0) throw new UsageError(`--student-config selects no track; ${hint}`);
+  return config;
+}
+
 // Removes only the scratch path this run created. Handlers are once-only; dispose() takes them off again.
-export function installCleanup(scratch, proc = process, exit = process.exit) {
+// Children are killed before the directory goes so no stage writes into a deleted or recreated scratch.
+export function installCleanup(scratch, proc = process, exit = process.exit, killChildren = () => {}) {
   const remove = () => rmSync(scratch, { recursive: true, force: true });
-  const handlers = {
-    SIGINT: () => {
-      remove();
-      exit(130);
-    },
-    SIGTERM: () => {
-      remove();
-      exit(143);
-    },
-    uncaughtException: () => {
-      remove();
-      exit(1);
-    },
+  const stop = (code) => () => {
+    killChildren();
+    remove();
+    exit(code);
   };
+  const handlers = { SIGINT: stop(130), SIGTERM: stop(143), uncaughtException: stop(1) };
   for (const [ev, fn] of Object.entries(handlers)) proc.once(ev, fn);
   return {
     remove,
@@ -155,7 +171,8 @@ const FLAG_SPEC = { common: false, flags: { source: 'string', scratch: 'string',
 function parseRunArgs(argv, packRootOpt) {
   try {
     const { flags } = parseArgs(argv, FLAG_SPEC);
-    return { flags, paths: checkArgs(flags, packRootOpt) };
+    const paths = checkArgs(flags, packRootOpt);
+    return { flags, paths, config: checkStudentConfig(paths.studentConfig, paths.packRoot) };
   } catch (err) {
     if (!(err instanceof UsageError)) throw err;
     console.error(err.message);
@@ -179,8 +196,10 @@ async function setupScratch({ source, scratch, studentConfig, packRoot }) {
 
 const substitute = (args, today, ctx) => args.map((a) => a.replace('{today}', today).replace('{frozen}', ctx.frozen ?? '').replace('{tsv}', ctx.tsv ?? ''));
 
+// The clone keeps its working stage scripts in local/ while the root may hold older generic copies, so local/ wins.
+// null means no such script: the stage reports it instead of spawning a path that exits 1 and reads as a row difference.
 function localScript(baseline, name) {
-  return existsSync(join(baseline, name)) ? join(baseline, name) : join(baseline, 'scripts', name);
+  return [join(baseline, 'local', name), join(baseline, name), join(baseline, 'scripts', name)].find((p) => existsSync(p)) ?? null;
 }
 
 async function runStageSide(env, stage, side, ctx) {
@@ -188,34 +207,80 @@ async function runStageSide(env, stage, side, ctx) {
   const [name, ...rest] = local ? stage.local : stage.pack;
   const root = local ? env.baseline : env.packDir;
   const script = local ? localScript(env.baseline, name) : join(env.packDir, 'student', 'scripts', name);
+  if (!script || !existsSync(script)) return { missing: true };
   const extra = local ? [] : ['--root', env.packDir];
   const res = await env.stageRunner({ stage: stage.name, side, script, args: [...substitute(rest, env.today, ctx), ...extra], cwd: root });
   const code = res && typeof res === 'object' ? res.code ?? res.status ?? 0 : 0;
+  const stdout = typeof res === 'string' ? res : res && typeof res.stdout === 'string' ? res.stdout : '';
   const captured = stage.capture && existsSync(join(root, stage.capture)) ? readFileSync(join(root, stage.capture), 'utf8') : outputOf(res);
-  return { out: captured, code };
+  return { out: captured, stdout, code };
+}
+
+// A failed side is an error, never a row difference: counting an exit mismatch as +1 let two failing sides pass.
+// Notes are fixed strings and exit integers because stderr can carry rows or paths.
+function stageFault(base, pack) {
+  if (base.missing) return NOTES.baselineMissing;
+  if (pack.missing) return NOTES.packMissing;
+  if (base.code !== 0 && pack.code !== 0) return exitNote('both', [base.code, pack.code]);
+  if (base.code !== 0) return exitNote('baseline', base.code);
+  if (pack.code !== 0) return exitNote('pack', pack.code);
+  return null;
+}
+
+// cycle.mjs refuses --today without --json or --dry-run and neither writes the file, so the pack prefilter would read
+// no cycle and skip the term rule. The baseline side gets no file: its prefilter computes its own cycle for --today
+// and the harness never writes into the baseline copy.
+function judgeCycle(env, name, baseOut, packOut) {
+  const result = compareCycle(name, baseOut, packOut);
+  if (result.verdict === 'error') return result;
+  try {
+    mkdirSync(join(env.packDir, 'data'), { recursive: true });
+    writeCycle(join(env.packDir, 'data', 'student-cycle.json'), JSON.parse(packOut));
+  } catch (err) {
+    if (!(err instanceof SyntaxError || err instanceof CycleFileError)) throw err;
+    return stageError(name, NOTES.packMalformed);
+  }
+  return result;
+}
+
+function judgeStage(env, stage, base, pack) {
+  const fault = stageFault(base, pack);
+  if (fault) return stageError(stage.name, fault);
+  if (stage.compare === 'cycle') return judgeCycle(env, stage.name, base.out, pack.out);
+  if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out);
+  if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, { keywords: env.keywords });
+  return compareStage(stage.name, base.out, pack.out, { explained: stage.explain === 'merge-stats' ? mergeAllowance(pack.stdout) : 0 });
 }
 
 async function runStages(env, state) {
   const results = [];
+  const verdicts = new Map();
   const outputs = {};
   const tsv = join(env.source, 'data', 'handshake-pages.tsv');
+  const record = (r) => {
+    results.push(r);
+    verdicts.set(r.stage, r.verdict);
+  };
   for (const stage of STAGES) {
     if (state.interrupted !== null) break;
-    if (stage.needsTsv && !existsSync(tsv)) continue;
+    if (stage.needsTsv && !existsSync(tsv)) {
+      record(skippedStage(stage.name, NOTES.noTsv));
+      continue;
+    }
+    // A stage fed by a failed stage would compare garbage, so it is marked error without running.
+    if ([stage.frozen, stage.dependsOn].some((dep) => dep && verdicts.get(dep) === 'error')) {
+      record(stageError(stage.name, NOTES.dependsOnFailed));
+      continue;
+    }
     const frozen = stage.frozen ? join(env.scratch, 'frozen', `${stage.frozen}.txt`) : undefined;
     if (frozen) writeFileSync(frozen, outputs[stage.frozen] ?? '');
     const ctx = { frozen, tsv: stage.needsTsv ? tsv : undefined };
     const base = await runStageSide(env, stage, 'baseline', ctx);
     if (state.interrupted !== null) break;
-    outputs[stage.name] = base.out;
+    outputs[stage.name] = base.out ?? '';
     const pack = await runStageSide(env, stage, 'pack', ctx);
     if (state.interrupted !== null) break;
-    const result = compareStage(stage.name, base.out, pack.out);
-    if (base.code !== pack.code) {
-      result.verdict = 'fail';
-      result.added += 1;
-    }
-    results.push(result);
+    record(judgeStage(env, stage, base, pack));
   }
   return results;
 }
@@ -223,7 +288,7 @@ async function runStages(env, state) {
 async function runFeedCompare(env) {
   const fetchFeed = async (side, args) => {
     const local = side === 'baseline';
-    const script = local ? localScript(env.baseline, 'scan.mjs') : join(env.packDir, 'student', 'scripts', 'discover-github-lists.mjs');
+    const script = local ? localScript(env.baseline, 'scan.mjs') ?? join(env.baseline, 'scan.mjs') : join(env.packDir, 'student', 'scripts', 'discover-github-lists.mjs');
     const res = await env.stageRunner({ stage: 'feed', side, script, args, cwd: local ? env.baseline : env.packDir });
     return outputOf(res);
   };
@@ -234,10 +299,10 @@ async function runFeedCompare(env) {
   return compareFeed(fetchA, fetchB, local);
 }
 
-function reportAndExit({ interrupted, failed, text, results, report }) {
+function reportAndExit({ interrupted, failure, text, results, report }) {
   if (interrupted !== null) return interrupted;
-  if (failed) {
-    console.error('parity run failed; scratch copy removed');
+  if (failure) {
+    console.error(`parity run failed (${failure.name}); scratch copy removed`);
     return 1;
   }
   if (report) writeFileSync(resolve(report), text);
@@ -245,36 +310,37 @@ function reportAndExit({ interrupted, failed, text, results, report }) {
   return overallVerdict(results) === 'fail' ? 1 : 0;
 }
 
-// Returns an exit code: 0 pass or explained, 1 fail or a stage error, 2 usage, 130/143 interrupted.
+// Returns an exit code: 0 pass or explained, 1 fail, any stage error or a crashed run, 2 usage, 130/143 interrupted.
 export async function runParity(argv, { stageRunner = defaultStageRunner, proc = process, exit = process.exit, packRoot: packRootOpt = PACK_ROOT } = {}) {
   const parsed = parseRunArgs(argv, packRootOpt);
   if (parsed.code !== undefined) return parsed.code;
-  const { flags, paths } = parsed;
+  const { flags, paths, config } = parsed;
   const today = flags.today ?? createClock({}).today();
+  const keywords = config.judgment_keywords.length ? config.judgment_keywords : DEFAULT_JUDGMENT_KEYWORDS;
 
   mkdirSync(paths.scratch, { recursive: true });
   const state = { interrupted: null };
   const cleanup = installCleanup(paths.scratch, proc, (code) => {
     state.interrupted = code;
-    killActiveChildren();
     exit(code);
-  });
+  }, killActiveChildren);
   let results = [];
   let text = null;
-  let failed = false;
+  let failure = null;
   try {
     const dirs = await setupScratch(paths);
-    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner };
+    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, keywords };
     if (state.interrupted === null) results = await runStages(env, state);
     if (state.interrupted === null && flags.withFeeds) results.push(await runFeedCompare(env));
     if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot) });
-  } catch {
-    failed = true;
+  } catch (err) {
+    // Only the class name is kept: the message can hold paths or rows from the scratch copy.
+    failure = { name: err?.name ?? 'Error' };
   } finally {
     cleanup.remove();
     cleanup.dispose();
   }
-  return reportAndExit({ interrupted: state.interrupted, failed, text, results, report: flags.report });
+  return reportAndExit({ interrupted: state.interrupted, failure, text, results, report: flags.report });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(() => runParity(process.argv.slice(2)));
