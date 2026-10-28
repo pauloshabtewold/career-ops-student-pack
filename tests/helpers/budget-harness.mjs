@@ -78,7 +78,7 @@ export async function makePack({ config = '', rows = [] } = {}) {
 }
 
 export async function readLog(pack) {
-  return existsSync(pack.logFile) ? readTsv(pack.logFile) : [];
+  return existsSync(pack.logFile) ? (await readTsv(pack.logFile)).rows : [];
 }
 
 export function run(pack, argv, { today = DAY } = {}) {
