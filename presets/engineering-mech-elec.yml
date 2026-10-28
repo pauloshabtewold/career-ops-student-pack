@@ -1,0 +1,262 @@
+id: engineering-mech-elec
+name: "Mechanical, aerospace, electrical and chemical engineering"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: community lists exist for mechanical, electrical and aerospace; chemical is thin. Defense and aerospace roles often need citizenship, so the filters exclude clearance-only postings."
+title_rules:
+  include:
+    - "engineer"
+    - "mechanical"
+    - "electrical"
+    - "aerospace"
+    - "chemical"
+    - "hardware"
+    - "manufacturing"
+    - "process"
+    - "design"
+    - "test"
+    - "systems"
+    - "controls"
+    - "power"
+    - "embedded"
+    - "co-?op"
+  exclude:
+    - "security clearance required"
+    - "ts/sci"
+    - "u\\.s\\. citizen(ship)? only"
+    - "citizenship required"
+    - "sales"
+    - "recruit"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|engineer i|associate engineer|junior|university|campus|rotational)\\b"
+recruiting_calendar:
+  rollover_month: 8
+  lead_months: 12
+  terms:
+    - {name: Spring, start_month: 1}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists:
+    - name: tracker05-me
+      repo: Tracker05/mechanical-engineering-internships
+      path: jobs.json
+      format: json-array
+      kind: internship
+    - name: wonofakind-2027
+      repo: WonOfAKind/New-Grad-And-Internships-2027
+      path: jobs.json
+      format: json-array
+      kind: internship
+    - name: hiderrick-eng
+      repo: hiderrick/Engineering-Internships-Summer-2027
+      path: jobs.json
+      format: json-array
+      kind: internship
+    - name: meche-tracker
+      repo: MechEJobTracker/MechEJobTracker
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: litos-me
+      repo: mehek-builds/Hiring-Now
+      path: mechanical-engineering.csv
+      format: csv
+      kind: internship
+    - name: litos-ee
+      repo: mehek-builds/Hiring-Now
+      path: electrical-engineering.csv
+      format: csv
+      kind: internship
+    - name: litos-aero
+      repo: mehek-builds/Hiring-Now
+      path: aerospace-engineering.csv
+      format: csv
+      kind: internship
+    - name: litos-che
+      repo: mehek-builds/Hiring-Now
+      path: chemical-engineering.csv
+      format: csv
+      kind: internship
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save searches for mechanical, electrical or aerospace engineering intern and co-op."
+    - name: "Society career centers"
+      how: "ASME, AIChE, AIAA and IEEE post boards for members; check them by hand."
+search_terms:
+  - "mechanical engineering intern"
+  - "electrical engineering intern"
+  - "aerospace engineering co-op"
+  - "chemical engineering intern"
+  - "manufacturing engineer new grad"
+seed_employers:
+  - name: "Lockheed Martin"
+    careers_url: https://www.lockheedmartinjobs.com
+  - name: "Boeing"
+    careers_url: https://jobs.boeing.com
+  - name: "Northrop Grumman"
+    careers_url: https://www.northropgrumman.com/jobs
+  - name: "RTX"
+    careers_url: https://careers.rtx.com
+  - name: "General Dynamics"
+    careers_url: https://www.gdit.com/careers
+  - name: "L3Harris"
+    careers_url: https://careers.l3harris.com
+  - name: "BAE Systems"
+    careers_url: https://www.baesystems.com/en-us/careers
+  - name: "Huntington Ingalls Industries"
+    careers_url: https://www.hii.com/careers
+  - name: "Textron"
+    careers_url: https://www.textron.com/careers
+  - name: "Leidos"
+    careers_url: https://careers.leidos.com
+  - name: "SpaceX"
+    careers_url: https://www.spacex.com/careers
+  - name: "Blue Origin"
+    careers_url: https://www.blueorigin.com/careers
+  - name: "Anduril"
+    careers_url: https://boards.greenhouse.io/andurilindustries
+  - name: "Sierra Space"
+    careers_url: https://www.sierraspace.com/careers
+  - name: "Rocket Lab"
+    careers_url: https://www.rocketlabusa.com/careers
+  - name: "Relativity Space"
+    careers_url: https://www.relativityspace.com/careers
+  - name: "Joby Aviation"
+    careers_url: https://jobs.lever.co/joby
+  - name: "Archer Aviation"
+    careers_url: https://www.archer.com/careers
+  - name: "Collins Aerospace"
+    careers_url: https://careers.rtx.com
+  - name: "Honeywell"
+    careers_url: https://careers.honeywell.com
+  - name: "GE Aerospace"
+    careers_url: https://careers.geaerospace.com
+  - name: "GE Vernova"
+    careers_url: https://careers.gevernova.com
+  - name: "Pratt & Whitney"
+    careers_url: https://careers.rtx.com
+  - name: "Spirit AeroSystems"
+    careers_url: https://www.spiritaero.com/careers
+  - name: "Ford Motor Company"
+    careers_url: https://corporate.ford.com/careers
+  - name: "General Motors"
+    careers_url: https://search-careers.gm.com
+  - name: "Tesla"
+    careers_url: https://www.tesla.com/careers
+  - name: "Rivian"
+    careers_url: https://www.rivian.com/careers
+  - name: "Lucid Motors"
+    careers_url: https://www.lucidmotors.com/careers
+  - name: "Stellantis"
+    careers_url: https://www.stellantis.com/en/careers
+  - name: "Toyota North America"
+    careers_url: https://www.toyota.com/usa/careers
+  - name: "Honda"
+    careers_url: https://careers.honda.com
+  - name: "Cummins"
+    careers_url: https://www.cummins.com/careers
+  - name: "Caterpillar"
+    careers_url: https://www.caterpillar.com/en/careers
+  - name: "Deere & Company"
+    careers_url: https://www.deere.com/en/careers
+  - name: "Paccar"
+    careers_url: https://www.paccar.com/careers
+  - name: "Eaton"
+    careers_url: https://www.eaton.com/us/en-us/company/careers
+  - name: "Emerson"
+    careers_url: https://www.emerson.com/en-us/careers
+  - name: "Rockwell Automation"
+    careers_url: https://www.rockwellautomation.com/en-us/company/careers
+  - name: "Parker Hannifin"
+    careers_url: https://www.parker.com/careers
+  - name: "Johnson Controls"
+    careers_url: https://www.jci.com/careers
+  - name: "Carrier"
+    careers_url: https://careers.carrier.com
+  - name: "Trane Technologies"
+    careers_url: https://www.tranetechnologies.com/careers
+  - name: "3M"
+    careers_url: https://www.3m.com/3M/en_US/careers-us
+  - name: "Dow"
+    careers_url: https://careers.dow.com
+  - name: "DuPont"
+    careers_url: https://careers.dupont.com
+  - name: "LyondellBasell"
+    careers_url: https://www.lyondellbasell.com/careers
+  - name: "ExxonMobil"
+    careers_url: https://corporate.exxonmobil.com/careers
+  - name: "Chevron"
+    careers_url: https://www.chevron.com/careers
+  - name: "ConocoPhillips"
+    careers_url: https://www.conocophillips.com/careers
+  - name: "Schlumberger"
+    careers_url: https://careers.slb.com
+  - name: "Halliburton"
+    careers_url: https://www.halliburton.com/careers
+  - name: "Baker Hughes"
+    careers_url: https://careers.bakerhughes.com
+  - name: "NextEra Energy"
+    careers_url: https://www.nexteraenergy.com/careers
+  - name: "Duke Energy"
+    careers_url: https://www.dukeenergy.com/careers
+  - name: "Southern Company"
+    careers_url: https://www.southerncompany.com/careers
+  - name: "Dominion Energy"
+    careers_url: https://www.dominionenergy.com/careers
+  - name: "Tesla Energy"
+    careers_url: https://www.tesla.com/careers
+  - name: "First Solar"
+    careers_url: https://www.firstsolar.com/careers
+  - name: "Intel"
+    careers_url: https://www.intel.com/content/www/us/en/jobs
+  - name: "AMD"
+    careers_url: https://careers.amd.com
+  - name: "NVIDIA"
+    careers_url: https://www.nvidia.com/en-us/about-nvidia/careers
+  - name: "Qualcomm"
+    careers_url: https://careers.qualcomm.com
+  - name: "Texas Instruments"
+    careers_url: https://www.ti.com/careers
+  - name: "Analog Devices"
+    careers_url: https://www.analog.com/en/careers
+  - name: "Micron"
+    careers_url: https://www.micron.com/careers
+  - name: "Applied Materials"
+    careers_url: https://careers.appliedmaterials.com
+  - name: "Lam Research"
+    careers_url: https://www.lamresearch.com/careers
+  - name: "KLA"
+    careers_url: https://www.kla.com/careers
+  - name: "Broadcom"
+    careers_url: https://www.broadcom.com/company/careers
+  - name: "Microchip Technology"
+    careers_url: https://www.microchip.com/careers
+  - name: "Skyworks"
+    careers_url: https://www.skyworksinc.com/careers
+  - name: "Western Digital"
+    careers_url: https://jobs.westerndigital.com
+  - name: "Apple"
+    careers_url: https://jobs.apple.com
+  - name: "Medtronic"
+    careers_url: https://www.medtronic.com/careers
+  - name: "Abbott"
+    careers_url: https://www.abbott.com/careers
+  - name: "Stryker"
+    careers_url: https://www.stryker.com/careers
+  - name: "Procter & Gamble"
+    careers_url: https://www.pgcareers.com
+  - name: "Amazon"
+    careers_url: https://www.amazon.jobs
+  - name: "Corning"
+    careers_url: https://www.corning.com/careers
+assessment_domains:
+  - "hirevue.com"
+  - "shl.com"
+  - "codility.com"
+  - "pymetrics.com"
+archetypes:
+  - "Mechanical design engineer"
+  - "Electrical or embedded engineer"
+  - "Aerospace systems engineer"
+  - "Process or manufacturing engineer"
+employer_policies: []

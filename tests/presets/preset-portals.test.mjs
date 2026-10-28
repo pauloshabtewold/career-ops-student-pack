@@ -1,0 +1,56 @@
+// Assumed: scripts/preset-portals.mjs exports presetPortals(id) -> YAML string, and as a CLI
+// (`node scripts/preset-portals.mjs <id>`) prints that string to stdout.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import * as yaml from 'js-yaml';
+import { presetPortals } from '../../scripts/preset-portals.mjs';
+import { loadPreset } from '../../lib/presets.mjs';
+import { PACK_ROOT } from '../helpers/script-harness.mjs';
+
+const NAMED = ['software-cs', 'mis-business-analytics', 'finance-economics', 'accounting', 'engineering-mech-elec', 'policy-government'];
+
+function check(id, text) {
+  const doc = yaml.load(text);
+  const seeds = loadPreset(id).seed_employers;
+  assert.ok(Array.isArray(doc.tracked_companies), id);
+  assert.equal(doc.tracked_companies.length, seeds.length, id);
+  doc.tracked_companies.forEach((e, i) => {
+    assert.deepEqual(Object.keys(e).sort(), ['careers_url', 'enabled', 'name'], `${id} entry ${i}`);
+    assert.equal(e.enabled, true, `${id} entry ${i}`);
+    assert.equal(e.name, seeds[i].name);
+    assert.equal(e.careers_url, seeds[i].careers_url);
+  });
+}
+
+// M-006-S10
+for (const id of NAMED) {
+  test(`M-006-S10 CLI prints tracked_companies YAML for ${id}`, () => {
+    const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'preset-portals.mjs'), id], { cwd: PACK_ROOT, encoding: 'utf8', timeout: 60000 });
+    assert.equal(out.status, 0, out.stderr);
+    check(id, out.stdout);
+  });
+}
+
+test('M-006-S10 presetPortals(id) returns the same YAML', async () => {
+  check('software-cs', String(await presetPortals('software-cs')));
+});
+
+// M-006-S11
+test('M-006-S11 every resume fixture is marked SYNTHETIC FIXTURE with example emails and 555-01xx numbers', () => {
+  const dir = join(PACK_ROOT, 'tests', 'fixtures', 'resumes');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
+  assert.deepEqual(files, ['cs.md', 'finance.md', 'mechanical.md', 'mis.md', 'nursing.md']);
+  for (const f of files) {
+    const text = readFileSync(join(dir, f), 'utf8');
+    assert.ok(text.split('\n').slice(0, 5).join('\n').includes('SYNTHETIC FIXTURE'), `${f} marker`);
+    const emails = [...text.matchAll(/[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g)];
+    assert.ok(emails.length > 0, `${f} has an email`);
+    for (const m of emails) assert.match(m[1], /^(example\.(com|org|net|edu))$/i, `${f} email domain`);
+    const phones = [...text.matchAll(/(?<![\w.-])(?:\+?1[ .-]?)?\(?([2-9]\d{2})\)?[ .-](\d{3})[ .-](\d{4})(?![\w-])/g)];
+    assert.ok(phones.length > 0, `${f} has a phone`);
+    for (const m of phones) assert.ok(m[2] === '555' && /^01\d\d$/.test(m[3]), `${f} phone ${m[0]}`);
+  }
+});

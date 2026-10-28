@@ -1,0 +1,262 @@
+id: finance-economics
+name: "Finance, economics"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: only corporate finance has a community list; banks, asset managers and rotational programs come from the employer list below, and investment banking windows open far ahead."
+title_rules:
+  include:
+    - "analyst"
+    - "finance"
+    - "financial"
+    - "investment"
+    - "banking"
+    - "markets"
+    - "trading"
+    - "treasury"
+    - "fp&a"
+    - "risk"
+    - "research"
+    - "economist"
+    - "rotational"
+    - "quantitative"
+  exclude:
+    - "sales representative"
+    - "teller"
+    - "recruit"
+    - "nurse"
+early_career: "\\b(intern(ship)?|summer analyst|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst program|rotational|leadership program|campus|university|associate)\\b"
+recruiting_calendar:
+  rollover_month: 4
+  lead_months: 15
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 3}
+    - {name: Summer, start_month: 6}
+    - {name: Fall, start_month: 9}
+sources:
+  github_lists:
+    - name: jobright-account-intern
+      repo: jobright-ai/2026-Account-Internship
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: jobright-account-newgrad
+      repo: jobright-ai/2026-Account-New-Grad
+      path: README.md
+      format: markdown-table
+      kind: newgrad
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save searches for summer analyst, finance intern and rotational program."
+    - name: "LinkedIn job alerts"
+      how: "Alerts for investment banking analyst and corporate finance."
+    - name: "Bank career sites"
+      how: "Banks post analyst programs on their own sites; check them in the fall."
+search_terms:
+  - "summer analyst"
+  - "finance intern"
+  - "corporate finance rotational program"
+  - "investment banking analyst"
+seed_employers:
+  - name: "Goldman Sachs"
+    careers_url: https://www.goldmansachs.com/careers
+  - name: "Morgan Stanley"
+    careers_url: https://www.morganstanley.com/careers
+  - name: "JPMorgan Chase"
+    careers_url: https://careers.jpmorgan.com
+  - name: "Bank of America"
+    careers_url: https://campus.bankofamerica.com
+  - name: "Citi"
+    careers_url: https://jobs.citi.com
+  - name: "Wells Fargo"
+    careers_url: https://www.wellsfargojobs.com
+  - name: "Barclays"
+    careers_url: https://search.jobs.barclays
+  - name: "Deutsche Bank"
+    careers_url: https://careers.db.com
+  - name: "UBS"
+    careers_url: https://www.ubs.com/global/en/careers
+  - name: "Jefferies"
+    careers_url: https://www.jefferies.com/careers
+  - name: "Lazard"
+    careers_url: https://www.lazard.com/careers
+  - name: "Evercore"
+    careers_url: https://www.evercore.com/careers
+  - name: "Moelis"
+    careers_url: https://www.moelis.com/careers
+  - name: "PJT Partners"
+    careers_url: https://www.pjtpartners.com/careers
+  - name: "Houlihan Lokey"
+    careers_url: https://www.hl.com/careers
+  - name: "Piper Sandler"
+    careers_url: https://www.pipersandler.com/careers
+  - name: "Raymond James"
+    careers_url: https://www.raymondjames.com/careers
+  - name: "William Blair"
+    careers_url: https://www.williamblair.com/careers
+  - name: "Stifel"
+    careers_url: https://www.stifel.com/careers
+  - name: "BlackRock"
+    careers_url: https://careers.blackrock.com
+  - name: "Vanguard"
+    careers_url: https://www.vanguardjobs.com
+  - name: "Fidelity Investments"
+    careers_url: https://jobs.fidelity.com
+  - name: "State Street"
+    careers_url: https://careers.statestreet.com
+  - name: "T. Rowe Price"
+    careers_url: https://www.troweprice.com/careers
+  - name: "Charles Schwab"
+    careers_url: https://www.schwabjobs.com
+  - name: "Invesco"
+    careers_url: https://careers.invesco.com
+  - name: "Franklin Templeton"
+    careers_url: https://www.franklintempletoncareers.com
+  - name: "PIMCO"
+    careers_url: https://www.pimco.com/en-us/careers
+  - name: "Wellington Management"
+    careers_url: https://www.wellington.com/en/careers
+  - name: "Capital Group"
+    careers_url: https://www.capitalgroup.com/careers
+  - name: "Northern Trust"
+    careers_url: https://careers.northerntrust.com
+  - name: "BNY"
+    careers_url: https://www.bny.com/corporate/global/en/about-us/careers
+  - name: "Capital One"
+    careers_url: https://www.capitalonecareers.com
+  - name: "American Express"
+    careers_url: https://www.aexp.com/careers
+  - name: "Discover Financial Services"
+    careers_url: https://jobs.discover.com
+  - name: "US Bancorp"
+    careers_url: https://careers.usbank.com
+  - name: "PNC"
+    careers_url: https://www.pnc.com/en/about-pnc/careers
+  - name: "Truist"
+    careers_url: https://careers.truist.com
+  - name: "Fifth Third Bank"
+    careers_url: https://www.53.com/careers
+  - name: "KeyBank"
+    careers_url: https://www.key.com/about/careers
+  - name: "Citizens"
+    careers_url: https://jobs.citizensbank.com
+  - name: "Ally Financial"
+    careers_url: https://www.ally.com/about/careers
+  - name: "Mastercard"
+    careers_url: https://careers.mastercard.com
+  - name: "Visa"
+    careers_url: https://corporate.visa.com/en/jobs
+  - name: "BlackStone"
+    careers_url: https://www.blackstone.com/careers
+  - name: "KKR"
+    careers_url: https://www.kkr.com/careers
+  - name: "Apollo Global Management"
+    careers_url: https://www.apollo.com/careers
+  - name: "Carlyle"
+    careers_url: https://www.carlyle.com/careers
+  - name: "Bain Capital"
+    careers_url: https://www.baincapital.com/careers
+  - name: "TPG"
+    careers_url: https://www.tpg.com/careers
+  - name: "Citadel"
+    careers_url: https://www.citadel.com/careers
+  - name: "Two Sigma"
+    careers_url: https://careers.twosigma.com
+  - name: "Jane Street"
+    careers_url: https://www.janestreet.com/join-jane-street
+  - name: "Susquehanna International Group"
+    careers_url: https://www.sig.com/careers
+  - name: "Jump Trading"
+    careers_url: https://www.jumptrading.com/careers
+  - name: "DRW"
+    careers_url: https://www.drw.com/careers
+  - name: "Optiver"
+    careers_url: https://www.optiver.com/working-at-optiver
+  - name: "IMC Trading"
+    careers_url: https://www.imc.com/us/careers
+  - name: "Hudson River Trading"
+    careers_url: https://www.hudsonrivertrading.com/careers
+  - name: "Point72"
+    careers_url: https://www.point72.com/careers
+  - name: "Millennium Management"
+    careers_url: https://www.mlp.com/careers
+  - name: "Bridgewater Associates"
+    careers_url: https://www.bridgewater.com/careers
+  - name: "AQR Capital Management"
+    careers_url: https://www.aqr.com/Careers
+  - name: "Moody's"
+    careers_url: https://careers.moodys.com
+  - name: "S&P Global"
+    careers_url: https://www.spglobal.com/careers
+  - name: "MSCI"
+    careers_url: https://careers.msci.com
+  - name: "Fitch Ratings"
+    careers_url: https://www.fitchratings.com/careers
+  - name: "FactSet"
+    careers_url: https://www.goto.factset.com/careers
+  - name: "Bloomberg"
+    careers_url: https://www.bloomberg.com/careers
+  - name: "Morningstar"
+    careers_url: https://www.morningstar.com/careers
+  - name: "Nasdaq"
+    careers_url: https://www.nasdaq.com/careers
+  - name: "CME Group"
+    careers_url: https://www.cmegroup.com/careers
+  - name: "Intercontinental Exchange"
+    careers_url: https://www.ice.com/careers
+  - name: "Prudential Financial"
+    careers_url: https://www.prudential.com/careers
+  - name: "MetLife"
+    careers_url: https://www.metlife.com/about-us/careers
+  - name: "New York Life"
+    careers_url: https://www.newyorklife.com/careers
+  - name: "Northwestern Mutual"
+    careers_url: https://www.northwesternmutual.com/careers
+  - name: "Lincoln Financial"
+    careers_url: https://www.lfg.com/careers
+  - name: "Principal Financial Group"
+    careers_url: https://www.principal.com/careers
+  - name: "AIG"
+    careers_url: https://www.aig.com/careers
+  - name: "Travelers"
+    careers_url: https://www.travelers.com/careers
+  - name: "Chubb"
+    careers_url: https://careers.chubb.com
+  - name: "Marsh McLennan"
+    careers_url: https://www.marshmclennan.com/careers
+  - name: "Aon"
+    careers_url: https://www.aon.com/careers
+  - name: "Deloitte"
+    careers_url: https://www.deloitte.com/us/en/careers
+  - name: "PwC"
+    careers_url: https://www.pwc.com/us/en/careers
+  - name: "EY"
+    careers_url: https://www.ey.com/en_us/careers
+  - name: "KPMG"
+    careers_url: https://www.kpmgcareers.com
+  - name: "Federal Reserve Banks"
+    careers_url: https://www.rssd.org/careers
+  - name: "Procter & Gamble"
+    careers_url: https://www.pgcareers.com
+  - name: "PepsiCo"
+    careers_url: https://www.pepsicojobs.com
+  - name: "Walmart"
+    careers_url: https://careers.walmart.com
+  - name: "Ford Motor Company"
+    careers_url: https://corporate.ford.com/careers
+  - name: "General Electric"
+    careers_url: https://careers.ge.com
+  - name: "Honeywell"
+    careers_url: https://careers.honeywell.com
+assessment_domains:
+  - "hirevue.com"
+  - "shl.com"
+  - "pymetrics.com"
+  - "criteriacorp.com"
+  - "codesignal.com"
+archetypes:
+  - "Investment banking or markets analyst"
+  - "Corporate finance rotational"
+  - "Asset management analyst"
+  - "Economics research analyst"
+employer_policies: []

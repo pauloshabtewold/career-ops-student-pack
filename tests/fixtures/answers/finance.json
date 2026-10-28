@@ -1,0 +1,74 @@
+{
+  "identity": {
+    "name": "Morgan Fixture",
+    "email": "morgan.fixture@example.edu",
+    "phone": "415-555-0142"
+  },
+  "presets": [
+    "finance-economics"
+  ],
+  "tracks": [
+    {
+      "kind": "internship",
+      "graduation": "2028-05",
+      "resume_variant": "finance-main"
+    }
+  ],
+  "experience_years": 0,
+  "locations": [
+    "New York, NY",
+    "Charlotte, NC"
+  ],
+  "work_authorization": "F-1 student, needs sponsorship",
+  "needs_sponsorship": true,
+  "dealbreakers": [
+    "unpaid"
+  ],
+  "priority_companies": [
+    "Example Capital Partners"
+  ],
+  "blacklist": [
+    "Example Staffing Group"
+  ],
+  "target_employers": [
+    {
+      "name": "Example finance Target 1",
+      "careers_url": "https://careers.example.com/finance/1"
+    },
+    {
+      "name": "Example finance Target 2",
+      "careers_url": "https://careers.example.com/finance/2"
+    }
+  ],
+  "sources_chosen": [
+    "github-lists"
+  ],
+  "mailbox_backend": "connector",
+  "spend_tier": "standard",
+  "automation": "scheduled-discovery",
+  "daily_target": 8,
+  "score_floor": 4,
+  "switches": {
+    "outreach": "on",
+    "handshake": "off",
+    "submission": "agent"
+  },
+  "limits": {
+    "connect_per_day": 50,
+    "nudge_min_days": 2
+  },
+  "timezone": "America/New_York",
+  "schedule_time": "06:30",
+  "resume_variants": [
+    {
+      "name": "finance-main",
+      "track": "internship",
+      "graduation": "2028-05",
+      "page_limit": 1
+    }
+  ],
+  "archetypes": [
+    "Investment banking analyst",
+    "Corporate finance rotational analyst"
+  ]
+}
