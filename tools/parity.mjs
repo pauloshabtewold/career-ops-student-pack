@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { ConfigError, parseConfig } from '../lib/config.mjs';
-import { DEFAULT_JUDGMENT_KEYWORDS } from '../scripts/fail-audit.mjs';
+import { auditOptions } from '../scripts/fail-audit.mjs';
 import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
 import { NOTES, compareCycle, compareFailAudit, compareFeed, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
@@ -248,7 +248,7 @@ function judgeStage(env, stage, base, pack) {
   if (fault) return stageError(stage.name, fault);
   if (stage.compare === 'cycle') return judgeCycle(env, stage.name, base.out, pack.out);
   if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out);
-  if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, { keywords: env.keywords });
+  if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, env.audit);
   return compareStage(stage.name, base.out, pack.out, { explained: stage.explain === 'merge-stats' ? mergeAllowance(pack.stdout) : 0 });
 }
 
@@ -316,7 +316,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   if (parsed.code !== undefined) return parsed.code;
   const { flags, paths, config } = parsed;
   const today = flags.today ?? createClock({}).today();
-  const keywords = config.judgment_keywords.length ? config.judgment_keywords : DEFAULT_JUDGMENT_KEYWORDS;
+  const audit = auditOptions(config);
 
   mkdirSync(paths.scratch, { recursive: true });
   const state = { interrupted: null };
@@ -329,7 +329,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   let failure = null;
   try {
     const dirs = await setupScratch(paths);
-    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, keywords };
+    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit };
     if (state.interrupted === null) results = await runStages(env, state);
     if (state.interrupted === null && flags.withFeeds) results.push(await runFeedCompare(env));
     if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot) });
