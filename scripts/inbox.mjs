@@ -214,7 +214,8 @@ async function applyStatus({ m, c }, env) {
     const res = await runner(args, { cwd: paths.root });
     if (res.code !== 0) out.failedIds.add(m.id);
     out.applied.push(res.code === 0 ? `- ${m.id} ${c.company}: ${status}` : `- ${m.id} ${c.company}: set-status failed (exit ${res.code})`);
-    out.notices.push(`${c.company}: marked ${status}`);
+    // A failed set-status already shows in applied and failedIds; a marked notice would contradict it.
+    if (res.code === 0) out.notices.push(`${c.company}: marked ${status}`);
   }
 }
 
