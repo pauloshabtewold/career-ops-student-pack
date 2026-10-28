@@ -4,8 +4,8 @@
 // can be applied in CI without a model. Nothing is written when validation fails, and onboarding.complete flips to
 // true only after every other file and the cycle computation succeeded.
 // Usage: apply-answers.mjs <answers.json> [--root R] [--today YYYY-MM-DD] [--dry-run]
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
@@ -13,6 +13,7 @@ import { createClock } from '../lib/clock.mjs';
 import { deepMerge, validateConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 import { runCycle } from '../scripts/cycle.mjs';
 import { CEILINGS, effectiveLimits } from '../scripts/budget.mjs';
 
@@ -116,13 +117,6 @@ function portalLines(answers, merged) {
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
-}
-
-function writeFileAtomic(file, text) {
-  mkdirSync(dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
 }
 
 export function buildConfig(answers) {
@@ -252,7 +246,7 @@ export function applyAnswers({ answers, root, packRoot, today, dryRun = false })
     const file = join(paths.root, rel);
     if (keep && existsSync(file)) return;
     written.push(rel);
-    if (!dryRun) writeFileAtomic(file, text);
+    if (!dryRun) writeAtomic(file, text);
   };
   const read = (rel) => (existsSync(join(paths.root, rel)) ? readFileSync(join(paths.root, rel), 'utf8') : '');
 
@@ -267,7 +261,7 @@ export function applyAnswers({ answers, root, packRoot, today, dryRun = false })
     written.push('data/student-cycle.json');
     const done = { ...cfg, onboarding: { complete: true } };
     validateConfig(done);
-    writeFileAtomic(join(paths.root, 'config', 'student.yml'), asYaml(done));
+    writeAtomic(join(paths.root, 'config', 'student.yml'), asYaml(done));
   }
   return { written, notes, clamped: effectiveLimits({ limits: answers.limits ?? {} }).clamps.map((c) => c.key) };
 }

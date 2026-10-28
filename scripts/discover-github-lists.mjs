@@ -3,7 +3,7 @@
 // Uses the unauthenticated GitHub REST search API (10 requests per minute); a run makes at most 10 search calls
 // paced 6 s apart, because the gh CLI needs a login that students do not have.
 // Usage: discover-github-lists.mjs [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--no-search] [--max-add N] [--json]
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, runCli } from '../lib/args.mjs';
@@ -11,7 +11,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { readCycle } from '../lib/cycle-file.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
-import { readTsv } from '../lib/tsv.mjs';
+import { readTsv, writeAtomic } from '../lib/tsv.mjs';
 import { isEligible } from '../plugins/github-lists/_eligibility.mjs';
 import { parseSource } from '../plugins/github-lists/_parsers.mjs';
 import { rawUrl } from '../plugins/github-lists/index.mjs';
@@ -35,13 +35,6 @@ const addDays = (date, n) => new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY_
 function readRegistry(file) {
   if (!existsSync(file)) return { version: 1, rules: {}, sources: [] };
   return JSON.parse(readFileSync(file, 'utf8'));
-}
-
-function writeAtomic(file, text) {
-  mkdirSync(resolve(file, '..'), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
 }
 
 // Retire and promote decisions for sources already in the registry.

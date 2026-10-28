@@ -5,7 +5,7 @@
 // Usage: cycle.mjs [--json] [--dry-run] [--today YYYY-MM-DD] [--root R] [--data-dir D]
 // --today pins the date for simulation, so it is allowed only with --dry-run or --json (a simulated date must
 // never reach the real files).
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
@@ -15,6 +15,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { writeCycle } from '../lib/cycle-file.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 
 const pad = (n) => String(n).padStart(2, '0');
 const orList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`);
@@ -129,12 +130,6 @@ export function rewritePortals(text, cycle) {
     return `${ind}# cycle:start ${name}\n${next}${ind}# cycle:end ${name}`;
   });
   return { text: out, blocks };
-}
-
-function writeAtomic(file, text) {
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
 }
 
 export function runCycle({ paths, config, merged, today, dryRun }) {

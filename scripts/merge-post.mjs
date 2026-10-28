@@ -19,7 +19,7 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { loadSidecar, lookup } from '../lib/sidecar.mjs';
 import { escapeCell } from '../lib/tsv.mjs';
 import { urlKey } from '../lib/url-key.mjs';
-import { writeAtomic } from './apply-triage.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 
 const AGGREGATORS = ['zapply.jobs', 'simplify.jobs', 'jobright.ai', 'linkedin.com', 'indeed.com', 'ziprecruiter.com', 'glassdoor.com', 'monster.com'];
 const DEFAULT_HISTORY_COLUMNS = ['url', 'first_seen', 'portal', 'title', 'company', 'status', 'location'];

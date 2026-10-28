@@ -5,13 +5,14 @@
 // the row to Flagged because the JD must be read in the browser. EXPIRED and BROWSER also act on Flagged rows;
 // dead is dead wherever the row sits.
 // Usage: apply-triage.mjs <results.txt> [--data-dir D] [--dry-run]    prints JSON counts
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
 import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, serializePipeline } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 
 const VERDICT_RE = /^TRIAGE:\s*(PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*([^|]*)/;
 const clean = (s) => s.replace(/[|;\n]/g, ',').trim();
@@ -23,12 +24,6 @@ export function parseResults(text) {
     if (m) verdicts.set(m[2], { verdict: m[1], score: Number(m[3]).toFixed(1), reason: clean(m[4]) });
   }
   return verdicts;
-}
-
-export function writeAtomic(file, text) {
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, text);
-  renameSync(tmp, file);
 }
 
 const moved = (row, notes) => {
