@@ -6,6 +6,7 @@ Read this when the user says "apply" or "start applying". The numbers below are 
 
 1. Run `node student/scripts/rank-queue.mjs --json`. It lists today's rows, at or above the score floor, at most 2 per company.
 2. Work in batches of 3 forms. A batch is prepared and filled, then shown to the user. Nothing is submitted yet.
+3. In the first week (`first_week_days`, 7), submit at most 3 low-stakes applications per session (`first_week_submit_per_session`) to test the pipeline before the full pace. `budget.mjs` enforces it.
 
 ## Paths by score
 
