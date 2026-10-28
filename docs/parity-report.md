@@ -17,6 +17,8 @@ Pack commit: not yet run
 | handshake-import | - | - | - | - | - | not yet run |
 | feed | - | - | - | - | - | not yet run |
 
+Residual = Added + Missing - Explained. Explained counts differences that follow from by-design behavior (see docs/maintenance.md, Parity run). Overall fails on any error or any residual.
+
 Warnings: not yet run
 
 Overall: not yet run

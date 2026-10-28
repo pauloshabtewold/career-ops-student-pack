@@ -1,5 +1,8 @@
 # Synthetic parity fixture. Copy it outside the repo, align tracks and graduation dates with the baseline clone's
 # cycle, then pass the copy as --student-config. Every value here is invented.
+# software-cs is a shipped preset whose calendar yields four terms for a late-2026 date, so cycle and prefilter are
+# not vacuous. judgment_keywords are listed explicitly because the fail-audit allowance depends on them; keep them
+# equal to the pack defaults.
 onboarding:
   complete: true
 presets:
