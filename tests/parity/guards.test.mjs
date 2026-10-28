@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PACK_ROOT, PARITY_CLI, makeSource, makeStudentConfig, snapshot, tmp, cleanupTmp } from './_source.mjs';
+import { PACK_ROOT, PARITY_CLI, makeSource, makeStudentConfig, makeStudentConfigText, snapshot, tmp, cleanupTmp } from './_source.mjs';
 
 after(cleanupTmp);
 
@@ -94,4 +94,40 @@ test('M-007-S8 refusal leaves a pre-existing empty scratch dir without a baselin
   const r = parity(['--source', source, '--scratch', scratch, '--student-config', makeStudentConfig(), '--keep']);
   assert.equal(r.code, 2);
   assert.ok(!existsSync(join(scratch, 'baseline')));
+});
+
+const TRACKS = 'tracks:\n  - kind: internship\n    graduation: 2029-05\n';
+
+function exitsTwoBeforeScratch(configText, extraCheck) {
+  const source = makeSource();
+  const before = snapshot(source);
+  const scratch = join(tmp(), 'work');
+  const r = parity(['--source', source, '--scratch', scratch, '--student-config', makeStudentConfigText(configText)]);
+  assert.equal(r.code, 2, r.stderr);
+  assert.ok(!existsSync(scratch));
+  assert.deepEqual(snapshot(source), before);
+  if (extraCheck) extraCheck(r);
+}
+
+// M-004-S12
+test('M-004-S12 a config with presets [] exits 2 and the scratch path does not exist', () => {
+  exitsTwoBeforeScratch(`onboarding:\n  complete: true\npresets: []\n${TRACKS}`);
+});
+
+// M-004-S12
+test('M-004-S12 a config with tracks [] exits 2 and the scratch path does not exist', () => {
+  exitsTwoBeforeScratch('onboarding:\n  complete: true\npresets: [software-cs]\ntracks: []\n');
+});
+
+// M-004-S13
+test('M-004-S13 a config with an unknown key exits 2 and the scratch path does not exist', () => {
+  exitsTwoBeforeScratch(`onboarding:\n  complete: true\npresets: [software-cs]\n${TRACKS}bogus_setting: 1\n`);
+});
+
+// M-004-S20
+test('M-004-S20 malformed YAML exits 2 naming the YAML problem and never echoing the marker', () => {
+  exitsTwoBeforeScratch('presets: [SYNTH_MARKER_VALUE', (r) => {
+    assert.ok(r.stderr.includes('--student-config is not valid YAML'), r.stderr);
+    assert.ok(!r.stderr.includes('SYNTH_MARKER_VALUE'), r.stderr);
+  });
 });

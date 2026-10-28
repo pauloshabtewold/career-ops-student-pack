@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runParity, installCleanup } from '../../tools/parity.mjs';
-import { FIXTURE_URL, FIXTURE_COMPANY, FIXTURE_TITLE, PENDING_ROW, makeSource, makeStudentConfig, snapshot, tmp, cleanupTmp } from './_source.mjs';
+import { FIXTURE_URL, FIXTURE_COMPANY, FIXTURE_TITLE, okRunner, makeSource, makeStudentConfig, snapshot, tmp, cleanupTmp } from './_source.mjs';
 
 after(cleanupTmp);
 
@@ -19,9 +19,6 @@ function setup() {
   const exit = (code) => { exits.push(code); };
   return { source, scratch, report, argv, exits, exit, proc: new EventEmitter() };
 }
-
-// Stage results echo the same synthetic row for every stage so every stage is identical on both sides.
-const okRunner = async () => ({ code: 0, status: 0, stdout: `${PENDING_ROW}\n`, stderr: '', output: `${PENDING_ROW}\n` });
 
 async function settle(promiseLike) {
   try {
@@ -126,4 +123,35 @@ test('M-007-S7 signal handlers fire once only', () => {
   proc.emit('SIGINT');
   proc.emit('SIGINT');
   assert.deepEqual(exits, [130]);
+});
+
+// M-004-S14
+test('M-004-S14 installCleanup kills children while scratch exists, then removes scratch, then exits', () => {
+  const cases = [['SIGINT', 130], ['SIGTERM', 143], ['uncaughtException', 1]];
+  for (const [event, code] of cases) {
+    const scratch = tmp('parity-order-');
+    const proc = new EventEmitter();
+    const log = [];
+    installCleanup(scratch, proc, (c) => log.push(`exit:${c}:${existsSync(scratch)}`), () => log.push(`kill:${existsSync(scratch)}`));
+    proc.emit(event, new Error('boom'));
+    assert.deepEqual(log, ['kill:true', `exit:${code}:false`], event);
+  }
+});
+
+// M-004-S19
+test('M-004-S19 a throwing stage prints one fixed stderr line without the path or URL and returns 1', async (t) => {
+  const tt = setup();
+  const secretPath = join(tt.scratch, 'baseline', 'data', 'secret-rows.md');
+  const secretUrl = 'https://jobs.example.test/openings/secret-77';
+  const lines = [];
+  t.mock.method(console, 'error', (...a) => lines.push(a.join(' ')));
+  const runner = async () => {
+    throw new TypeError(`cannot read ${secretPath} for ${secretUrl}`);
+  };
+  const code = await runParity(tt.argv, { stageRunner: runner, proc: tt.proc, exit: tt.exit });
+  assert.equal(code, 1);
+  assert.deepEqual(lines, ['parity run failed (TypeError); scratch copy removed']);
+  assert.ok(!lines.join('\n').includes(secretPath));
+  assert.ok(!lines.join('\n').includes(secretUrl));
+  assert.ok(!existsSync(tt.scratch));
 });
