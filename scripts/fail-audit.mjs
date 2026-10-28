@@ -35,6 +35,7 @@ export function reasonPredicate({ keywords = DEFAULT_JUDGMENT_KEYWORDS, keywordM
 }
 
 // The pick options for a loaded config; tools/parity.mjs hands the same object to compareFailAudit.
+// Strict true so a stray truthy value never narrows the pick; an empty judgment_keywords list falls back to the defaults, as before W-007.
 export function auditOptions(config) {
   return {
     keywords: config?.judgment_keywords?.length ? config.judgment_keywords : DEFAULT_JUDGMENT_KEYWORDS,

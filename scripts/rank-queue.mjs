@@ -23,7 +23,8 @@ export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, m
 const DAY_MS = 86400000;
 const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-// Statuses that mean an application was made; Rejected is left out because a logged submit still counts through submitCounts.
+// Statuses that mean an application was made. Rejected is left out: a rejected row stops counting toward track history,
+// and its slot against company_caps survives only through the logged submit in submitCounts.
 const APPLIED_STATUS = new Set(['applied', 'responded', 'assessment', 'interview', 'offer', 'hired']);
 const tokens = (s, ignore = []) => String(s ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !GENERIC.has(t) && !ignore.includes(t));
 const rawKey = (s, ignore) => tokens(s, ignore).sort().join(' ');
@@ -100,7 +101,8 @@ function submitCounts(actionRows, keyOf, date) {
 }
 
 // applications.md rows at an applied-or-later status, per company key: { n, intern, fulltime }.
-// Track comes from the title (isIntern) for pipeline rows and from the role column for applications.md rows.
+// Track comes from the role cell here; isBlocked reads the Pending row's title with the same isIntern test, so both
+// sides classify a role the same way.
 // Columns: | # | date | company | role | score | status | ...; splitting on '|' puts the # cell at index 1.
 function appliedHistory(text, keyOf) {
   const history = new Map();
@@ -174,6 +176,7 @@ function blockRules({ config, pending, keyOf, history, submitted }) {
     const key = keyOf(name);
     caps.set(key, Math.min(caps.get(key) ?? Infinity, cap));
   }
+  // First reserved-slot row in Pending file order wins; a later one for the same company is blocked like any other row.
   const reservedFor = new Map();
   for (const { row } of pending) {
     const key = keyOf(row.company);
@@ -211,7 +214,8 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
   const rules = blockRules({ config, pending, keyOf, history, submitted: submitCounts(actionRows, keyOf) });
 
   // Order: score floor, blocked, hold=DATE, contact-state hold, scoring. Blocked rows are permanent company rules
-  // (reserved-slot, intern_only, one track, caps); a reserving row is itself evaluated normally.
+  // (reserved-slot, intern_only, one track, caps); a reserving row is itself evaluated normally. Blocked precedes holds
+  // so a permanently blocked row is never reported as held and never looks like it will lift.
   const scored = [];
   let held = 0;
   let blocked = 0;

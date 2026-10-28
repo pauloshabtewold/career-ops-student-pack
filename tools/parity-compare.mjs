@@ -172,6 +172,8 @@ const companiesOf = (byKey) => new Set([...byKey.values()].map(companyOf).filter
 
 // Both sides cap picks per company with different caps and weights, so which posting of a shared company survives
 // is a by-design difference. A company on one side only means eligibility differs, which stays residual.
+// companyOf uses default keys (no rank.parent_companies or ignore_words) on purpose, to avoid a config dependency here;
+// shared-company detection is slightly coarser, which only widens the by-design allowance.
 export function compareRankQueue(name, baselineText, packText) {
   const s = parseBoth(name, baselineText, packText);
   if (s.error) return s.error;
@@ -187,6 +189,7 @@ export function compareRankQueue(name, baselineText, packText) {
 // The pack audits only rows its reason predicate accepts (config keywords, match mode, exclusion patterns) and never
 // mechanical title filters, so baseline-only rows the predicate rejects and title-filter rows differ by design.
 // options is the shape auditOptions returns. Pack-only rows and baseline-only rows the predicate accepts stay residual.
+// require_triage is not modeled: the pick output carries no triage value, and the baseline applies its own triage rule.
 export function compareFailAudit(name, baselineText, packText, options) {
   const s = parseBoth(name, baselineText, packText);
   if (s.error) return s.error;
