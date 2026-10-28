@@ -22,7 +22,7 @@ import { CEILINGS, effectiveLimits } from './budget.mjs';
 export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5 });
 const DAY_MS = 86400000;
 const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
-const HOLD_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // Statuses that mean an application was made; Rejected is left out because a logged submit still counts through submitCounts.
 const APPLIED_STATUS = new Set(['applied', 'responded', 'assessment', 'interview', 'offer', 'hired']);
 const tokens = (s, ignore = []) => String(s ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !GENERIC.has(t) && !ignore.includes(t));
@@ -68,7 +68,7 @@ function postingAge(notes, today) {
     if (m) return Number(m[1]);
   }
   const date = notes.get('posted') ?? notes.get('imported');
-  return /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? daysBetween(date, today) : null;
+  return ISO_DATE.test(date ?? '') ? daysBetween(date, today) : null;
 }
 
 function connectionCounts(csvText, keyOf) {
@@ -80,7 +80,9 @@ function connectionCounts(csvText, keyOf) {
   const at = cols.indexOf('Company');
   for (const l of lines.slice(header + 1)) {
     const company = l.split(',')[at];
-    if (company) counts.set(keyOf(company), (counts.get(keyOf(company)) ?? 0) + 1);
+    if (!company) continue;
+    const key = keyOf(company);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return counts;
 }
@@ -167,7 +169,7 @@ function pickTop(scored, appliedToday, perDay, n, remainder = () => Infinity) {
 // tracker row later marked Rejected still uses its slot while its logged submit exists.
 function blockRules({ config, pending, keyOf, history, submitted }) {
   const caps = new Map();
-// Two cap names that fold to one key keep the smaller cap: a student listing two spellings of one company gets the stricter limit.
+  // Two cap names that fold to one key keep the smaller cap: a student listing two spellings of one company gets the stricter limit.
   for (const [name, cap] of Object.entries(config.rank?.company_caps ?? {})) {
     const key = keyOf(name);
     caps.set(key, Math.min(caps.get(key) ?? Infinity, cap));
@@ -223,7 +225,7 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
     }
     // hold=YYYY-MM-DD holds the row until that date passes; a value in any other shape is ignored. held also counts contact-state holds.
     const holdUntil = row.notes.get('hold');
-    if (HOLD_DATE.test(holdUntil ?? '') && holdUntil > today) {
+    if (ISO_DATE.test(holdUntil ?? '') && holdUntil > today) {
       held++;
       continue;
     }
