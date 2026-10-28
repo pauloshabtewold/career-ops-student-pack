@@ -5,11 +5,7 @@
 // Synthetic data only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { PACK_ROOT } from '../helpers/script-harness.mjs';
-
-const { auditIssues } = await import(pathToFileURL(join(PACK_ROOT, 'scripts', 'ci', 'audit-issues.mjs')).href);
+import { auditIssues } from '../../scripts/ci/audit-issues.mjs';
 
 const b = (name, status, postings) => ({ name, status, postings });
 
