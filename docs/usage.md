@@ -52,6 +52,36 @@ Mail from the last 2 days is read, and each message is read once (ids are kept i
 
 `node student/scripts/pilot-report.mjs` prints one line per week with counts only: connection requests, accepts and the acceptance rate, messages, warnings, applications submitted, responses, assessments, interviews and offers, and the model cost when student-cost.tsv in the data folder exists. It prints no company names, links or message text and sends nothing anywhere, so it is safe to paste into a message to the person running the pilot.
 
+## Tuning the apply list and the weekly audit
+
+These keys go in `config/student.yml`. Each one only narrows what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps today's behavior.
+
+Weekly second look at skipped rows (`node student/scripts/fail-audit.mjs pick`):
+
+- `audit.exclude_reasons`: a list of regular expressions, matched in any letter case. A skipped row whose reason matches one of them is not picked. Example: `- manual hold`.
+- `audit.require_triage`: with `true`, rows whose triage note is missing, not a number, or zero or below are not picked. The default is `false`.
+- `audit.keyword_match`: `word` (the default) matches each `judgment_keywords` entry at the start of a word. `substring` matches it anywhere, so the keyword `grad` also finds `undergrad`.
+
+A reason that starts with "Title pre-filter" is never picked, whatever you set.
+
+Daily apply list (`node student/scripts/rank-queue.mjs`):
+
+- `rank.company_caps`: the most applications allowed per company in total, for example `Acme: 3`. `0` blocks the company entirely. The count is the larger of two numbers: the rows in `applications.md` at Applied, Responded, Assessment, Interview, Offer or Hired, and the submits logged in `action-log.tsv`. A row the tracker later marks Rejected stops adding to the first number, but its logged submit still counts, so a rejected application keeps using up the cap once it was logged. Room for a run is the smaller of the daily per-company limit left and the cap left, so a cap never lets a company past the daily limit.
+- `rank.intern_only`: companies whose rows are listed only when the title says intern, internship or co-op. Example: `- Globex`.
+- `rank.one_track_per_company`: with `true`, a row is hidden when its track (internship or full-time, read from the title) differs from a track already applied at that company. This only hides rows from the list. The submit-time track confirmation in `budget.mjs` stays on, and any `employer_policies` in your presets still apply at submit time.
+- `rank.ignore_words`: extra lowercase words dropped from company names before they are compared, so `Acme International` and `Acme` count as one company. Letters and digits only.
+
+Two notes you can add to a Pending row in `pipeline.md`:
+
+- `hold=YYYY-MM-DD` keeps the row off the list until that date. On the date itself it is listed again. A value that is not a date is ignored.
+- `reserved-slot` reserves the company for that row: every other Pending row of the same company is hidden.
+
+If two rows of a company carry `reserved-slot`, the one listed first in `pipeline.md` keeps it.
+
+The track check uses only applications already made, so one list can still show both tracks of a new company; the submit-time confirmation asks before the second is used.
+
+The list header counts rows hidden by caps, track rules or a reserved slot as blocked. Its "(N waiting on referral timing)" count also includes rows held with `hold=DATE`, not only rows waiting on referral timing.
+
 ## Turning things off
 
 - "stop outreach" turns LinkedIn outreach off; "drafts only" keeps drafts without sending.
