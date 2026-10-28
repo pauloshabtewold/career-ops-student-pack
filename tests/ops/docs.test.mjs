@@ -27,7 +27,7 @@ test('M-008-S14 docs/usage.md names the interview, schedule install and remove, 
 test('M-008-S14 docs/usage.md uses placeholders and plain punctuation', () => {
   const usage = read('docs/usage.md');
   assert.ok(!/github\.com\//i.test(usage), 'no repo URL');
-  assert.ok(!/[—‘’“”]/.test(usage), 'no em dash or curly quotes');
+  assert.ok(!/[\u2014\u2018\u2019\u201C\u201D]/.test(usage), 'no em dash or curly quotes');
 });
 
 // M-008-S14
