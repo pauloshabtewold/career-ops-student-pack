@@ -1,5 +1,5 @@
 // Synthetic upstream checkout and student config for the parity tests. Everything here is invented.
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,7 @@ export const FIXTURE_URL = 'https://jobs.example.com/openings/zeta-4471';
 export const FIXTURE_COMPANY = 'Zeta Quantum Widgets';
 export const FIXTURE_TITLE = 'Quantum Widget Intern';
 
-export const PENDING_ROW = `- [ ] ${FIXTURE_URL} | ${FIXTURE_COMPANY} | ${FIXTURE_TITLE} | Remote | note: src=example`;
+const PENDING_ROW = `- [ ] ${FIXTURE_URL} | ${FIXTURE_COMPANY} | ${FIXTURE_TITLE} | Remote | note: src=example`;
 
 const tmpDirs = [];
 export function tmp(prefix = 'parity-test-') {
@@ -28,7 +28,7 @@ function put(root, rel, text) {
   writeFileSync(join(root, rel), text);
 }
 
-export const BASELINE_STAGE_SCRIPTS = ['cycle.mjs', 'prefilter.mjs', 'apply-triage.mjs', 'merge-staging.mjs', 'rank-queue.mjs', 'fail-audit.mjs', 'handshake-import.mjs'];
+const BASELINE_STAGE_SCRIPTS = ['cycle.mjs', 'prefilter.mjs', 'apply-triage.mjs', 'merge-staging.mjs', 'rank-queue.mjs', 'fail-audit.mjs', 'handshake-import.mjs'];
 
 // A small fake career-ops checkout: data/, portals.yml, modes/, a stub script and a .git marker.
 export function makeSource() {
@@ -86,5 +86,3 @@ export function snapshot(dir) {
   walk(dir);
   return out;
 }
-
-export { existsSync, cpSync };
