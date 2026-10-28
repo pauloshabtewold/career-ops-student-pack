@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+// Pre-push gate: the pack is public, so a leaked personal string cannot be recalled.
+// The blocked pattern is rebuilt from char codes so this hook never contains the strings it hunts for.
+import { execFileSync, spawnSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const codes = [
+  [112, 97, 117, 108, 111, 115],
+  [104, 97, 98, 116, 101, 119, 111, 108, 100],
+  [119, 97, 114, 114, 105, 111, 114, 108, 105, 102, 101],
+  [52, 48, 56, 53, 57, 52, 57, 54, 53, 48],
+  [115, 97, 110, 116, 97, 32, 99, 108, 97, 114, 97],
+  [115, 99, 117],
+];
+const pattern = codes.map((c) => String.fromCharCode(...c)).join('|');
+
+function run(cmd, args) {
+  return spawnSync(cmd, args, { cwd: root, encoding: 'utf8' });
+}
+
+let failed = false;
+
+const lint = run(process.execPath, [join(root, 'scripts', 'pii-lint.mjs'), '--root', root]);
+process.stdout.write(lint.stdout || '');
+if (lint.status !== 0) failed = true;
+
+// git grep exits 0 when it finds a match, which is the failure case here.
+const blocked = run('git', ['grep', '-i', '-I', '-l', '-E', '-e', pattern]);
+if (blocked.status === 0) {
+  console.error('pre-push: blocked substring in tracked file(s):');
+  console.error(blocked.stdout.trim());
+  failed = true;
+}
+
+// The remote URL carries the owner handle; it must not appear in any tracked file.
+let origin = '';
+try {
+  origin = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: root, encoding: 'utf8' }).trim();
+} catch {
+  origin = '';
+}
+if (origin) {
+  const variants = new Set([origin, origin.replace(/\.git$/, '')]);
+  for (const v of variants) {
+    const hit = run('git', ['grep', '-I', '-l', '-F', '-e', v]);
+    if (hit.status === 0) {
+      console.error('pre-push: remote URL appears in tracked file(s):');
+      console.error(hit.stdout.trim());
+      failed = true;
+    }
+  }
+}
+
+if (failed) {
+  console.error('pre-push: refused');
+  process.exit(1);
+}
