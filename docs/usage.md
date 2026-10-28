@@ -54,7 +54,7 @@ Mail from the last 2 days is read, and each message is read once (ids are kept i
 
 ## Tuning the apply list and the weekly audit
 
-These keys go in `config/student.yml`. Each one only narrows what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps today's behavior.
+These keys go in config/student.yml. Each one only narrows what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps today's behavior.
 
 Weekly second look at skipped rows (`node student/scripts/fail-audit.mjs pick`):
 
