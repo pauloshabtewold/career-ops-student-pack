@@ -65,6 +65,6 @@ Coverage equals the quality of the preset's seed employer list. Interview phase 
 
 `tools/parity.mjs` runs on a frozen copy of data kept outside the repo. Deterministic stages must match exactly; feeds are compared statistically because live lists change. Stages run asynchronously so signals are handled: SIGINT exits 130 and SIGTERM exits 143, and the copy is removed on success, on stage failure, on either signal and on an uncaught exception; there is no keep flag. The report holds counts and a verdict, never rows.
 
-`scripts/ci/upstream-setup.mjs` builds the throwaway career-ops checkout for CI; `--resume <file>` continues a setup from the file.
+`scripts/ci/upstream-setup.mjs` builds the throwaway career-ops checkout for CI; `--resume <file>` names the synthetic resume copied to `cv.md` before doctor runs.
 
 CI runs `windows-latest` as the stand-in for a Windows 11 machine: it clones career-ops at the compat pin, installs the pack and runs `doctor.mjs --json`.

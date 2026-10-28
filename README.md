@@ -48,7 +48,7 @@ node student/install.mjs
 
 Then open the career-ops folder in Claude Code. The personalization interview starts on its own the first time.
 
-`install.mjs` writes only inside your career-ops folder: it lists `student/` and `CLAUDE.local.md` in `config/local-paths.txt`, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into `plugins.local/`. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again changes nothing.
+`install.mjs` writes only inside your career-ops folder: it lists the student folder and `CLAUDE.local.md` in the local-paths file in your config folder, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into upstream's local plugins folder. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again changes nothing.
 
 ## Update
 
@@ -56,13 +56,13 @@ Then open the career-ops folder in Claude Code. The personalization interview st
 node student/update.mjs
 ```
 
-This updates the pack and career-ops together and keeps career-ops inside the version range the pack supports. If you committed your own changes inside `student/`, the pack update is skipped and the script says so.
+This updates the pack and career-ops together and keeps career-ops inside the version range the pack supports. If you committed your own changes inside the student folder, the pack update is skipped and the script says so.
 
 ## Daily use
 
-- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes `config/student.yml` and offers the daily schedule.
+- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes config/student.yml and offers the daily schedule.
 - **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it.
-- **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and triages without any model call, then writes a digest in `data/digest/`.
+- **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and triages without any model call, then writes a digest in the digest folder under data.
 - **Inbox.** `node student/scripts/inbox.mjs` reads pasted or connector-provided mail and updates the tracker.
 - **Pilot report.** `node student/scripts/pilot-report.mjs` prints weekly counts and nothing else.
 
@@ -70,7 +70,7 @@ Details are in [docs/usage.md](docs/usage.md); the reasoning behind the design i
 
 ## Switching things off
 
-LinkedIn outreach and the Handshake pass are on by default. Tell Claude "stop outreach" or "stop handshake" at any time. The caps on messages, applications and page loads are compiled into `student/scripts/budget.mjs`; settings can only tighten them (lower a maximum, raise a minimum) and never loosen them.
+LinkedIn outreach and the Handshake pass are on by default. Tell Claude "stop outreach" or "stop handshake" at any time. The caps on messages, applications and page loads are compiled into `scripts/budget.mjs` in the student folder; settings can only tighten them (lower a maximum, raise a minimum) and never loosen them.
 
 ## Credit
 

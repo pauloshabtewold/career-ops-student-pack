@@ -61,7 +61,7 @@ const bullets = (items) => (items.length ? items.map((i) => `- ${i}`).join('\n')
 const fill = (template, values) => template.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => (k in values ? values[k] : m));
 const MD_BLOCK = /<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/;
 
-// Replaces the pack block, or appends one after user content; text outside the markers is never changed.
+// Writes the pack block in place of an existing one, or appends one after user content; text outside the markers is never changed.
 export function upsertMarkdownBlock(text, body) {
   const block = `<!-- student-pack:start -->\n${body.trim()}\n<!-- student-pack:end -->`;
   if (MD_BLOCK.test(text)) return text.replace(MD_BLOCK, () => block);

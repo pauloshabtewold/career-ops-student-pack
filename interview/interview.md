@@ -45,7 +45,7 @@ Then ask:
 - Who presses submit on applications: `user` (default) or `agent`.
 - LinkedIn account tier: `free` or `premium`.
 
-Below the limits table, say this once: the pack's ceilings (daily applications, connection requests, messages, profile views, and the score floor) are fixed in `student/scripts/budget.mjs`. The student can only choose lower numbers. The score floor cannot go below 4.0; a student with an unusual reason to evaluate lower-scoring jobs can read them in the pipeline file, but the pack will not apply to them.
+Below the limits table, say this once: the pack's ceilings (daily applications, connection requests, messages, profile views, and the score floor) are fixed in `scripts/budget.mjs` in the student folder. The student can only choose lower numbers. The score floor cannot go below 4.0; a student with an unusual reason to evaluate lower-scoring jobs can read them in the pipeline file, but the pack will not apply to them.
 
 ## Phase 5: schedule and spend
 
@@ -57,9 +57,9 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 
 ## Phase 6: write, check, enable
 
-1. Write the answers to `data/interview-answers.json` following `interview/answers.schema.json`. Read the file back to the student in a short summary and ask for a yes.
+1. Write the answers to interview-answers.json in the data folder following `interview/answers.schema.json`. Read the file back to the student in a short summary and ask for a yes.
 2. Run `node student/interview/apply-answers.mjs data/interview-answers.json`. If it exits non-zero, nothing was written; fix the listed problems and run it again.
 3. Enable the GitHub-lists plugin only after showing its capability card: run `node plugins.mjs enable github-lists`, show the card to the student, and run it again with `--confirm` only after they agree.
 4. Run `node doctor.mjs --json` and report anything not green. Do not mark setup done while doctor reports unpersonalized files.
 5. Sign-in order for the first run: LinkedIn, then Handshake (if on), then the mailbox. The student does each sign-in; stop and wait after each.
-6. First run: `node student/scripts/rank-queue.mjs`, then walk through the top three postings with the student, using `student/modes/apply-loop.md`. Nothing is submitted without the student's yes during this first run.
+6. First run: `node student/scripts/rank-queue.mjs`, then walk through the top three postings with the student, using `modes/apply-loop.md` from the student folder. Nothing is submitted without the student's yes during this first run.

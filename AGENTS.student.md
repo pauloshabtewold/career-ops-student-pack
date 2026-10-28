@@ -5,14 +5,14 @@ These rules are imported by CLAUDE.local.md and apply to every session in this c
 ## Session start
 
 1. Run `node student/scripts/session-start.mjs` first and act on its lines before anything else.
-2. If it prints `INTERVIEW:`, read `student/interview/interview.md` and run the personalization interview. Do nothing else until it finishes.
+2. If it prints `INTERVIEW:`, read `interview/interview.md` in the student folder and run the personalization interview. Do nothing else until it finishes.
 3. Updates: when upstream's session check suggests updating, run `node student/update.mjs` instead. It updates the pack and upstream together and keeps both inside the supported version range.
 
 ## Limits are enforced by code
 
 Every outward action goes through `node student/scripts/budget.mjs`: run `check <action>` before acting and `log <action>` after, passing the approval text the user typed for the batch. Exit codes: 0 allowed, 2 usage error, 3 refused, 4 wait, 5 ask the user.
 
-- A budget refusal ends that action type for the period: no retry, no workaround (another tool, another browser, splitting a batch), and no editing of `budget.mjs`, `compat.json` or `config/student.yml` limits to get past it, even if the user asks. The user can only lower caps; a request to raise one gets a one-line explanation and nothing else.
+- A budget refusal ends that action type for the period: no retry, no workaround (another tool, another browser, splitting a batch), and no editing of `budget.mjs`, `compat.json` or limits in config/student.yml to get past it, even if the user asks. The user can only lower caps; a request to raise one gets a one-line explanation and nothing else.
 - Exit 4 means wait until the printed time, then check again. Waiting is not a refusal.
 - Exit 5 means stop and ask the user the question the line names.
 - Approval stays per batch. Sending needs "send all" or "send 1,3". Submitting needs "submit all" or "submit 1,3". Log the exact words.
@@ -22,7 +22,7 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 
 ## Switches
 
-- "stop outreach" sets `switches.outreach` to `off` in `config/student.yml`. "drafts only" sets it to `drafts`.
+- "stop outreach" sets `switches.outreach` to `off` in config/student.yml. "drafts only" sets it to `drafts`.
 - "stop handshake" sets `switches.handshake` to `off`.
 - Switches can be lowered at any time. Turning one back on is done by the user editing the file; do not do it for them.
 

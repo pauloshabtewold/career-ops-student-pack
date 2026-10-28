@@ -14,6 +14,6 @@ Handshake's student terms (last updated 2025-07-22) ban third-party bulk collect
 
 ## Steps
 
-1. Fill `student/templates/handshake-extract.js` with the preset title regex and a page cap of 4.
+1. Fill `templates/handshake-extract.js` from the student folder with the preset title regex and a page cap of 4.
 2. On each results page the user has open, run the extractor and save the copied rows to a `.tsv` file.
 3. Run `node student/scripts/handshake-import.mjs page1.tsv page2.tsv`, then `node student/scripts/merge-post.mjs`.
