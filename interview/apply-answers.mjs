@@ -153,10 +153,14 @@ export function buildConfig(answers) {
         intern_only: [],
         one_track_per_company: false,
         ignore_words: [],
+        easy_apply_hosts: ['greenhouse', 'ashby', 'lever'],
+        contacts_format: 'stage',
+        metro_match: 'word',
+        hold_on_pending_connect: true,
       },
       dealbreakers: answers.dealbreakers ?? [],
       judgment_keywords: [],
-      audit: { exclude_reasons: [], require_triage: false, keyword_match: 'word' },
+      audit: { exclude_reasons: [], require_triage: false, keyword_match: 'word', duplicate_reason: 'first' },
     },
   );
   validateConfig(cfg);

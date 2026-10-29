@@ -54,13 +54,14 @@ Mail from the last 2 days is read, and each message is read once (ids are kept i
 
 ## Tuning the apply list and the weekly audit
 
-These keys go in config/student.yml. Each one only narrows what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps today's behavior.
+These keys go in config/student.yml. Most of them only narrow what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps today's behavior.
 
 Weekly second look at skipped rows (`node student/scripts/fail-audit.mjs pick`):
 
 - `audit.exclude_reasons`: a list of regular expressions, matched in any letter case. A skipped row whose reason matches one of them is not picked. Example: `- manual hold`.
 - `audit.require_triage`: with `true`, rows whose triage note is missing, not a number, or zero or below are not picked. The default is `false`.
 - `audit.keyword_match`: `word` (the default) matches each `judgment_keywords` entry at the start of a word. `substring` matches it anywhere, so the keyword `grad` also finds `undergrad`.
+- `audit.duplicate_reason`: `first` (the default) or `last`. When a skipped row carries more than one `reason=` note, this picks the one that is read for the second look. A row with a single reason note is not affected.
 
 A reason that starts with "Title pre-filter" is never picked, whatever you set.
 
@@ -70,11 +71,16 @@ Daily apply list (`node student/scripts/rank-queue.mjs`):
 - `rank.intern_only`: companies whose rows are listed only when the title says intern, internship or co-op. Example: `- Globex`.
 - `rank.one_track_per_company`: with `true`, a row is hidden when its track (internship or full-time, read from the title) differs from a track already applied at that company. This only hides rows from the list. The submit-time track confirmation in `budget.mjs` stays on, and any `employer_policies` in your presets still apply at submit time.
 - `rank.ignore_words`: extra lowercase words dropped from company names before they are compared, so `Acme International` and `Acme` count as one company. Letters and digits only.
+- `rank.weights.effort`: a score bonus for rows that are quick to apply to. The default weight is `0`, so scores stay as they are until you set it, for example `effort: 2`. The factor is `1` for a row with a `prebuilt=yes` note, `0.8` when the posting host contains an entry of `rank.easy_apply_hosts`, and `0.5` for any other row. A `rank.weights` map you write replaces the default weights, so a factor you do not list weighs `0`.
+- `rank.easy_apply_hosts`: the host names that count as quick to apply to. The default is `greenhouse`, `ashby` and `lever`. An entry matches any part of the host name, so a short entry such as `lever` also matches an unrelated host that contains it; write a specific entry such as `lever.co` or `ashbyhq.com` to narrow it. Letters, digits, dots and dashes only.
+- `rank.contacts_format`: how `data/contacts.tsv` is read. `stage` (the default) expects the columns date, company, name and stage. `status-notes` expects a tab-separated file whose header row has a `company` column and a `notes` column; the header may start with `# `. The notes column carries these tokens: `status:referred`, `status:warm`, `status:accepted`, `status:asked MM-DD` and `status:sent MM-DD (connect`, the last being a pending connection request. `do-not-contact`, `do-not-ask` or `skipped` in the same notes, or `status:accepted`, cancels that contact's pending request. MM-DD means this year, unless that date is after today, in which case it means last year. A month and day that does not exist, such as 13-45, is ignored. If the header has no `company` column or no `notes` column, rank-queue prints a warning and ignores contact state.
+- `rank.metro_match`: how `rank.metros` entries are matched against a row's location. `word` (the default) matches whole words in any letter case, so the metro `LA` does not match `Atlanta GA`. `substring` matches an entry anywhere in the location.
+- `rank.hold_on_pending_connect`: `true` (the default) keeps a row off the list while its company has a connection request under 5 days old and no referral yet. With `false`, such a row is listed. The 3-day wait after a referral ask still applies either way.
 
 Two notes you can add to a Pending row in `pipeline.md`:
 
-- `hold=YYYY-MM-DD` keeps the row off the list until that date. On the date itself it is listed again. A value that is not a date is ignored.
-- `reserved-slot` reserves the company for that row: every other Pending row of the same company is hidden.
+- `hold=YYYY-MM-DD` keeps the row off the list until that date. On the date itself it is listed again. Free text may follow the date after a space, for example `hold=2026-11-05 (waiting on recruiter)`; only the date is read. A value that does not start with a date is ignored.
+- `reserved-slot` reserves the company for that row: every other Pending row of the same company is hidden. Free text may follow it after a space or an opening bracket, for example `reserved-slot (last cap slot)`; the text is ignored. A key such as `reserved-slots` does not reserve anything.
 
 If two rows of a company carry `reserved-slot`, the one listed first in `pipeline.md` keeps it.
 
