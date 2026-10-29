@@ -27,15 +27,20 @@ rank:
   metros: []
   marquee: []
   parent_companies: {}
-  # Narrowing knobs; see docs/usage.md (Tuning the apply list and the weekly audit).
+  # Ranking knobs; see docs/usage.md (Tuning the apply list and the weekly audit).
   company_caps: {}
   intern_only: []
   one_track_per_company: false
   ignore_words: []
+  easy_apply_hosts: [greenhouse, ashby, lever]
+  contacts_format: stage
+  metro_match: word
+  hold_on_pending_connect: true
 dealbreakers: []
 judgment_keywords: []
-# These keys only narrow the weekly second look at judgment FAIL rows.
+# Keys for the weekly second look at judgment FAIL rows.
 audit:
   exclude_reasons: []
   require_triage: false
   keyword_match: word
+  duplicate_reason: first

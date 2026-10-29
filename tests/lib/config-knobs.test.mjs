@@ -36,6 +36,7 @@ async function rejectsWith(yml, path, message) {
 }
 
 // M-001-S1
+// M-001-S8 keep: these knob tests stay green alongside the parsing knobs.
 test('M-001-S1 empty student.yml loads audit and rank knob defaults', async () => {
   const cfg = await load('');
   assert.deepEqual([...cfg.audit.exclude_reasons], []);

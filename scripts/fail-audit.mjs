@@ -10,7 +10,7 @@ import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
-import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, serializePipeline } from '../lib/pipeline-md.mjs';
+import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, rowNoteEntries, serializePipeline } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { appendTsv } from '../lib/tsv.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
@@ -35,26 +35,30 @@ export function reasonPredicate({ keywords = DEFAULT_JUDGMENT_KEYWORDS, keywordM
 }
 
 // The pick options for a loaded config; tools/parity.mjs hands the same object to compareFailAudit.
-// Strict true so a stray truthy value never narrows the pick; an empty judgment_keywords list falls back to the defaults, as before W-007.
+// Strict true so a stray truthy value never narrows the pick; an empty judgment_keywords list falls back to the defaults.
 export function auditOptions(config) {
   return {
     keywords: config?.judgment_keywords?.length ? config.judgment_keywords : DEFAULT_JUDGMENT_KEYWORDS,
     keywordMatch: config?.audit?.keyword_match ?? 'word',
     excludeReasons: config?.audit?.exclude_reasons ?? [],
     requireTriage: config?.audit?.require_triage === true,
+    // Default first: the career-ops baseline judges the first reason=, so the shared predicate sees the same text on both sides.
+    duplicateReason: config?.audit?.duplicate_reason ?? 'first',
   };
 }
 
 // requireTriage lives here and not in reasonPredicate: it reads the triage note, which the parity compare's
 // output rows do not carry, so the compare cannot model it. Pick output keeps its {url, company, title, reason} shape.
-export function pickRows(doc, { n = 20, requireTriage = false, ...options }) {
+// duplicateReason lives here too: it chooses which of several reason= notes on one row is judged, before the predicate runs.
+export function pickRows(doc, { n = 20, requireTriage = false, duplicateReason = 'first', ...options }) {
   const sec = getSection(doc, 'Skipped');
   const isJudgment = reasonPredicate(options);
   const rows = [];
   (sec?.lines ?? []).forEach((line) => {
     const row = parseRow(line);
     if (!row || row.notes.has('audited')) return;
-    const reason = row.notes.get('reason') ?? '';
+    // last: the Map already holds the last duplicate. first: the Map cannot give it, so read the ordered pairs.
+    const reason = (duplicateReason === 'last' ? row.notes.get('reason') : rowNoteEntries(line).find(([k]) => k === 'reason')?.[1]) ?? '';
     if (!isJudgment(reason)) return;
     const triage = Number(row.notes.get('triage'));
     if (requireTriage && !(Number.isFinite(triage) && triage > 0)) return;
