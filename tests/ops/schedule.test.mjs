@@ -21,7 +21,7 @@ test('M-008-S1 buildPlist holds the label, absolute node path, WorkingDirectory 
   assert.match(xml, /^<\?xml/);
   assert.match(xml, /<key>Label<\/key>\s*<string>com\.career-ops\.student\.daily<\/string>/);
   assert.ok(xml.includes(`<string>${NODE}</string>`), 'absolute node path is its own argument');
-  assert.match(xml, /<string>[^<]*student[\\/]scripts[\\/]daily\.mjs<\/string>/);
+  assert.match(xml, /<string>[^<]*student[\\/]scripts[\\/]scheduled\.mjs<\/string>/);
   assert.match(xml, new RegExp(`<key>WorkingDirectory</key>\\s*<string>${ROOT.replace(/[/\\]/g, '[/\\\\]')}</string>`));
 });
 
@@ -71,7 +71,7 @@ test('M-008-S2 buildTaskScript quotes the absolute node and root paths that cont
   assert.match(ps, /New-ScheduledTaskAction/);
   assert.match(ps, new RegExp(`-Execute\\s+['"]${esc(WIN_NODE)}['"]`));
   assert.match(ps, new RegExp(`-WorkingDirectory\\s+['"]${esc(WIN_ROOT)}['"]`));
-  assert.match(ps, /daily\.mjs/);
+  assert.match(ps, /scheduled\.mjs/);
   assert.match(ps, /data[\\/]+logs/);
 });
 
