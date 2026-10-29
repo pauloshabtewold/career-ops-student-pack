@@ -149,7 +149,7 @@ test('M-004-S8 the docs/maintenance.md Parity run section names the carry-over a
   for (const knob of ['audit.duplicate_reason', 'rank.contacts_format', 'rank.metro_match', 'rank.hold_on_pending_connect']) {
     assert.ok(section.includes(knob), `missing ${knob}`);
   }
-  assert.ok(!section.includes('—'));
+  assert.ok(!section.includes('\u2014'));
 });
 
 // M-004-S9
