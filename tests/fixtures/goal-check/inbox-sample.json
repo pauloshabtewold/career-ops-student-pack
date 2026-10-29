@@ -1,0 +1,14 @@
+[
+  {
+    "id": "m1",
+    "from": "recruiting@example.com",
+    "subject": "Re: Thank you for the interview",
+    "body": "Thanks for the note. We would like to schedule an interview after your thanks."
+  },
+  {
+    "id": "m2",
+    "from": "noreply@example.org",
+    "subject": "We received your application",
+    "body": "This receipt is conditional on the posting staying open. Your application has been received."
+  }
+]
