@@ -40,7 +40,7 @@ CI runs the check on both operating systems. Loosening a limit is a normal relea
 
 ## Preset audits
 
-On the first of each month `audit-presets.yml` audits every preset seed list with upstream's `audit-portals.mjs` and opens one issue per preset that has boards with no provider, errors, empty results or a halved posting count. `docs/preset-audit.md` holds the counts from the last manual authoritative audit; the monthly job never edits it. Owners and review dates are in `presets/OWNERS.yml`.
+On the first of each month `audit-presets.yml` audits every preset seed list with upstream's `audit-portals.mjs` and files one issue per preset that has boards with no provider, errors, empty results or a halved posting count. A preset that already has an open audit issue gets a comment on it (and the title takes this month's count) instead of a second issue. When `audit-portals.mjs` itself fails for a preset, the job still files the other issues, then fails. `docs/preset-audit.md` holds the counts from the last manual authoritative audit; the monthly job never edits it. Owners and review dates are in `presets/OWNERS.yml`.
 
 Resolving a preset's seeds: run `discover-ats.mjs` in preview mode against the preset's seed names, then research the enterprise ATS board URL (Workday, SuccessFactors, Oracle Cloud, iCIMS, Phenom, Eightfold, Taleo, Avature, SmartRecruiters) for each seed still unclaimed, and audit again. Keep a URL only when `audit-portals.mjs` then claims it.
 

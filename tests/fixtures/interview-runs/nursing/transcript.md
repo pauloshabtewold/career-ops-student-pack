@@ -32,7 +32,7 @@ INTERVIEWER: The pack has seven field presets: software-cs, mis-business-analyti
 
 STUDENT: Yes, use byo-employer-list.
 
-INTERVIEWER: Coverage line from `node interview/coverage.mjs byo-employer-list`, exactly as returned: "Bring your own employer list [discovery-only]: Discovery help, not automation: Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails." This preset is discovery help only. Please give me 10 to 20 target employers, each with its careers page URL.
+INTERVIEWER: Coverage line from `node interview/coverage.mjs byo-employer-list`, exactly as returned: "Bring your own employer list [discovery-only]: Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails." This preset is discovery help only. Please give me 10 to 20 target employers, each with its careers page URL.
 
 STUDENT: Example Health System 1, https://careers.example.com/nursing/1. Example Health System 2, https://careers.example.com/nursing/2. Example Health System 3, https://careers.example.com/nursing/3. Example Health System 4, https://careers.example.com/nursing/4. Example Health System 5, https://careers.example.com/nursing/5. Example Health System 6, https://careers.example.com/nursing/6. Example Health System 7, https://careers.example.com/nursing/7. Example Health System 8, https://careers.example.com/nursing/8. Example Health System 9, https://careers.example.com/nursing/9. Example Health System 10, https://careers.example.com/nursing/10.
 

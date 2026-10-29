@@ -52,3 +52,11 @@ test('M-006-S7 last_reviewed older than 60 days is unmaintained, 56 days is not'
   assert.match((await lines(['software-cs'], stale))[0], /unmaintained/i);
   assert.doesNotMatch((await lines(['software-cs'], ok))[0], /unmaintained/i);
 });
+
+// W-011-S3 the BYO note already opens with the discovery lead, so the line says it once.
+test('W-011-S3 the byo-employer-list coverage line says discovery help, not automation exactly once', async () => {
+  const [line, ...more] = await lines(['byo-employer-list']);
+  assert.equal(more.length, 0);
+  assert.equal(line.match(/Discovery help, not automation/gi)?.length, 1, line);
+  assert.ok(line.includes('[discovery-only]'));
+});

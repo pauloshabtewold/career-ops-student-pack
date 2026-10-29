@@ -5,7 +5,7 @@
 // Synthetic data only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AUDIT_TITLE, auditIssues, auditTitle } from '../../scripts/ci/audit-issues.mjs';
+import { AUDIT_TITLE, auditIssues, auditTitle, ghCommands, planIssues } from '../../scripts/ci/audit-issues.mjs';
 
 const b = (name, status, postings) => ({ name, status, postings });
 
@@ -82,4 +82,36 @@ test('M-003-S20 auditIssues keeps its title and body text', () => {
   assert.ok(issue.body.startsWith('Monthly audit of the preset-one seed list found boards that need a look.'));
   assert.ok(issue.body.includes('## Status no-provider (1)'));
   assert.ok(issue.body.includes('- Board D (20 to 10)'));
+});
+
+// W-011-S1 a monthly run comments on the open audit issue for a preset instead of opening a duplicate. The title count
+// changes month to month, so the match is on the preset id that AUDIT_TITLE captures.
+test('W-011-S1 planIssues comments on an open audit issue for the same preset and creates one otherwise', () => {
+  const issues = [
+    { preset: 'preset-one', title: auditTitle('preset-one', 2), body: 'body one' },
+    { preset: 'preset-two', title: auditTitle('preset-two', 1), body: 'body two' },
+  ];
+  const open = [
+    { number: 7, title: auditTitle('preset-one', 5) },
+    { number: 9, title: 'Unrelated issue about preset-two' },
+  ];
+  const plan = planIssues({ issues, open });
+  assert.equal(plan.length, 2);
+  const one = plan.find((p) => p.preset === 'preset-one');
+  assert.equal(one.action, 'comment');
+  assert.equal(one.number, 7);
+  const two = plan.find((p) => p.preset === 'preset-two');
+  assert.equal(two.action, 'create');
+  const cmds = ghCommands(plan, 'owner/repo');
+  assert.equal(cmds.filter((c) => c[0] === 'issue' && c[1] === 'create').length, 1);
+  assert.ok(cmds.some((c) => c[1] === 'comment' && c[2] === '7' && c.includes('--repo') && c.includes('owner/repo')));
+  assert.ok(cmds.some((c) => c[1] === 'edit' && c[2] === '7' && c.includes(auditTitle('preset-one', 2))));
+});
+
+test('W-011-S1 with several open issues for one preset the newest is reused', () => {
+  const issues = [{ preset: 'preset-one', title: auditTitle('preset-one', 1), body: 'b' }];
+  const open = [{ number: 3, title: auditTitle('preset-one', 1) }, { number: 12, title: auditTitle('preset-one', 4) }];
+  const [p] = planIssues({ issues, open });
+  assert.equal(p.action, 'comment');
+  assert.equal(p.number, 12);
 });

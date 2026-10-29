@@ -110,9 +110,23 @@ export function installCleanup(scratch, proc = process, exit = process.exit, kil
 
 const skipVcs = (src) => !['.git', 'node_modules'].includes(basename(src));
 
+// A directory symlink needs elevated rights on Windows; a junction does not.
+export const linkType = (platform = process.platform) => (platform === 'win32' ? 'junction' : 'dir');
+
+// The node_modules Node resolves from dir: its own, else the nearest ancestor's. A git worktree inside a checkout has
+// none of its own and imports through the checkout's, which the scratch copy no longer sits under.
+function nearestNodeModules(dir) {
+  for (let d = resolve(dir); ; d = dirname(d)) {
+    if (existsSync(join(d, 'node_modules'))) return join(d, 'node_modules');
+    if (dirname(d) === d) return null;
+  }
+}
+
+// Without the link the copy's stage scripts cannot import their dependencies, so the baseline cycle run fails.
 async function copyTree(from, to) {
   await cp(from, to, { recursive: true, filter: skipVcs });
-  if (existsSync(join(from, 'node_modules'))) symlinkSync(join(from, 'node_modules'), join(to, 'node_modules'), 'dir');
+  const modules = nearestNodeModules(from);
+  if (modules && !existsSync(join(to, 'node_modules'))) symlinkSync(modules, join(to, 'node_modules'), linkType());
 }
 
 // Children still running; a signal handler kills them so no stage outlives the scratch dir it works in.

@@ -13,6 +13,7 @@ import { loadPreset } from '../lib/presets.mjs';
 
 const STALE_DAYS = 60;
 const DAY_MS = 86400000;
+const DISCOVERY_LEAD = 'Discovery help, not automation: ';
 
 export function readOwners(packRoot) {
   const file = join(packRoot, 'presets', 'OWNERS.yml');
@@ -29,7 +30,8 @@ export function coverageLine(presetIds, { packRoot, today, owners: ownersIn } = 
     const owner = owners[id];
     const age = owner?.last_reviewed ? (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${owner.last_reviewed}T00:00:00Z`)) / DAY_MS : Infinity;
     const unmaintained = !owner?.owner || age > STALE_DAYS;
-    const lead = preset.coverage.level === 'discovery-only' ? 'Discovery help, not automation: ' : '';
+    // A note that already opens with the lead (byo-employer-list) keeps its own wording, so the line says it once.
+    const lead = preset.coverage.level === 'discovery-only' && !preset.coverage.note.toLowerCase().startsWith(DISCOVERY_LEAD.toLowerCase()) ? DISCOVERY_LEAD : '';
     const flag = unmaintained ? ' (unmaintained: no current owner, treat the employer list as a starting point)' : '';
     return `${preset.name} [${preset.coverage.level}]: ${lead}${preset.coverage.note}${flag}`;
   });
