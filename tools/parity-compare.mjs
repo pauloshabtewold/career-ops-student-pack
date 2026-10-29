@@ -1,5 +1,6 @@
 // Stage comparison for the parity harness. Everything returned or rendered here is a count or a verdict:
 // row text never leaves this module, so a report built from it cannot carry URLs, companies or titles.
+import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { reasonPredicate } from '../scripts/fail-audit.mjs';
 import { companyKey } from '../scripts/rank-queue.mjs';
@@ -170,14 +171,21 @@ function parseBoth(name, baselineText, packText) {
 const companyOf = (p) => (typeof p.company === 'string' ? companyKey(p.company) : '');
 const companiesOf = (byKey) => new Set([...byKey.values()].map(companyOf).filter(Boolean));
 
-// Both sides cap picks per company with different caps and weights, so which posting of a shared company survives
-// is a by-design difference. A company on one side only means eligibility differs, which stays residual.
-// companyOf uses default keys (no rank.parent_companies or ignore_words), so the compare needs no student config;
-// shared-company detection is slightly coarser, which only widens the by-design allowance.
+// Url keys of rows that are Pending in beforeText and not Pending in afterText. The harness passes the pack pipeline
+// before and after merge-post, which flags or drops Pending rows by design while the baseline merge is a no-op on empty
+// staging. The before text is read after apply-triage ran, so a row apply-triage moved is not in it and is never carried.
 export function carriedPending(beforeText, afterText) {
-  return new Set();
+  const pendingKeys = (text) => new Set(sectionRows(parsePipeline(String(text ?? '')), 'Pending').map(({ row }) => urlKey(row.url)).filter(Boolean));
+  const after = pendingKeys(afterText);
+  return new Set([...pendingKeys(beforeText)].filter((k) => !after.has(k)));
 }
 
+// Both sides cap picks per company with different caps and weights, so which posting of a shared company survives
+// is a by-design difference. A company on one side only means eligibility differs, which stays residual.
+// A baseline pick whose row left the pack Pending section through merge-post (carried) is explained too; a pack-only
+// pick never is. A pick that is both carried and of a shared company counts once.
+// companyOf uses default keys (no rank.parent_companies or ignore_words), so the compare needs no student config;
+// shared-company detection is slightly coarser, which only widens the by-design allowance.
 export function compareRankQueue(name, baselineText, packText, { carried = new Set() } = {}) {
   const s = parseBoth(name, baselineText, packText);
   if (s.error) return s.error;
@@ -187,7 +195,8 @@ export function compareRankQueue(name, baselineText, packText, { carried = new S
     const c = companyOf(p);
     return c !== '' && ca.has(c) && cb.has(c);
   };
-  return finish(name, s.counts, [...s.added, ...s.missing].filter(shared).length);
+  const allowance = s.added.filter(shared).length + s.missing.filter((p) => shared(p) || carried.has(urlKey(p.url))).length;
+  return finish(name, s.counts, allowance);
 }
 
 // The pack audits only rows its reason predicate accepts (config keywords, match mode, exclusion patterns) and never

@@ -14,7 +14,7 @@ import { createClock } from '../lib/clock.mjs';
 import { ConfigError, parseConfig } from '../lib/config.mjs';
 import { auditOptions } from '../scripts/fail-audit.mjs';
 import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
-import { NOTES, compareCycle, compareFailAudit, compareFeed, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
+import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // The whole candidate set is compared because top-n order follows score formulas that differ by design.
@@ -25,11 +25,13 @@ const MAX_STAGE_OUTPUT = 64 * 1024 * 1024;
 // One entry per deterministic stage. {today}, {frozen} and {tsv} are substituted. capture names a file read after the
 // run in place of stdout. frozen names an earlier stage whose baseline output both sides then consume.
 // compare picks the comparator, dependsOn names a stage whose error voids this one, explain names the allowance source.
+// carry marks the stage whose pack Pending moves feed the rank-queue carry-over allowance: the pack pipeline is read
+// just before the pack side runs and compared with the pipeline the stage leaves behind.
 export const STAGES = [
   { name: 'cycle', compare: 'cycle', local: ['cycle.mjs', '--json', '--today', '{today}'], pack: ['cycle.mjs', '--json', '--today', '{today}'] },
   { name: 'prefilter', compare: 'rows', dependsOn: 'cycle', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
   { name: 'apply-triage', compare: 'rows', local: ['apply-triage.mjs', '{frozen}'], pack: ['apply-triage.mjs', '{frozen}'], frozen: 'prefilter', capture: join('data', 'pipeline.md') },
-  { name: 'merge-staging', compare: 'rows', explain: 'merge-stats', local: ['merge-staging.mjs'], pack: ['merge-post.mjs', '--today', '{today}'], capture: join('data', 'pipeline.md') },
+  { name: 'merge-staging', compare: 'rows', explain: 'merge-stats', carry: true, local: ['merge-staging.mjs'], pack: ['merge-post.mjs', '--today', '{today}'], capture: join('data', 'pipeline.md') },
   { name: 'rank-queue', compare: 'rank', local: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'], pack: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'] },
   { name: 'fail-audit', compare: 'audit', local: ['fail-audit.mjs', 'pick', '--n', LARGE_N], pack: ['fail-audit.mjs', 'pick', '--n', LARGE_N] },
   { name: 'handshake-import', compare: 'rows', local: ['handshake-import.mjs', '--out', join('data', 'handshake.out.md'), '{tsv}'], pack: ['handshake-import.mjs', '--out', join('data', 'handshake.out.md'), '{tsv}'], capture: join('data', 'handshake.out.md'), needsTsv: true },
@@ -243,11 +245,11 @@ function judgeCycle(env, name, baseOut, packOut) {
   return result;
 }
 
-function judgeStage(env, stage, base, pack) {
+function judgeStage(env, stage, base, pack, carried) {
   const fault = stageFault(base, pack);
   if (fault) return stageError(stage.name, fault);
   if (stage.compare === 'cycle') return judgeCycle(env, stage.name, base.out, pack.out);
-  if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out);
+  if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out, { carried });
   if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, env.audit);
   return compareStage(stage.name, base.out, pack.out, { explained: stage.explain === 'merge-stats' ? mergeAllowance(pack.stdout) : 0 });
 }
@@ -256,6 +258,7 @@ async function runStages(env, state) {
   const results = [];
   const verdicts = new Map();
   const outputs = {};
+  let carried = new Set();
   const tsv = join(env.source, 'data', 'handshake-pages.tsv');
   const record = (r) => {
     results.push(r);
@@ -278,9 +281,15 @@ async function runStages(env, state) {
     const base = await runStageSide(env, stage, 'baseline', ctx);
     if (state.interrupted !== null) break;
     outputs[stage.name] = base.out ?? '';
+    // Read before the pack side runs: the pack stage rewrites data/pipeline.md in place.
+    const packPipeline = join(env.packDir, 'data', 'pipeline.md');
+    const before = stage.carry && existsSync(packPipeline) ? readFileSync(packPipeline, 'utf8') : '';
     const pack = await runStageSide(env, stage, 'pack', ctx);
     if (state.interrupted !== null) break;
-    record(judgeStage(env, stage, base, pack));
+    const judged = judgeStage(env, stage, base, pack, carried);
+    record(judged);
+    // A stage that errored left no trustworthy pipeline, so it explains nothing later.
+    if (stage.carry && judged.verdict !== 'error') carried = carriedPending(before, pack.out ?? '');
   }
   return results;
 }
