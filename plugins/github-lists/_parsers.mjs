@@ -46,7 +46,7 @@ function columnMap(headers) {
   return col;
 }
 
-const isAggregatorHref = (u) => /(^|\.)(simplify\.jobs|jobright\.ai|zapply\.jobs)$/i.test(hostname(u));
+const isAggregatorHref = (u) => /(^|\.)(simplify\.jobs|jobright\.ai|zapply\.jobs|trylitos\.com)$/i.test(hostname(u));
 
 function hostname(u) {
   try {
@@ -170,6 +170,21 @@ export function parseSimplifyJson(text, { kind } = {}) {
 
 const DEFAULT_MAP = { company: 'company', title: 'title', location: 'location', date: 'date', url: 'url' };
 
+// A source maps `clearance` to the record field that marks clearance-required rows; the flag travels in the title
+// because rows carry no other free-text field and the student's dealbreakers match against the title.
+const CLEARANCE_YES = /^(yes|y|true|required|1)$/i;
+const CLEARANCE_SUFFIX = ' (clearance required)';
+
+// A source maps `closed` to the record field that marks a posting no longer open; such rows are skipped and are not parse errors.
+const CLOSED_YES = /^(yes|y|true|closed|1)$/i;
+
+// Maps one source record to a row {company, title, location, date, url, kind}.
+// Returns undefined for a record to skip silently (no url, or flagged closed),
+// null for a malformed record that counts as a parse error (non-http url),
+// and the row otherwise. A clearance-flagged record gets CLEARANCE_SUFFIX on
+// its title: upstream receives only {title, url, company, location}, so the
+// title is the one channel that reaches the student's dealbreaker match.
+
 function mapRecord(rec, map, kind) {
   const get = (k) => {
     const v = rec[map[k]];
@@ -178,7 +193,11 @@ function mapRecord(rec, map, kind) {
   const url = get('url');
   if (!url) return undefined;
   if (!/^https?:/i.test(url)) return null;
-  return { company: get('company'), title: get('title'), location: get('location'), date: get('date'), url, kind };
+  const closedFlag = map.closed ? rec[map.closed] : undefined;
+  if (closedFlag === true || (typeof closedFlag === 'string' && CLOSED_YES.test(closedFlag.trim()))) return undefined;
+  const flag = map.clearance ? rec[map.clearance] : undefined;
+  const cleared = flag === true || (typeof flag === 'string' && CLEARANCE_YES.test(flag.trim()));
+  return { company: get('company'), title: cleared ? `${get('title')}${CLEARANCE_SUFFIX}` : get('title'), location: get('location'), date: get('date'), url, kind };
 }
 
 export function parseJsonArray(text, { kind, field_map } = {}) {

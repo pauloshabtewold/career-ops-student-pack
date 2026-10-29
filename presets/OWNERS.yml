@@ -5,4 +5,9 @@ finance-economics: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
 accounting: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
 engineering-mech-elec: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
 policy-government: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
+supply-chain-operations: {owner: pack-maintainer, last_reviewed: "2026-10-29"}
+statistics-math-actuarial: {owner: pack-maintainer, last_reviewed: "2026-10-29"}
+marketing-business: {owner: pack-maintainer, last_reviewed: "2026-10-29"}
+consulting: {owner: pack-maintainer, last_reviewed: "2026-10-29"}
+cybersecurity: {owner: pack-maintainer, last_reviewed: "2026-10-29"}
 byo-employer-list: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
