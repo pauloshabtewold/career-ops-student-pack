@@ -2,7 +2,7 @@ id: policy-government
 name: "Policy, political science, government"
 coverage:
   level: semi-automated
-  note: "Semi-automated for federal roles through the USAJOBS source you can enable with a free key; think tanks, state and local jobs, and nonprofits stay manual or alert-only."
+  note: "Semi-automated for federal roles through the USAJOBS source you can enable with a free key; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 56% of the seed list."
 title_rules:
   include:
     - "policy"
@@ -125,11 +125,11 @@ seed_employers:
   - name: "United Nations"
     careers_url: https://careers.un.org
   - name: "Brookings Institution"
-    careers_url: https://www.brookings.edu/about-us/careers
+    careers_url: https://careers-brookings.icims.com/jobs/search
   - name: "RAND Corporation"
-    careers_url: https://www.rand.org/jobs
+    careers_url: https://rand.wd5.myworkdayjobs.com/External_Career_Site
   - name: "Urban Institute"
-    careers_url: https://www.urban.org/about/careers
+    careers_url: https://urban.wd115.myworkdayjobs.com/Urban-Careers
   - name: "Center for American Progress"
     careers_url: https://www.americanprogress.org/careers
   - name: "Heritage Foundation"
@@ -137,7 +137,7 @@ seed_employers:
   - name: "Cato Institute"
     careers_url: https://www.cato.org/careers
   - name: "American Enterprise Institute"
-    careers_url: https://www.aei.org/careers
+    careers_url: https://careers-aei.icims.com/jobs/search
   - name: "Council on Foreign Relations"
     careers_url: https://www.cfr.org/careers
   - name: "Carnegie Endowment for International Peace"
@@ -149,55 +149,93 @@ seed_employers:
   - name: "MITRE"
     careers_url: https://www.mitre.org/careers
   - name: "Booz Allen Hamilton"
-    careers_url: https://www.boozallen.com/careers
-  - name: "Deloitte Government and Public Services"
-    careers_url: https://www.deloitte.com/us/en/careers
-  - name: "Accenture Federal Services"
-    careers_url: https://www.accenture.com/us-en/careers
+    careers_url: https://bah.wd1.myworkdayjobs.com/BAH_Jobs
   - name: "Leidos"
-    careers_url: https://careers.leidos.com
+    careers_url: https://leidos.wd5.myworkdayjobs.com/External
   - name: "SAIC"
     careers_url: https://jobs.saic.com
   - name: "CACI"
-    careers_url: https://careers.caci.com
+    careers_url: https://careers.smartrecruiters.com/caci
   - name: "ICF"
-    careers_url: https://careers.icf.com
+    careers_url: https://icf.wd5.myworkdayjobs.com/ICFExternal_Career_Site
   - name: "Abt Associates"
     careers_url: https://www.abtassociates.com/careers
   - name: "RTI International"
     careers_url: https://www.rti.org/careers
   - name: "American Institutes for Research"
-    careers_url: https://www.air.org/careers
+    careers_url: https://job-boards.greenhouse.io/americaninstitutesforresearch
   - name: "Gates Foundation"
-    careers_url: https://www.gatesfoundation.org/about/careers
+    careers_url: https://gatesfoundation.wd1.myworkdayjobs.com/Gates
   - name: "Ford Foundation"
-    careers_url: https://www.fordfoundation.org/careers
+    careers_url: https://fordfoundation.wd1.myworkdayjobs.com/FordFoundationCareerPage
   - name: "Robert Wood Johnson Foundation"
     careers_url: https://www.rwjf.org/careers
   - name: "Rockefeller Foundation"
     careers_url: https://www.rockefellerfoundation.org/careers
   - name: "Bloomberg Philanthropies"
-    careers_url: https://www.bloomberg.org/careers
+    careers_url: https://job-boards.greenhouse.io/bloombergorg
   - name: "Open Society Foundations"
     careers_url: https://www.opensocietyfoundations.org/careers
   - name: "Teach For America"
-    careers_url: https://www.teachforamerica.org/careers
-  - name: "City of New York"
-    careers_url: https://www.cityjobs.nyc.gov
-  - name: "City of Chicago"
-    careers_url: https://www.chicago.gov/city/en/depts/dhr
+    careers_url: https://teachforamerica.wd1.myworkdayjobs.com/TFA_Careers
   - name: "City of Los Angeles"
-    careers_url: https://careers.lacity.org
+    careers_url: https://www.governmentjobs.com/careers/lacity
   - name: "City of Seattle"
-    careers_url: https://www.seattle.gov/jobs
-  - name: "State of California"
-    careers_url: https://www.calcareers.ca.gov
-  - name: "State of Texas"
-    careers_url: https://www.hr.sao.texas.gov
-  - name: "State of New York"
-    careers_url: https://careers.ny.gov
-  - name: "State of Virginia"
-    careers_url: https://jobs.virginia.gov
+    careers_url: https://www.governmentjobs.com/careers/seattle
+  - name: "Pew Charitable Trusts"
+    careers_url: https://pewtrusts.wd5.myworkdayjobs.com/TrustsExternal
+  - name: "FHI 360"
+    careers_url: https://fhi.wd1.myworkdayjobs.com/FHI_360_External_Career_Portal
+  - name: "Peraton"
+    careers_url: https://careers-peraton.icims.com/jobs/search
+  - name: "Guidehouse"
+    careers_url: https://guidehouse.wd1.myworkdayjobs.com/External
+  - name: "Parsons"
+    careers_url: https://parsons.wd5.myworkdayjobs.com/Search
+  - name: "Granicus"
+    careers_url: https://careers-granicus.icims.com
+  - name: "Accela"
+    careers_url: https://job-boards.greenhouse.io/accela
+  - name: "OpenGov"
+    careers_url: https://jobs.ashbyhq.com/opengov
+  - name: "Code for America"
+    careers_url: https://job-boards.greenhouse.io/codeforamerica
+  - name: "Nava"
+    careers_url: https://job-boards.greenhouse.io/navapbc
+  - name: "ACLU"
+    careers_url: https://job-boards.greenhouse.io/aclu
+  - name: "Gallup"
+    careers_url: https://job-boards.greenhouse.io/gallup
+  - name: "Eurasia Group"
+    careers_url: https://ats.rippling.com/eurasia-group/jobs
+  - name: "Palantir"
+    careers_url: https://jobs.lever.co/palantir
+  - name: "FiscalNote"
+    careers_url: https://jobs.lever.co/fiscalnote
+  - name: "Common Cause"
+    careers_url: https://jobs.lever.co/commoncause
+  - name: "Sierra Club"
+    careers_url: https://jobs.lever.co/sierraclub
+  - name: "District of Columbia Government"
+    careers_url: https://www.governmentjobs.com/careers/dc
+  - name: "State of Washington"
+    careers_url: https://www.governmentjobs.com/careers/washington
+  - name: "State of Colorado"
+    careers_url: https://www.governmentjobs.com/careers/colorado
+  - name: "State of Michigan"
+    careers_url: https://www.governmentjobs.com/careers/michigan
+  - name: "State of Iowa"
+    careers_url: https://www.governmentjobs.com/careers/iowa
+  - name: "Fairfax County"
+    careers_url: https://www.governmentjobs.com/careers/fairfaxcounty
+  - name: "Montgomery County Maryland"
+    careers_url: https://www.governmentjobs.com/careers/montgomerycountymd
+  - name: "City of Boston"
+    careers_url: https://www.governmentjobs.com/careers/boston
+  - name: "King County"
+    careers_url: https://www.governmentjobs.com/careers/kingcounty
+  - name: "City of San Diego"
+    careers_url: https://www.governmentjobs.com/careers/sandiego
 assessment_domains:
   - "hirevue.com"
   - "usajobs.gov"
