@@ -19,21 +19,45 @@ export const DEFAULT_JUDGMENT_KEYWORDS = ['grad', 'graduation', 'term', 'experie
 const AUDIT_HEADER = ['date', 'url', 'verdict', 'score', 'reason'];
 const AUDIT_RE = /^AUDIT:\s*(KEEP|WRONG)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*(.*)$/;
 
-// One predicate shared with tools/parity-compare.mjs so the parity explanation applies exactly what pickRows applies.
-export function judgmentPattern(keywords) {
-  return new RegExp(`\\b(${keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');
+// 'word' anchors each keyword at a word start; 'substring' matches it anywhere in the reason.
+export function judgmentPattern(keywords, match = 'word') {
+  const anchor = match === 'substring' ? '' : '\\b';
+  return new RegExp(`${anchor}(${keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i');
 }
 
-export function pickRows(doc, { n = 20, keywords = DEFAULT_JUDGMENT_KEYWORDS }) {
+// Whether a Skipped row's reason is a judgment call worth a second look. Shared with tools/parity-compare.mjs so the
+// parity explanation applies exactly what pickRows applies. Mechanical title filters are not judgment calls, so this
+// always rejects them; no config key re-enables them. excludeReasons only narrow the set.
+export function reasonPredicate({ keywords = DEFAULT_JUDGMENT_KEYWORDS, keywordMatch = 'word', excludeReasons = [] } = {}) {
+  const re = judgmentPattern(keywords, keywordMatch);
+  const excluded = excludeReasons.map((p) => new RegExp(p, 'i'));
+  return (reason) => Boolean(reason) && !/^Title pre-filter/i.test(reason) && re.test(reason) && !excluded.some((x) => x.test(reason));
+}
+
+// The pick options for a loaded config; tools/parity.mjs hands the same object to compareFailAudit.
+// Strict true so a stray truthy value never narrows the pick; an empty judgment_keywords list falls back to the defaults, as before W-007.
+export function auditOptions(config) {
+  return {
+    keywords: config?.judgment_keywords?.length ? config.judgment_keywords : DEFAULT_JUDGMENT_KEYWORDS,
+    keywordMatch: config?.audit?.keyword_match ?? 'word',
+    excludeReasons: config?.audit?.exclude_reasons ?? [],
+    requireTriage: config?.audit?.require_triage === true,
+  };
+}
+
+// requireTriage lives here and not in reasonPredicate: it reads the triage note, which the parity compare's
+// output rows do not carry, so the compare cannot model it. Pick output keeps its {url, company, title, reason} shape.
+export function pickRows(doc, { n = 20, requireTriage = false, ...options }) {
   const sec = getSection(doc, 'Skipped');
-  const re = judgmentPattern(keywords);
+  const isJudgment = reasonPredicate(options);
   const rows = [];
   (sec?.lines ?? []).forEach((line) => {
     const row = parseRow(line);
     if (!row || row.notes.has('audited')) return;
     const reason = row.notes.get('reason') ?? '';
-    // Mechanical title filters are not judgment calls and need no second opinion.
-    if (!reason || /^Title pre-filter/i.test(reason) || !re.test(reason)) return;
+    if (!isJudgment(reason)) return;
+    const triage = Number(row.notes.get('triage'));
+    if (requireTriage && !(Number.isFinite(triage) && triage > 0)) return;
     const date = row.notes.get('triaged') ?? row.notes.get('imported') ?? '';
     rows.push({ date, url: row.url, company: row.company, title: row.title, reason });
   });
@@ -70,8 +94,7 @@ async function main() {
   const pipelineFile = join(paths.dataDir, 'pipeline.md');
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
   if (command === 'pick') {
-    const keywords = config?.judgment_keywords?.length ? config.judgment_keywords : DEFAULT_JUDGMENT_KEYWORDS;
-    console.log(JSON.stringify(pickRows(parsePipeline(readFileSync(pipelineFile, 'utf8')), { n: flags.n ?? 20, keywords }), null, 2));
+    console.log(JSON.stringify(pickRows(parsePipeline(readFileSync(pipelineFile, 'utf8')), { n: flags.n ?? 20, ...auditOptions(config) }), null, 2));
     return 0;
   }
   if (positionals.length !== 1) throw new UsageError('usage: fail-audit.mjs apply <results.txt>');

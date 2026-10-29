@@ -1,7 +1,7 @@
 // Stage comparison for the parity harness. Everything returned or rendered here is a count or a verdict:
 // row text never leaves this module, so a report built from it cannot carry URLs, companies or titles.
 import { urlKey } from '../lib/url-key.mjs';
-import { judgmentPattern } from '../scripts/fail-audit.mjs';
+import { reasonPredicate } from '../scripts/fail-audit.mjs';
 import { companyKey } from '../scripts/rank-queue.mjs';
 
 function flatten(value, prefix, out) {
@@ -172,6 +172,8 @@ const companiesOf = (byKey) => new Set([...byKey.values()].map(companyOf).filter
 
 // Both sides cap picks per company with different caps and weights, so which posting of a shared company survives
 // is a by-design difference. A company on one side only means eligibility differs, which stays residual.
+// companyOf uses default keys (no rank.parent_companies or ignore_words), so the compare needs no student config;
+// shared-company detection is slightly coarser, which only widens the by-design allowance.
 export function compareRankQueue(name, baselineText, packText) {
   const s = parseBoth(name, baselineText, packText);
   if (s.error) return s.error;
@@ -184,15 +186,17 @@ export function compareRankQueue(name, baselineText, packText) {
   return finish(name, s.counts, [...s.added, ...s.missing].filter(shared).length);
 }
 
-// The pack audits only config keywords and never mechanical title filters, so baseline-only rows outside that
-// vocabulary and title-filter rows differ by design. Pack-only rows and baseline-only rows the pack pattern matches stay residual.
-export function compareFailAudit(name, baselineText, packText, { keywords }) {
+// The pack audits only rows its reason predicate accepts (config keywords, match mode, exclusion patterns) and never
+// mechanical title filters, so baseline-only rows the predicate rejects and title-filter rows differ by design.
+// options is the shape auditOptions returns. Pack-only rows and baseline-only rows the predicate accepts stay residual.
+// require_triage is not modeled: the pick output carries no triage value, and the baseline applies its own triage rule.
+export function compareFailAudit(name, baselineText, packText, options) {
   const s = parseBoth(name, baselineText, packText);
   if (s.error) return s.error;
-  const re = judgmentPattern(keywords);
+  const picks = reasonPredicate(options);
   const reasonOf = (p) => String(p.reason ?? '');
   const titleFilter = (p) => /^Title pre-filter/i.test(reasonOf(p));
-  const allowance = s.added.filter(titleFilter).length + s.missing.filter((p) => titleFilter(p) || !re.test(reasonOf(p))).length;
+  const allowance = s.added.filter(titleFilter).length + s.missing.filter((p) => !picks(reasonOf(p))).length;
   return finish(name, s.counts, allowance);
 }
 
