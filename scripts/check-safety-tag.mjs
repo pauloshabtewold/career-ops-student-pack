@@ -108,6 +108,12 @@ export async function checkSafetyDiff({ packRoot = defaultPackRoot, base, head, 
   return { ok: violations.length === 0, violations };
 }
 
+export class NoBaselineError extends Error {}
+
+export function pickBase({ packRoot = defaultPackRoot, tag, runner = gitRunner }) {
+  throw new Error('pickBase is not implemented');
+}
+
 async function main() {
   const { command, positionals } = parseArgs(process.argv.slice(2), { common: false, flags: {} });
   if (!command || positionals.length !== 1) throw new UsageError('usage: check-safety-tag.mjs <base> <head>');
