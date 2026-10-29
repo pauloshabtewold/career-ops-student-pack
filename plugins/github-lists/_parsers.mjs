@@ -178,13 +178,14 @@ const CLEARANCE_SUFFIX = ' (clearance required)';
 // A source maps `closed` to the record field that marks a posting no longer open; such rows are skipped and are not parse errors.
 const CLOSED_YES = /^(yes|y|true|closed|1)$/i;
 
+const isFlagged = (v, yes) => v === true || (typeof v === 'string' && yes.test(v.trim()));
+
 // Maps one source record to a row {company, title, location, date, url, kind}.
 // Returns undefined for a record to skip silently (no url, or flagged closed),
 // null for a malformed record that counts as a parse error (non-http url),
 // and the row otherwise. A clearance-flagged record gets CLEARANCE_SUFFIX on
 // its title: upstream receives only {title, url, company, location}, so the
 // title is the one channel that reaches the student's dealbreaker match.
-
 function mapRecord(rec, map, kind) {
   const get = (k) => {
     const v = rec[map[k]];
@@ -193,10 +194,8 @@ function mapRecord(rec, map, kind) {
   const url = get('url');
   if (!url) return undefined;
   if (!/^https?:/i.test(url)) return null;
-  const closedFlag = map.closed ? rec[map.closed] : undefined;
-  if (closedFlag === true || (typeof closedFlag === 'string' && CLOSED_YES.test(closedFlag.trim()))) return undefined;
-  const flag = map.clearance ? rec[map.clearance] : undefined;
-  const cleared = flag === true || (typeof flag === 'string' && CLEARANCE_YES.test(flag.trim()));
+  if (map.closed && isFlagged(rec[map.closed], CLOSED_YES)) return undefined;
+  const cleared = map.clearance && isFlagged(rec[map.clearance], CLEARANCE_YES);
   return { company: get('company'), title: cleared ? `${get('title')}${CLEARANCE_SUFFIX}` : get('title'), location: get('location'), date: get('date'), url, kind };
 }
 
