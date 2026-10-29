@@ -29,6 +29,12 @@ Pack code calls career-ops scripts as child processes and never imports its modu
 
 Upstream's ingest keeps only title, URL, company, location and salary. Note tokens that the pack relies on are dropped, so the pack keeps a URL-keyed sidecar (a TSV file in the data folder) and joins it to pipeline rows.
 
+## Interview helpers, first run and unattended runs
+
+The interview is a conversation, so every choice that CI must be able to check lives in a script. `interview/resume-text.mjs` turns a Word resume into text with `node:zlib` only (a PDF is read by the agent's own file tool). `interview/detect-field.mjs` scores each preset against the resume with `interview/field-keywords.json` and falls back to `byo-employer-list` below two matches. `interview/apply-answers.mjs` then writes the files.
+
+`lib/ingest.mjs` holds the ordered ingest steps (GitHub-list plugin, scan, merge, free title filter) so `scripts/first-run.mjs` and `scripts/daily.mjs` cannot drift apart. The first run prints counts and the rows still waiting for a verdict and makes no model call; the session that started it scores them. `scripts/daily.mjs` keeps its zero-token, always-exit-0 contract. Model triage on a schedule is a separate script, `scripts/daily-triage.mjs`, capped by the `triage_daily` ceiling, and `scripts/scheduled.mjs` is the one entry point a launchd agent or Task Scheduler task starts: it runs the daily run and then the triage as separate child processes, so neither can stop the other.
+
 ## Plugin trust
 
 `plugins.lock` pins plugin file hashes. A feed change without a manifest version bump is skipped silently with exit 0 until `node plugins.mjs trust <id>` runs. Every file change in a plugin directory therefore bumps the manifest version, and `scripts/check-plugin-versions.mjs` checks it. Plugin directories are self-contained copies, which costs a trust re-pin per update but keeps upstream's consent model intact.
@@ -55,7 +61,7 @@ Mail is untrusted input, so the inbox step changes the tracker for two outcomes 
 
 ## Feeds
 
-GitHub job lists are churny bot repos. Discovery admits a list only with a push in the last 14 days, retires it after 30 days without a push or without unique rows, or after 3 failed parses, and polls daily when a list's posting window is 7 days. Each registry entry carries `last_push`, `last_unique` and `failed_parses`. A list with no recorded `last_push` or `last_unique` is not retired for staleness, so a fresh list survives until its first ingest sets them. The `github-lists` plugin is at version 1.0.1. Feeds keep company, title, location, date and employer URL. Vendor apply links resolve to the employer through the aggregator resolver, and `linkedin.com` is never fetched.
+GitHub job lists are churny bot repos. Discovery admits a list only with a push in the last 14 days, retires it after 30 days without a push or without unique rows, or after 3 failed parses, and polls daily when a list's posting window is 7 days. Each registry entry carries `last_push`, `last_unique` and `failed_parses`. A list with no recorded `last_push` or `last_unique` is not retired for staleness, so a fresh list survives until its first ingest sets them. The `github-lists` plugin is at version 1.2.0. Feeds keep company, title, location, date and employer URL. Vendor apply links resolve to the employer through the aggregator resolver, and `linkedin.com` is never fetched.
 
 ## Coverage outside tech
 

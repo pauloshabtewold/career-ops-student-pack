@@ -12,23 +12,34 @@ Run this when the student says "set me up", "personalize", or when `node student
 
 ## Phase 1: resume and identity
 
-1. If `cv.md` does not exist, ask the student to paste the resume or give a file path. Keep it as `cv_markdown` or `cv_path`.
+1. If `cv.md` does not exist, ask the student to paste the resume or give a file path. A relative path starts in the career-ops folder. Read the file by type: `.md` and `.txt` directly, a PDF with your own file tool, a `.docx` with `node student/interview/resume-text.mjs <file>` and keep the text it prints. Keep the text as `cv_markdown`, or the path as `cv_path`. An empty resume is refused later by `apply-answers.mjs`, so do not go on without one.
 2. From the resume, propose name, email, phone, city, LinkedIn and GitHub. Confirm each in one message.
 3. Ask for work authorization in the student's words (for example "F-1 with OPT" or "US citizen") and whether they will need sponsorship. Record both.
+4. Run `node student/interview/detect-field.mjs cv.md`. It prints the two best-fitting field presets with a score and the resume lines that matched. Show both with their evidence and ask the student to confirm or choose another; a pick below 2 matches is `byo-employer-list`.
 
 ## Phase 2: what they are looking for
 
 1. Graduation date (month and year) for each track: internship, co-op, new grad. A student can have more than one.
-2. Fields of study. Choose one or two presets from `presets/`; run `node student/scripts/preset-portals.mjs <id>` to show what each seeds. If none fits, use `byo-employer-list` and ask for the employers.
-3. Print the coverage line for each chosen preset, exactly as `interview/coverage.mjs` returns it. Do not soften it. A preset that is discovery help only says so.
+2. Fields of study. Start from the Phase 1 proposal and choose one or two presets from `presets/`; run `node student/scripts/preset-portals.mjs <id>` to show what each seeds. If none fits, use `byo-employer-list`.
+3. Print the coverage line for each chosen preset, exactly as `interview/coverage.mjs` returns it. Do not soften it. A preset that is discovery help only says so. For `policy-government`, also tell the student to set up a USAJOBS saved search with email alerts: the inbox step reads those alerts, and the pack has no USAJOBS key to set up.
 4. Target role names (archetypes), each one short phrase grounded in the resume.
-5. Locations, in order of preference. Years of experience, if any.
-6. Priority companies, hard-no companies (blacklist) and dealbreakers (for example "unpaid", "on-site only outside my metros").
-7. Which GitHub lists to trial. They start as `trial` and the monthly review keeps or drops them.
+5. Target employers: 10 to 20 in every field, each with its careers page URL. Fewer than 10 is accepted and noted.
+6. Locations, in order of preference. Years of experience, if any.
+7. Ask "Are you a US citizen?" and record `us_citizen` as true or false. Citizens keep postings that ask for clearance or citizenship; for everyone else the filters drop them.
+8. If sponsorship is needed, offer upstream's h1b-sponsor plugin: show its capability card with `node plugins.mjs enable h1b-sponsor` and run it again with `--confirm` only after the student agrees.
+9. Priority companies, hard-no companies (blacklist) and dealbreakers (for example "unpaid", "on-site only outside my metros").
+10. Which GitHub lists to trial. They start as `trial` and the monthly review keeps or drops them.
 
-## Phase 3: resume variants
+## Phase 3: resume variants and application profile
 
 For each track, name a resume variant and its page limit (one page unless the student says otherwise). Variants are listed in the answers file; the files themselves stay under the student's control.
+
+Then collect the application profile that forms ask for again and again, and record it as `application_profile`:
+
+- Start date: a month as `YYYY-MM`, or `immediately`.
+- Relocation: `yes`, `no` or `within-locations`.
+- EEO questions: `leave-blank` (default) or `ask-each-time`.
+- How did you hear about us: one short phrase, for example "University career fair".
 
 ## Phase 4: switches and disclosures
 
@@ -53,7 +64,7 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 
 ## Phase 5: schedule and spend
 
-1. Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`.
+1. Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`. The last one adds a daily model triage of up to `triage_daily` rows (ceiling 20) and needs claude signed in on this computer.
 2. Local time for the daily run and the time zone.
 3. Model tier: `standard` or `premium`. There is no economy tier.
 4. Daily target for applications (default 10; the ceiling still applies).
@@ -66,4 +77,8 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 3. Enable the GitHub-lists plugin only after showing its capability card: run `node plugins.mjs enable github-lists`, show the card to the student, and run it again with `--confirm` only after they agree.
 4. Run `node doctor.mjs --json` and report anything not green. Do not mark setup done while doctor reports unpersonalized files.
 5. Sign-in order for the first run: LinkedIn, then Handshake (if on), then the mailbox. The student does each sign-in; stop and wait after each.
-6. First run: `node student/scripts/rank-queue.mjs`, then walk through the top three postings with the student, using `modes/apply-loop.md` from the student folder. Nothing is submitted without the student's yes during this first run.
+6. First run, in this order:
+   1. `node student/scripts/first-run.mjs`. It prints one line per step, the Pending counts per source and up to 20 untriaged rows.
+   2. Triage the listed rows in this chat with the triage mode, standard model tier at minimum. Write one line per row as `TRIAGE: PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER | <url> | <score> | <reason>` to a file in the data folder and run `node student/scripts/apply-triage.mjs <file>`. If more rows remain, tell the student the daily run keeps going.
+   3. `node student/scripts/rank-queue.mjs --n 10` and show the top 10. Then walk through the top three postings with the student, using `modes/apply-loop.md` from the student folder. Nothing is submitted without the student's yes during this first run.
+   4. Unless automation is `manual`, run `node student/scripts/schedule.mjs install` and tell the student the time it was set for.

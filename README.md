@@ -24,31 +24,54 @@ Supported: macOS and Windows 11, Claude Code, US job markets.
 
 ## Requirements
 
-- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code)
+- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code), signed in
 - Node 22.13 or newer, and git
 - A clone of career-ops at version 1.38.0 or newer (the pack refuses to install on an older one)
 
 ## Install
 
-Open a terminal in your career-ops folder.
+Do these steps once, in order. Each block is typed in a terminal: Terminal on macOS, PowerShell on Windows 11.
 
-macOS (Terminal):
+**1. Run the block for your system.** Each block does everything up to the install script, so use one only. The steps are: install Node and git, clone career-ops, install its packages, clone this pack into a folder named `student`, then run the pack installer.
+
+For the pack clone, open the page you were sent for this pack, press the green Code button, choose HTTPS and copy the address. Paste it where `<pack-address>` is.
+
+macOS (Terminal; needs [Homebrew](https://brew.sh), so install it first if `brew` is not found):
 
 ```
-git clone <pack-url> student
+brew install node git
+git clone https://github.com/career-ops-hq/career-ops.git
+cd career-ops
+npm install
+git clone <pack-address> student
 node student/install.mjs
 ```
 
-Windows 11 (PowerShell):
+Windows 11 (PowerShell; if `winget` reports that the programs were installed but the next command is not found, close the window, open a new one and continue from the `git clone` line):
 
 ```
-git clone <pack-url> student
+winget install OpenJS.NodeJS.LTS
+winget install Git.Git
+git clone https://github.com/career-ops-hq/career-ops.git
+cd career-ops
+npm install
+git clone <pack-address> student
 node student/install.mjs
 ```
 
-Then open the career-ops folder in Claude Code. The personalization interview starts on its own the first time.
+`install.mjs` installs the pack's own packages (`npm ci --omit=dev` in the student folder) and, if career-ops has no `node_modules` yet, runs `npm install` there too. Then it writes only inside your career-ops folder: it lists the student folder and `CLAUDE.local.md` in the local-paths file in your config folder, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into upstream's local plugins folder. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again and leaves its other edits as they are.
 
-`install.mjs` writes only inside your career-ops folder: it lists the student folder and `CLAUDE.local.md` in the local-paths file in your config folder, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into upstream's local plugins folder. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again changes nothing.
+**2. Open the career-ops folder in Claude Code.** The personalization interview starts on its own the first time. It reads your resume, asks a few questions and ends with your first top 10 list of postings to apply to.
+
+Keep the career-ops folder out of iCloud Drive, OneDrive, Dropbox and Google Drive. Your resume, tracker and pipeline live in its `data` folder, and a sync client can upload them or make conflicting copies.
+
+## Browser setup
+
+Applying, the Handshake pass and LinkedIn outreach run in a browser you sign in to yourself; the agent never types a password.
+
+- **Claude in Chrome.** Install Google Chrome and the Claude in Chrome extension from the Chrome Web Store, then sign in to LinkedIn, Handshake and your job sites in that Chrome.
+- **Playwright.** Upstream also uses its own headless browser for some pages. In the career-ops folder run `npx playwright install chromium` once.
+- **Fewer permission prompts (optional).** `student/templates/claude-settings.suggested.json` lists the pack commands that are safe to allow without asking each time. If you want it, merge those entries into your own Claude Code settings by hand. The pack never writes a settings file for you.
 
 ## Update
 
@@ -60,9 +83,10 @@ This updates the pack and career-ops together and keeps career-ops inside the ve
 
 ## Daily use
 
-- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes config/student.yml and offers the daily schedule.
-- **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it.
-- **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and triages without any model call, then writes a digest in the digest folder under data.
+- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes config/student.yml. Running it again rewrites only the blocks the pack marked in your files and never overwrites `cv.md` or `config/profile.yml`.
+- **First run.** `node student/scripts/first-run.mjs` brings in the first postings and lists up to 20 that still need a verdict. The interview runs it for you, scores those rows in the session and shows your top 10 with `node student/scripts/rank-queue.mjs --n 10`.
+- **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it. The job starts `scheduled.mjs`, which runs the daily run and, only if you chose scheduled discovery plus triage, a capped model triage.
+- **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and applies the free title filter without any model call, then writes a digest in the digest folder under data. Add `--dry-run` to see the steps without running them.
 - **Inbox.** `node student/scripts/inbox.mjs` reads pasted or connector-provided mail and updates the tracker.
 - **Pilot report.** `node student/scripts/pilot-report.mjs` prints weekly counts and nothing else.
 

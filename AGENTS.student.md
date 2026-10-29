@@ -30,7 +30,7 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 
 | File | Read when |
 |---|---|
-| `interview/interview.md` | `session-start` prints `INTERVIEW:`, or the user asks to redo their setup |
+| `interview/interview.md` | `session-start` prints `INTERVIEW:`, or the user asks to redo their setup; its last phase runs `node student/scripts/first-run.mjs` and shows the first top 10 |
 | `modes/apply-loop.md` | the user says "apply" or "start applying" |
 | `modes/outreach.md` | the first session of the day, or the user asks for outreach |
 | `modes/handshake.md` | the user asks for the Handshake pass and the switch is on |
