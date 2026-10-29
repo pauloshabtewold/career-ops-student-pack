@@ -2,22 +2,22 @@
 // Zero-token unattended run. It never opens a browser, never calls a language model and never sends anything:
 // upstream is reached only through its command-line scripts (lib/upstream.mjs runner) and the pack steps are
 // local file work. A failed step lands in the digest and the run still exits 0, so a scheduler never retries it.
-// Usage: daily.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
+// Usage: daily.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--via-scheduled] [--dry-run]
+// --dry-run prints the planned steps and writes nothing. --via-scheduled is passed only by scheduled.mjs.
 // Files: data/.student-daily.lock (run lock), data/.snapshots/<date>/, data/digest/student-<date>.md, data/run-log.md
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, acquireLock, releaseLock } from '../lib/dir-lock.mjs';
+import { ingestStepNames, ingestSteps, stepRunners } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
 
-const STEP_TIMEOUT_MS = 30 * 60 * 1000;
 const HOUR_MS = 3600000;
 const SNAPSHOT_DIR = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -61,6 +61,14 @@ async function acquireRunLock(lockFile, staleMs, now) {
   }
 }
 
+const MONTHLY_STEPS = ['cycle', 'discover-github-lists', 'audit-portals'];
+
+// Step names in run order. Monthly and Sunday steps are listed only on the days they run.
+export function plannedSteps({ today, markerText, hasConfig }) {
+  if (!hasConfig) return ['config'];
+  return ['snapshot', ...(monthlyDue(today, markerText) ? MONTHLY_STEPS : []), ...ingestStepNames({ sweep: isSunday(today) })];
+}
+
 function runSteps({ root, dataDir, packRoot, today, config, limits, runner, results }) {
   const step = (name, fn) => {
     try {
@@ -69,8 +77,7 @@ function runSteps({ root, dataDir, packRoot, today, config, limits, runner, resu
       results.push({ name, ok: false, detail: oneLine(err.stderr || err.stdout || err.message) || 'failed' });
     }
   };
-  const upstream = (script, args = []) => runner(process.execPath, [join(root, script), ...args], { cwd: root, timeout: STEP_TIMEOUT_MS });
-  const pack = (script, args = []) => runner(process.execPath, [join(packRoot, 'scripts', script), ...args, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: STEP_TIMEOUT_MS });
+  const { upstream, pack } = stepRunners({ root, dataDir, packRoot, runner });
 
   if (!config) {
     results.push({ name: 'config', ok: false, detail: 'config/student.yml is missing; run the personalization interview' });
@@ -88,26 +95,11 @@ function runSteps({ root, dataDir, packRoot, today, config, limits, runner, resu
     step('audit-portals', () => upstream('audit-portals.mjs', ['--summary']));
     writeFileSync(markerFile, `${today.slice(0, 7)}\n`);
   }
-  step('github-lists', () => upstream('plugins.mjs', ['run', 'github-lists']));
-  step('scan', () => upstream('scan.mjs'));
-  if (isSunday(today)) step('liveness-sweep', () => pack('liveness-sweep.mjs'));
-  step('merge-post', () => pack('merge-post.mjs', ['--today', today]));
-  step('prefilter+triage', () => {
-    const verdicts = pack('prefilter.mjs');
-    if (!verdicts.trim()) return 'no title-level rejects';
-    const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-'));
-    try {
-      const file = join(tmp, 'prefilter.txt');
-      writeFileSync(file, verdicts);
-      return pack('apply-triage.mjs', [file]);
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, sweep: isSunday(today) });
 }
 
 // Writes the digest and returns the number of failed steps.
-function writeDigest({ dataDir, today, results }) {
+function writeDigest({ dataDir, today, results, notes }) {
   const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
   const failed = results.filter((r) => !r.ok);
   const digest = [
@@ -119,6 +111,7 @@ function writeDigest({ dataDir, today, results }) {
     '## Failures',
     ...(failed.length ? failed.map((r) => `- ${r.name}`) : ['- none']),
     '',
+    ...(notes.length ? ['## Notes', ...notes.map((n) => `- ${n}`), ''] : []),
     '## Pipeline',
     `- Pending rows: ${pending}`,
     '',
@@ -128,11 +121,26 @@ function writeDigest({ dataDir, today, results }) {
   return failed.length;
 }
 
-export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, runner = defaultRunner }) {
+// Always returns 0, so a scheduler never retries; a failed step is a line in the digest.
+export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, runner = defaultRunner, dryRun = false, viaScheduled = false }) {
   const say = (line) => {
     console.log(line);
     if (logFile) appendFileSync(logFile, `${line}\n`);
   };
+  if (dryRun) {
+    // Read-only on purpose: no lock, snapshot, digest, run log or log file is touched.
+    let hasConfig = false;
+    let configError = '';
+    try {
+      hasConfig = Boolean(await loadStudentConfig({ root }));
+    } catch (err) {
+      configError = oneLine(err.message);
+    }
+    const steps = plannedSteps({ today, markerText: readIf(join(dataDir, '.student-monthly')), hasConfig });
+    console.log(`student-daily dry run: ${steps.length} step(s) would run: ${steps.join(', ')}`);
+    if (configError) console.log(`student-daily dry run: config/student.yml is unreadable (${configError}); a real run would stop at the config step`);
+    return 0;
+  }
   const stamp = () => now().toISOString();
   const runLog = join(dataDir, 'run-log.md');
   mkdirSync(dataDir, { recursive: true });
@@ -148,10 +156,14 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   }
 
   const results = [];
+  // Only a schedule-installed job passes --log-file; one that still starts daily.mjs directly predates the triage wrapper.
+  const notes = logFile && !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
+    ? ['daily triage did not run: run node student/scripts/schedule.mjs install again to start it']
+    : [];
   try {
     log(`START ${stamp()} student-daily ${today}`);
     runSteps({ root, dataDir, packRoot, today, config, limits, runner, results });
-    const failedCount = writeDigest({ dataDir, today, results });
+    const failedCount = writeDigest({ dataDir, today, results, notes });
     log(`END ${stamp()} student-daily ok=${results.length - failedCount} failed=${failedCount}`);
     say(`student-daily: ${results.length - failedCount} step(s) ok, ${failedCount} failed; digest at data/digest/student-${today}.md`);
   } catch (err) {
@@ -164,7 +176,7 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { 'log-file': 'string' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { 'log-file': 'string', 'via-scheduled': 'boolean' } });
   let paths = null;
   try {
     paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
@@ -175,13 +187,14 @@ async function main() {
       timezone = '';
     }
     const clock = createClock({ today: flags.today, timezone });
-    return await dailyRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today: clock.today(), now: clock.now, logFile: flags.logFile });
+    return await dailyRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today: clock.today(), now: clock.now, logFile: flags.logFile, dryRun: flags.dryRun, viaScheduled: flags.viaScheduled });
   } catch (err) {
     // The scheduler must see exit 0 even when a step or the setup fails, so unexpected errors are logged and swallowed.
     // Usage errors are the caller's mistake and still exit 2 through runCli.
     if (err instanceof UsageError) throw err;
     const line = `student-daily: stopped (${oneLine(err.message)})`;
-    if (paths) {
+    // A dry run promises to write nothing, so its failure is printed and never logged.
+    if (paths && !flags.dryRun) {
       try {
         mkdirSync(paths.dataDir, { recursive: true });
         appendFileSync(join(paths.dataDir, 'run-log.md'), `END ${new Date().toISOString()} ${line}\n`);

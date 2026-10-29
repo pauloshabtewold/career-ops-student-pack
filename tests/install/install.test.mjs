@@ -31,7 +31,7 @@ async function withPack(opts, fn) {
 // M-005-S1
 test('M-005-S1 install writes local-paths, exclude entries, the CLAUDE.local.md block and plugin copies', () =>
   withPack({}, (p) => {
-    const r = p.run('install.mjs', ['--yes']);
+    const r = p.run('install.mjs', ['--yes', '--skip-npm']);
     assert.equal(r.code, 0, r.stdout + r.stderr);
     const paths = lines(readFileSync(join(p.root, 'config', 'local-paths.txt'), 'utf8'));
     assert.ok(paths.includes('student/'), 'local-paths.txt lacks student/');
@@ -50,7 +50,7 @@ test('M-005-S1 install writes local-paths, exclude entries, the CLAUDE.local.md 
 // M-005-S1
 test('M-005-S1 install never enables a plugin and writes no settings file', () =>
   withPack({}, (p) => {
-    const r = p.run('install.mjs', ['--yes']);
+    const r = p.run('install.mjs', ['--yes', '--skip-npm']);
     assert.equal(r.code, 0, r.stdout + r.stderr);
     const yml = join(p.root, 'config', 'plugins.yml');
     if (existsSync(yml)) assert.doesNotMatch(readFileSync(yml, 'utf8'), /enabled:\s*true/);
@@ -63,10 +63,10 @@ test('M-005-S2 a second install changes no file and user lines survive', () =>
   withPack({}, (p) => {
     put(p.root, 'config/local-paths.txt', 'my-notes/\r\nmy-drafts/\r\n');
     put(p.root, 'CLAUDE.local.md', 'My own rule one.\n\nMy own rule two.\n');
-    const first = p.run('install.mjs', ['--yes']);
+    const first = p.run('install.mjs', ['--yes', '--skip-npm']);
     assert.equal(first.code, 0, first.stdout + first.stderr);
     const before = snapshot(p.root, { skip: ['student'] });
-    const second = p.run('install.mjs', ['--yes']);
+    const second = p.run('install.mjs', ['--yes', '--skip-npm']);
     assert.equal(second.code, 0, second.stdout + second.stderr);
     assert.deepEqual(snapshot(p.root, { skip: ['student'] }), before);
     const paths = readFileSync(join(p.root, 'config', 'local-paths.txt'), 'utf8');
@@ -81,7 +81,7 @@ test('M-005-S2 a second install changes no file and user lines survive', () =>
 test('M-005-S3 install refuses an upstream below 1.38.0 with one line and writes nothing', () =>
   withPack({ upstreamVersion: '1.37.0' }, (p) => {
     const before = snapshot(p.root, { skip: ['student'] });
-    const r = p.run('install.mjs', ['--yes']);
+    const r = p.run('install.mjs', ['--yes', '--skip-npm']);
     assert.equal(r.code, 1, r.stdout + r.stderr);
     assert.equal(r.lines.length, 1, r.lines.join('\n'));
     assert.match(r.lines[0], /1\.38\.0/);
@@ -93,7 +93,7 @@ test('M-005-S3 install refuses an upstream below 1.38.0 with one line and writes
 test('M-005-S3 install refuses a directory that is not a career-ops checkout and writes nothing', () =>
   withPack({ checkout: false }, (p) => {
     const before = snapshot(p.root, { skip: ['student'] });
-    const r = p.run('install.mjs', ['--yes']);
+    const r = p.run('install.mjs', ['--yes', '--skip-npm']);
     assert.equal(r.code, 1, r.stdout + r.stderr);
     assert.equal(r.lines.length, 1, r.lines.join('\n'));
     assert.deepEqual(snapshot(p.root, { skip: ['student'] }), before);

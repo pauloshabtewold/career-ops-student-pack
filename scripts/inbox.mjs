@@ -79,6 +79,8 @@ const SUSPICIOUS = [
 ];
 const REJECTION = /\b(move|moving|proceed|proceeding) forward with (other|another)\b|\bregret to inform\b|\bunfortunately\b|\bnot (be )?(moving|selected|proceeding)\b|\bdecided not to\b|\bposition has been filled\b/i;
 const CONFIRMATION = /\bautomated\b|\bdo not reply\b|\bdon't reply\b|\breceived your application\b|\bthank(s| you) for applying\b/i;
+// A receipt that only promises a possible interview is not an interview request.
+const CONDITIONAL = /\bif (you are |you're )?selected\b|\bshould you be selected\b|\bmay contact you\b/i;
 const INTERVIEW = /\binterview\b/i;
 const SCHEDULING = /\b(availability|schedul(e|ing)|calendly|book a (time|slot)|(few|some) times|times (that |which )?(work|suit)|a call|phone screen)\b/i;
 const ASKS = /\?|\bplease (send|provide|reply|respond|complete|fill|upload|confirm|let us know)\b/i;
@@ -135,9 +137,12 @@ export function classify(message, ctx) {
   const info = { ...base, company: company?.name ?? '' };
   if (company) {
     if (REJECTION.test(text)) return { ...info, kind: 'rejection' };
-    if (!assess && CONFIRMATION.test(text)) return { ...info, kind: 'ignore' };
+    // Conditional wording (if selected, may contact you) marks a plain receipt, so it is ignored before the interview rules run.
+    if (!assess && CONDITIONAL.test(text)) return { ...info, kind: 'ignore' };
+    // Interview and scheduling come before the receipt rule: "Thanks for applying" opens many real interview invitations.
     if (INTERVIEW.test(text)) return { ...info, kind: 'interview' };
     if (SCHEDULING.test(text)) return { ...info, kind: 'scheduling' };
+    if (!assess && CONFIRMATION.test(text)) return { ...info, kind: 'ignore' };
   }
   if (assess) {
     const due = DUE.exec(text)?.[1] ?? 'unknown';

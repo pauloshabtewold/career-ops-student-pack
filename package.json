@@ -13,7 +13,7 @@
     "lint": "node scripts/pii-lint.mjs && node scripts/lint-imports.mjs && node scripts/lint-files.mjs",
     "hooks": "git config core.hooksPath .githooks"
   },
-  "devDependencies": {
+  "dependencies": {
     "js-yaml": "5.5.0"
   }
 }
