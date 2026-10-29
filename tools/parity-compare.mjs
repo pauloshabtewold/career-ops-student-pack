@@ -174,7 +174,11 @@ const companiesOf = (byKey) => new Set([...byKey.values()].map(companyOf).filter
 // is a by-design difference. A company on one side only means eligibility differs, which stays residual.
 // companyOf uses default keys (no rank.parent_companies or ignore_words), so the compare needs no student config;
 // shared-company detection is slightly coarser, which only widens the by-design allowance.
-export function compareRankQueue(name, baselineText, packText) {
+export function carriedPending(beforeText, afterText) {
+  return new Set();
+}
+
+export function compareRankQueue(name, baselineText, packText, { carried = new Set() } = {}) {
   const s = parseBoth(name, baselineText, packText);
   if (s.error) return s.error;
   const ca = companiesOf(s.a);
