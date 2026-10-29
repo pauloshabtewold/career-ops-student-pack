@@ -11,7 +11,7 @@ Upstream has no notion of a graduation window. A student looking for internships
 Add a small cycle computation:
 
 - Input: the student's graduation dates and a recruiting calendar for their field (term names and start months).
-- Output: the internship terms and new-grad years in play for the run date, written to `data/student-cycle.json`.
+- Output: the internship terms and new-grad years in play for the run date, written to a `student-cycle.json` file in the upstream data directory.
 - A validator for that file, so readers fail with a clear message on a malformed cycle.
 - A marker-bounded text refresh: only the text between cycle markers in the brief, the custom mode file and `portals.yml` is rewritten, so a student's own edits elsewhere in those files are never touched.
 - A simulation switch (`--today`) that is allowed only with a dry run, so a pinned date never reaches real files.

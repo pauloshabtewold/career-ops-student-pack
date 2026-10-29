@@ -18,7 +18,7 @@ The pack has no vetted public list for big-tech roles. A survey on 2026-10-29 fo
 
 Vetting criteria for any list that is added later:
 
-- Updated at least weekly through one full recruiting cycle (August to May).
+- Receives commits at least weekly through one full recruiting cycle (August to May).
 - At least 100 stars.
 - A format the github-lists plugin parses.
 - Roles that are not already in the six software-cs lists.
