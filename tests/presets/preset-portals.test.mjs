@@ -10,7 +10,7 @@ import { presetPortals } from '../../scripts/preset-portals.mjs';
 import { loadPreset } from '../../lib/presets.mjs';
 import { PACK_ROOT } from '../helpers/script-harness.mjs';
 
-const NAMED = ['software-cs', 'mis-business-analytics', 'finance-economics', 'accounting', 'engineering-mech-elec', 'policy-government'];
+const NAMED = readdirSync(join(PACK_ROOT, 'presets')).filter((f) => f.endsWith('.yml') && f !== 'OWNERS.yml').map((f) => f.slice(0, -4)).filter((id) => id !== 'byo-employer-list').sort();
 
 function check(id, text) {
   const doc = yaml.load(text);
@@ -25,7 +25,7 @@ function check(id, text) {
   });
 }
 
-// M-006-S10
+// M-006-S10 (M-001-S8: NAMED follows the presets/ directory scan)
 for (const id of NAMED) {
   test(`M-006-S10 CLI prints tracked_companies YAML for ${id}`, () => {
     const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'preset-portals.mjs'), id], { cwd: PACK_ROOT, encoding: 'utf8', timeout: 60000 });

@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { resolveAggregator } from '../../plugins/github-lists/_resolve.mjs';
+import { classifyUrl, resolveAggregator } from '../../plugins/github-lists/_resolve.mjs';
 import * as H from '../helpers/feed-harness.mjs';
 
 const AGG = 'https://simplify.jobs/p/abc-123';
@@ -112,4 +112,28 @@ test('M-003-S6 the resolver never has more than 4 requests in flight', async () 
   assert.ok(stub.calls.length >= 12, 'requests were issued');
   assert.ok(stub.state.maxInFlight <= 4, `max in flight ${stub.state.maxInFlight}`);
   assert.ok(stub.state.maxInFlight >= 2, 'the gate allows parallelism');
+});
+
+// M-001-S4
+test('M-001-S4 classifyUrl treats trylitos.com and its subdomains as aggregator', () => {
+  assert.equal(classifyUrl('https://trylitos.com/jobs/abc'), 'aggregator');
+  assert.equal(classifyUrl('https://www.trylitos.com/jobs/abc'), 'aggregator');
+});
+
+test('M-001-S4 a trylitos row resolves through the Greenhouse board by company slug and trylitos is never requested', async () => {
+  const row = aggRow({ url: 'https://trylitos.com/jobs/abc' });
+  const { out, stub, unresolved } = await run([row], [greenhouse]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].url, 'https://boards.greenhouse.io/examplerobotics/jobs/8');
+  assert.equal(unresolved.length, 0);
+  assert.ok(stub.calls.length > 0);
+  assert.ok(!stub.urls().some((u) => /trylitos/i.test(u)));
+});
+
+test('M-001-S4 an unmatched trylitos row is recorded as unresolved without requesting trylitos.com', async () => {
+  const row = aggRow({ title: 'Quantum Intern', url: 'https://trylitos.com/jobs/zzz' });
+  const { out, stub, unresolved } = await run([row], [greenhouse, lever, ashby]);
+  assert.equal(out.length, 0);
+  assert.equal(unresolved.length, 2, 'header plus one row');
+  assert.ok(!stub.urls().some((u) => /trylitos/i.test(u)));
 });

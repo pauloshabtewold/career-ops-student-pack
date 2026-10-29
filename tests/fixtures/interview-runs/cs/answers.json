@@ -1,0 +1,72 @@
+{
+  "identity": {
+    "name": "Jordan Testwell",
+    "email": "jordan.testwell@example.edu",
+    "phone": "415-555-0140"
+  },
+  "presets": [
+    "software-cs"
+  ],
+  "tracks": [
+    {
+      "kind": "internship",
+      "graduation": "2028-05",
+      "resume_variant": "cs-main"
+    }
+  ],
+  "experience_years": 0,
+  "locations": [
+    "Remote",
+    "Austin, TX"
+  ],
+  "work_authorization": "US citizen",
+  "needs_sponsorship": false,
+  "dealbreakers": [
+    "unpaid",
+    "commission[- ]only"
+  ],
+  "priority_companies": [
+    "Example Robotics Co"
+  ],
+  "blacklist": [
+    "Example Staffing Group"
+  ],
+  "target_employers": [
+    {
+      "name": "Example cs Target 1",
+      "careers_url": "https://careers.example.com/cs/1"
+    },
+    {
+      "name": "Example cs Target 2",
+      "careers_url": "https://careers.example.com/cs/2"
+    }
+  ],
+  "sources_chosen": [
+    "github-lists"
+  ],
+  "mailbox_backend": "connector",
+  "spend_tier": "standard",
+  "automation": "scheduled-discovery",
+  "daily_target": 8,
+  "score_floor": 4,
+  "switches": {
+    "outreach": "on",
+    "handshake": "on",
+    "submission": "agent"
+  },
+  "limits": {},
+  "timezone": "America/Chicago",
+  "schedule_time": "06:30",
+  "resume_variants": [
+    {
+      "name": "cs-main",
+      "track": "internship",
+      "graduation": "2028-05",
+      "page_limit": 1
+    }
+  ],
+  "archetypes": [
+    "Backend engineering intern",
+    "Data engineering intern"
+  ]
+}

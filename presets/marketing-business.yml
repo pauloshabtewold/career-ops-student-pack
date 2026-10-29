@@ -1,0 +1,227 @@
+# Consumer brands, tech marketing, media and retail; one vendor list feeds postings, the seed list carries the rest.
+id: marketing-business
+name: "Marketing, general business"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: no marketing-specific list is maintained anywhere, so the employer list carries this preset; one vendor's weekly marketing list adds postings. Brand and rotational programs hire mostly through company sites."
+title_rules:
+  include:
+    - "marketing"
+    - "brand"
+    - "communications"
+    - "social media"
+    - "content"
+    - "digital"
+    - "growth"
+    - "sales"
+    - "business"
+    - "rotational"
+    - "leadership development"
+    - "merchandising"
+    - "market research"
+  exclude:
+    - "recruit"
+    - "driver"
+    - "cashier"
+    - "sales engineer"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|associate|assistant|junior|university|campus|rotational|leadership development)\\b"
+recruiting_calendar:
+  rollover_month: 6
+  lead_months: 13
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 2}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists:
+    - name: litos-marketing
+      repo: mehek-builds/Hiring-Now
+      path: csv/marketing.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save searches for marketing, brand and business development intern."
+    - name: "HeadcountLabs"
+      how: "Its list was header-only when last checked; look again each term."
+    - name: "intern-list.com"
+      how: "Email alerts only."
+search_terms:
+    - "marketing intern"
+    - "brand management intern"
+    - "associate marketing manager"
+    - "business development associate"
+    - "marketing analyst"
+seed_employers:
+  - name: "6sense"
+    careers_url: https://job-boards.greenhouse.io/6sense
+  - name: "Adobe"
+    careers_url: https://adobe.wd5.myworkdayjobs.com/external_experienced
+  - name: "Airbnb"
+    careers_url: https://job-boards.greenhouse.io/airbnb
+  - name: "Airtable"
+    careers_url: https://job-boards.greenhouse.io/airtable
+  - name: "Amplitude"
+    careers_url: https://jobs.ashbyhq.com/amplitude
+  - name: "Asana"
+    careers_url: https://job-boards.greenhouse.io/asana
+  - name: "Attentive"
+    careers_url: https://job-boards.greenhouse.io/attentive
+  - name: "Away"
+    careers_url: https://jobs.ashbyhq.com/away
+  - name: "Braze"
+    careers_url: https://job-boards.greenhouse.io/braze
+  - name: "Brex"
+    careers_url: https://job-boards.greenhouse.io/brex
+  - name: "Calendly"
+    careers_url: https://job-boards.greenhouse.io/calendly
+  - name: "Canva"
+    careers_url: https://careers.smartrecruiters.com/canva
+  - name: "Chewy"
+    careers_url: https://chewy.wd5.myworkdayjobs.com/External
+  - name: "Cision"
+    careers_url: https://job-boards.greenhouse.io/cision
+  - name: "Clorox"
+    careers_url: https://clorox.wd1.myworkdayjobs.com/Clorox
+  - name: "Contentful"
+    careers_url: https://job-boards.greenhouse.io/contentful
+  - name: "Demandbase"
+    careers_url: https://jobs.ashbyhq.com/demandbase
+  - name: "Discord"
+    careers_url: https://job-boards.greenhouse.io/discord
+  - name: "Dropbox"
+    careers_url: https://job-boards.greenhouse.io/dropbox
+  - name: "Duolingo"
+    careers_url: https://job-boards.greenhouse.io/duolingo
+  - name: "Everlane"
+    careers_url: https://job-boards.greenhouse.io/everlane
+  - name: "Faire"
+    careers_url: https://job-boards.greenhouse.io/faire
+  - name: "Figma"
+    careers_url: https://job-boards.greenhouse.io/figma
+  - name: "Glossier"
+    careers_url: https://job-boards.greenhouse.io/glossier
+  - name: "Gong"
+    careers_url: https://careers.smartrecruiters.com/gong
+  - name: "Gusto"
+    careers_url: https://job-boards.greenhouse.io/gusto
+  - name: "Hearst"
+    careers_url: https://job-boards.greenhouse.io/hearst
+  - name: "iHeartMedia"
+    careers_url: https://careers.smartrecruiters.com/iheartmedia
+  - name: "Instacart"
+    careers_url: https://job-boards.greenhouse.io/instacart
+  - name: "Intercom"
+    careers_url: https://job-boards.greenhouse.io/intercom
+  - name: "Iterable"
+    careers_url: https://jobs.ashbyhq.com/iterable
+  - name: "Kimberly-Clark"
+    careers_url: https://kimberlyclark.wd1.myworkdayjobs.com/GLOBAL
+  - name: "Klaviyo"
+    careers_url: https://job-boards.greenhouse.io/klaviyo
+  - name: "Lattice"
+    careers_url: https://job-boards.greenhouse.io/lattice
+  - name: "Lowe's"
+    careers_url: https://lowes.wd5.myworkdayjobs.com/LWS_External_CS
+  - name: "Lyft"
+    careers_url: https://job-boards.greenhouse.io/lyft
+  - name: "Mars"
+    careers_url: https://mars.wd3.myworkdayjobs.com/External
+  - name: "Miro"
+    careers_url: https://jobs.ashbyhq.com/miro
+  - name: "Mixpanel"
+    careers_url: https://job-boards.greenhouse.io/mixpanel
+  - name: "Mondelez International"
+    careers_url: https://mdlz.wd3.myworkdayjobs.com/External
+  - name: "Mural"
+    careers_url: https://jobs.ashbyhq.com/mural
+  - name: "Nextdoor"
+    careers_url: https://job-boards.greenhouse.io/nextdoor
+  - name: "Nike"
+    careers_url: https://nike.wd1.myworkdayjobs.com/nke
+  - name: "Notion"
+    careers_url: https://jobs.ashbyhq.com/notion
+  - name: "Ogilvy"
+    careers_url: https://job-boards.greenhouse.io/ogilvy
+  - name: "Oura"
+    careers_url: https://job-boards.greenhouse.io/oura
+  - name: "Outreach"
+    careers_url: https://jobs.lever.co/outreach
+  - name: "Patreon"
+    careers_url: https://jobs.ashbyhq.com/patreon
+  - name: "Peloton"
+    careers_url: https://job-boards.greenhouse.io/peloton
+  - name: "Pinterest"
+    careers_url: https://job-boards.greenhouse.io/pinterest
+  - name: "Poshmark"
+    careers_url: https://jobs.ashbyhq.com/poshmark
+  - name: "Procter & Gamble"
+    careers_url: https://pg.wd5.myworkdayjobs.com/1000
+  - name: "Pubmatic"
+    careers_url: https://job-boards.greenhouse.io/pubmatic
+  - name: "PVH"
+    careers_url: https://pvh.wd1.myworkdayjobs.com/PVH_Careers
+  - name: "Qualtrics"
+    careers_url: https://job-boards.greenhouse.io/qualtrics
+  - name: "Quora"
+    careers_url: https://jobs.ashbyhq.com/quora
+  - name: "Reddit"
+    careers_url: https://job-boards.greenhouse.io/reddit
+  - name: "Roblox"
+    careers_url: https://job-boards.greenhouse.io/roblox
+  - name: "Salesforce"
+    careers_url: https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
+  - name: "Shopify"
+    careers_url: https://shopify.pinpointhq.com
+  - name: "Skims"
+    careers_url: https://skims.pinpointhq.com
+  - name: "Spotify"
+    careers_url: https://jobs.lever.co/spotify
+  - name: "Squarespace"
+    careers_url: https://job-boards.greenhouse.io/squarespace
+  - name: "Substack"
+    careers_url: https://jobs.ashbyhq.com/substack
+  - name: "SurveyMonkey"
+    careers_url: https://jobs.ashbyhq.com/surveymonkey
+  - name: "Sweetgreen"
+    careers_url: https://job-boards.greenhouse.io/sweetgreen
+  - name: "Taboola"
+    careers_url: https://job-boards.greenhouse.io/taboola
+  - name: "Target"
+    careers_url: https://target.wd5.myworkdayjobs.com/targetcareers
+  - name: "The Coca-Cola Company"
+    careers_url: https://coke.wd1.myworkdayjobs.com/coca-cola-careers
+  - name: "The Home Depot"
+    careers_url: https://homedepot.wd5.myworkdayjobs.com/CareerDepot
+  - name: "Twilio"
+    careers_url: https://job-boards.greenhouse.io/twilio
+  - name: "Twitch"
+    careers_url: https://job-boards.greenhouse.io/twitch
+  - name: "Typeform"
+    careers_url: https://job-boards.greenhouse.io/typeform
+  - name: "Unilever"
+    careers_url: https://unilever.wd3.myworkdayjobs.com/Unilever_Experienced_Professionals
+  - name: "Warner Bros. Discovery"
+    careers_url: https://warnerbros.wd5.myworkdayjobs.com/global
+  - name: "Wayfair"
+    careers_url: https://careers.smartrecruiters.com/wayfair
+  - name: "Webflow"
+    careers_url: https://jobs.ashbyhq.com/webflow
+  - name: "Whoop"
+    careers_url: https://jobs.ashbyhq.com/whoop
+  - name: "Yext"
+    careers_url: https://job-boards.greenhouse.io/yext
+  - name: "Zendesk"
+    careers_url: https://zendesk.bamboohr.com
+  - name: "Zillow"
+    careers_url: https://zillow.bamboohr.com
+  - name: "ZoomInfo"
+    careers_url: https://job-boards.greenhouse.io/zoominfo
+archetypes:
+    - "Brand or associate marketing manager"
+    - "Sales and marketing rotational associate"
+    - "Marketing analyst"
+    - "Business development associate"
+employer_policies: []

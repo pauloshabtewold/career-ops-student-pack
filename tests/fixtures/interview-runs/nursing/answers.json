@@ -1,0 +1,100 @@
+{
+  "identity": {
+    "name": "Taylor Bedside",
+    "email": "taylor.bedside@example.edu",
+    "phone": "415-555-0144"
+  },
+  "presets": [
+    "byo-employer-list"
+  ],
+  "tracks": [
+    {
+      "kind": "newgrad",
+      "graduation": "2027-05",
+      "resume_variant": "nursing-main"
+    }
+  ],
+  "experience_years": 0,
+  "locations": [
+    "Portland, OR"
+  ],
+  "work_authorization": "US citizen",
+  "needs_sponsorship": false,
+  "dealbreakers": [
+    "night shift only"
+  ],
+  "priority_companies": [
+    "Example Health System 1"
+  ],
+  "blacklist": [
+    "Example Staffing Group"
+  ],
+  "target_employers": [
+    {
+      "name": "Example Health System 1",
+      "careers_url": "https://careers.example.com/nursing/1"
+    },
+    {
+      "name": "Example Health System 2",
+      "careers_url": "https://careers.example.com/nursing/2"
+    },
+    {
+      "name": "Example Health System 3",
+      "careers_url": "https://careers.example.com/nursing/3"
+    },
+    {
+      "name": "Example Health System 4",
+      "careers_url": "https://careers.example.com/nursing/4"
+    },
+    {
+      "name": "Example Health System 5",
+      "careers_url": "https://careers.example.com/nursing/5"
+    },
+    {
+      "name": "Example Health System 6",
+      "careers_url": "https://careers.example.com/nursing/6"
+    },
+    {
+      "name": "Example Health System 7",
+      "careers_url": "https://careers.example.com/nursing/7"
+    },
+    {
+      "name": "Example Health System 8",
+      "careers_url": "https://careers.example.com/nursing/8"
+    },
+    {
+      "name": "Example Health System 9",
+      "careers_url": "https://careers.example.com/nursing/9"
+    },
+    {
+      "name": "Example Health System 10",
+      "careers_url": "https://careers.example.com/nursing/10"
+    }
+  ],
+  "sources_chosen": [],
+  "mailbox_backend": "connector",
+  "spend_tier": "standard",
+  "automation": "scheduled-discovery",
+  "daily_target": 8,
+  "score_floor": 4,
+  "switches": {
+    "outreach": "drafts",
+    "handshake": "on",
+    "submission": "user"
+  },
+  "limits": {},
+  "timezone": "America/Los_Angeles",
+  "schedule_time": "06:30",
+  "resume_variants": [
+    {
+      "name": "nursing-main",
+      "track": "newgrad",
+      "graduation": "2027-05",
+      "page_limit": 1
+    }
+  ],
+  "archetypes": [
+    "Registered nurse residency",
+    "Clinic nurse"
+  ]
+}

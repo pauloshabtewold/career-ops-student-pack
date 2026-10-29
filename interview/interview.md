@@ -32,6 +32,10 @@ For each track, name a resume variant and its page limit (one page unless the st
 
 ## Phase 4: switches and disclosures
 
+Before the disclosures, read this disclaimer once, word for word. Do not repeat it later in the interview.
+
+This pack is not affiliated with or endorsed by LinkedIn, Handshake, career-ops or any employer. You are responsible for following the terms of every site you use it with. LinkedIn and Handshake automation can lead to limits or restrictions on your accounts; both are on by default and each can be switched off at any time ("stop outreach", "stop handshake"). The software comes with no warranty of any kind (MIT license).
+
 Read these two disclosures aloud before asking, then record the answer.
 
 LinkedIn outreach. LinkedIn's terms restrict automated activity, and the status of an assistant that drafts and sends messages in the student's own signed-in browser is ambiguous. It can put the account at risk. Outreach is therefore capped by hard limits, never runs unattended, and can be set to `on`, `drafts` (drafts only, the student sends) or `off`. At any time the student can say "stop outreach" and it ends for good until they say otherwise.

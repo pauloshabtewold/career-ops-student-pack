@@ -1,0 +1,230 @@
+# Security vendors, tech, consulting, defense and bank security teams; federal agencies are not seeds because USAJOBS covers them.
+id: cybersecurity
+name: "Cybersecurity"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: one maintained list feeds postings and it marks clearance-required roles, which carry '(clearance required)' in the title; a student who cannot hold a clearance adds the dealbreaker 'clearance' in the interview. Federal and intelligence roles are not on that list, so use the USAJOBS alert for them."
+title_rules:
+  include:
+    - "security"
+    - "cyber"
+    - "\\bsoc\\b"
+    - "threat"
+    - "incident"
+    - "forensic"
+    - "grc"
+    - "risk"
+    - "compliance"
+    - "penetration"
+    - "offensive"
+    - "appsec"
+    - "cloud security"
+    - "\\biam\\b"
+    - "vulnerability"
+  exclude:
+    - "inside sales|sales (rep|representative|associate)"
+    - "recruit"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst i|engineer i|associate|apprentice|junior|university|campus)\\b"
+recruiting_calendar:
+  rollover_month: 7
+  lead_months: 12
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 2}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists:
+    # clearance and closed name the listings.json keys the parser reads: clearance-required rows keep a title suffix, closed rows are skipped.
+    - name: hackedrico-cyber
+      repo: HackedRico/2027-cyber-jobs
+      path: listings.json
+      format: json-array
+      kind: internship
+      field_map: {company: company, title: role, location: location, date: date_added, url: url, clearance: clearance, closed: closed}
+  alerts:
+    - name: "USAJOBS"
+      how: "The HackedRico list excludes federal and intelligence roles. Upstream has a keyed USAJOBS source: enable it after getting a free API key; set HiringPath to student and graduates."
+    - name: "Handshake saved search"
+      how: "Save searches for security, SOC and cyber intern."
+search_terms:
+    - "security intern"
+    - "SOC analyst intern"
+    - "cybersecurity analyst new grad"
+    - "penetration testing intern"
+    - "GRC analyst intern"
+seed_employers:
+  - name: "Zscaler"
+    careers_url: https://job-boards.greenhouse.io/zscaler
+  - name: "Okta"
+    careers_url: https://job-boards.greenhouse.io/okta
+  - name: "Cloudflare"
+    careers_url: https://job-boards.greenhouse.io/cloudflare
+  - name: "Elastic"
+    careers_url: https://job-boards.greenhouse.io/elastic
+  - name: "Datadog"
+    careers_url: https://job-boards.greenhouse.io/datadog
+  - name: "KnowBe4"
+    careers_url: https://job-boards.greenhouse.io/knowbe4
+  - name: "Sophos"
+    careers_url: https://jobs.lever.co/sophos
+  - name: "Recorded Future"
+    careers_url: https://job-boards.greenhouse.io/recordedfuture
+  - name: "Snyk"
+    careers_url: https://jobs.ashbyhq.com/snyk
+  - name: "HackerOne"
+    careers_url: https://jobs.ashbyhq.com/hackerone
+  - name: "Bugcrowd"
+    careers_url: https://job-boards.greenhouse.io/bugcrowd
+  - name: "Wiz"
+    careers_url: https://job-boards.greenhouse.io/wizinc
+  - name: "Abnormal Security"
+    careers_url: https://job-boards.greenhouse.io/abnormalsecurity
+  - name: "1Password"
+    careers_url: https://jobs.ashbyhq.com/1password
+  - name: "Coalfire"
+    careers_url: https://jobs.lever.co/coalfire
+  - name: "Bishop Fox"
+    careers_url: https://job-boards.greenhouse.io/bishopfox
+  - name: "Island"
+    careers_url: https://job-boards.greenhouse.io/island
+  - name: "Tanium"
+    careers_url: https://job-boards.greenhouse.io/tanium
+  - name: "Rubrik"
+    careers_url: https://job-boards.greenhouse.io/rubrik
+  - name: "Netskope"
+    careers_url: https://job-boards.greenhouse.io/netskope
+  - name: "Illumio"
+    careers_url: https://jobs.ashbyhq.com/illumio
+  - name: "Sumo Logic"
+    careers_url: https://job-boards.greenhouse.io/sumologic
+  - name: "Huntress"
+    careers_url: https://job-boards.greenhouse.io/huntress
+  - name: "Expel"
+    careers_url: https://job-boards.greenhouse.io/expel
+  - name: "Dragos"
+    careers_url: https://job-boards.greenhouse.io/dragos
+  - name: "Axonius"
+    careers_url: https://job-boards.greenhouse.io/axonius
+  - name: "Cribl"
+    careers_url: https://job-boards.greenhouse.io/cribl
+  - name: "Vanta"
+    careers_url: https://jobs.ashbyhq.com/vanta
+  - name: "Drata"
+    careers_url: https://jobs.ashbyhq.com/drata
+  - name: "Chainguard"
+    careers_url: https://job-boards.greenhouse.io/chainguard
+  - name: "Semgrep"
+    careers_url: https://jobs.ashbyhq.com/semgrep
+  - name: "Sonatype"
+    careers_url: https://jobs.lever.co/sonatype
+  - name: "Veracode"
+    careers_url: https://job-boards.greenhouse.io/veracode
+  - name: "Ping Identity"
+    careers_url: https://job-boards.greenhouse.io/pingidentity
+  - name: "BeyondTrust"
+    careers_url: https://job-boards.greenhouse.io/beyondtrust
+  - name: "Tines"
+    careers_url: https://job-boards.greenhouse.io/tines
+  - name: "Torq"
+    careers_url: https://job-boards.greenhouse.io/torq
+  - name: "Material Security"
+    careers_url: https://jobs.ashbyhq.com/materialsecurity
+  - name: "Coalition"
+    careers_url: https://job-boards.greenhouse.io/coalition
+  - name: "Synack"
+    careers_url: https://job-boards.greenhouse.io/synack
+  - name: "SecurityScorecard"
+    careers_url: https://job-boards.greenhouse.io/securityscorecard
+  - name: "Anduril"
+    careers_url: https://job-boards.greenhouse.io/andurilindustries
+  - name: "Palantir"
+    careers_url: https://jobs.lever.co/palantir
+  - name: "Coinbase"
+    careers_url: https://job-boards.greenhouse.io/coinbase
+  - name: "Stripe"
+    careers_url: https://job-boards.greenhouse.io/stripe
+  - name: "Robinhood"
+    careers_url: https://job-boards.greenhouse.io/robinhood
+  - name: "Block"
+    careers_url: https://job-boards.greenhouse.io/block
+  - name: "Samsara"
+    careers_url: https://job-boards.greenhouse.io/samsara
+  - name: "Dropbox"
+    careers_url: https://job-boards.greenhouse.io/dropbox
+  - name: "Twilio"
+    careers_url: https://job-boards.greenhouse.io/twilio
+  - name: "GitLab"
+    careers_url: https://job-boards.greenhouse.io/gitlab
+  - name: "Fastly"
+    careers_url: https://job-boards.greenhouse.io/fastly
+  - name: "Cymulate"
+    careers_url: https://job-boards.greenhouse.io/cymulate
+  - name: "GuidePoint Security"
+    careers_url: https://job-boards.greenhouse.io/guidepointsecurity
+  - name: "CrowdStrike"
+    careers_url: https://crowdstrike.wd5.myworkdayjobs.com/crowdstrikecareers
+  - name: "Splunk"
+    careers_url: https://cisco.wd5.myworkdayjobs.com/Cisco_Careers
+  - name: "F5"
+    careers_url: https://ffive.wd5.myworkdayjobs.com/f5jobs
+  - name: "Proofpoint"
+    careers_url: https://proofpoint.wd5.myworkdayjobs.com/ProofpointCareers
+  - name: "Trend Micro"
+    careers_url: https://trendmicro.wd3.myworkdayjobs.com/External
+  - name: "SailPoint"
+    careers_url: https://sailpoint.wd1.myworkdayjobs.com/SailPoint
+  - name: "Mastercard"
+    careers_url: https://mastercard.wd1.myworkdayjobs.com/CorporateCareers
+  - name: "Visa"
+    careers_url: https://visa.wd5.myworkdayjobs.com/Visa
+  - name: "Capital One"
+    careers_url: https://capitalone.wd12.myworkdayjobs.com/Capital_One
+  - name: "Wells Fargo"
+    careers_url: https://wf.wd1.myworkdayjobs.com/WellsFargoJobs
+  - name: "Citi"
+    careers_url: https://citi.wd5.myworkdayjobs.com/2
+  - name: "Northrop Grumman"
+    careers_url: https://ngc.wd1.myworkdayjobs.com/Northrop_Grumman_External_Site
+  - name: "RTX"
+    careers_url: https://globalhr.wd5.myworkdayjobs.com/REC_RTX_Ext_Gateway
+  - name: "General Dynamics IT"
+    careers_url: https://gdit.wd5.myworkdayjobs.com/External_Career_Site
+  - name: "Booz Allen Hamilton"
+    careers_url: https://bah.wd1.myworkdayjobs.com/BAH_Jobs
+  - name: "Leidos"
+    careers_url: https://leidos.wd5.myworkdayjobs.com/External
+  - name: "PwC"
+    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
+  - name: "Verizon"
+    careers_url: https://verizon.wd12.myworkdayjobs.com/verizon-careers
+  - name: "AT&T"
+    careers_url: https://att.wd1.myworkdayjobs.com/ATTGeneral
+  - name: "Fidelity"
+    careers_url: https://fmr.wd1.myworkdayjobs.com/FidelityCareers
+  - name: "BlackRock"
+    careers_url: https://blackrock.wd1.myworkdayjobs.com/BlackRock_Professional
+  - name: "State Street"
+    careers_url: https://statestreet.wd1.myworkdayjobs.com/Global
+  - name: "Truist"
+    careers_url: https://truist.wd1.myworkdayjobs.com/Careers
+  - name: "US Bank"
+    careers_url: https://usbank.wd1.myworkdayjobs.com/US_Bank_Careers
+  - name: "PNC"
+    careers_url: https://pnc.wd5.myworkdayjobs.com/External
+  - name: "CACI"
+    careers_url: https://caci.wd1.myworkdayjobs.com/External
+  - name: "Parsons"
+    careers_url: https://parsons.wd5.myworkdayjobs.com/Search
+  - name: "Boeing"
+    careers_url: https://boeing.wd1.myworkdayjobs.com/EXTERNAL_CAREERS
+assessment_domains:
+    - "Networking and operating system basics"
+    - "Security fundamentals and threat modeling"
+    - "Log analysis"
+archetypes:
+    - "SOC analyst"
+    - "Security engineer"
+    - "GRC analyst"
+    - "Penetration tester"
+employer_policies: []
