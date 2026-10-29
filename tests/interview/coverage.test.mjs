@@ -2,20 +2,20 @@
 // preset), possibly async. `owners` overrides presets/OWNERS.yml as { id: { owner, last_reviewed } }; `today` is YYYY-MM-DD.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { coverageLine } from '../../interview/coverage.mjs';
 import { loadPreset } from '../../lib/presets.mjs';
 import { PACK_ROOT, TODAY } from '../helpers/script-harness.mjs';
 
-const IDS = ['software-cs', 'mis-business-analytics', 'finance-economics', 'accounting', 'engineering-mech-elec', 'policy-government', 'byo-employer-list'];
+const IDS = readdirSync(join(PACK_ROOT, 'presets')).filter((f) => f.endsWith('.yml') && f !== 'OWNERS.yml').map((f) => f.slice(0, -4)).sort();
 const fresh = Object.fromEntries(IDS.map((id) => [id, { owner: 'pack-maintainer', last_reviewed: '2026-10-01' }]));
 const lines = async (ids, owners = fresh) => {
   const out = await coverageLine(ids, { today: TODAY, owners });
   return (Array.isArray(out) ? out : String(out).split('\n')).filter((l) => l.trim());
 };
 
-// M-006-S6
+// M-006-S6 (M-001-S8: IDS follows the presets/ directory scan)
 test('M-006-S6 one line per preset carrying its coverage level and note', async () => {
   for (const id of IDS.filter((i) => i !== 'byo-employer-list')) {
     const p = loadPreset(id);
