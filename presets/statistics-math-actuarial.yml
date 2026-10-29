@@ -1,0 +1,269 @@
+# Insurers, actuarial consultancies, analytics and quant employers; vendor lists feed postings, the seed list carries the rest.
+id: statistics-math-actuarial
+name: "Statistics, math, actuarial"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: data analyst roles are well covered, while actuarial and statistics lists are thin, so insurers' own boards carry the actuarial roles. Exam progress matters more than the major for actuarial hiring."
+title_rules:
+  include:
+    - "actuar"
+    - "statistic"
+    - "data analyst"
+    - "analytics"
+    - "quantitative"
+    - "math"
+    - "biostat"
+    - "risk"
+    - "model"
+    - "research"
+  exclude:
+    - "inside sales|sales (rep|representative|associate)"
+    - "recruit"
+    - "\\b(insurance|sales|field) agent\\b"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|actuarial assistant|analyst i|associate|junior|university|campus|rotational)\\b"
+recruiting_calendar:
+  rollover_month: 4
+  lead_months: 15
+  terms:
+    - {name: Winter, start_month: 1}
+    - {name: Spring, start_month: 3}
+    - {name: Summer, start_month: 6}
+    - {name: Fall, start_month: 9}
+sources:
+  github_lists:
+    - name: litos-math
+      repo: mehek-builds/Hiring-Now
+      path: csv/math-internships.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: litos-actuarial
+      repo: mehek-builds/Hiring-Now
+      path: csv/actuarial-internships.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: litos-pc-actuarial
+      repo: mehek-builds/Hiring-Now
+      path: csv/pc-actuarial.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+  alerts:
+    - name: "ASA STATtr@k internship list"
+      how: "The American Statistical Association posts a statistics internship list each December; check it by hand."
+    - name: "CAS career center"
+      how: "The Casualty Actuarial Society career center lists actuarial roles for members."
+    - name: "acturhire.com"
+      how: "Partly paywalled; check by hand."
+    - name: "Handshake saved search"
+      how: "Save searches for actuarial, statistics and data analyst intern."
+search_terms:
+    - "actuarial analyst intern"
+    - "data analyst intern"
+    - "statistics intern"
+    - "quantitative analyst intern"
+    - "actuarial assistant"
+seed_employers:
+  - name: "Abbott"
+    careers_url: https://abbott.wd5.myworkdayjobs.com/abbottcareers
+  - name: "Adobe"
+    careers_url: https://adobe.wd5.myworkdayjobs.com/external_experienced
+  - name: "Affirm"
+    careers_url: https://job-boards.greenhouse.io/affirm
+  - name: "AIG"
+    careers_url: https://aig.wd1.myworkdayjobs.com/aig
+  - name: "Airbnb"
+    careers_url: https://job-boards.greenhouse.io/airbnb
+  - name: "Allstate"
+    careers_url: https://allstate.wd5.myworkdayjobs.com/allstate_careers
+  - name: "Ally Financial"
+    careers_url: https://ally.wd1.myworkdayjobs.com/ally
+  - name: "American Family Insurance"
+    careers_url: https://amfam.wd1.myworkdayjobs.com/Careers
+  - name: "Amgen"
+    careers_url: https://amgen.wd1.myworkdayjobs.com/Careers
+  - name: "Anthropic"
+    careers_url: https://job-boards.greenhouse.io/anthropic
+  - name: "Asana"
+    careers_url: https://job-boards.greenhouse.io/asana
+  - name: "Assurant"
+    careers_url: https://assurant.wd1.myworkdayjobs.com/Assurant_Careers
+  - name: "AstraZeneca"
+    careers_url: https://astrazeneca.wd3.myworkdayjobs.com/Careers
+  - name: "Betterment"
+    careers_url: https://job-boards.greenhouse.io/betterment
+  - name: "BlackRock"
+    careers_url: https://blackrock.wd1.myworkdayjobs.com/BlackRock_Professional
+  - name: "Block"
+    careers_url: https://job-boards.greenhouse.io/block
+  - name: "Brex"
+    careers_url: https://job-boards.greenhouse.io/brex
+  - name: "Capital One"
+    careers_url: https://capitalone.wd12.myworkdayjobs.com/Capital_One
+  - name: "Carta"
+    careers_url: https://job-boards.greenhouse.io/carta
+  - name: "Centene"
+    careers_url: https://centene.wd5.myworkdayjobs.com/Centene_External
+  - name: "Chime"
+    careers_url: https://job-boards.greenhouse.io/chime
+  - name: "Cigna"
+    careers_url: https://cigna.wd5.myworkdayjobs.com/cignacareers
+  - name: "CME Group"
+    careers_url: https://cmegroup.wd1.myworkdayjobs.com/cme_careers
+  - name: "Coalition"
+    careers_url: https://job-boards.greenhouse.io/coalition
+  - name: "Coinbase"
+    careers_url: https://job-boards.greenhouse.io/coinbase
+  - name: "CVS Health"
+    careers_url: https://cvshealth.wd1.myworkdayjobs.com/CVS_Health_Careers
+  - name: "Databricks"
+    careers_url: https://job-boards.greenhouse.io/databricks
+  - name: "Datadog"
+    careers_url: https://job-boards.greenhouse.io/datadog
+  - name: "Duolingo"
+    careers_url: https://job-boards.greenhouse.io/duolingo
+  - name: "Elevance Health"
+    careers_url: https://elevancehealth.wd1.myworkdayjobs.com/ANT
+  - name: "Fannie Mae"
+    careers_url: https://fanniemae.wd1.myworkdayjobs.com/FannieMaeCareers
+  - name: "FICO"
+    careers_url: https://fico.wd1.myworkdayjobs.com/External
+  - name: "Fidelity Investments"
+    careers_url: https://fmr.wd1.myworkdayjobs.com/FidelityCareers
+  - name: "Freddie Mac"
+    careers_url: https://freddiemac.wd5.myworkdayjobs.com/External
+  - name: "Gallup"
+    careers_url: https://job-boards.greenhouse.io/gallup
+  - name: "Gartner"
+    careers_url: https://gartner.wd5.myworkdayjobs.com/EXT
+  - name: "Gilead"
+    careers_url: https://gilead.wd1.myworkdayjobs.com/gileadcareers
+  - name: "Guidewire"
+    careers_url: https://guidewire.wd5.myworkdayjobs.com/External
+  - name: "HP"
+    careers_url: https://hp.wd5.myworkdayjobs.com/ExternalCareerSite
+  - name: "Humana"
+    careers_url: https://humana.wd5.myworkdayjobs.com/Humana_External_Career_Site
+  - name: "Instacart"
+    careers_url: https://job-boards.greenhouse.io/instacart
+  - name: "Intel"
+    careers_url: https://intel.wd1.myworkdayjobs.com/External
+  - name: "IQVIA"
+    careers_url: https://iqvia.wd1.myworkdayjobs.com/IQVIA
+  - name: "Labcorp"
+    careers_url: https://labcorp.wd1.myworkdayjobs.com/External
+  - name: "Lyft"
+    careers_url: https://job-boards.greenhouse.io/lyft
+  - name: "Manulife"
+    careers_url: https://manulife.wd3.myworkdayjobs.com/MFCJH_Jobs
+  - name: "Marsh McLennan"
+    careers_url: https://mmc.wd1.myworkdayjobs.com/MMC
+  - name: "MassMutual"
+    careers_url: https://massmutual.wd1.myworkdayjobs.com/MMCareers
+  - name: "Mastercard"
+    careers_url: https://mastercard.wd1.myworkdayjobs.com/CorporateCareers
+  - name: "MetLife"
+    careers_url: https://jobs.lever.co/metlife
+  - name: "Micron"
+    careers_url: https://micron.wd1.myworkdayjobs.com/External
+  - name: "Moderna"
+    careers_url: https://modernatx.wd1.myworkdayjobs.com/M_tx
+  - name: "MongoDB"
+    careers_url: https://job-boards.greenhouse.io/mongodb
+  - name: "Morgan Stanley"
+    careers_url: https://ms.wd5.myworkdayjobs.com/External
+  - name: "Nasdaq"
+    careers_url: https://nasdaq.wd1.myworkdayjobs.com/Global_External_Site
+  - name: "Nationwide"
+    careers_url: https://nationwide.wd1.myworkdayjobs.com/Nationwide_Career
+  - name: "Northern Trust"
+    careers_url: https://ntrs.wd1.myworkdayjobs.com/northerntrust
+  - name: "Notion"
+    careers_url: https://jobs.ashbyhq.com/notion
+  - name: "NVIDIA"
+    careers_url: https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
+  - name: "Okta"
+    careers_url: https://job-boards.greenhouse.io/okta
+  - name: "OpenAI"
+    careers_url: https://jobs.ashbyhq.com/openai
+  - name: "Pacific Life"
+    careers_url: https://pacificlife.wd1.myworkdayjobs.com/PacificLifeCareers
+  - name: "Palantir"
+    careers_url: https://jobs.lever.co/palantir
+  - name: "PayPal"
+    careers_url: https://paypal.wd1.myworkdayjobs.com/jobs
+  - name: "Pfizer"
+    careers_url: https://pfizer.wd1.myworkdayjobs.com/PfizerCareers
+  - name: "Pinterest"
+    careers_url: https://job-boards.greenhouse.io/pinterest
+  - name: "Plaid"
+    careers_url: https://jobs.ashbyhq.com/plaid
+  - name: "PNC"
+    careers_url: https://pnc.wd5.myworkdayjobs.com/External
+  - name: "Point72"
+    careers_url: https://job-boards.greenhouse.io/point72
+  - name: "Prudential Financial"
+    careers_url: https://prudential.wd3.myworkdayjobs.com/prudential
+  - name: "Reddit"
+    careers_url: https://job-boards.greenhouse.io/reddit
+  - name: "RGA"
+    careers_url: https://job-boards.greenhouse.io/rga
+  - name: "Robinhood"
+    careers_url: https://job-boards.greenhouse.io/robinhood
+  - name: "Roblox"
+    careers_url: https://job-boards.greenhouse.io/roblox
+  - name: "S&P Global"
+    careers_url: https://spgi.wd5.myworkdayjobs.com/SPGI_Careers
+  - name: "Salesforce"
+    careers_url: https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
+  - name: "Sanofi"
+    careers_url: https://sanofi.wd3.myworkdayjobs.com/SanofiCareers
+  - name: "Snowflake"
+    careers_url: https://jobs.ashbyhq.com/snowflake
+  - name: "SoFi"
+    careers_url: https://job-boards.greenhouse.io/sofi
+  - name: "Spotify"
+    careers_url: https://jobs.lever.co/spotify
+  - name: "State Street"
+    careers_url: https://statestreet.wd1.myworkdayjobs.com/Global
+  - name: "Stripe"
+    careers_url: https://job-boards.greenhouse.io/stripe
+  - name: "Sun Life"
+    careers_url: https://sunlife.wd3.myworkdayjobs.com/Experienced-Jobs
+  - name: "Synchrony"
+    careers_url: https://synchronyfinancial.wd5.myworkdayjobs.com/careers
+  - name: "T. Rowe Price"
+    careers_url: https://troweprice.wd5.myworkdayjobs.com/TRowePrice
+  - name: "The Hartford"
+    careers_url: https://thehartford.wd5.myworkdayjobs.com/Careers_External
+  - name: "Thrivent"
+    careers_url: https://thrivent.wd5.myworkdayjobs.com/External
+  - name: "Toast"
+    careers_url: https://job-boards.greenhouse.io/toast
+  - name: "TransUnion"
+    careers_url: https://transunion.wd5.myworkdayjobs.com/TransUnion
+  - name: "Travelers"
+    careers_url: https://travelers.wd5.myworkdayjobs.com/External
+  - name: "Truist"
+    careers_url: https://truist.wd1.myworkdayjobs.com/Careers
+  - name: "Twilio"
+    careers_url: https://job-boards.greenhouse.io/twilio
+  - name: "Unum"
+    careers_url: https://unum.wd1.myworkdayjobs.com/External
+  - name: "Vanguard"
+    careers_url: https://vanguard.wd5.myworkdayjobs.com/vanguard_external
+  - name: "Wealthfront"
+    careers_url: https://jobs.lever.co/wealthfront
+  - name: "Wells Fargo"
+    careers_url: https://wf.wd1.myworkdayjobs.com/WellsFargoJobs
+assessment_domains:
+    - "Probability and statistics problems"
+    - "SQL and a scripting language"
+    - "Actuarial exam progress"
+archetypes:
+    - "Actuarial analyst"
+    - "Data analyst"
+    - "Statistician"
+    - "Quantitative analyst"
+employer_policies: []
