@@ -5,18 +5,27 @@ For the maintainer. Placeholders: the pack lives at `<pack-url>`; upstream is ca
 ## Weekly slot (about 2 hours)
 
 1. Open the canary pull request or issue from Monday's run.
-2. Green canary: a pull request raises `compat.json` `upstream.max`. Read the upstream changelog link in it, merge if nothing in `cliContracts` changed, then tag a release.
+2. Green canary: a pull request raises `compat.json` `upstream.max`. Read the upstream changelog link in it, merge if nothing in `cliContracts` changed. The monthly release workflow then cuts the next tag (see Releases).
 3. Red canary: an issue names the failing job and links the changelog. Fix the pack or leave `upstream.max` where it is; students stay on the last supported version because `update.mjs` enforces the range.
 4. Answer pilot feedback and review any preset audit issues.
 
 ## Releases
 
-- Monthly release train: tag `v<major>.<minor>.<patch>` from main after CI is green on macOS and Windows.
+`release.yml` cuts the monthly release train. It runs at 07:11 UTC on the 2nd of each month and on `workflow_dispatch`, where the bump input is minor by default and a maintainer may choose patch or major.
+
+- It skips the month when nothing has merged since the last `v<major>.<minor>.<patch>` tag.
+- It releases only when `ci.yml` succeeded on the target commit, which covers the macOS and Windows jobs. The target is the newest commit on main that is not a changelog sync commit.
+- It tags that commit, publishes notes from the first-parent commit subjects (a pull request merge is shown by its title), then commits the `CHANGELOG.md` section to main. CI does not run on that sync commit.
+- The first release is `v` plus the `package.json` version; each later release raises the minor of the highest `v` tag. `package.json` is never rewritten.
 - A plugin change needs a plugin manifest version bump in the same pull request. `scripts/check-plugin-versions.mjs` fails the pull request otherwise.
+
+A commit subject that fails the pii-lint personal-data check cannot be edited once it is on main, so the notes show "(subject withheld: failed the personal-data check)" in its place and the release goes ahead. Review each withheld line in the published release and the `CHANGELOG.md` section; nothing needs rewording. If the generated notes still fail pii-lint after that substitution, the plan step stops and names the notes line number, never the matched text; fix the cause and rerun the release by `workflow_dispatch`.
+
+When the gate reports `CI is not green` on the target commit, rerun `ci.yml` on main from the Actions tab, then dispatch the release.
 
 ## Safety tags
 
-A `safety-*` tag is for a change that makes the pack safer for students: it may only tighten a limit in `scripts/budget.mjs` (lower a maximum, raise a minimum) or switch a default off. `safety-tag.yml` runs `scripts/check-safety-tag.mjs <previous> <tag>` and fails on anything looser. Cut one when a platform changes its rules, a warning rate rises, or a limit proves too high. Students receive it on their next `node student/update.mjs`, which runs the same check before applying it.
+A `safety-*` tag is for a change that makes the pack safer for students: it may only tighten a limit in `scripts/budget.mjs` (lower a maximum, raise a minimum) or switch a default off. `safety-tag.yml` runs `scripts/check-safety-tag.mjs <tag>`, which compares the tag with its nearest earlier release or safety tag and fails on anything looser. When no earlier tag exists the check falls back to the first v tag, and it fails with a message to cut the first release when no v tag exists yet. Cut safety tags from the newest release tag so the diff holds only allowed files. Cut one when a platform changes its rules, a warning rate rises, or a limit proves too high. Students receive it on their next `node student/update.mjs`, which runs the same check before applying it.
 
 ## Changing `budget.mjs`
 
@@ -45,7 +54,7 @@ The same employer can appear in several presets, so a URL fix must be applied to
 
 The monthly issues are expected to list the no-provider manual-watch seeds that each preset's allowance already covers. Act on `error`, `empty`, halved postings and no-provider shares above the allowance.
 
-A preset not reviewed for 60 days is shown to students as unmaintained by the interview's coverage line. Review it, then update `last_reviewed`.
+A preset not reviewed for 60 days is shown to students as unmaintained by the interview's coverage line. `mark-unmaintained.yml` makes that durable each Wednesday: when a preset's `last_reviewed` is more than 60 days old, or its open audit issue has had no maintainer comment for 60 days, it sets that preset's owner to `""` through a Mark presets unmaintained pull request. Only comments from the repository owner, members and collaborators count as a maintainer comment. After a review, restore the role and `last_reviewed` in `presets/OWNERS.yml`. Pull requests opened by the workflow token start no CI, so rerun CI from the pull request.
 
 ## Parity run
 
@@ -67,3 +76,9 @@ Before reading prefilter counts, align the copied fixture's tracks and graduatio
 ## Upstream setup in CI
 
 `scripts/ci/upstream-setup.mjs` builds the throwaway career-ops checkout. Pass `--resume <file>` to continue an interrupted setup.
+
+## Upstream offers
+
+Generic pieces of the pack are offered to career-ops issue-first. The draft issue bodies and the list of pack files to delete once upstream merges each piece are in [upstream/README.md](upstream/README.md). Drafts are posted by hand only; delete the listed files when upstream merges.
+
+The optional big-tech feed for software-cs is not shipped: no vetted public list exists. The criteria for adding one and the trigger to revisit are in [upstream/bigtech-providers.md](upstream/bigtech-providers.md).

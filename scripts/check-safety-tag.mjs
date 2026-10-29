@@ -116,8 +116,8 @@ export async function checkSafetyDiff({ packRoot = defaultPackRoot, base, head, 
 
 // Thrown by pickBase when no v release tag exists. The message goes to the maintainer unchanged.
 export class NoBaselineError extends Error {
-  constructor() {
-    super('no v release tag exists, so a safety tag has nothing to compare with. Maintainer: cut the first release (see docs/maintenance.md, Releases), then cut the safety tag from it.');
+  constructor(message = 'no v release tag exists, so a safety tag has nothing to compare with. Maintainer: cut the first release (see docs/maintenance.md, Releases), then cut the safety tag from it.') {
+    super(message);
     this.name = 'NoBaselineError';
   }
 }
@@ -140,7 +140,7 @@ export function pickBase({ packRoot = defaultPackRoot, tag, runner = gitRunner }
     .map((t) => t.trim())
     .filter((t) => RELEASE_TAG.test(t))
     .sort((a, b) => compare(a.slice(1), b.slice(1)));
-  if (!releases.length) throw new NoBaselineError();
+  if (!releases.length) throw new NoBaselineError('no v release tag exists, so a safety tag has nothing to compare with. Maintainer: cut the first release (see docs/maintenance.md, Releases), then cut the safety tag from it.');
   return { base: releases[0], reason: 'baseline' };
 }
 
