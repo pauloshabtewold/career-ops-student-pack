@@ -1,0 +1,18 @@
+id: consulting
+name: Consulting (any major)
+coverage:
+  level: semi-automated
+  note: ''
+title_rules:
+  include: []
+  exclude: []
+early_career: '^$'
+recruiting_calendar:
+  rollover_month: 1
+  lead_months: 15
+  terms:
+    - name: Summer
+      start_month: 6
+sources:
+  alerts: []
+seed_employers: []
