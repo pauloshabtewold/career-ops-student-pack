@@ -163,3 +163,20 @@ test('M-009-S6 gh commands never target another repository', () => {
     }
   }
 });
+
+// W-011-S2 the monthly audit reuses open issues and a real audit failure fails the job after the issues are filed.
+test('W-011-S2 audit-presets.yml never hides an audit failure and never opens issues directly', () => {
+  const text = raw('audit-presets.yml');
+  assert.ok(!/\|\|\s*true/.test(text), 'no || true');
+  assert.ok(!/issue['",\s]+create/.test(text), 'issues are filed through audit-issues.mjs, not gh issue create in the workflow');
+  const steps = parse('audit-presets.yml').jobs.audit.steps;
+  const audit = steps.findIndex((s) => /audit-portals\.mjs/.test(s.run ?? ''));
+  const file = steps.findIndex((s) => /audit-issues\.mjs/.test(s.run ?? ''));
+  const fail = steps.findIndex((s) => /exit 1/.test(s.run ?? ''));
+  assert.ok(audit >= 0 && file > audit, 'issue step after the audit step');
+  assert.match(steps[file].run, /gh issue list/);
+  assert.match(steps[file].run, /--open /);
+  assert.ok(fail > file, 'the failing step comes after the issue step');
+  assert.match(String(steps[fail].if), /steps\.audit\.outputs\.failed/);
+  assert.equal(steps[audit].id, 'audit');
+});

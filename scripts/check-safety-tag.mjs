@@ -125,12 +125,20 @@ export class NoBaselineError extends Error {
 // A safety tag is applied on top of the release a student runs, so its nearest earlier release or safety tag is the
 // diff they receive. With no earlier tag the first release is the only realistic baseline: a root-commit diff would
 // flag every file as not allowed.
-// Returns { base, reason }: reason 'previous' is the nearest ancestor v or safety tag of <tag>^, 'baseline' is the
-// lowest-version v tag. Throws NoBaselineError when neither exists. runner is injectable for tests.
+// Returns { base, reason }: reason 'previous' is the nearest ancestor vMAJOR.MINOR.PATCH or safety tag of <tag>^,
+// 'baseline' is the lowest-version v tag. Throws NoBaselineError when neither exists. runner is injectable for tests.
 export function pickBase({ packRoot = defaultPackRoot, tag, runner = gitRunner }) {
+  // A glob cannot say vMAJOR.MINOR.PATCH, so a nearer non-semver v tag (v1, v0.2-beta) is excluded and git describe
+  // asked again. Each round excludes one more tag, so the loop ends when describe runs out of ancestors.
+  const exclude = [];
   try {
-    const previous = runner(['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', 'safety-*', `${tag}^`], { cwd: packRoot }).trim();
-    if (previous) return { base: previous, reason: 'previous' };
+    for (;;) {
+      const args = ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', 'safety-*', ...exclude.flatMap((t) => ['--exclude', t]), `${tag}^`];
+      const previous = runner(args, { cwd: packRoot }).trim();
+      if (!previous) break;
+      if (previous.startsWith('safety-') || RELEASE_TAG.test(previous)) return { base: previous, reason: 'previous' };
+      exclude.push(previous);
+    }
   } catch (err) {
     // git describe exits 128 with "No names found" or "No tags can describe" (depending on the git version) when no
     // ancestor tag exists, and with "Not a valid object name" when the tag sits on the root commit (<tag>^ has no

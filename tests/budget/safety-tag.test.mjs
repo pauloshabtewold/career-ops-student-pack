@@ -330,3 +330,26 @@ test('M-001-S6 zero or three arguments raise the two-form usage error with exit 
       assert.match(res.stderr, /usage: check-safety-tag\.mjs <tag> \| <base> <head>/);
     }
   }));
+
+// W-011-S4 the previous path accepts only vMAJOR.MINOR.PATCH release tags, like the baseline path.
+test('W-011-S4 pickBase skips a nearer non-semver v tag on the previous path', () =>
+  withRepo(async (root) => {
+    git(root, 'tag', 'v0.1.0');
+    commitAs(root, 'v0.2-beta', touchExtra(root, 2));
+    commitAs(root, 'v1', touchExtra(root, 3));
+    commitAs(root, 'safety-1', touchExtra(root, 4));
+    const res = checker.pickBase({ packRoot: root, tag: 'safety-1' });
+    assert.equal(res.base, 'v0.1.0');
+    assert.equal(res.reason, 'previous');
+  }));
+
+test('W-011-S4 pickBase falls back to the baseline when the only ancestor v tags are non-semver', () =>
+  withRepo(async (root) => {
+    git(root, 'tag', 'v2-rc');
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    git(root, 'switch', '-q', '-c', 'side', 'base');
+    commitAs(root, 'v0.3.0', touchExtra(root, 5));
+    const res = checker.pickBase({ packRoot: root, tag: 'safety-1' });
+    assert.equal(res.base, 'v0.3.0');
+    assert.equal(res.reason, 'baseline');
+  }));

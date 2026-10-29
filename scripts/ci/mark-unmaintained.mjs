@@ -50,8 +50,8 @@ export function markUnmaintained({ ownersText, issues = [], today }) {
       reasons.set(id, `last_reviewed ${entry.last_reviewed} is more than ${STALE_DAYS} days old`);
     }
   }
-  // Every open audit issue counts: the audit opens a new one each month, so an old unanswered issue still marks the
-  // preset when a newer one exists.
+  // Every open audit issue counts: the audit now comments on an open one, but older runs left duplicates, so an old
+  // unanswered issue still marks the preset when a newer one exists.
   for (const issue of issues) {
     const id = AUDIT_TITLE.exec(issue.title ?? '')?.[1];
     if (!id || !owners[id]?.owner || reasons.has(id)) continue;
