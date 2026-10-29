@@ -1,4 +1,7 @@
 # Role placeholders only: a preset's owner is a maintainer role, never a personal handle.
+# Each preset stays on one line in the form <id>: {owner: <role>, last_reviewed: "YYYY-MM-DD"}.
+# owner "" means unmaintained: mark-unmaintained.yml sets it, and a maintainer restores the role and
+# last_reviewed after a review.
 software-cs: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
 mis-business-analytics: {owner: pack-maintainer, last_reviewed: "2026-10-27"}
 finance-economics: {owner: pack-maintainer, last_reviewed: "2026-10-27"}

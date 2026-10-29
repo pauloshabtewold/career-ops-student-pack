@@ -9,9 +9,11 @@ import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
 
 const FLAGGED = ['no-provider', 'error', 'empty'];
 
+// mark-unmaintained.mjs parses issue titles with AUDIT_TITLE, so the title text lives in one place.
+// AUDIT_TITLE captures the preset id from a title that auditTitle wrote.
 export const AUDIT_TITLE = /^Preset audit: (\S+) has \d+ flagged boards?$/;
 
-export const auditTitle = (preset, total) => '';
+export const auditTitle = (preset, total) => `Preset audit: ${preset} has ${total} flagged board${total === 1 ? '' : 's'}`;
 
 // Accepts { boards: [{ name, status, postings }] }; rows with verdict/count are read the same way.
 const boardsOf = (out) => {
@@ -33,7 +35,7 @@ export function auditIssues({ current, previous = {} }) {
     const section = (title, items) => (items.length ? [`## ${title} (${items.length})`, '', ...items.map((i) => `- ${i}`), ''] : []);
     issues.push({
       preset,
-      title: `Preset audit: ${preset} has ${total} flagged board${total === 1 ? '' : 's'}`,
+      title: auditTitle(preset, total),
       body: [
         `Monthly audit of the ${preset} seed list found boards that need a look. Fix the careers URL, find another provider, or remove the employer.`,
         '',
