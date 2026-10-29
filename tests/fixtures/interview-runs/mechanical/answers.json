@@ -1,0 +1,75 @@
+{
+  "identity": {
+    "name": "Casey Prototype",
+    "email": "casey.prototype@example.edu",
+    "phone": "415-555-0143"
+  },
+  "presets": [
+    "engineering-mech-elec"
+  ],
+  "tracks": [
+    {
+      "kind": "coop",
+      "graduation": "2027-12",
+      "resume_variant": "mechanical-main"
+    }
+  ],
+  "experience_years": 0,
+  "locations": [
+    "Denver, CO",
+    "Huntsville, AL"
+  ],
+  "work_authorization": "US citizen",
+  "needs_sponsorship": false,
+  "dealbreakers": [
+    "commission[- ]only",
+    "security clearance required"
+  ],
+  "priority_companies": [
+    "Example Aerospace Corp"
+  ],
+  "blacklist": [
+    "Example Staffing Group"
+  ],
+  "target_employers": [
+    {
+      "name": "Example mechanical Target 1",
+      "careers_url": "https://careers.example.com/mechanical/1"
+    },
+    {
+      "name": "Example mechanical Target 2",
+      "careers_url": "https://careers.example.com/mechanical/2"
+    }
+  ],
+  "sources_chosen": [
+    "github-lists"
+  ],
+  "mailbox_backend": "connector",
+  "spend_tier": "standard",
+  "automation": "scheduled-discovery",
+  "daily_target": 8,
+  "score_floor": 4,
+  "switches": {
+    "outreach": "on",
+    "handshake": "on",
+    "submission": "agent"
+  },
+  "limits": {
+    "message_per_day": 6,
+    "connect_per_day": 20
+  },
+  "timezone": "America/Denver",
+  "schedule_time": "06:30",
+  "resume_variants": [
+    {
+      "name": "mechanical-main",
+      "track": "coop",
+      "graduation": "2027-12",
+      "page_limit": 1
+    }
+  ],
+  "archetypes": [
+    "Mechanical design engineer",
+    "Test engineer"
+  ]
+}
