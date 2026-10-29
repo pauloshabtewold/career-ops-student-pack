@@ -214,6 +214,11 @@ const wfText = () => {
   assert.ok(existsSync(WF), 'missing .github/workflows/mark-unmaintained.yml');
   return readFileSync(WF, 'utf8');
 };
+const REPO = String.raw`\$\{\{\s*github\.repository\s*\}\}`;
+const indexOfRe = (text, re, from = 0) => {
+  const m = re.exec(text.slice(from));
+  return m ? from + m.index : -1;
+};
 const prStepRun = () => {
   const wf = yaml.load(wfText());
   const steps = Object.values(wf.jobs).flatMap((j) => j.steps);
@@ -235,7 +240,7 @@ test('M-003-S17 the workflow exits 0 on git diff --quiet before any git push', (
 test('M-003-S18 the workflow exits 0 when an unmaintained PR is open, before gh pr create', () => {
   const run = prStepRun();
   const diff = run.indexOf('git diff --quiet presets/OWNERS.yml');
-  const list = run.indexOf('gh pr list --repo ${{ github.repository }}');
+  const list = indexOfRe(run, new RegExp(String.raw`gh pr list\s+--repo\s+${REPO}`));
   assert.ok(list > diff && diff >= 0, 'gh pr list follows the diff guard');
   assert.ok(run.indexOf('head:maintenance/unmaintained-', list) > list, 'searches head:maintenance/unmaintained-');
   const exitAt = run.indexOf('exit 0', list);
@@ -255,7 +260,7 @@ test('M-003-S19 the workflow pushes maintenance/unmaintained-<date> and opens th
   const push = run.indexOf('git push');
   assert.ok(push >= 0);
   assert.match(run.slice(run.indexOf('git checkout') >= 0 ? run.indexOf('git checkout') : 0), /maintenance\/unmaintained-/);
-  const create = run.indexOf('gh pr create --repo ${{ github.repository }}');
+  const create = indexOfRe(run, new RegExp(String.raw`gh pr create\s+--repo\s+${REPO}`));
   assert.ok(create > push, 'gh pr create --repo follows git push');
   assert.ok(run.indexOf('--body-file', create) > create);
   assert.ok(text.includes('mark-unmaintained.mjs'), 'runs the marker');
