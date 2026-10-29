@@ -116,7 +116,7 @@ export async function checkSafetyDiff({ packRoot = defaultPackRoot, base, head, 
 
 // Thrown by pickBase when no v release tag exists. The message goes to the maintainer unchanged.
 export class NoBaselineError extends Error {
-  constructor(message = 'no v release tag exists, so a safety tag has nothing to compare with. Maintainer: cut the first release (see docs/maintenance.md, Releases), then cut the safety tag from it.') {
+  constructor(message) {
     super(message);
     this.name = 'NoBaselineError';
   }
@@ -131,8 +131,13 @@ export function pickBase({ packRoot = defaultPackRoot, tag, runner = gitRunner }
   try {
     const previous = runner(['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', '--match', 'safety-*', `${tag}^`], { cwd: packRoot }).trim();
     if (previous) return { base: previous, reason: 'previous' };
-  } catch {
-    // git describe exits 1 when no ancestor tag exists or the tag sits on the root commit; the baseline applies then.
+  } catch (err) {
+    // git describe exits 128 with "No names found" or "No tags can describe" (depending on the git version) when no
+    // ancestor tag exists, and with "Not a valid object name" when the tag sits on the root commit (<tag>^ has no
+    // parent); the baseline applies then. Any other failure surfaces.
+    const stderr = String(err && err.stderr);
+    const noAncestor = err && err.status === 128 && ['No names found', 'No tags can describe', 'Not a valid object name'].some((m) => stderr.includes(m));
+    if (!noAncestor) throw err;
   }
   // Safety tags and non-semver v tags are excluded: the baseline must be a release a student can be running.
   const releases = runner(['tag', '--list', 'v[0-9]*'], { cwd: packRoot })
