@@ -289,7 +289,7 @@ async function runStages(env, state) {
     if (state.interrupted !== null) break;
     const judged = judgeStage(env, stage, base, pack, carried);
     record(judged);
-    // A stage that errored left no trustworthy pipeline, so it explains nothing later.
+    // A stage that faulted, errored or did not run leaves no trustworthy pipeline, so it carries nothing.
     if (stage.carry && judged.verdict !== 'error') carried = carriedPending(before, pack.out ?? '');
   }
   return results;

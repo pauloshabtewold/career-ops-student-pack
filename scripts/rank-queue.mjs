@@ -21,7 +21,7 @@ import { parseTsv } from '../lib/tsv.mjs';
 import { CEILINGS, effectiveLimits } from './budget.mjs';
 
 // Used only when config.rank.weights is empty; a configured map replaces it, so unlisted factors weigh nothing.
-// effort defaults to 0, so it leaves the other factors' scores unchanged unless a student sets a weight.
+// effort defaults to 0 so default scores ignore it; a student opts in through rank.weights.
 export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5, effort: 0 });
 const DAY_MS = 86400000;
 const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
@@ -89,7 +89,7 @@ function resolveMonthDay(mmdd, today) {
 }
 
 // A tab-separated file with company and notes columns, the header optionally starting with '# '. State comes from status: tokens in the notes:
-// referred; warm or accepted; asked MM-DD (referral ask date); sent MM-DD (connect...) (pending connection request date).
+// referred; warm or accepted; asked MM-DD (referral ask date); sent MM-DD (connect = date of a pending connection request; the literal token ends with '(connect').
 // missing names the header columns that are absent; with any missing the state is empty and the caller reports it.
 function statusNotesState(text, keyOf, today) {
   const state = new Map();
@@ -185,7 +185,7 @@ function appliedHistory(text, keyOf) {
 }
 
 // Application effort: a prebuilt application is cheapest, a posting on an easy-apply host next, any other form the most work.
-// An easy-apply entry matches anywhere in the host name, as documented for rank.easy_apply_hosts.
+// Substring of the host, not an exact label: 'ashby' has to match jobs.ashbyhq.com. Broad entries such as 'lever' also hit 'clever.com'; see docs/usage.md.
 function effortFactor(row, easyHosts) {
   if (String(row.notes.get('prebuilt') ?? '').toLowerCase() === 'yes') return 1;
   let host;
@@ -221,7 +221,7 @@ function isBlocked(row, key, rules) {
   return caps.has(key) && appliedCount(key) >= caps.get(key);
 }
 
-// holdOnConnect false drops only the pending-connect branch; the three-day wait after a referral ask stays.
+// false for setups that only lower the score of a row with a pending invite; the referral-ask wait stays because those setups still honor it.
 function isHeld(state, age, today, holdOnConnect = true) {
   // A referral ask gets three days to be answered before the same company is applied to cold.
   if (state.askedOn && !state.referred && daysBetween(state.askedOn, today) < 3) return true;

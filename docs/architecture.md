@@ -68,3 +68,11 @@ Coverage equals the quality of the preset's seed employer list. Interview phase 
 `scripts/ci/upstream-setup.mjs` builds the throwaway career-ops checkout for CI; `--resume <file>` names the synthetic resume copied to `cv.md` before doctor runs.
 
 CI runs `windows-latest` as the stand-in for a Windows 11 machine: it clones career-ops at the compat pin, installs the pack and runs `doctor.mjs --json`.
+
+## Parity scope
+
+Parity compares which URLs each side picks, so two pack behaviors are invisible to it: the effort weight (it changes order, not membership) and metro matching under the default `word` mode (the baseline matches substrings). Mirror `rank.metro_match: substring` in the parity config to compare metro matching.
+
+A carry stage hands the pending rows the pack produced to the next stage, so a later stage is judged on the pack's pipeline rather than a copy of the baseline's. A stage that faulted, errored or did not run carries nothing.
+
+In `status-notes` contacts, `status:accepted` marks a contact warm, the same fact the `stage` format records as accepted. `rank.easy_apply_hosts` matches substrings of the host, so a broad entry such as `lever` can match an unrelated host; usage.md says how to narrow it.

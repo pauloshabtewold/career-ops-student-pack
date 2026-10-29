@@ -42,6 +42,7 @@ export function auditOptions(config) {
     keywordMatch: config?.audit?.keyword_match ?? 'word',
     excludeReasons: config?.audit?.exclude_reasons ?? [],
     requireTriage: config?.audit?.require_triage === true,
+    // Default first: the career-ops baseline judges the first reason=, so the shared predicate sees the same text on both sides.
     duplicateReason: config?.audit?.duplicate_reason ?? 'first',
   };
 }
@@ -56,7 +57,7 @@ export function pickRows(doc, { n = 20, requireTriage = false, duplicateReason =
   (sec?.lines ?? []).forEach((line) => {
     const row = parseRow(line);
     if (!row || row.notes.has('audited')) return;
-    // The notes Map keeps the last duplicate, so the first reason is read from the ordered pairs.
+    // last: the Map already holds the last duplicate. first: the Map cannot give it, so read the ordered pairs.
     const reason = (duplicateReason === 'last' ? row.notes.get('reason') : rowNoteEntries(line).find(([k]) => k === 'reason')?.[1]) ?? '';
     if (!isJudgment(reason)) return;
     const triage = Number(row.notes.get('triage'));
