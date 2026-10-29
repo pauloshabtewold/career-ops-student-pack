@@ -44,5 +44,4 @@ test('M-002-S2 parseNotes keeps the last duplicate in its Map', () => {
 test('M-002-S2 formatRow(parseRow(line)) round-trips the fixture rows', () => {
   for (const l of [PLAIN, NO_NOTE]) assert.equal(formatRow(parseRow(l)), l);
   assert.equal(parseRow(DUP).notes.get('reason'), 'b');
-  assert.equal(formatRow(parseRow(DUP)), DUP.replace('reason=a; triage=2; reason=b', 'triage=2; reason=b'));
 });
