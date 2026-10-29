@@ -262,7 +262,7 @@ function warningsOf(results) {
   });
 }
 
-// meta: { date, upstream, pack }. Stage names come from the fixed stage table, never from input data.
+// meta: { date, upstream, pack, prefilterInput }. Stage names come from the fixed stage table, never from input data.
 export function formatReport(results, meta = {}) {
   const warnings = warningsOf(results);
   const lines = [
@@ -271,6 +271,7 @@ export function formatReport(results, meta = {}) {
     `Date: ${meta.date ?? 'unknown'}`,
     `Upstream version: ${meta.upstream ?? 'unknown'}`,
     `Pack commit: ${meta.pack ?? 'unknown'}`,
+    ...(meta.prefilterInput === undefined ? [] : [`Prefilter input rows: ${meta.prefilterInput}`]),
     '',
     REPORT_HEADER,
     '|---|---|---|---|---|---|---|',
