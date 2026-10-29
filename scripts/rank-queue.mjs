@@ -3,8 +3,10 @@
 // Pending rows at or above the effective score floor are scored by the weights in config.rank.weights
 // (triage fit, posting age, marquee employer, metro match, warm contact, referral state), then at most
 // per_company_per_day rows per company are listed, after folding parent companies together.
-// Optional rank config only narrows the list: company_caps, intern_only, one_track_per_company and ignore_words.
-// Pending rows may carry a hold=YYYY-MM-DD note (held until that date) or a reserved-slot note (the company's other Pending rows are blocked, not held).
+// Optional rank config: company_caps, intern_only, one_track_per_company and ignore_words narrow the list; weights.effort,
+// easy_apply_hosts, contacts_format, metro_match and hold_on_pending_connect tune scoring and contact parsing (docs/usage.md).
+// Pending rows may carry a hold=YYYY-MM-DD note (held until that date; free text after the date is allowed) or a reserved-slot
+// note (free text after the key is allowed; the company's other Pending rows are blocked, not held).
 // Usage: rank-queue.mjs [--n N] [--json] [--root R] [--data-dir D] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -19,12 +21,18 @@ import { parseTsv } from '../lib/tsv.mjs';
 import { CEILINGS, effectiveLimits } from './budget.mjs';
 
 // Used only when config.rank.weights is empty; a configured map replaces it, so unlisted factors weigh nothing.
-export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5 });
+// effort defaults to 0 so an unconfigured student sees the scores they had before the factor existed.
+export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5, effort: 0 });
 const DAY_MS = 86400000;
 const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// A hold value is a leading date, then end of value or whitespace and free text; '2026-11-05x' is not a date.
+const HOLD_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
+// The bare key or the key followed by free text; a longer key such as reserved-slots is a different note.
+const RESERVED_SLOT = /^reserved-slot(?:$|[\s(])/;
 // Statuses that mean an application was made. Rejected is left out: a rejected row stops counting toward track history,
 // and its slot against company_caps survives only through the logged submit in submitCounts.
+const DEFAULT_EASY_HOSTS = ['greenhouse', 'ashby', 'lever'];
 const APPLIED_STATUS = new Set(['applied', 'responded', 'assessment', 'interview', 'offer', 'hired']);
 const tokens = (s, ignore = []) => String(s ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !GENERIC.has(t) && !ignore.includes(t));
 const rawKey = (s, ignore) => tokens(s, ignore).sort().join(' ');
@@ -45,14 +53,18 @@ export function companyKey(name, parents = {}, ignore = []) {
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / DAY_MS);
 
+const newer = (a, b) => (!a || b > a ? b : a);
+const freshState = () => ({ referred: false, warm: false, connectOn: null, askedOn: null });
+// Notes that withdraw a pending connection request: the contact accepted, or the student marked the contact off limits.
+const INVITE_CANCEL = /status:accepted|do-not-contact|do-not-ask|skipped/i;
+
 // contacts.tsv columns: date, company, name, stage (connect | accepted | referral-ask | referred).
-function contactState(text, keyOf) {
+function stageState(text, keyOf) {
   const state = new Map();
   for (const r of parseTsv(text).rows) {
     const key = keyOf(r.company);
     if (!key) continue;
-    const s = state.get(key) ?? { referred: false, warm: false, connectOn: null, askedOn: null };
-    const newer = (a, b) => (!a || b > a ? b : a);
+    const s = state.get(key) ?? freshState();
     if (r.stage === 'referred') s.referred = true;
     if (r.stage === 'accepted') s.warm = true;
     if (r.stage === 'connect') s.connectOn = newer(s.connectOn, r.date);
@@ -60,6 +72,58 @@ function contactState(text, keyOf) {
     state.set(key, s);
   }
   return state;
+}
+
+// MM-DD in today's year, or in the previous year when that date is still ahead of today (a note is written about the past).
+// null for a month and day that do not exist, such as 13-45 or 02-30.
+function resolveMonthDay(mmdd, today) {
+  const [m, d] = mmdd.split('-').map(Number);
+  const build = (y) => {
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? dt.toISOString().slice(0, 10) : null;
+  };
+  const year = Number(today.slice(0, 4));
+  const here = build(year);
+  return here !== null && here > today ? build(year - 1) : here;
+}
+
+// A tab-separated file with company and notes columns, the header optionally starting with '# '. State comes from status: tokens in the notes:
+// referred; warm or accepted; asked MM-DD (referral ask date); sent MM-DD (connect... (pending connection request date).
+// missing names the header columns that are absent; with any missing the state is empty and the caller reports it.
+function statusNotesState(text, keyOf, today) {
+  const state = new Map();
+  const lines = text.split(/\r?\n/).filter((l) => l !== '');
+  if (!lines.length) return { state, missing: [] };
+  const header = lines[0].replace(/^#\s*/, '').split('\t').map((h) => h.trim().toLowerCase());
+  const at = { company: header.indexOf('company'), notes: header.indexOf('notes') };
+  const missing = ['company', 'notes'].filter((name) => at[name] === -1);
+  if (missing.length) return { state, missing };
+  for (const l of lines.slice(1)) {
+    const cells = l.split('\t');
+    const key = keyOf(cells[at.company] ?? '');
+    if (!key) continue;
+    const notes = cells[at.notes] ?? '';
+    const s = state.get(key) ?? freshState();
+    if (/status:referred/i.test(notes)) s.referred = true;
+    if (/status:(?:warm|accepted)/i.test(notes)) s.warm = true;
+    for (const m of notes.matchAll(/status:asked\s+(\d{2}-\d{2})/gi)) {
+      const on = resolveMonthDay(m[1], today);
+      if (on) s.askedOn = newer(s.askedOn, on);
+    }
+    if (!INVITE_CANCEL.test(notes)) {
+      for (const m of notes.matchAll(/status:sent\s+(\d{2}-\d{2})\s*\(connect/gi)) {
+        const on = resolveMonthDay(m[1], today);
+        if (on) s.connectOn = newer(s.connectOn, on);
+      }
+    }
+    state.set(key, s);
+  }
+  return { state, missing: [] };
+}
+
+// Returns { state, missing }; missing is non-empty only for status-notes contacts whose header lacks a required column.
+function contactState(text, keyOf, { format = 'stage', today } = {}) {
+  return format === 'status-notes' ? statusNotesState(text, keyOf, today) : { state: stageState(text, keyOf), missing: [] };
 }
 
 // Posting age in days from a posted~<N>d token, else from a posted=<date> or imported=<date> token.
@@ -119,6 +183,32 @@ function appliedHistory(text, keyOf) {
   return history;
 }
 
+// Application effort: a prebuilt application is cheapest, a posting on an easy-apply host next, any other form the most work.
+// An easy-apply entry matches anywhere in the host name, as documented for rank.easy_apply_hosts.
+function effortFactor(row, easyHosts) {
+  if (String(row.notes.get('prebuilt') ?? '').toLowerCase() === 'yes') return 1;
+  let host;
+  try {
+    host = new URL(row.url).hostname.toLowerCase();
+  } catch {
+    return 0.5;
+  }
+  return easyHosts.some((h) => host.includes(h)) ? 0.8 : 0.5;
+}
+
+// One test per metro. word mode anchors at word boundaries so the metro LA does not match Atlanta; the metro is escaped
+// so a dot or bracket in it is literal. substring mode matches anywhere in the location.
+function metroTests(metros, mode) {
+  return metros.map((m) => {
+    if (mode === 'substring') {
+      const needle = m.toLowerCase();
+      return (location) => location.toLowerCase().includes(needle);
+    }
+    const re = new RegExp(`\\b${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    return (location) => re.test(location);
+  });
+}
+
 // A blocked row is counted apart from a held one because holds lift on their own.
 function isBlocked(row, key, rules) {
   const { reservedFor, internOnly, oneTrack, history, caps, appliedCount } = rules;
@@ -130,14 +220,15 @@ function isBlocked(row, key, rules) {
   return caps.has(key) && appliedCount(key) >= caps.get(key);
 }
 
-function isHeld(state, age, today) {
+// holdOnConnect false drops only the pending-connect branch; the three-day wait after a referral ask stays.
+function isHeld(state, age, today, holdOnConnect = true) {
   // A referral ask gets three days to be answered before the same company is applied to cold.
   if (state.askedOn && !state.referred && daysBetween(state.askedOn, today) < 3) return true;
   // A fresh connection request may still become a referral, so the row waits unless the posting is already old.
-  return Boolean(state.connectOn && !state.warm && !state.referred && daysBetween(state.connectOn, today) < 5 && !(age !== null && age > 14));
+  return holdOnConnect && Boolean(state.connectOn && !state.warm && !state.referred && daysBetween(state.connectOn, today) < 5 && !(age !== null && age > 14));
 }
 
-function scoreRow({ row, triage, key, age, state }, { weights, marquee, metros, connections, appliedBefore }) {
+function scoreRow({ row, triage, key, age, state }, { weights, marquee, metroTests, connections, appliedBefore, easyHosts }) {
   const why = [];
   const fresh = age === null ? 0.4 : age <= 3 ? 1 : age <= 7 ? 0.8 : age <= 14 ? 0.55 : 0.3;
   const referral = state.referred ? 1 : 0;
@@ -145,9 +236,9 @@ function scoreRow({ row, triage, key, age, state }, { weights, marquee, metros, 
   if (state.referred) why.push('referral ready');
   if (warm) why.push('warm contact');
   if (age !== null && age <= 3) why.push('fresh');
-  const inMetro = metros.length && metros.some((m) => row.location.toLowerCase().includes(m)) ? 1 : 0;
+  const inMetro = metroTests.some((test) => test(row.location)) ? 1 : 0;
   const score =
-    weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral;
+    weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral + weights.effort * effortFactor(row, easyHosts);
   return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), key, applied: appliedBefore.has(key) };
 }
 
@@ -180,7 +271,7 @@ function blockRules({ config, pending, keyOf, history, submitted }) {
   const reservedFor = new Map();
   for (const { row } of pending) {
     const key = keyOf(row.company);
-    if (row.notes.has('reserved-slot') && !reservedFor.has(key)) reservedFor.set(key, row.url);
+    if (!reservedFor.has(key) && [...row.notes.keys()].some((k) => RESERVED_SLOT.test(k))) reservedFor.set(key, row.url);
   }
   const appliedCount = (key) => Math.max(history.get(key)?.n ?? 0, submitted.get(key) ?? 0);
   return {
@@ -204,13 +295,15 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
   const keyOf = (name) => companyKey(name, parents, ignore);
   const history = appliedHistory(applicationsText, keyOf);
   const scoring = {
-    weights: Object.keys(given).length ? { triage: 0, age: 0, marquee: 0, metro: 0, warm: 0, referral: 0, ...given } : DEFAULT_WEIGHTS,
+    weights: Object.keys(given).length ? { triage: 0, age: 0, marquee: 0, metro: 0, warm: 0, referral: 0, effort: 0, ...given } : DEFAULT_WEIGHTS,
+    easyHosts: (config.rank?.easy_apply_hosts ?? DEFAULT_EASY_HOSTS).map((h) => h.toLowerCase()),
     marquee: new Set((config.rank?.marquee ?? []).map(keyOf)),
-    metros: (config.rank?.metros ?? []).map((m) => m.toLowerCase()),
+    metroTests: metroTests(config.rank?.metros ?? [], config.rank?.metro_match ?? 'word'),
     connections: connectionCounts(connectionsText, keyOf),
     appliedBefore: new Set([...applicationsText.matchAll(/^\|\s*\d+\s*\|[^|]*\|\s*([^|]+?)\s*\|/gm)].map((m) => keyOf(m[1]))),
   };
-  const contacts = contactState(contactsText, keyOf);
+  const { state: contacts, missing: contactsMissing } = contactState(contactsText, keyOf, { format: config.rank?.contacts_format, today });
+  const holdOnConnect = config.rank?.hold_on_pending_connect !== false;
   const rules = blockRules({ config, pending, keyOf, history, submitted: submitCounts(actionRows, keyOf) });
 
   // Order: score floor, blocked, hold=DATE, contact-state hold, scoring. Blocked rows are permanent company rules
@@ -227,21 +320,21 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
       blocked++;
       continue;
     }
-    // hold=YYYY-MM-DD holds the row until that date passes; a value in any other shape is ignored. held also counts contact-state holds.
-    const holdUntil = row.notes.get('hold');
-    if (ISO_DATE.test(holdUntil ?? '') && holdUntil > today) {
+    // hold=YYYY-MM-DD holds the row until that date passes; free text after the date is an annotation, any other shape is ignored. held also counts contact-state holds.
+    const holdUntil = HOLD_DATE.exec(row.notes.get('hold') ?? '')?.[1];
+    if (holdUntil && holdUntil > today) {
       held++;
       continue;
     }
     const age = postingAge(row.notes, today);
     const state = contacts.get(key) ?? {};
-    if (isHeld(state, age, today)) held++;
+    if (isHeld(state, age, today, holdOnConnect)) held++;
     else scored.push(scoreRow({ row, triage, key, age, state }, scoring));
   }
   // url as the last key keeps the list identical between runs on the same files.
   scored.sort((a, b) => b.score - a.score || b.triage - a.triage || a.url.localeCompare(b.url));
   const picks = pickTop(scored, submitCounts(actionRows, keyOf, today), limits.per_company_per_day, n, rules.remainder);
-  return { picks, eligible: scored.length, held, blocked };
+  return { picks, eligible: scored.length, held, blocked, contactsMissing };
 }
 
 async function main() {
@@ -261,6 +354,9 @@ async function main() {
     applicationsText: read('applications.md'),
     n: flags.n ?? config.daily_target,
   });
+  if (res.contactsMissing.length) {
+    console.error(`rank-queue: contacts.tsv has no ${res.contactsMissing.join(' or ')} column for contacts_format status-notes; contact state ignored`);
+  }
   if (flags.json) console.log(JSON.stringify(res.picks, null, 2));
   else {
     const blocked = res.blocked > 0 ? `, ${res.blocked} blocked by caps, track or reserved-slot rules` : '';
