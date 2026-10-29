@@ -53,6 +53,8 @@ test('M-003-S2 a preset last reviewed exactly 60 days ago stays owned', () => {
   const out = markUnmaintained({ ownersText: text, issues: [], today: TODAY });
   assert.deepEqual(out.marked, []);
   assert.equal(out.text, text);
+  const over = markUnmaintained({ ownersText: owners(line('alpha', 'pack-maintainer', daysBefore(61))), issues: [], today: TODAY });
+  assert.deepEqual(over.marked.map((m) => m.preset), ['alpha']);
 });
 
 // M-003-S3 normal
@@ -87,6 +89,8 @@ test('M-003-S5 a maintainer comment within 60 days keeps the preset owned', () =
     assert.deepEqual(out.marked, [], association);
     assert.equal(out.text, text, association);
   }
+  const silent = [issue(8, 'Preset audit: alpha has 1 flagged board', 120)];
+  assert.deepEqual(markUnmaintained({ ownersText: text, issues: silent, today: TODAY }).marked.map((m) => m.preset), ['alpha']);
 });
 
 // M-003-S6 edge
@@ -143,6 +147,7 @@ test('M-003-S9 the owners file is byte-identical after the malformed-line failur
   const { ownersFile, args } = scratch(text);
   const r = run(args);
   assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stderr, /alpha/);
   assert.equal(readFileSync(ownersFile, 'utf8'), text);
 });
 
@@ -188,10 +193,19 @@ test('M-003-S13 with nothing to mark the CLI prints nothing on stdout', () => {
 });
 
 // M-003-S14 normal
+const FORMAT = /^[a-z0-9][a-z0-9-]*: \{owner: (""|[a-z][a-z-]*), last_reviewed: "\d{4}-\d{2}-\d{2}"\}$/;
 test('M-003-S14 every entry in presets/OWNERS.yml is a one-line flow mapping', () => {
   const rows = readFileSync(join(PACK, 'presets', 'OWNERS.yml'), 'utf8').split('\n').filter((l) => l.trim() && !l.startsWith('#'));
   assert.ok(rows.length > 0);
-  for (const row of rows) assert.match(row, /^[a-z0-9][a-z0-9-]*: \{owner: (""|[a-z][a-z-]*), last_reviewed: "\d{4}-\d{2}-\d{2}"\}$/, row);
+  for (const row of rows) assert.match(row, FORMAT, row);
+  for (const bad of ['alpha:', 'alpha: {owner: pack-maintainer}', 'alpha: {owner: pack-maintainer, last_reviewed: 2026-10-27}', '  alpha: {owner: x, last_reviewed: "2026-10-27"}']) {
+    assert.doesNotMatch(bad, FORMAT, bad);
+  }
+  const stale = daysBefore(61);
+  const out = markUnmaintained({ ownersText: owners(line('alpha', 'pack-maintainer', stale)), issues: [], today: TODAY });
+  const blanked = out.text.split('\n').filter((l) => l && !l.startsWith('#'));
+  assert.deepEqual(blanked, [`alpha: {owner: "", last_reviewed: "${stale}"}`]);
+  for (const row of blanked) assert.match(row, FORMAT, row);
 });
 
 // M-003-S17 to S19 workflow
