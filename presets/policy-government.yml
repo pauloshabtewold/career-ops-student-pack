@@ -2,7 +2,7 @@ id: policy-government
 name: "Policy, political science, government"
 coverage:
   level: semi-automated
-  note: "Semi-automated for federal roles through the USAJOBS source you can enable with a free key; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 56% of the seed list."
+  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 56% of the seed list."
 title_rules:
   include:
     - "policy"
@@ -34,7 +34,7 @@ sources:
   github_lists: []
   alerts:
     - name: "USAJOBS"
-      how: "Upstream has a keyed USAJOBS source: enable it after getting a free API key; set HiringPath to student and graduates."
+      how: "Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts."
     - name: "Think tank pages"
       how: "Check think tank internship pages by hand each term."
     - name: "Idealist"

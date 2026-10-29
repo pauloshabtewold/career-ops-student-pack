@@ -1,0 +1,34 @@
+{
+  "abbreviations": {
+    "rn": "registered nurse",
+    "bsn": "nursing",
+    "lpn": "licensed practical nurse",
+    "ee": "electrical engineering",
+    "me": "mechanical engineering",
+    "swe": "software engineer",
+    "pm": "product manager",
+    "apm": "associate product manager",
+    "ib": "investment banking",
+    "grc": "governance risk compliance",
+    "soc": "security operations center",
+    "mis": "management information systems",
+    "erp": "enterprise resource planning",
+    "crm": "customer relationship management",
+    "ml": "machine learning",
+    "qa": "quality assurance"
+  },
+  "presets": {
+    "accounting": ["accounting", "accountant", "audit", "auditing", "gaap", "cpa", "tax", "bookkeeping", "general ledger", "financial reporting", "reconciliation"],
+    "byo-employer-list": [],
+    "consulting": ["consulting", "consultant", "case interview", "case competition", "strategy", "client engagement", "stakeholder", "market sizing", "management consulting"],
+    "cybersecurity": ["cybersecurity", "cyber security", "information security", "infosec", "penetration testing", "siem", "vulnerability", "incident response", "network security", "ctf", "threat"],
+    "engineering-mech-elec": ["mechanical engineering", "electrical engineering", "aerospace", "solidworks", "matlab", "gd&t", "fea", "cad", "tolerance", "circuit", "pcb", "embedded", "thermodynamics", "manufacturing", "control systems"],
+    "finance-economics": ["economics", "equities", "valuation", "discounted cash flow", "dcf", "bloomberg", "financial modeling", "excel modeling", "investment", "portfolio", "capital markets", "econometrics"],
+    "marketing-business": ["marketing", "brand", "social media", "campaign", "seo", "market research", "advertising", "sales", "content strategy", "customer acquisition"],
+    "mis-business-analytics": ["information systems", "business analytics", "business analyst", "tableau", "power bi", "dashboard", "sql", "excel", "process mapping", "kpi", "erp", "data visualization"],
+    "policy-government": ["political science", "public policy", "policy", "legislative", "government", "congress", "public administration", "nonprofit", "campaign", "federal", "international relations"],
+    "software-cs": ["computer science", "software", "python", "java", "javascript", "typescript", "c++", "git", "rest api", "web app", "unit test", "algorithms", "data structures", "backend", "frontend", "full-stack"],
+    "statistics-math-actuarial": ["statistics", "statistical", "actuarial", "actuary", "probability", "regression", "mathematics", "applied math", "exam p", "stochastic", "r programming"],
+    "supply-chain-operations": ["supply chain", "logistics", "procurement", "inventory", "operations management", "lean", "six sigma", "demand planning", "warehouse", "sourcing"]
+  }
+}

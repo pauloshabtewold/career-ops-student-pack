@@ -1,6 +1,6 @@
 {
   "id": "github-lists",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "apiVersion": 1,
   "description": "Reads public GitHub internship and new-grad job lists, keeps the postings that fit the student's graduation cycle, and resolves aggregator links to the employer posting.",
   "hooks": ["ingest"],

@@ -2,7 +2,7 @@
 // phase headings are '## Phase N: ...' lines. Run fixtures live in tests/fixtures/interview-runs/<set>/{transcript.md,answers.json}.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { applyAnswers, validateAgainst } from '../../interview/apply-answers.mjs';
@@ -11,8 +11,8 @@ import { PACK_ROOT, TODAY } from '../helpers/script-harness.mjs';
 
 const SETS = ['cs', 'mis', 'finance', 'mechanical', 'nursing'];
 const RUNS = join(PACK_ROOT, 'tests', 'fixtures', 'interview-runs');
-const CORE_PRESETS = ['software-cs', 'mis-business-analytics', 'finance-economics', 'accounting', 'engineering-mech-elec', 'policy-government'];
-const ALLOWED_PRESETS = [...CORE_PRESETS, 'byo-employer-list'];
+// Read from presets/ so a shipped preset never makes a transcript header stale; OWNERS.yml is not a preset.
+const ALLOWED_PRESETS = readdirSync(join(PACK_ROOT, 'presets')).filter((f) => f.endsWith('.yml') && f !== 'OWNERS.yml').map((f) => f.slice(0, -'.yml'.length));
 const PERSONA_KEYS = ['presets', 'tracks', 'switches', 'identity', 'work_authorization', 'locations'];
 
 // Request verb or question word, then your/the student, then name/e-mail/phone in one sentence; plus 'which email' forms.
@@ -94,6 +94,7 @@ for (const k of SETS) {
     const root = mkdtempSync(join(tmpdir(), 'pack-runs-'));
     try {
       for (const d of ['config', 'data', 'modes']) mkdirSync(join(root, d));
+      writeFileSync(join(root, 'cv.md'), '# Jordan Testwell\n\nSkills: Python, Java, SQL\n');
       await applyAnswers({ answers, root, today: TODAY, dryRun: true });
       for (const d of ['config', 'data', 'modes']) assert.deepEqual(readdirSync(join(root, d)), [], `${d} untouched`);
     } finally {
@@ -157,6 +158,7 @@ for (const k of SETS) {
     const ids = tokens.filter((t) => /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/.test(t));
     assert.ok(ids.length > 0, 'preset ids present');
     for (const id of ids) assert.ok(ALLOWED_PRESETS.includes(id), `unexpected preset id ${id}`);
+    assert.deepEqual([...new Set(tokens.filter((t) => ALLOWED_PRESETS.includes(t)))].sort(), [...ALLOWED_PRESETS].sort(), 'Preset set: line lists every preset in presets/');
     const phases = text.split('\n').map((l) => /^## Phase (\d)\b/.exec(l)).filter(Boolean).map((m) => Number(m[1]));
     assert.deepEqual(phases, [1, 2, 3, 4, 5, 6]);
   });

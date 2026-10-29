@@ -24,6 +24,7 @@ const MODES = ['_brief', '_custom', '_profile'];
 function scratch(answers) {
   const root = mkdtempSync(join(tmpdir(), 'pack-interview-'));
   for (const d of ['config', 'data', 'modes']) mkdirSync(join(root, d));
+  writeFileSync(join(root, 'cv.md'), '# Jordan Testwell\n\nSkills: Python, Java, SQL\n');
   if (answers) writeFileSync(join(root, 'data', 'interview-answers.json'), JSON.stringify(answers, null, 2));
   return {
     root,

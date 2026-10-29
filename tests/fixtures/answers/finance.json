@@ -70,5 +70,11 @@
   "archetypes": [
     "Investment banking analyst",
     "Corporate finance rotational analyst"
-  ]
+  ],
+  "application_profile": {
+    "start_date": "2027-06",
+    "relocation": "yes",
+    "eeo": "leave-blank",
+    "how_did_you_hear": "Campus recruiting event"
+  }
 }

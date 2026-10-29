@@ -69,5 +69,11 @@
   "archetypes": [
     "Business analyst",
     "Technology consulting analyst"
-  ]
+  ],
+  "application_profile": {
+    "start_date": "2027-06",
+    "relocation": "within-locations",
+    "eeo": "leave-blank",
+    "how_did_you_hear": "Professor referral"
+  }
 }

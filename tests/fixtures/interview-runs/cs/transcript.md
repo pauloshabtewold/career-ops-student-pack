@@ -1,7 +1,7 @@
 # SYNTHETIC FIXTURE: recorded personalization interview, set cs (invented person, test data only)
 
 Resume: tests/fixtures/resumes/cs.md | Persona: tests/fixtures/answers/cs.json
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
 Run date: 2026-10-29. Script: interview/interview.md, phases 1 to 6.
 
 ## Phase 1: resume and identity
@@ -22,7 +22,7 @@ INTERVIEWER: Which tracks are you after: internship, co-op, new grad? You can pi
 
 STUDENT: Internship only. Graduation May 2028.
 
-INTERVIEWER: Recorded: one track, internship, graduation 2028-05. Now your field. The pack has seven presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government and byo-employer-list. You can choose one or two. Given a CS degree and a software internship, the default is software-cs. Which do you want?
+INTERVIEWER: Recorded: one track, internship, graduation 2028-05. Now your field. The pack has twelve presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. You can choose one or two. Given a CS degree and a software internship, the default is software-cs. Which do you want?
 
 STUDENT: Just software-cs.
 

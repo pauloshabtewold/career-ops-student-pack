@@ -4,6 +4,8 @@ onboarding:
 presets: []
 tracks: []
 experience_years: 0
+# true keeps clearance and citizenship-only postings in the lists; the interview asks.
+us_citizen: false
 timezone: ""
 locations: []
 switches:

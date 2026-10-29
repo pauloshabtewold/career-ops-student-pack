@@ -11,7 +11,8 @@
     "archetypes",
     "timezone",
     "schedule_time",
-    "resume_variants"
+    "resume_variants",
+    "application_profile"
   ],
   "additionalProperties": false,
   "properties": {
@@ -261,6 +262,43 @@
     },
     "needs_sponsorship": {
       "type": "boolean"
+    },
+    "us_citizen": {
+      "type": "boolean"
+    },
+    "application_profile": {
+      "type": "object",
+      "required": [
+        "start_date",
+        "relocation",
+        "eeo",
+        "how_did_you_hear"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "pattern": "^(\\d{4}-(0[1-9]|1[0-2])|immediately)$"
+        },
+        "relocation": {
+          "enum": [
+            "yes",
+            "no",
+            "within-locations"
+          ]
+        },
+        "eeo": {
+          "enum": [
+            "leave-blank",
+            "ask-each-time"
+          ],
+          "default": "leave-blank"
+        },
+        "how_did_you_hear": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }

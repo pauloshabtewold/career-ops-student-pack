@@ -96,5 +96,11 @@
   "archetypes": [
     "Registered nurse residency",
     "Clinic nurse"
-  ]
+  ],
+  "application_profile": {
+    "start_date": "2027-07",
+    "relocation": "no",
+    "eeo": "leave-blank",
+    "how_did_you_hear": "Hospital job board"
+  }
 }

@@ -1,6 +1,6 @@
 // Ingest hook: GitHub job lists -> postings that fit the student's cycle.
-// Reads student-github-sources.json (registry) and student-cycle.json from ctx.dataRoot; ctx.preset carries
-// early_career and title_rules. The plugin runs
+// Reads student-github-sources.json (registry) and student-cycle.json from ctx.dataRoot; ctx.preset, when given,
+// carries early_career and title_rules. The plugin runs
 // as a hashed copy in plugins.local/, so everything it needs lives in this directory.
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -80,6 +80,16 @@ async function ingestSource(ctx, source, env, acc) {
   return stat;
 }
 
+// The upstream host passes neither ctx.preset nor ctx.config, so a real run reads the rules apply-answers wrote into the
+// registry (already folded through effectiveTitleRules). A caller that does pass a preset gets the same folding here,
+// because this directory is a self-contained copy and cannot import the pack's lib.
+function titleRulesFor(ctx, registry) {
+  const rules = ctx.preset?.title_rules;
+  if (!rules) return { include: registry.rules?.include ?? [], exclude: registry.rules?.exclude ?? [] };
+  const citizen = ctx.config?.us_citizen === true;
+  return { include: rules.include ?? [], exclude: [...(rules.exclude ?? []), ...(citizen ? [] : (rules.exclude_unless_citizen ?? []))] };
+}
+
 export default {
   async ingest(ctx) {
     const sleep = ctx.sleep ?? REAL_SLEEP;
@@ -92,7 +102,7 @@ export default {
       return [];
     }
     const sidecarFile = join(dataDir, 'student-rows.tsv');
-    const env = { sleep, today, dataDir, cycle, titleRules: ctx.preset?.title_rules ?? {}, earlyCareer: ctx.preset?.early_career, known: loadSidecarKeys(sidecarFile) };
+    const env = { sleep, today, dataDir, cycle, titleRules: titleRulesFor(ctx, registry), earlyCareer: ctx.preset?.early_career ?? registry.rules?.early_career, known: loadSidecarKeys(sidecarFile) };
     const acc = { seen: new Set(), jobs: [], sidecarRows: [] };
     const stats = [];
 

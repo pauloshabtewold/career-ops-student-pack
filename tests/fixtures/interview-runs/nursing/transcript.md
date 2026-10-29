@@ -2,7 +2,7 @@
 
 Resume: tests/fixtures/resumes/nursing.md | Persona: tests/fixtures/answers/nursing.json
 
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
 
 Run date: 2026-10-29. Invented person, school and employers; test data only.
 
@@ -28,7 +28,7 @@ INTERVIEWER: Your resume shows a B.S.N. in Nursing, expected May 2027. I propose
 
 STUDENT: New grad only, May 2027.
 
-INTERVIEWER: The pack has seven field presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government and byo-employer-list. None of the first six covers nursing, so I propose byo-employer-list. I ran `node scripts/preset-portals.mjs byo-employer-list`; it returned `tracked_companies: []`, so this preset seeds no employers and you bring your own list. OK to use it?
+INTERVIEWER: The pack has twelve field presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. None of the first eleven covers nursing, so I propose byo-employer-list. I ran `node scripts/preset-portals.mjs byo-employer-list`; it returned `tracked_companies: []`, so this preset seeds no employers and you bring your own list. OK to use it?
 
 STUDENT: Yes, use byo-employer-list.
 

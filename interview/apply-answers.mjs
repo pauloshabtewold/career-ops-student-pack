@@ -7,12 +7,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import * as yaml from 'js-yaml';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { deepMerge, validateConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { loadMerged } from '../lib/presets.mjs';
+import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 import { runCycle } from '../scripts/cycle.mjs';
 import { CEILINGS, effectiveLimits } from '../scripts/budget.mjs';
@@ -89,13 +90,21 @@ export function upsertPortalsBlock(text, name, key, lines) {
     const body = key === 'tracked_companies' && !ownsKey ? lines : [`${key}:`, ...lines];
     return { text: text.replace(re, (m, ind) => wrap(ind, body.join('\n'))), kept: false };
   }
-  const keyRe = new RegExp(`^${key}:[ \\t]*$`, 'm');
+  const keyRe = new RegExp(`^${key}:[ \\t]*(#[^\\n]*)?$`, 'm');
   if (key === 'tracked_companies') {
     const m = keyRe.exec(text);
     if (m) {
       const at = m.index + m[0].length;
       return { text: `${text.slice(0, at)}\n${wrap('  ', lines.join('\n'))}${text.slice(at)}`, kept: false };
     }
+    // A second tracked_companies key is invalid YAML. upstream's example file and the first-run copy can carry the
+    // empty flow form, which holds nothing to lose; any other flow-style value holds the student's entries.
+    const empty = /^tracked_companies:[ \t]*\[[ \t]*\](?:[ \t]*(#[^\n]*))?$/m.exec(text);
+    if (empty) {
+      const head = `${text.slice(0, empty.index)}tracked_companies:${empty[1] ? ` ${empty[1]}` : ''}`;
+      return { text: `${head}\n${wrap('  ', lines.join('\n'))}${text.slice(empty.index + empty[0].length)}`, kept: false };
+    }
+    if (/^tracked_companies:/m.test(text)) return { text, kept: true };
     return { text: `${text}${text && !text.endsWith('\n') ? '\n' : ''}${key}:\n${wrap('  ', lines.join('\n'))}\n`, kept: false };
   }
   if (new RegExp(`^${key}:`, 'm').test(text)) return { text, kept: true };
@@ -103,16 +112,76 @@ export function upsertPortalsBlock(text, name, key, lines) {
 }
 
 const q = (s) => JSON.stringify(s);
-function portalLines(answers, merged) {
-  const positive = [...new Set([...(merged?.title_rules.include ?? []), ...answers.archetypes])].filter((p) => !/[\\()|?*+[\]]/.test(p));
-  const location = answers.locations;
+const STOP_WORDS = new Set(['a', 'an', 'and', 'or', 'of', 'the', 'for', 'in', 'to', 'at']);
+const NOTE_LIST_MAX = 10;
+// Note lists name at most NOTE_LIST_MAX items so a long preset list stays readable in the interview output.
+const listFor = (items) => `${items.slice(0, NOTE_LIST_MAX).join(', ')}${items.length > NOTE_LIST_MAX ? ` (+${items.length - NOTE_LIST_MAX} more)` : ''}`;
+
+// A role name becomes upstream ' + ' entries: every significant word must appear in a title, in any order. An
+// abbreviation (RN) is kept in one entry and spelled out in another, because a real title may use either; a spelled-out
+// phrase stays together so a title naming it matches as written.
+function archetypeEntries(name, abbreviations) {
+  const words = name.toLowerCase().split(/[^a-z0-9+#]+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+  const phrases = Object.entries(abbreviations).map(([abbr, full]) => ({ abbr, full, parts: full.split(' ') })).sort((x, y) => y.parts.length - x.parts.length);
+  const units = [];
+  for (let i = 0; i < words.length; ) {
+    const hit = phrases.find((p) => p.parts.every((part, k) => words[i + k] === part));
+    if (hit) {
+      units.push(hit);
+      i += hit.parts.length;
+    } else {
+      const full = abbreviations[words[i]];
+      units.push({ abbr: words[i], full: full ?? words[i] });
+      i += 1;
+    }
+  }
+  if (!units.length) return [];
+  const dedupe = (list) => [...new Set(list)];
+  return dedupe([dedupe(units.map((u) => u.abbr)).join(' + '), dedupe(units.map((u) => u.full)).join(' + ')]);
+}
+
+function portalLines(answers, merged, cfg, abbreviations) {
+  const rules = effectiveTitleRules(merged, cfg);
+  const skipped = new Set();
+  const expand = (patterns) => patterns.flatMap((p) => {
+    const res = toUpstreamTerms(p);
+    res.skipped.forEach((x) => skipped.add(x));
+    return res.terms;
+  });
+  const positive = [...new Set([...expand(rules.include), ...answers.archetypes.flatMap((a) => archetypeEntries(a, abbreviations))])];
+  const negative = [...new Set(expand(rules.exclude))];
   const seeds = [...(merged?.seed_employers ?? []), ...(answers.target_employers ?? [])];
   const unique = [...new Map(seeds.map((e) => [e.name.toLowerCase(), e])).values()];
   return {
-    title: ['  positive:', ...positive.map((p) => `    - ${q(p)}`), '  negative:', ...(merged?.title_rules.exclude ?? []).filter((p) => !/[\\()|?*+[\]]/.test(p)).map((p) => `    - ${q(p)}`)],
-    location: ['  allow:', ...location.map((l) => `    - ${q(l)}`)],
+    positive,
+    negative,
+    rules,
+    title: ['  positive:', ...positive.map((p) => `    - ${q(p)}`), '  negative:', ...negative.map((p) => `    - ${q(p)}`)],
+    location: ['  allow:', ...answers.locations.map((l) => `    - ${q(l)}`)],
     companies: unique.flatMap((e) => [`  - name: ${q(e.name)}`, `    careers_url: ${e.careers_url}`, '    enabled: true']),
+    notes: [...skipped].map((r) => `title rule ${r} cannot be written as an upstream title term, so it was skipped`),
   };
+}
+
+// Removes a top-level key and its indented body. Comment and blank lines that sit just above the next key are left
+// in place because they usually introduce that key.
+function dropTopLevelKey(text, key) {
+  const lines = text.split('\n');
+  const start = lines.findIndex((l) => l.startsWith(`${key}:`));
+  if (start === -1) return text;
+  let next = lines.findIndex((l, i) => i > start && /^[A-Za-z_][\w-]*:/.test(l));
+  if (next === -1) next = lines.length;
+  let end = next;
+  while (end > start + 1 && (lines[end - 1].trim() === '' || lines[end - 1].startsWith('#'))) end--;
+  return [...lines.slice(0, start), ...lines.slice(end)].join('\n');
+}
+
+// upstream's first run copies templates/portals.example.yml into portals.yml. A block that still parses equal to the
+// template's holds nothing the student wrote, so the pack takes it over; an edited block is the student's and stays.
+function ownsTemplateBlock(portals, key, templateText) {
+  if (!templateText || !new RegExp(`^${key}:`, 'm').test(portals) || yamlBlockRe(key).test(portals)) return false;
+  const theirs = yaml.load(portals)?.[key];
+  return theirs !== undefined && isDeepStrictEqual(theirs, yaml.load(templateText)?.[key]);
 }
 
 function readJson(file) {
@@ -131,6 +200,7 @@ export function buildConfig(answers) {
       presets: answers.presets,
       tracks: answers.tracks,
       experience_years: answers.experience_years ?? 0,
+      us_citizen: answers.us_citizen ?? false,
       timezone: answers.timezone,
       locations: answers.locations,
       switches: answers.switches ?? {},
@@ -178,31 +248,67 @@ function blacklistRows(existing, entries, today) {
 
 const asYaml = (c) => yaml.dump(c, { lineWidth: -1, quotingType: '"', noRefs: true });
 
-function writeConfigAndProfile({ answers, packRoot, cfg, out }) {
+// Resume text from the answers: pasted text wins, else the file named by cv_path, resolved against the career-ops
+// folder because that is where a student's relative path starts.
+function resolveCvText(answers, root) {
+  if (answers.cv_markdown !== undefined) return answers.cv_markdown;
+  if (!answers.cv_path) return '';
+  try {
+    return readFileSync(resolve(root, answers.cv_path), 'utf8');
+  } catch (err) {
+    throw new AnswersError([`cv_path ${answers.cv_path} cannot be read (${err.code ?? err.message}); give a file path inside the career-ops folder or paste the resume`]);
+  }
+}
+
+// Whitespace-only text counts as missing, so a blank resume cannot mark onboarding complete.
+const nonEmptyFile = (file) => existsSync(file) && readFileSync(file, 'utf8').trim() !== '';
+
+// config/student.yml is rewritten on every run. config/profile.yml is a keep file: when it exists the application
+// answers are not written and one note per unwritten answer tells the student.
+function writeConfigAndProfile({ answers, cvText, cfg, paths, out }) {
   out('config/student.yml', asYaml(cfg));
-  const cvText = answers.cv_markdown ?? (answers.cv_path ? readFileSync(resolve(packRoot, answers.cv_path), 'utf8') : '');
-  if (cvText) out('cv.md', cvText, { keep: true });
+  if (cvText.trim() && !nonEmptyFile(join(paths.root, 'cv.md'))) out('cv.md', cvText);
   const id = answers.identity;
+  const profileExists = existsSync(join(paths.root, 'config', 'profile.yml'));
+  const apply = answers.application_profile;
   out(
     'config/profile.yml',
     yaml.dump({
       candidate: { full_name: id.name, email: id.email, phone: id.phone ?? '', location: id.location ?? answers.locations[0], linkedin: id.linkedin ?? '', github: id.github ?? '' },
       target_roles: { primary: answers.archetypes, archetypes: answers.archetypes.map((a, i) => ({ name: a, level: 'Entry', fit: i === 0 ? 'primary' : 'secondary' })) },
-      application_answers: { work_authorization: answers.work_authorization, requires_sponsorship: answers.needs_sponsorship ?? false },
+      application_answers: {
+        work_authorization: answers.work_authorization,
+        requires_sponsorship: answers.needs_sponsorship ?? false,
+        start_date: apply.start_date,
+        relocation: apply.relocation,
+        eeo: apply.eeo,
+        how_did_you_hear: apply.how_did_you_hear,
+      },
     }),
     { keep: true },
   );
+  // profile.yml is a keep file the student may have edited, so a rerun reports the answers instead of merging them.
+  return profileExists ? Object.keys(apply).map((k) => `config/profile.yml already exists and was kept, so application_answers.${k} (${apply[k]}) was not written`) : [];
 }
 
 // portals.yml: marked blocks inside whatever the student already has.
-function writePortals({ answers, merged, out, read }) {
-  const lines = portalLines(answers, merged);
+function writePortals({ answers, merged, cfg, abbreviations, paths, out, read }) {
+  const lines = portalLines(answers, merged, cfg, abbreviations);
+  const templateFile = join(paths.root, 'templates', 'portals.example.yml');
+  const templateText = existsSync(templateFile) ? readFileSync(templateFile, 'utf8') : '';
   let portals = read('portals.yml');
-  const notes = [];
+  const notes = [...lines.notes];
+  const unapplied = {
+    title_filter: () => `preset title rules not applied: include ${lines.rules.include.join(', ')}; exclude ${lines.rules.exclude.join(', ')}`,
+    location_filter: () => `locations not applied: ${listFor(answers.locations)}`,
+  };
   for (const [name, key, body] of [['title_filter', 'title_filter', lines.title], ['location_filter', 'location_filter', lines.location], ['tracked_companies', 'tracked_companies', lines.companies]]) {
+    if (key !== 'tracked_companies' && ownsTemplateBlock(portals, key, templateText)) portals = dropTopLevelKey(portals, key);
     const res = upsertPortalsBlock(portals, name, key, body);
     portals = res.text;
-    if (res.kept) notes.push(`kept your existing ${key} in portals.yml`);
+    if (!res.kept) continue;
+    if (key === 'tracked_companies') notes.push('tracked_companies in portals.yml is a flow-style list, so the company block was not written; add the employers by hand or rewrite the list in block form');
+    else notes.push(`warning: kept your existing ${key} in portals.yml because it differs from upstream's template; ${unapplied[key]()}`);
   }
   yaml.load(portals);
   out('portals.yml', portals);
@@ -234,7 +340,7 @@ function writeModes({ answers, merged, packRoot, cfg, out, read }) {
 }
 
 // Registry of GitHub lists: trial status, so the monthly discovery rules decide which stay.
-function writeSources({ answers, merged, paths, today, out, read }) {
+function writeSources({ answers, merged, cfg, paths, today, out, read }) {
   const chosen = new Set(answers.sources_chosen ?? []);
   const registryFile = join(paths.dataDir, 'student-github-sources.json');
   const prior = existsSync(registryFile) ? readJson(registryFile) : { version: 1, sources: [] };
@@ -243,18 +349,24 @@ function writeSources({ answers, merged, paths, today, out, read }) {
     .filter((g) => !chosen.size || chosen.has('github-lists') || chosen.has(g.name))
     .filter((g) => !have.has(`${g.repo}/${g.path}`))
     .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_push: null, last_unique: null, failed_parses: 0, notes: 'preset' }));
-  out('data/student-github-sources.json', `${JSON.stringify({ version: 1, rules: { ...merged?.title_rules, early_career: merged?.early_career ?? '' }, sources: [...prior.sources, ...fresh] }, null, 2)}\n`);
+  out('data/student-github-sources.json', `${JSON.stringify({ version: 1, rules: { ...effectiveTitleRules(merged, cfg), early_career: merged?.early_career ?? '' }, sources: [...prior.sources, ...fresh] }, null, 2)}\n`);
   const entries = [...(answers.blacklist ?? []).map((n) => [n, 'user blacklist']), ...(answers.priority_companies ?? []).map((n) => [n, 'priority company'])];
   if (entries.length) out('data/blacklist.md', blacklistRows(read('data/blacklist.md'), entries, today));
 }
 
-export function applyAnswers({ answers, root, packRoot, today, dryRun = false }) {
+export async function applyAnswers({ answers, root, packRoot, today, dryRun = false }) {
   packRoot ??= resolvePaths({ root }).packRoot;
+  if (answers?.application_profile === undefined) {
+    throw new AnswersError(['$.application_profile is missing: this answers file predates the application profile; re-run interview Phase 3 (resume variants and application profile) and apply again']);
+  }
   const schema = readJson(join(packRoot, 'interview', 'answers.schema.json'));
   const problems = validateAgainst(schema, answers);
   if (problems.length) throw new AnswersError(problems);
 
   const paths = resolvePaths({ root });
+  const cvText = resolveCvText(answers, paths.root);
+  // Without resume facts every later evaluation has nothing to work from, so onboarding must not complete.
+  if (!cvText.trim() && !nonEmptyFile(join(paths.root, 'cv.md'))) throw new AnswersError(['resume is empty: paste the resume or give the path of a resume file, then apply again']);
   const merged = loadMerged(answers.presets);
   const written = [];
   const out = (rel, text, { keep = false } = {}) => {
@@ -266,10 +378,13 @@ export function applyAnswers({ answers, root, packRoot, today, dryRun = false })
   const read = (rel) => (existsSync(join(paths.root, rel)) ? readFileSync(join(paths.root, rel), 'utf8') : '');
 
   const cfg = buildConfig(answers);
-  writeConfigAndProfile({ answers, packRoot, cfg, out });
-  const notes = writePortals({ answers, merged, out, read });
+  const profileNotes = writeConfigAndProfile({ answers, cvText, cfg, paths, out });
+  const abbreviations = readJson(join(packRoot, 'interview', 'field-keywords.json')).abbreviations ?? {};
+  const notes = [...writePortals({ answers, merged, cfg, abbreviations, paths, out, read }), ...profileNotes];
+  const employers = (answers.target_employers ?? []).length;
+  if (employers < 10) notes.push(`target_employers has ${employers} entries; 10 to 20 give the daily scan more to read`);
   writeModes({ answers, merged, packRoot, cfg, out, read });
-  writeSources({ answers, merged, paths, today, out, read });
+  writeSources({ answers, merged, cfg, paths, today, out, read });
 
   if (!dryRun) {
     runCycle({ paths, config: cfg, merged, today, dryRun: false });
@@ -295,7 +410,7 @@ async function main() {
   }
   const today = createClock({ today: flags.today, timezone: answers.timezone }).today();
   try {
-    const res = applyAnswers({ answers, root: paths.root, packRoot: paths.packRoot, today, dryRun: flags.dryRun });
+    const res = await applyAnswers({ answers, root: paths.root, packRoot: paths.packRoot, today, dryRun: flags.dryRun });
     console.log(`${flags.dryRun ? 'Would write' : 'Wrote'}:\n${res.written.map((f) => `  ${f}`).join('\n')}`);
     for (const n of res.notes) console.log(n);
     if (res.clamped.length) console.log(`Limits set to their ceilings: ${res.clamped.join(', ')}`);
