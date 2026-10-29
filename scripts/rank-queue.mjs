@@ -21,7 +21,7 @@ import { parseTsv } from '../lib/tsv.mjs';
 import { CEILINGS, effectiveLimits } from './budget.mjs';
 
 // Used only when config.rank.weights is empty; a configured map replaces it, so unlisted factors weigh nothing.
-// effort defaults to 0 so an unconfigured student sees the scores they had before the factor existed.
+// effort defaults to 0, so it leaves the other factors' scores unchanged unless a student sets a weight.
 export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5, effort: 0 });
 const DAY_MS = 86400000;
 const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
@@ -30,9 +30,10 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HOLD_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
 // The bare key or the key followed by free text; a longer key such as reserved-slots is a different note.
 const RESERVED_SLOT = /^reserved-slot(?:$|[\s(])/;
+// Used only when config.rank.easy_apply_hosts is unset; these hosts take a one-page apply, which the effort factor rewards.
+const DEFAULT_EASY_HOSTS = ['greenhouse', 'ashby', 'lever'];
 // Statuses that mean an application was made. Rejected is left out: a rejected row stops counting toward track history,
 // and its slot against company_caps survives only through the logged submit in submitCounts.
-const DEFAULT_EASY_HOSTS = ['greenhouse', 'ashby', 'lever'];
 const APPLIED_STATUS = new Set(['applied', 'responded', 'assessment', 'interview', 'offer', 'hired']);
 const tokens = (s, ignore = []) => String(s ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !GENERIC.has(t) && !ignore.includes(t));
 const rawKey = (s, ignore) => tokens(s, ignore).sort().join(' ');
