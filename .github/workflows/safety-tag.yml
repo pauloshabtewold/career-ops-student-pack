@@ -18,10 +18,8 @@ jobs:
         with:
           node-version: 22.x
       - run: npm ci
-      - name: Compare with the previous release or safety tag
+      # The base is chosen in Node (pickBase): nearest earlier release or safety tag, else the first v tag.
+      - name: Compare with the nearest earlier release or safety tag
         env:
           THIS_TAG: ${{ github.ref_name }}
-        run: |
-          prev=$(git tag --list 'v*' 'safety-*' --sort=-creatordate | grep -vx "$THIS_TAG" | head -n 1)
-          if [ -z "$prev" ]; then echo "no earlier tag to compare with"; exit 1; fi
-          node scripts/check-safety-tag.mjs "$prev" "$THIS_TAG"
+        run: node scripts/check-safety-tag.mjs "$THIS_TAG"
