@@ -89,7 +89,7 @@ function resolveMonthDay(mmdd, today) {
 }
 
 // A tab-separated file with company and notes columns, the header optionally starting with '# '. State comes from status: tokens in the notes:
-// referred; warm or accepted; asked MM-DD (referral ask date); sent MM-DD (connect... (pending connection request date).
+// referred; warm or accepted; asked MM-DD (referral ask date); sent MM-DD (connect...) (pending connection request date).
 // missing names the header columns that are absent; with any missing the state is empty and the caller reports it.
 function statusNotesState(text, keyOf, today) {
   const state = new Map();

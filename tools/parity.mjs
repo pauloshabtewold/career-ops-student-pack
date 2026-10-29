@@ -245,6 +245,8 @@ function judgeCycle(env, name, baseOut, packOut) {
   return result;
 }
 
+const readIfExists = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
+
 function judgeStage(env, stage, base, pack, carried) {
   const fault = stageFault(base, pack);
   if (fault) return stageError(stage.name, fault);
@@ -282,8 +284,7 @@ async function runStages(env, state) {
     if (state.interrupted !== null) break;
     outputs[stage.name] = base.out ?? '';
     // Read before the pack side runs: the pack stage rewrites data/pipeline.md in place.
-    const packPipeline = join(env.packDir, 'data', 'pipeline.md');
-    const before = stage.carry && existsSync(packPipeline) ? readFileSync(packPipeline, 'utf8') : '';
+    const before = stage.carry ? readIfExists(join(env.packDir, 'data', 'pipeline.md')) : '';
     const pack = await runStageSide(env, stage, 'pack', ctx);
     if (state.interrupted !== null) break;
     const judged = judgeStage(env, stage, base, pack, carried);
