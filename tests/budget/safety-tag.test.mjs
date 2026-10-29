@@ -6,6 +6,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writ
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { checkSafetyDiff } from '../../scripts/check-safety-tag.mjs';
+import * as checker from '../../scripts/check-safety-tag.mjs';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
 
 const entry = (value, tighten, unit = 'count') => `{ value: ${JSON.stringify(value)}, unit: '${unit}', tighten: '${tighten}', period: 'day' }`;
@@ -217,4 +218,115 @@ test('M-002-S22 CLI exits 1 with one line per violation and exits 0 on a clean t
     assert.ok(lines.length >= 2, lines.join('\n'));
     assert.ok(lines.some((l) => l.includes('connect_per_day')));
     assert.ok(lines.some((l) => l.includes('lib/extra.mjs')));
+  }));
+
+// M-001: safety-tag baseline fallback
+const commitAs = (root, tagName, mutate, msg = tagName) => {
+  mutate();
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', msg);
+  git(root, 'tag', tagName);
+};
+const lowerConnect = (root) => () => {
+  const next = budgetSource({ connect: 15 });
+  put(root, 'scripts/budget.mjs', next);
+  put(root, 'compat.json', compatJson(next));
+};
+const touchExtra = (root, n) => () => put(root, 'lib/extra.mjs', `export const x = ${n};\n`);
+const oneArg = (root, tag) => spawnSync(process.execPath, [join(root, 'scripts', 'check-safety-tag.mjs'), tag], { cwd: root, encoding: 'utf8' });
+
+// M-001-S1
+test('M-001-S1 one-arg CLI on a clean safety tag cut from v0.1.0 compares with v0.1.0 and exits 0', () =>
+  withRepo(async (root) => {
+    git(root, 'tag', 'v0.1.0');
+    commitAs(root, 'safety-1', lowerConnect(root));
+    const res = oneArg(root, 'safety-1');
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    assert.match(res.stdout, /comparing safety-1 with v0\.1\.0/);
+  }));
+
+// M-001-S2
+test('M-001-S2 pickBase returns the nearest ancestor safety tag with reason previous', () =>
+  withRepo(async (root) => {
+    git(root, 'tag', 'v0.1.0');
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    commitAs(root, 'safety-2', touchExtra(root, 3));
+    const res = checker.pickBase({ packRoot: root, tag: 'safety-2' });
+    assert.equal(res.base, 'safety-1');
+    assert.equal(res.reason, 'previous');
+  }));
+
+// M-001-S3
+test('M-001-S3 a v tag on a descendant commit is never picked as the base', () =>
+  withRepo(async (root) => {
+    git(root, 'tag', 'v0.1.0');
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    commitAs(root, 'v0.2.0', touchExtra(root, 3));
+    const res = checker.pickBase({ packRoot: root, tag: 'safety-1' });
+    assert.equal(res.base, 'v0.1.0');
+    assert.notEqual(res.base, 'v0.2.0');
+  }));
+
+// M-001-S4
+test('M-001-S4 with no ancestor release or safety tag pickBase returns the lowest v tag with reason baseline', () =>
+  withRepo(async (root) => {
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    git(root, 'switch', '-q', '-c', 'side', 'base');
+    commitAs(root, 'v0.1.0', touchExtra(root, 5));
+    commitAs(root, 'v0.2.0', touchExtra(root, 6));
+    const res = checker.pickBase({ packRoot: root, tag: 'safety-1' });
+    assert.equal(res.base, 'v0.1.0');
+    assert.equal(res.reason, 'baseline');
+  }));
+
+// M-001-S5
+test('M-001-S5 with no v tag pickBase throws NoBaselineError', () =>
+  withRepo(async (root) => {
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    assert.equal(typeof checker.NoBaselineError, 'function');
+    assert.throws(() => checker.pickBase({ packRoot: root, tag: 'safety-1' }), checker.NoBaselineError);
+  }));
+
+// M-001-S6
+test('M-001-S6 with no v tag the one-arg CLI exits 1 and tells the maintainer to cut the first release', () =>
+  withRepo(async (root) => {
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    const res = oneArg(root, 'safety-1');
+    assert.equal(res.status, 1, res.stdout + res.stderr);
+    assert.match(res.stderr, /cut the first release/);
+    assert.match(res.stderr, /docs\/maintenance\.md/);
+    assert.match(res.stderr, /Releases/);
+  }));
+
+// M-001-S7
+test('M-001-S7 one-arg run on a safety tag that touches lib/extra.mjs exits 1 naming the file', () =>
+  withRepo(async (root) => {
+    git(root, 'tag', 'v0.1.0');
+    commitAs(root, 'safety-1', touchExtra(root, 2));
+    const res = oneArg(root, 'safety-1');
+    assert.equal(res.status, 1, res.stdout + res.stderr);
+    assert.ok(res.stdout.split('\n').some((l) => l.includes('lib/extra.mjs')), res.stdout);
+  }));
+
+// M-001-S8
+test('M-001-S8 two-arg CLI keeps its exit codes and violation lines', () =>
+  withRepo(async (root) => {
+    const run = (...args) => spawnSync(process.execPath, [join(root, 'scripts', 'check-safety-tag.mjs'), ...args], { cwd: root, encoding: 'utf8' });
+    commitAs(root, 'good', lowerConnect(root));
+    commitAs(root, 'bad', touchExtra(root, 2));
+    assert.equal(run('base', 'good').status, 0);
+    const fail = run('good', 'bad');
+    assert.equal(fail.status, 1);
+    assert.ok(fail.stdout.includes('lib/extra.mjs'));
+  }));
+
+// M-001-S6 usage
+test('M-001-S6 zero or three arguments raise the two-form usage error with exit 2', () =>
+  withRepo(async (root) => {
+    const run = (...args) => spawnSync(process.execPath, [join(root, 'scripts', 'check-safety-tag.mjs'), ...args], { cwd: root, encoding: 'utf8' });
+    for (const args of [[], ['a', 'b', 'c']]) {
+      const res = run(...args);
+      assert.equal(res.status, 2, res.stdout + res.stderr);
+      assert.match(res.stderr, /usage: check-safety-tag\.mjs <tag> \| <base> <head>/);
+    }
   }));

@@ -1,0 +1,44 @@
+name: mark-unmaintained
+
+on:
+  schedule:
+    - cron: "37 6 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  mark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      # Lists every open audit issue with its comments; the script decides which presets are stale.
+      - name: Blank the owner of presets nobody has reviewed for 60 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --repo ${{github.repository}} --state open --search '"Preset audit:" in:title' --limit 500 --json number,title,createdAt,comments > "$RUNNER_TEMP/issues.json"
+          node scripts/ci/mark-unmaintained.mjs --issues "$RUNNER_TEMP/issues.json" > "$RUNNER_TEMP/marked.md"
+      # One marker pull request at a time: while one is open, later weekly runs add nothing. Pull requests opened with
+      # the workflow token start no CI; a maintainer reruns it from the pull request.
+      - name: Open a pull request when a preset was marked
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet presets/OWNERS.yml; then exit 0; fi
+          open=$(gh pr list --repo ${{github.repository}} --state open --search 'head:maintenance/unmaintained-' --json headRefName --jq '[.[] | select(.headRefName | startswith("maintenance/unmaintained-"))] | length')
+          if [ "$open" != "0" ]; then echo "::notice::a marker pull request is already open"; exit 0; fi
+          branch="maintenance/unmaintained-$(date -u +%F)"
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "Mark presets unmaintained"
+          git push origin "$branch"
+          gh pr create --repo ${{github.repository}} --title "Mark presets unmaintained" --body-file "$RUNNER_TEMP/marked.md"

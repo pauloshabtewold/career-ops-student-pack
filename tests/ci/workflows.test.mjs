@@ -7,7 +7,7 @@ import * as yaml from 'js-yaml';
 import { PACK_ROOT } from '../helpers/script-harness.mjs';
 
 const WF_DIR = join(PACK_ROOT, '.github', 'workflows');
-const REQUIRED = ['ci.yml', 'canary.yml', 'audit-presets.yml', 'safety-tag.yml'];
+const REQUIRED = ['ci.yml', 'canary.yml', 'audit-presets.yml', 'safety-tag.yml', 'release.yml', 'mark-unmaintained.yml'];
 const raw = (f) => readFileSync(join(WF_DIR, f), 'utf8');
 const parse = (f) => yaml.load(raw(f));
 const triggers = (f) => {
@@ -21,7 +21,8 @@ const BLOCKED = [
   chars(119, 97, 114, 114, 105, 111, 114, 108, 105, 102, 101),
 ];
 
-test('M-009-S7 all four workflows exist', () => {
+// M-005-S1
+test('M-005-S1 all required workflows exist', () => {
   for (const f of REQUIRED) assert.ok(existsSync(join(WF_DIR, f)), `missing .github/workflows/${f}`);
 });
 
@@ -57,6 +58,20 @@ test('M-009-S7 permissions match the interface per workflow', () => {
   assert.deepEqual(parse('canary.yml').permissions, { contents: 'write', 'pull-requests': 'write', issues: 'write' });
 });
 
+// M-005-S2
+test('M-005-S2 release.yml permissions are contents write and actions read', () => {
+  assert.deepEqual(parse('release.yml').permissions, { contents: 'write', actions: 'read' });
+});
+
+// M-005-S3
+test('M-005-S3 mark-unmaintained.yml permissions are contents write, pull-requests write, issues read', () => {
+  assert.deepEqual(parse('mark-unmaintained.yml').permissions, {
+    contents: 'write',
+    'pull-requests': 'write',
+    issues: 'read',
+  });
+});
+
 test('M-009-S7 canary and audit workflows have a schedule and workflow_dispatch; safety-tag triggers on safety-* tags', () => {
   for (const f of ['canary.yml', 'audit-presets.yml']) {
     const on = triggers(f);
@@ -65,6 +80,65 @@ test('M-009-S7 canary and audit workflows have a schedule and workflow_dispatch;
   }
   assert.ok(triggers('safety-tag.yml').push.tags.includes('safety-*'));
   assert.match(raw('safety-tag.yml'), /check-safety-tag\.mjs/);
+});
+
+// M-005-S4, M-005-S5
+for (const [id, f] of [['M-005-S4', 'release.yml'], ['M-005-S5', 'mark-unmaintained.yml']]) {
+  test(`${id} ${f} has a cron schedule and workflow_dispatch`, () => {
+    const on = triggers(f);
+    assert.ok(Array.isArray(on.schedule) && on.schedule[0].cron, `${f} cron`);
+    assert.ok('workflow_dispatch' in on, `${f} dispatch`);
+  });
+}
+
+// M-005-S6
+test('M-005-S6 release bump input offers minor, patch, major with default minor', () => {
+  const bump = triggers('release.yml').workflow_dispatch.inputs.bump;
+  assert.deepEqual(bump.options, ['minor', 'patch', 'major']);
+  assert.equal(bump.default, 'minor');
+});
+
+const releaseSteps = () => parse('release.yml').jobs.release.steps;
+const createIdx = () => releaseSteps().findIndex((st) => /gh release create/.test(st.run ?? ''));
+
+// M-005-S7
+test('M-005-S7 the release job runs only on refs/heads/main', () => {
+  assert.ok(String(parse('release.yml').jobs.release.if).includes('refs/heads/main'));
+});
+
+// M-005-S8
+test('M-005-S8 gh release create step comes after the gate step', () => {
+  const gate = releaseSteps().findIndex((st) => st.id === 'gate');
+  assert.ok(gate >= 0, 'step with id gate');
+  assert.ok(createIdx() > gate, 'gh release create after gate');
+});
+
+// M-005-S9
+test('M-005-S9 gh release create step is conditioned on steps.plan.outputs.release', () => {
+  const i = createIdx();
+  assert.ok(i >= 0, 'step running gh release create');
+  assert.match(String(releaseSteps()[i].if), /steps\.plan\.outputs\.release/);
+});
+
+// M-005-S10
+test('M-005-S10 release.yml concurrency serializes without cancelling', () => {
+  assert.deepEqual(parse('release.yml').concurrency, { group: 'release', 'cancel-in-progress': false });
+});
+
+// M-005-S11
+test('M-005-S11 safety-tag.yml passes only the tag to check-safety-tag.mjs', () => {
+  assert.match(raw('safety-tag.yml'), /check-safety-tag\.mjs "\$THIS_TAG"\s*$/m);
+});
+
+// M-005-S12
+test('M-005-S12 safety-tag.yml has no no-earlier-tag exit', () => {
+  assert.ok(!/no earlier tag/i.test(raw('safety-tag.yml')));
+});
+
+// M-005-S20
+test('M-005-S20 new workflows reference the repository through github.repository', () => {
+  assert.match(raw('release.yml'), /\$\{\{\s*github\.repository\s*\}\}/);
+  assert.match(raw('mark-unmaintained.yml'), /\$\{\{\s*github\.repository\s*\}\}/);
 });
 
 test('M-009-S6 workflows reference the repository through github.repository', () => {

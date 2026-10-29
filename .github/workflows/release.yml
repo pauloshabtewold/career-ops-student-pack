@@ -1,0 +1,66 @@
+name: release
+
+on:
+  schedule:
+    - cron: "11 7 2 * *"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version part to raise
+        type: choice
+        options: [minor, patch, major]
+        default: minor
+
+permissions:
+  contents: write
+  actions: read
+
+# Overlapping scheduled and dispatched runs queue instead of racing for the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npm ci
+      - id: plan
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: node scripts/ci/release.mjs plan --bump "${BUMP:-minor}" --out "$RUNNER_TEMP" >> "$GITHUB_OUTPUT"
+      - name: Fetch CI runs for the target commit
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ steps.plan.outputs.target }}
+        run: gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=$TARGET" > "$RUNNER_TEMP/runs.json"
+      - id: gate
+        if: steps.plan.outputs.release == 'true'
+        env:
+          TARGET: ${{ steps.plan.outputs.target }}
+        run: node scripts/ci/release.mjs gate --sha "$TARGET" --runs "$RUNNER_TEMP/runs.json"
+      - name: Create the release
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          TARGET: ${{ steps.plan.outputs.target }}
+        run: gh release create "$VERSION" --repo ${{github.repository}} --target "$TARGET" --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Add the changelog section
+        run: |
+          git fetch --tags
+          subject=$(node scripts/ci/release.mjs changelog)
+          if [ -z "$subject" ]; then exit 0; fi
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git commit -am "$subject"
+          git pull --rebase origin main
+          git push origin HEAD:main

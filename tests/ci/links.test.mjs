@@ -43,3 +43,20 @@ test('M-009-S8 every relative link in README.md and docs/*.md exists', () => {
 test('M-009-S8 the maintainer runbook docs/maintenance.md exists', () => {
   assert.ok(existsSync(join(PACK_ROOT, 'docs', 'maintenance.md')), 'missing path: docs/maintenance.md');
 });
+
+// M-004-S8. Relative links inside docs/upstream/*.md resolve from each file's own directory.
+test('M-004-S8 every relative link in docs/upstream/*.md exists', () => {
+  const dir = join(PACK_ROOT, 'docs', 'upstream');
+  assert.ok(existsSync(dir), 'missing path: docs/upstream');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => `docs/upstream/${f}`);
+  assert.ok(files.length >= 6, 'docs/upstream/ holds README.md and the five drafts');
+  const missing = files.flatMap(relativeLinks).filter((l) => !existsSync(l.abs)).map((l) => `${l.from} -> ${l.target}`);
+  assert.deepEqual(missing, [], `missing link targets: ${missing.join('; ')}`);
+});
+
+// M-004-S9. Top-level files are covered by the M-009-S8 test above; this keeps the scope explicit.
+test('M-004-S9 README.md and top-level docs/*.md relative links still resolve', () => {
+  const files = ['README.md', ...readdirSync(join(PACK_ROOT, 'docs')).filter((f) => f.endsWith('.md')).map((f) => `docs/${f}`)];
+  const missing = files.flatMap(relativeLinks).filter((l) => !existsSync(l.abs)).map((l) => `${l.from} -> ${l.target}`);
+  assert.deepEqual(missing, [], `missing link targets: ${missing.join('; ')}`);
+});
