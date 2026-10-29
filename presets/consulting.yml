@@ -1,18 +1,154 @@
+# Strategy, Big Four, technology and boutique consulting firms; deadline trackers give dates only and the seed list carries the rest.
 id: consulting
-name: Consulting (any major)
+name: "Consulting (any major)"
 coverage:
   level: semi-automated
-  note: ''
+  note: "Semi-automated for dates only: deadline trackers feed dates only and there is no postings feed for consulting, so the employer list and the alerts carry this preset. Strategy firms open applications in a narrow window."
 title_rules:
-  include: []
-  exclude: []
-early_career: '^$'
+  include:
+    - "consult"
+    - "analyst"
+    - "associate"
+    - "advisory"
+    - "strategy"
+    - "summer associate"
+    - "business analyst"
+    - "technology consultant"
+  exclude:
+    - "inside sales|sales (rep|representative|associate)"
+    - "recruit"
+    - "driver"
+early_career: "\\b(intern(ship)?|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst|associate|summer associate|junior|university|campus)\\b"
 recruiting_calendar:
   rollover_month: 1
   lead_months: 15
   terms:
-    - name: Summer
-      start_month: 6
+    - {name: Summer, start_month: 6}
+    - {name: Fall, start_month: 8}
 sources:
-  alerts: []
-seed_employers: []
+  # No postings-level list exists for consulting; deadline trackers appear under alerts and inform dates only.
+  github_lists: []
+  alerts:
+    - name: "My Consulting Coach deadline finder"
+      how: "A deadline tracker for consulting application windows; it gives dates, not postings."
+    - name: "MBB Prep timeline"
+      how: "A calendar of strategy firm windows; it gives dates, not postings."
+    - name: "University career-office deadline posts"
+      how: "Your school career office posts firm deadlines each term; check them by hand."
+search_terms:
+  - "consulting intern"
+  - "business analyst intern"
+  - "summer associate"
+  - "technology consultant new grad"
+  - "advisory analyst"
+seed_employers:
+  - name: "AlixPartners"
+    careers_url: https://job-boards.greenhouse.io/alixpartners
+  - name: "Thoughtworks"
+    careers_url: https://job-boards.greenhouse.io/thoughtworks
+  - name: "Chartis"
+    careers_url: https://jobs.ashbyhq.com/chartis
+  - name: "Teneo"
+    careers_url: https://job-boards.greenhouse.io/teneo
+  - name: "NielsenIQ"
+    careers_url: https://careers.smartrecruiters.com/nielseniq
+  - name: "CACI"
+    careers_url: https://careers.smartrecruiters.com/caci
+  - name: "Capco"
+    careers_url: https://job-boards.greenhouse.io/capco
+  - name: "Bounteous"
+    careers_url: https://jobs.lever.co/bounteous
+  - name: "Pariveda"
+    careers_url: https://jobs.ashbyhq.com/pariveda
+  - name: "Guidepoint"
+    careers_url: https://job-boards.greenhouse.io/guidepoint
+  - name: "AlphaSights"
+    careers_url: https://job-boards.greenhouse.io/alphasights
+  - name: "NewtonX"
+    careers_url: https://jobs.ashbyhq.com/newtonx
+  - name: "Sutherland"
+    careers_url: https://careers.smartrecruiters.com/sutherland
+  - name: "Booz Allen Hamilton"
+    careers_url: https://bah.wd1.myworkdayjobs.com/BAH_Jobs
+  - name: "ICF"
+    careers_url: https://icf.wd5.myworkdayjobs.com/ICFExternal_Career_Site
+  - name: "Guidehouse"
+    careers_url: https://guidehouse.wd1.myworkdayjobs.com/External
+  - name: "BDO"
+    careers_url: https://bdo.wd3.myworkdayjobs.com/BDO
+  - name: "Leidos"
+    careers_url: https://leidos.wd5.myworkdayjobs.com/External
+  - name: "Unisys"
+    careers_url: https://unisys.wd5.myworkdayjobs.com/External
+  - name: "DXC Technology"
+    careers_url: https://dxctechnology.wd1.myworkdayjobs.com/DXCJobs
+  - name: "Parsons"
+    careers_url: https://parsons.wd5.myworkdayjobs.com/Search
+  - name: "JLL"
+    careers_url: https://jll.wd1.myworkdayjobs.com/jllcareers
+  - name: "Gartner"
+    careers_url: https://gartner.wd5.myworkdayjobs.com/EXT
+  - name: "Marsh McLennan"
+    careers_url: https://mmc.wd1.myworkdayjobs.com/MMC
+  - name: "Roland Berger"
+    careers_url: https://careers.smartrecruiters.com/rolandberger
+  - name: "Clearview Healthcare Partners"
+    careers_url: https://job-boards.greenhouse.io/clearviewhealthcarepartners
+  - name: "Third Bridge"
+    careers_url: https://job-boards.greenhouse.io/thirdbridge
+  - name: "Coleman Research Group"
+    careers_url: https://job-boards.greenhouse.io/colemanresearch
+  - name: "Point B"
+    careers_url: https://jobs.lever.co/pointb
+  - name: "Oliver Wyman"
+    careers_url: https://jobs.lever.co/oliverwyman
+  - name: "Kroll"
+    careers_url: https://kroll.bamboohr.com
+  - name: "Ensono"
+    careers_url: https://job-boards.greenhouse.io/ensono
+  - name: "Trace3"
+    careers_url: https://job-boards.greenhouse.io/trace3
+  - name: "Exiger"
+    careers_url: https://job-boards.greenhouse.io/exiger
+  - name: "Gallup"
+    careers_url: https://job-boards.greenhouse.io/gallup
+  - name: "Sia Partners"
+    careers_url: https://careers.smartrecruiters.com/sia
+  - name: "Mintel"
+    careers_url: https://job-boards.greenhouse.io/mintel
+  - name: "McKinsey & Company"
+    careers_url: https://www.mckinsey.com/careers
+  - name: "Boston Consulting Group"
+    careers_url: https://careers.bcg.com
+  - name: "Bain & Company"
+    careers_url: https://www.bain.com/careers
+  - name: "Deloitte"
+    careers_url: https://www.deloitte.com/us/en/careers
+  - name: "PwC"
+    careers_url: https://www.pwc.com/us/en/careers
+  - name: "EY"
+    careers_url: https://www.ey.com/en_us/careers
+  - name: "KPMG"
+    careers_url: https://www.kpmgcareers.com
+  - name: "Accenture"
+    careers_url: https://www.accenture.com/us-en/careers
+  - name: "Kearney"
+    careers_url: https://www.kearney.com/careers
+  - name: "L.E.K. Consulting"
+    careers_url: https://www.lek.com/careers
+  - name: "Simon-Kucher"
+    careers_url: https://www.simon-kucher.com/en/careers
+  - name: "FTI Consulting"
+    careers_url: https://www.fticonsulting.com/careers
+  - name: "Alvarez & Marsal"
+    careers_url: https://www.alvarezandmarsal.com/careers
+assessment_domains:
+  - "Case interviews"
+  - "Mental math and market sizing"
+  - "Behavioral fit questions"
+archetypes:
+  - "Strategy consultant"
+  - "Technology consultant"
+  - "Risk or advisory associate"
+  - "Economic consulting analyst"
+employer_policies: []
