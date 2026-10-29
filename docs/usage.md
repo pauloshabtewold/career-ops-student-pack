@@ -54,7 +54,7 @@ Mail from the last 2 days is read, and each message is read once (ids are kept i
 
 ## Tuning the apply list and the weekly audit
 
-These keys go in config/student.yml. Most of them only narrow what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps its default, which is what the pack does without the key. Set `rank.metro_match: substring` or `audit.duplicate_reason: last` to get the looser matching some setups expect.
+These keys go in config/student.yml. Most of them only narrow what the pack already does, and none of them can raise a limit in `scripts/budget.mjs`. A key you leave out keeps its default. `rank.metro_match` defaults to `word` and `audit.duplicate_reason` to `first`; set `substring` or `last` to get the looser matching some setups expect.
 
 Weekly second look at skipped rows (`node student/scripts/fail-audit.mjs pick`):
 

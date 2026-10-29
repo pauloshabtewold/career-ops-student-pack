@@ -71,8 +71,8 @@ CI runs `windows-latest` as the stand-in for a Windows 11 machine: it clones car
 
 ## Parity scope
 
-Parity compares which URLs each side picks, so two pack behaviors are invisible to it: the effort weight (it changes order, not membership) and metro matching under the default `word` mode (the baseline matches substrings). Mirror `rank.metro_match: substring` in the parity config to compare metro matching.
+Parity compares which URLs each side picks, so the effort weight is invisible to it: effort changes order, not membership. Metro matching is compared once `rank.metro_match` in the parity config is set to the baseline's mode.
 
-A carry stage hands the pending rows the pack produced to the next stage, so a later stage is judged on the pack's pipeline rather than a copy of the baseline's. A stage that faulted, errored or did not run carries nothing.
+The rank-queue stage excuses a baseline-only pick when the pack's merge moved that row out of Pending during merge-staging. The set is measured across merge-staging alone, because apply-triage rewrites both pipelines earlier and a wider diff would hide its divergence. The allowance covers missing picks only, so it cannot hide a pack-only pick, and a difference counts at most once. A stage that faulted, errored or did not run carries nothing.
 
 In `status-notes` contacts, `status:accepted` marks a contact warm, the same fact the `stage` format records as accepted. `rank.easy_apply_hosts` matches substrings of the host, so a broad entry such as `lever` can match an unrelated host; usage.md says how to narrow it.

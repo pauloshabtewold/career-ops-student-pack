@@ -30,7 +30,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HOLD_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
 // The bare key or the key followed by free text; a longer key such as reserved-slots is a different note.
 const RESERVED_SLOT = /^reserved-slot(?:$|[\s(])/;
-// Used only when config.rank.easy_apply_hosts is unset; these hosts take a one-page apply, which the effort factor rewards.
+// Used only when config.rank.easy_apply_hosts is unset; these ATS hosts count as quick to apply to, which the effort factor rewards.
 const DEFAULT_EASY_HOSTS = ['greenhouse', 'ashby', 'lever'];
 // Statuses that mean an application was made. Rejected is left out: a rejected row stops counting toward track history,
 // and its slot against company_caps survives only through the logged submit in submitCounts.
