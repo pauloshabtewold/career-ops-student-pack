@@ -1,8 +1,6 @@
 {
   "preset": "software-cs",
-  "newgrad_years": [
-    2027
-  ],
+  "newgrad_years": [],
   "internship_years": [
     2027
   ]

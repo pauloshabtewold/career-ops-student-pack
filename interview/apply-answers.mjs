@@ -140,6 +140,16 @@ function archetypeEntries(name, abbreviations) {
   return dedupe([dedupe(units.map((u) => u.abbr)).join(' + '), dedupe(units.map((u) => u.full)).join(' + ')]);
 }
 
+// upstream's location filter is a plain substring match, and boards write a city as "Boston-MA", "Boston, MA" or "Boston,
+// Massachusetts". A "City, ST" answer therefore also allows the bare city so no board spelling hides its postings.
+export function locationTerms(locations) {
+  const terms = locations.flatMap((l) => {
+    const city = l.includes(',') ? l.split(',')[0].trim() : '';
+    return city.length > 2 ? [l, city] : [l];
+  });
+  return [...new Set(terms)];
+}
+
 function portalLines(answers, merged, cfg, abbreviations) {
   const rules = effectiveTitleRules(merged, cfg);
   const skipped = new Set();
@@ -157,7 +167,7 @@ function portalLines(answers, merged, cfg, abbreviations) {
     negative,
     rules,
     title: ['  positive:', ...positive.map((p) => `    - ${q(p)}`), '  negative:', ...negative.map((p) => `    - ${q(p)}`)],
-    location: ['  allow:', ...answers.locations.map((l) => `    - ${q(l)}`)],
+    location: ['  allow:', ...locationTerms(answers.locations).map((l) => `    - ${q(l)}`)],
     companies: unique.flatMap((e) => [`  - name: ${q(e.name)}`, `    careers_url: ${e.careers_url}`, '    enabled: true']),
     notes: [...skipped].map((r) => `title rule ${r} cannot be written as an upstream title term, so it was skipped`),
   };
@@ -350,7 +360,8 @@ function writeSources({ answers, merged, cfg, paths, today, out, read }) {
     .filter((g) => !have.has(`${g.repo}/${g.path}`))
     .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_push: null, last_unique: null, failed_parses: 0, notes: 'preset' }));
   out('data/student-github-sources.json', `${JSON.stringify({ version: 1, rules: { ...effectiveTitleRules(merged, cfg), early_career: merged?.early_career ?? '' }, sources: [...prior.sources, ...fresh] }, null, 2)}\n`);
-  const entries = [...(answers.blacklist ?? []).map((n) => [n, 'user blacklist']), ...(answers.priority_companies ?? []).map((n) => [n, 'priority company'])];
+  // Only the do-not-apply names: upstream's scan and the ingest skip every company listed here, so a priority company must not be.
+  const entries = (answers.blacklist ?? []).map((n) => [n, 'user blacklist']);
   if (entries.length) out('data/blacklist.md', blacklistRows(read('data/blacklist.md'), entries, today));
 }
 

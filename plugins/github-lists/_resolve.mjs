@@ -142,15 +142,17 @@ export function createGate(limit) {
 
 /**
  * fetch(url) must return a Response-like object (ctx.fetch). sleep(ms) is injectable for tests.
- * Returns resolve(row) -> { url, how }, with url null when the posting was not confirmed.
+ * Returns resolve(row) -> { url, how }, with url null when the posting was not confirmed. After `deadline` (epoch ms)
+ * no further request is made, so a row that is not an employer link is left unconfirmed.
  */
-export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), limits = LIMITS }) {
+export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), limits = LIMITS, deadline = Infinity }) {
   const gate = createGate(limits.aggregator_in_flight);
 
   // 404 is the normal answer to a wrong slug guess, so every failure is "no data", not an error.
   // Redirects are followed by hand so each Location hop is checked against the forbidden hosts before it is requested.
   async function get(url, asJson) {
     return gate.run(async () => {
+      if (Date.now() > deadline) return NO_DATA;
       let current = url;
       for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
         if (isForbiddenHost(hostOf(current))) return NO_DATA;
@@ -224,8 +226,8 @@ export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTi
  * Employer-ATS rows pass through, aggregator rows come back with the employer posting url, and forbidden or
  * unresolved rows are dropped and appended to <dataRoot>/student-agg-unresolved.tsv unless dryRun is set.
  */
-export async function resolveAggregator(rows, { fetch, sleep, dataRoot, today, dryRun = false }) {
-  const resolver = createResolver({ fetch, sleep });
+export async function resolveAggregator(rows, { fetch, sleep, dataRoot, today, dryRun = false, deadline }) {
+  const resolver = createResolver({ fetch, sleep, deadline });
   const verdicts = await Promise.all(rows.map((row) => resolver.resolve(row)));
   const out = [];
   const unresolved = [];

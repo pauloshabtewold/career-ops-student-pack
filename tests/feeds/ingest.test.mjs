@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import plugin from '../../plugins/github-lists/index.mjs';
 import { readTsv } from '../../lib/tsv.mjs';
 import * as H from '../helpers/feed-harness.mjs';
+const readText = H.readText;
 
 const RAW = 'https://raw.githubusercontent.com/example-org/';
 const src = (o) => ({ name: 'list-a', repo: 'example-org/list-a', path: 'listings.json', format: 'simplify-json', kind: 'internship', status: 'active', ...o });
@@ -237,6 +238,45 @@ test('M-003-S7 an aggregator row that resolves is returned with the employer url
     const jobs = await plugin.ingest(ctx);
     assert.deepEqual(jobs.map((j) => j.url), ['https://boards.greenhouse.io/examplerobotics/jobs/1']);
     assert.equal((await sidecar(s))[0].url, 'https://boards.greenhouse.io/examplerobotics/jobs/1');
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('ingest reads the registry from <root>/data when the host passes the career-ops root', async () => {
+  const { s, ctx } = await setup([src()], [rawHandler('list-a', H.SIMPLIFY_JSON)]);
+  try {
+    const jobs = await plugin.ingest({ ...ctx, dataRoot: s.dir });
+    assert.equal(jobs.length, 2);
+    assert.ok(existsSync(join(s.data, 'student-rows.tsv')));
+    assert.ok(!existsSync(join(s.dir, 'student-rows.tsv')));
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('ingest stops reading sources once the time budget is spent and reads the skipped one first next run', async () => {
+  const sources = [src(), src({ name: 'list-b', repo: 'example-org/list-b' })];
+  const handlers = [rawHandler('list-a', H.SIMPLIFY_JSON), rawHandler('list-b', H.SIMPLIFY_JSON)];
+  const { s, stub, ctx } = await setup(sources, handlers);
+  try {
+    let clock = 0;
+    const realNow = Date.now;
+    // The first source is read, then the budget is gone.
+    Date.now = () => (clock++ < 2 ? 1000 : 10 ** 13);
+    let jobs;
+    try {
+      jobs = await plugin.ingest({ ...ctx, budgetMs: 100 });
+    } finally {
+      Date.now = realNow;
+    }
+    assert.equal(jobs.length, 2);
+    assert.equal(stub.calls.length, 1);
+    const registry = JSON.parse(readText(join(s.data, 'student-github-sources.json')));
+    assert.equal(registry.sources.find((r) => r.name === 'list-a').last_ingest, H.TODAY);
+    assert.equal(registry.sources.find((r) => r.name === 'list-b').last_ingest, undefined);
+    await plugin.ingest(ctx);
+    assert.equal(stub.calls[1].url.includes('list-b'), true);
   } finally {
     s.cleanup();
   }

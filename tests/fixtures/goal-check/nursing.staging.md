@@ -13,3 +13,13 @@
 - [ ] https://jobs.example.com/nursing/6 | Example Health 6 | Senior Nurse Manager | Remote | note: src=fixture; imported=2026-10-27; posted~2d
 <!-- tag: out-of-cycle -->
 - [ ] https://jobs.example.com/nursing/7 | Example Health 7 | Nurse Externship Summer 2031 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/21 | Example Health 21 | New Grad Registered Nurse, Medical Surgical Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/22 | Example Health 22 | Nurse Residency Program, Intensive Care Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/23 | Example Health 23 | New Grad Registered Nurse, Emergency Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/24 | Example Health 24 | Nurse Residency Program, Pediatrics Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/25 | Example Health 25 | New Grad Registered Nurse, Labor and Delivery Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d

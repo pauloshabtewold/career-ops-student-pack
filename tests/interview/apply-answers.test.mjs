@@ -111,7 +111,7 @@ test('M-006-S1 applyAnswers({answers, root, today}) writes the same files in pro
   }
 });
 
-test('M-006-S1 a preset with sources writes trial github sources, and priority and blacklist land in blacklist.md', () => {
+test('M-006-S1 a preset with sources writes trial github sources, and the blacklist lands in blacklist.md and priority companies stay out of it', () => {
   const answers = answersOf('cs');
   const r = scratch(answers);
   try {
@@ -122,7 +122,8 @@ test('M-006-S1 a preset with sources writes trial github sources, and priority a
     assert.match(gh, /"trial"/);
     const bl = r.read('data/blacklist.md');
     assert.ok(bl.startsWith('# Blacklist\n\nUser Entry Corp\n'));
-    for (const c of [...answers.blacklist, ...answers.priority_companies]) assert.ok(bl.includes(c), c);
+    for (const c of answers.blacklist) assert.ok(bl.includes(c), c);
+    for (const c of answers.priority_companies) assert.ok(!bl.includes(c), c);
   } finally {
     r.cleanup();
   }

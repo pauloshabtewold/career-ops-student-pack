@@ -16,6 +16,10 @@
   ],
   "experience_years": 0,
   "locations": [
+    "Boston, MA",
+    "Cleveland, OH",
+    "New Orleans, LA",
+    "Seattle, WA",
     "Portland, OR"
   ],
   "work_authorization": "US citizen",
@@ -24,51 +28,51 @@
     "night shift only"
   ],
   "priority_companies": [
-    "Example Health System 1"
+    "Mass General Brigham"
   ],
   "blacklist": [
     "Example Staffing Group"
   ],
   "target_employers": [
     {
-      "name": "Example Health System 1",
-      "careers_url": "https://careers.example.com/nursing/1"
+      "name": "Mass General Brigham",
+      "careers_url": "https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal"
     },
     {
-      "name": "Example Health System 2",
-      "careers_url": "https://careers.example.com/nursing/2"
+      "name": "Seattle Children's",
+      "careers_url": "https://seattlechildrens.wd5.myworkdayjobs.com/External"
     },
     {
-      "name": "Example Health System 3",
-      "careers_url": "https://careers.example.com/nursing/3"
+      "name": "Cleveland Clinic",
+      "careers_url": "https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers"
     },
     {
-      "name": "Example Health System 4",
-      "careers_url": "https://careers.example.com/nursing/4"
+      "name": "Ochsner Health",
+      "careers_url": "https://ochsner.wd1.myworkdayjobs.com/Ochsner"
     },
     {
-      "name": "Example Health System 5",
-      "careers_url": "https://careers.example.com/nursing/5"
+      "name": "One Medical",
+      "careers_url": "https://job-boards.greenhouse.io/onemedical"
     },
     {
-      "name": "Example Health System 6",
-      "careers_url": "https://careers.example.com/nursing/6"
+      "name": "Included Health",
+      "careers_url": "https://jobs.lever.co/includedhealth"
     },
     {
-      "name": "Example Health System 7",
-      "careers_url": "https://careers.example.com/nursing/7"
+      "name": "Ro",
+      "careers_url": "https://jobs.lever.co/ro"
     },
     {
-      "name": "Example Health System 8",
-      "careers_url": "https://careers.example.com/nursing/8"
+      "name": "LifeStance Health",
+      "careers_url": "https://jobs.lever.co/lifestance"
     },
     {
-      "name": "Example Health System 9",
-      "careers_url": "https://careers.example.com/nursing/9"
+      "name": "Talkspace",
+      "careers_url": "https://job-boards.greenhouse.io/talkspace"
     },
     {
-      "name": "Example Health System 10",
-      "careers_url": "https://careers.example.com/nursing/10"
+      "name": "Two Chairs",
+      "careers_url": "https://job-boards.greenhouse.io/twochairs"
     }
   ],
   "sources_chosen": [],
@@ -95,11 +99,12 @@
   ],
   "archetypes": [
     "Registered nurse residency",
-    "Clinic nurse"
+    "Clinic nurse",
+    "Registered nurse"
   ],
   "application_profile": {
     "start_date": "2027-07",
-    "relocation": "no",
+    "relocation": "within-locations",
     "eeo": "leave-blank",
     "how_did_you_hear": "Hospital job board"
   }

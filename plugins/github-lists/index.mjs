@@ -3,6 +3,7 @@
 // carries early_career and title_rules. The plugin runs
 // as a hashed copy in plugins.local/, so everything it needs lives in this directory.
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { LIMITS } from './_limits.mjs';
 import { appendStats, loadSidecarKeys, readJson, upsertSidecar, urlKey, writeJsonAtomic } from './_io.mjs';
@@ -11,6 +12,9 @@ import { isEligible } from './_eligibility.mjs';
 import { resolveAggregator } from './_resolve.mjs';
 
 const STATS_HEADER = ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed'];
+// The upstream host abandons an ingest hook after 15 s and then keeps nothing, so the plugin stops requesting at 11 s and
+// returns what it has. Sources are read least recently read first, so a source cut off by the budget goes first next run.
+const HOST_BUDGET_MS = 11000;
 const REAL_SLEEP = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function rawUrl(source) {
@@ -65,6 +69,7 @@ async function ingestSource(ctx, source, env, acc) {
   if (!fetched) return stat;
   const { hash, parsed } = fetched;
   source.failed_parses = 0;
+  source.last_ingest = env.today;
   if (hash !== source.last_hash) source.last_push = env.today;
   source.last_push ??= env.today;
   source.last_hash = hash;
@@ -75,7 +80,7 @@ async function ingestSource(ctx, source, env, acc) {
     .filter((row) => isEligible(row, { cycle, titleRules, earlyCareer }).ok)
     .map((row) => ({ ...row, source: source.name }));
   stat.eligible = eligible.length;
-  const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun });
+  const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline: env.deadline });
   collectUnique(resolved, source, stat, env, acc);
   return stat;
 }
@@ -90,11 +95,18 @@ function titleRulesFor(ctx, registry) {
   return { include: rules.include ?? [], exclude: [...(rules.exclude ?? []), ...(citizen ? [] : (rules.exclude_unless_citizen ?? []))] };
 }
 
+// The upstream host passes the career-ops root as ctx.dataRoot, while the pack keeps its files in <root>/data. A caller
+// that passes the data directory itself (the tests) is used as given.
+function studentDataDir(dataRoot) {
+  const nested = join(dataRoot, 'data');
+  return existsSync(join(nested, 'student-github-sources.json')) ? nested : dataRoot;
+}
+
 export default {
   async ingest(ctx) {
     const sleep = ctx.sleep ?? REAL_SLEEP;
     const today = ctx.today ?? new Date().toISOString().slice(0, 10);
-    const dataDir = ctx.dataRoot;
+    const dataDir = studentDataDir(ctx.dataRoot);
     const registry = readJson(join(dataDir, 'student-github-sources.json'));
     const cycle = readJson(join(dataDir, 'student-cycle.json'));
     if (!registry || !cycle) {
@@ -102,12 +114,19 @@ export default {
       return [];
     }
     const sidecarFile = join(dataDir, 'student-rows.tsv');
-    const env = { sleep, today, dataDir, cycle, titleRules: titleRulesFor(ctx, registry), earlyCareer: ctx.preset?.early_career ?? registry.rules?.early_career, known: loadSidecarKeys(sidecarFile) };
+    const deadline = Date.now() + (ctx.budgetMs ?? HOST_BUDGET_MS);
+    const env = { deadline, sleep, today, dataDir, cycle, titleRules: titleRulesFor(ctx, registry), earlyCareer: ctx.preset?.early_career ?? registry.rules?.early_career, known: loadSidecarKeys(sidecarFile) };
     const acc = { seen: new Set(), jobs: [], sidecarRows: [] };
     const stats = [];
 
     const sources = (registry.sources ?? []).filter((s) => s.status === 'active' || s.status === 'trial');
-    for (const [i, source] of sources.entries()) {
+    // Least recently read first; a source never read, or read the same day, keeps its registry position.
+    const order = [...sources].sort((x, y) => String(x.last_ingest ?? '').localeCompare(String(y.last_ingest ?? '')));
+    for (const [i, source] of order.entries()) {
+      if (Date.now() > deadline) {
+        ctx.log?.(`github-lists: time budget reached; ${order.length - i} source(s) wait for the next run`);
+        break;
+      }
       if (i > 0) await sleep(LIMITS.request_gap_ms);
       stats.push(await ingestSource(ctx, source, env, acc));
     }

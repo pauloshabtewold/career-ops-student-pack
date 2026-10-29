@@ -16,6 +16,7 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const DEFAULT_SHOWN = 20;
+const TOP_LIST_SIZE = 10;
 // First non-empty line of a child's output, cut to fit one report line.
 const oneLine = (text, max = 160) => String(text ?? '').split('\n').map((l) => l.trim()).find(Boolean)?.slice(0, max) ?? '';
 
@@ -37,6 +38,7 @@ export function summarizePending(pipelineText) {
 // Counts first, then up to `shown` untriaged rows as url | company | title for the session to judge.
 export function formatReport(summary, shown) {
   const lines = [`Pending rows: ${summary.total}`, ...summary.sources.map(([src, n]) => `  src=${src}: ${n}`), `Untriaged Pending rows: ${summary.untriaged.length}`];
+  if (summary.total < TOP_LIST_SIZE) lines.push(`Fewer than ${TOP_LIST_SIZE} postings fit your setup today (${summary.total}), so the top list will be shorter than ${TOP_LIST_SIZE}. The daily run adds new postings as they appear.`);
   if (!summary.untriaged.length) return [...lines, 'no untriaged Pending rows'];
   lines.push(...summary.untriaged.slice(0, shown).map((r) => `${r.url} | ${r.company} | ${r.title}`));
   if (summary.untriaged.length > shown) lines.push(`... and ${summary.untriaged.length - shown} more untriaged Pending rows`);

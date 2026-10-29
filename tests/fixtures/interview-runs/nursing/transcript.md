@@ -34,21 +34,21 @@ STUDENT: Yes, use byo-employer-list.
 
 INTERVIEWER: Coverage line from `node interview/coverage.mjs byo-employer-list`, exactly as returned: "Bring your own employer list [discovery-only]: Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails." This preset is discovery help only. Please give me 10 to 20 target employers, each with its careers page URL.
 
-STUDENT: Example Health System 1, https://careers.example.com/nursing/1. Example Health System 2, https://careers.example.com/nursing/2. Example Health System 3, https://careers.example.com/nursing/3. Example Health System 4, https://careers.example.com/nursing/4. Example Health System 5, https://careers.example.com/nursing/5. Example Health System 6, https://careers.example.com/nursing/6. Example Health System 7, https://careers.example.com/nursing/7. Example Health System 8, https://careers.example.com/nursing/8. Example Health System 9, https://careers.example.com/nursing/9. Example Health System 10, https://careers.example.com/nursing/10.
+STUDENT: Mass General Brigham, https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal, Seattle Children's, https://seattlechildrens.wd5.myworkdayjobs.com/External, Cleveland Clinic, https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers, Ochsner Health, https://ochsner.wd1.myworkdayjobs.com/Ochsner, One Medical, https://job-boards.greenhouse.io/onemedical, Included Health, https://jobs.lever.co/includedhealth, Ro, https://jobs.lever.co/ro, LifeStance Health, https://jobs.lever.co/lifestance, Talkspace, https://job-boards.greenhouse.io/talkspace, Two Chairs, https://job-boards.greenhouse.io/twochairs.
 
 INTERVIEWER: Ten employers recorded. Target roles: from your clinic intake work, blood pressure screening and patient assessment skills, I propose "Registered nurse residency" and "Clinic nurse". Keep both, change, or add?
 
-STUDENT: Keep both.
+STUDENT: Keep both, and add "Registered nurse".
 
 INTERVIEWER: Locations, in order of preference? And years of experience; your resume shows volunteer work only, so I propose 0.
 
-STUDENT: Portland, OR. Zero years.
+STUDENT: Boston, MA, Cleveland, OH, New Orleans, LA, Seattle, WA, Portland, OR. Zero years.
 
-INTERVIEWER: Recorded: locations Portland, OR; experience 0 years. Any priority companies, any hard-no companies, and any dealbreakers (for example "unpaid")?
+INTERVIEWER: Recorded: locations Boston, MA, Cleveland, OH, New Orleans, LA, Seattle, WA, Portland, OR; experience 0 years. Any priority companies, any hard-no companies, and any dealbreakers (for example "unpaid")?
 
-STUDENT: Priority: Example Health System 1. Hard no: Example Staffing Group. Dealbreaker: night shift only.
+STUDENT: Priority: Mass General Brigham. Hard no: Example Staffing Group. Dealbreaker: night shift only.
 
-INTERVIEWER: Recorded: priority Example Health System 1; blacklist Example Staffing Group; dealbreaker "night shift only". Which GitHub job lists would you like to trial? They start as trial and the monthly review keeps or drops them. Default is none.
+INTERVIEWER: Recorded: priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker "night shift only". Which GitHub job lists would you like to trial? They start as trial and the monthly review keeps or drops them. Default is none.
 
 STUDENT: Skip.
 
@@ -106,7 +106,7 @@ STUDENT: Connector.
 
 ## Phase 6: write, check, enable
 
-INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 10 target employers (Example Health System 1 to 10); roles Registered nurse residency and Clinic nurse; Portland, OR; 0 years; priority Example Health System 1; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
+INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 10 target employers (Mass General Brigham, Seattle Children's, Cleveland Clinic, Ochsner Health, One Medical, Included Health, Ro, LifeStance Health, Talkspace, Two Chairs); roles Registered nurse residency, Clinic nurse and Registered nurse; Boston, MA, Cleveland, OH, New Orleans, LA, Seattle, WA, Portland, OR; 0 years; priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
 
 STUDENT: Yes.
 

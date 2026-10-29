@@ -16,7 +16,7 @@ import { formatRow, parsePipeline, sectionRows, serializePipeline } from '../lib
 import { ConfigError, parseConfig } from '../lib/config.mjs';
 import { auditOptions } from '../scripts/fail-audit.mjs';
 import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
-import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
+import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, comparePrefilter, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // The whole candidate set is compared because top-n order follows score formulas that differ by design.
@@ -31,7 +31,7 @@ const MAX_STAGE_OUTPUT = 64 * 1024 * 1024;
 // just before the pack side runs and compared with the pipeline the stage leaves behind.
 export const STAGES = [
   { name: 'cycle', compare: 'cycle', local: ['cycle.mjs', '--json', '--today', '{today}'], pack: ['cycle.mjs', '--json', '--today', '{today}'] },
-  { name: 'prefilter', compare: 'rows', dependsOn: 'cycle', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
+  { name: 'prefilter', compare: 'prefilter', dependsOn: 'cycle', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
   { name: 'apply-triage', compare: 'rows', local: ['apply-triage.mjs', '{frozen}'], pack: ['apply-triage.mjs', '{frozen}'], frozen: 'prefilter', capture: join('data', 'pipeline.md') },
   { name: 'merge-staging', compare: 'rows', explain: 'merge-stats', carry: true, local: ['merge-staging.mjs'], pack: ['merge-post.mjs', '--today', '{today}'], capture: join('data', 'pipeline.md') },
   { name: 'rank-queue', compare: 'rank', local: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'], pack: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'] },
@@ -286,6 +286,7 @@ function judgeStage(env, stage, base, pack, carried) {
   if (fault) return stageError(stage.name, fault);
   if (stage.compare === 'cycle') return judgeCycle(env, stage.name, base.out, pack.out);
   if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out, { carried });
+  if (stage.compare === 'prefilter') return comparePrefilter(stage.name, base.out, pack.out);
   if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, env.audit);
   return compareStage(stage.name, base.out, pack.out, { explained: stage.explain === 'merge-stats' ? mergeAllowance(pack.stdout) : 0 });
 }

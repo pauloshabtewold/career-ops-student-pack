@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { firstRun } from '../../scripts/first-run.mjs';
+import { firstRun, formatReport } from '../../scripts/first-run.mjs';
 import { createFakeUpstream } from '../helpers/fake-upstream.mjs';
 import { PACK_ROOT, TODAY, jobUrl, line, pipelineText } from '../helpers/script-harness.mjs';
 import { defaultRunner } from '../../lib/upstream.mjs';
@@ -106,4 +106,12 @@ test('M-002-S24 an empty staging feed and no Pending rows prints zero counts, no
   } finally {
     s.cleanup();
   }
+});
+
+test('the report says plainly when fewer than 10 postings came in, and stays silent at 10', () => {
+  const rows = (n) => Array.from({ length: n }, (_, i) => ({ url: `https://jobs.example.com/r/${i}`, company: `Co ${i}`, title: 'Role', notes: new Map() }));
+  const few = formatReport({ total: 7, sources: [], untriaged: rows(7) }, 20);
+  assert.ok(few.some((l) => /^Fewer than 10 postings fit your setup today \(7\)/.test(l)), few.join('\n'));
+  const enough = formatReport({ total: 10, sources: [], untriaged: rows(10) }, 20);
+  assert.ok(!enough.some((l) => /^Fewer than 10/.test(l)));
 });

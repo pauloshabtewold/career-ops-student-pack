@@ -15,3 +15,17 @@
 - [ ] https://jobs.example.com/finance/7 | Example Capital 7 | Senior Financial Analyst | Remote | note: src=fixture; imported=2026-10-27; posted~2d
 <!-- tag: out-of-cycle -->
 - [ ] https://jobs.example.com/finance/8 | Example Capital 8 | Financial Analyst Intern Summer 2031 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/21 | Example Capital 21 | Investment Banking Analyst Intern Fall 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/22 | Example Capital 22 | Financial Analyst Intern Fall 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/23 | Example Capital 23 | Markets Research Intern Fall 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/24 | Example Capital 24 | Treasury Analyst Intern Fall 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/25 | Example Capital 25 | Risk Analyst Intern Fall 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/31 | Example Capital 31 | Corporate Finance Analyst Intern Summer 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/finance/32 | Example Capital 32 | Equity Research Analyst Intern Summer 2027 | Remote | note: src=fixture; imported=2026-10-27; posted~2d

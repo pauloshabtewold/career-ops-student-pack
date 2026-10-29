@@ -61,7 +61,7 @@ Mail is untrusted input, so the inbox step changes the tracker for two outcomes 
 
 ## Feeds
 
-GitHub job lists are churny bot repos. Discovery admits a list only with a push in the last 14 days, retires it after 30 days without a push or without unique rows, or after 3 failed parses, and polls daily when a list's posting window is 7 days. Each registry entry carries `last_push`, `last_unique` and `failed_parses`. A list with no recorded `last_push` or `last_unique` is not retired for staleness, so a fresh list survives until its first ingest sets them. The `github-lists` plugin is at version 1.2.0. Feeds keep company, title, location, date and employer URL. Vendor apply links resolve to the employer through the aggregator resolver, and `linkedin.com` is never fetched.
+GitHub job lists are churny bot repos. Discovery admits a list only with a push in the last 14 days, retires it after 30 days without a push or without unique rows, or after 3 failed parses, and polls daily when a list's posting window is 7 days. Each registry entry carries `last_push`, `last_unique` and `failed_parses`. A list with no recorded `last_push` or `last_unique` is not retired for staleness, so a fresh list survives until its first ingest sets them. The `github-lists` plugin is at version 1.2.1. Feeds keep company, title, location, date and employer URL. Vendor apply links resolve to the employer through the aggregator resolver, and `linkedin.com` is never fetched.
 
 ## Coverage outside tech
 

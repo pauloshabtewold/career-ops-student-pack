@@ -14,6 +14,7 @@ import {
   compareRankQueue,
   compareFailAudit,
   mergeAllowance,
+  comparePrefilter,
   REPORT_HEADER,
 } from '../../tools/parity-compare.mjs';
 import { judgmentPattern, DEFAULT_JUDGMENT_KEYWORDS } from '../../scripts/fail-audit.mjs';
@@ -412,4 +413,26 @@ test('M-001-S13 judgmentPattern anchors keywords at a word start and escapes reg
   assert.ok(!re.test('undergrad only'));
   assert.ok(re.test('a.b rule'));
   assert.ok(!re.test('axb rule'));
+});
+
+const NG = 'Title pre-filter: new-grad role and no new-grad track';
+const tri = (n, reason) => `TRIAGE: FAIL | https://jobs.example.com/openings/r-${n} | 0.0/5 | ${reason} (Role ${n})`;
+
+test('prefilter pack-only lines with the new-grad reason are explained, other pack-only lines stay residual', () => {
+  const base = [tri(1, 'senior')].join('\n');
+  const ok = comparePrefilter('prefilter', base, [tri(1, 'senior'), tri(2, NG), tri(3, NG)].join('\n'));
+  assert.equal(ok.verdict, 'explained');
+  assert.equal(ok.added, 2);
+  assert.equal(ok.explained, 2);
+  const bad = comparePrefilter('prefilter', base, [tri(1, 'senior'), tri(2, NG), tri(4, 'excluded title')].join('\n'));
+  assert.equal(bad.verdict, 'fail');
+  assert.equal(bad.added - bad.explained, 1);
+});
+
+test('prefilter baseline line for a posting the pack dropped as new-grad is explained, others stay residual', () => {
+  const r = comparePrefilter('prefilter', [tri(1, 'level III+'), tri(5, 'PhD role')].join('\n'), tri(1, NG));
+  assert.equal(r.added, 1);
+  assert.equal(r.missing, 2);
+  assert.equal(r.explained, 2);
+  assert.equal(r.verdict, 'fail');
 });

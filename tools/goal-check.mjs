@@ -22,6 +22,7 @@ import { classify } from '../scripts/inbox.mjs';
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const FIXTURES = join(PACK_ROOT, 'tests', 'fixtures');
 const SETS = ['cs', 'finance', 'mechanical', 'mis', 'nursing'];
+const TOP_WANTED = 10;
 const STEP_TIMEOUT_MS = 30 * 60 * 1000;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const NEWGRAD_TITLE = /\b(new[ -]?grad(uate)?s?|graduate program(me)?|entry[- ]level)\b/i;
@@ -34,7 +35,7 @@ const ROWS = [
   ['Correct cycle years', 'student-cycle.json equals expected years'],
   ['Daily zero-token digest never fails', 'daily.mjs with a failing step exits 0, writes the digest, starts no claude'],
   ['Prefilter, triage and rank', 'no senior, out-of-cycle or internship-only new-grad row in the ranked list'],
-  ['First run shows top-10', 'first-run exits 0 and rank-queue --n 10 lists at least 1 row'],
+  ['First run shows top-10', 'first-run exits 0 and rank-queue --n 10 lists 10 rows'],
   ['Tailored materials and resume guard (PROXY)', 'check-resume passes one page, fails two; apply-loop names its flags'],
   ['Inbox', 'interview after a receipt is interview; a conditional receipt is ignored'],
   ['Outreach and apply gates', 'log apply.policy exits 0; a below-floor submit check is refused'],
@@ -172,13 +173,10 @@ function checkSetup({ dir, set, apply }) {
       return {};
     }
   })();
-  // The expected file names the years the student targets: internship years must match exactly, the new-grad years
-  // the pack derives must be among the expected ones, and together both lists must cover exactly the expected years.
+  // The expected file names both year lists the pack must derive, compared exactly.
   const list = (a) => [...new Set(a ?? [])].sort();
   const same = (a, b) => JSON.stringify(list(a)) === JSON.stringify(list(b));
-  const grad = list(cycle.newgrad_years);
-  const union = (a, b) => [...new Set([...(a ?? []), ...(b ?? [])])];
-  const ok = same(cycle.internship_years, expect.internship_years) && grad.every((y) => (expect.newgrad_years ?? []).includes(y)) && same(union(cycle.newgrad_years, cycle.internship_years), union(expect.newgrad_years, expect.internship_years));
+  const ok = same(cycle.internship_years, expect.internship_years) && same(cycle.newgrad_years, expect.newgrad_years);
   if (!ok) fails[3].push('cycle years');
   return fails;
 }
@@ -304,7 +302,7 @@ async function runSetSteps({ upstream, scratch, set, today, feeds }) {
   const ranking = checkRanking({ dir, set, today, tags });
   per.rows[5].push(...ranking.fails);
   if (first.code !== 0) per.rows[6].push('first-run exit');
-  if (top.picks.length < 1) per.rows[6].push('top list empty');
+  if (top.picks.length < TOP_WANTED) per.rows[6].push(top.picks.length ? 'top list under 10' : 'top list empty');
   per.rows[4].push(...checkDaily({ dir, today }));
   per.rows[7].push(...checkResumeGuard({ dir, set }));
   per.rows[9].push(...checkGates({ dir, today }));
