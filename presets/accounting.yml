@@ -57,19 +57,19 @@ seed_employers:
   - name: "Deloitte"
     careers_url: https://www.deloitte.com/us/en/careers
   - name: "PwC"
-    careers_url: https://www.pwc.com/us/en/careers
+    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
   - name: "Grant Thornton"
-    careers_url: https://www.grantthornton.com/careers
+    careers_url: https://ehzq.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "BDO USA"
-    careers_url: https://www.bdo.com/careers
+    careers_url: https://ebqb.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/BDOEntryLevelCareers
   - name: "RSM US"
     careers_url: https://www.rsmus.com/careers
   - name: "Baker Tilly"
-    careers_url: https://www.bakertilly.com/careers
+    careers_url: https://bakertilly.wd5.myworkdayjobs.com/BTCareers
   - name: "CohnReznick"
     careers_url: https://www.cohnreznick.com/careers
   - name: "Crowe"
@@ -83,13 +83,13 @@ seed_employers:
   - name: "Forvis Mazars"
     careers_url: https://www.forvismazars.us/careers
   - name: "Cherry Bekaert"
-    careers_url: https://www.cbh.com/careers
+    careers_url: https://cbh.wd12.myworkdayjobs.com/CherryBekaert
   - name: "Eide Bailly"
     careers_url: https://www.eidebailly.com/careers
   - name: "Marcum"
     careers_url: https://www.marcumllp.com/careers
   - name: "EisnerAmper"
-    careers_url: https://www.eisneramper.com/careers
+    careers_url: https://eisneramper.wd1.myworkdayjobs.com/EisnerAmper_External
   - name: "Withum"
     careers_url: https://www.withum.com/careers
   - name: "Citrin Cooperman"
@@ -104,108 +104,154 @@ seed_employers:
     careers_url: https://www.claconnect.com/careers
   - name: "Weaver"
     careers_url: https://www.weaver.com/careers
-  - name: "Frazier & Deeter"
-    careers_url: https://www.frazierdeeter.com/careers
-  - name: "Mayer Hoffman McCann"
-    careers_url: https://www.mhmcpa.com/careers
   - name: "Whitley Penn"
-    careers_url: https://www.whitleypenn.com/careers
-  - name: "Warren Averett"
-    careers_url: https://www.warrenaverett.com/careers
-  - name: "Johnson Lambert"
-    careers_url: https://www.johnsonlambert.com/careers
+    careers_url: https://recruiting.ultipro.com/WHI1006WPL/JobBoard/bf9b8b62-5ece-4a4f-aa1f-97eba460105c
   - name: "Sikich"
-    careers_url: https://www.sikich.com/careers
-  - name: "Kaufman Rossin"
-    careers_url: https://www.kaufmanrossin.com/careers
-  - name: "Anchin"
-    careers_url: https://www.anchin.com/careers
-  - name: "Berdon"
-    careers_url: https://www.berdonllp.com/careers
-  - name: "Friedman LLP"
-    careers_url: https://www.friedmanllp.com/careers
-  - name: "Raymond James"
-    careers_url: https://www.raymondjames.com/careers
+    careers_url: https://jobs.jobvite.com/sikichcareers
+  - name: "Thrivent"
+    careers_url: https://thrivent.wd5.myworkdayjobs.com/External
   - name: "JPMorgan Chase"
-    careers_url: https://careers.jpmorgan.com
+    careers_url: https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001
   - name: "Bank of America"
-    careers_url: https://campus.bankofamerica.com
+    careers_url: https://ghr.wd1.myworkdayjobs.com/lateral-us
   - name: "Wells Fargo"
-    careers_url: https://www.wellsfargojobs.com
+    careers_url: https://wf.wd1.myworkdayjobs.com/WellsFargoJobs
   - name: "Citi"
-    careers_url: https://jobs.citi.com
+    careers_url: https://citi.wd5.myworkdayjobs.com/2
   - name: "Goldman Sachs"
     careers_url: https://www.goldmansachs.com/careers
   - name: "Morgan Stanley"
-    careers_url: https://www.morganstanley.com/careers
+    careers_url: https://ms.wd5.myworkdayjobs.com/External
   - name: "Capital One"
-    careers_url: https://www.capitalonecareers.com
+    careers_url: https://capitalone.wd12.myworkdayjobs.com/Capital_One
   - name: "American Express"
-    careers_url: https://www.aexp.com/careers
+    careers_url: https://egug.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Fidelity Investments"
-    careers_url: https://jobs.fidelity.com
+    careers_url: https://fmr.wd1.myworkdayjobs.com/FidelityCareers
   - name: "Vanguard"
-    careers_url: https://www.vanguardjobs.com
+    careers_url: https://vanguard.wd5.myworkdayjobs.com/vanguard_external
   - name: "BlackRock"
-    careers_url: https://careers.blackrock.com
+    careers_url: https://blackrock.wd1.myworkdayjobs.com/BlackRock_Professional
   - name: "Prudential Financial"
-    careers_url: https://www.prudential.com/careers
+    careers_url: https://prudential.wd3.myworkdayjobs.com/prudential
   - name: "MetLife"
-    careers_url: https://www.metlife.com/about-us/careers
+    careers_url: https://jobs.lever.co/metlife
   - name: "Allstate"
-    careers_url: https://www.allstate.jobs
-  - name: "State Farm"
-    careers_url: https://www.statefarm.com/careers
+    careers_url: https://allstate.wd5.myworkdayjobs.com/allstate_careers
   - name: "Nationwide"
-    careers_url: https://careers.nationwide.com
-  - name: "Liberty Mutual"
-    careers_url: https://jobs.libertymutualgroup.com
+    careers_url: https://nationwide.wd1.myworkdayjobs.com/Nationwide_Career
   - name: "Chubb"
-    careers_url: https://careers.chubb.com
+    careers_url: https://fa-ewgu-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001
   - name: "Travelers"
-    careers_url: https://www.travelers.com/careers
-  - name: "Walmart"
-    careers_url: https://careers.walmart.com
+    careers_url: https://travelers.wd5.myworkdayjobs.com/External
   - name: "Target"
-    careers_url: https://corporate.target.com/careers
+    careers_url: https://target.wd5.myworkdayjobs.com/targetcareers
   - name: "The Home Depot"
-    careers_url: https://careers.homedepot.com
+    careers_url: https://homedepot.wd5.myworkdayjobs.com/CareerDepot
   - name: "Amazon"
     careers_url: https://www.amazon.jobs
   - name: "Microsoft"
     careers_url: https://careers.microsoft.com
-  - name: "Apple"
-    careers_url: https://jobs.apple.com
-  - name: "Alphabet"
-    careers_url: https://careers.google.com
-  - name: "Meta"
-    careers_url: https://www.metacareers.com
   - name: "Ford Motor Company"
-    careers_url: https://corporate.ford.com/careers
+    careers_url: https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "General Motors"
-    careers_url: https://search-careers.gm.com
+    careers_url: https://generalmotors.wd5.myworkdayjobs.com/Careers_GM
   - name: "Procter & Gamble"
-    careers_url: https://www.pgcareers.com
-  - name: "PepsiCo"
-    careers_url: https://www.pepsicojobs.com
+    careers_url: https://pg.wd5.myworkdayjobs.com/1000
   - name: "The Coca-Cola Company"
-    careers_url: https://careers.coca-colacompany.com
+    careers_url: https://coke.wd1.myworkdayjobs.com/coca-cola-careers
   - name: "Johnson & Johnson"
-    careers_url: https://jobs.jnj.com
+    careers_url: https://jj.wd5.myworkdayjobs.com/JJ
   - name: "Pfizer"
-    careers_url: https://www.pfizer.com/about/careers
-  - name: "Lockheed Martin"
-    careers_url: https://www.lockheedmartinjobs.com
+    careers_url: https://pfizer.wd1.myworkdayjobs.com/PfizerCareers
   - name: "Boeing"
-    careers_url: https://jobs.boeing.com
+    careers_url: https://boeing.wd1.myworkdayjobs.com/EXTERNAL_CAREERS
   - name: "Honeywell"
-    careers_url: https://careers.honeywell.com
+    careers_url: https://ibqbjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/Honeywell
   - name: "General Electric"
-    careers_url: https://careers.ge.com
-  - name: "FedEx"
-    careers_url: https://careers.fedex.com
+    careers_url: https://geaerospace.wd5.myworkdayjobs.com/GE_ExternalSite
   - name: "UPS"
-    careers_url: https://www.jobs-ups.com
+    careers_url: https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/US
+  - name: "Lowe's"
+    careers_url: https://lowes.wd5.myworkdayjobs.com/LWS_External_CS
+  - name: "Caterpillar"
+    careers_url: https://cat.wd5.myworkdayjobs.com/CaterpillarCareers
+  - name: "Cigna"
+    careers_url: https://cigna.wd5.myworkdayjobs.com/cignacareers
+  - name: "Humana"
+    careers_url: https://humana.wd5.myworkdayjobs.com/Humana_External_Career_Site
+  - name: "Elevance Health"
+    careers_url: https://elevancehealth.wd1.myworkdayjobs.com/ANT
+  - name: "Centene"
+    careers_url: https://centene.wd5.myworkdayjobs.com/Centene_External
+  - name: "CVS Health"
+    careers_url: https://cvshealth.wd1.myworkdayjobs.com/CVS_Health_Careers
+  - name: "McKesson"
+    careers_url: https://mckesson.wd3.myworkdayjobs.com/External_Careers
+  - name: "Cardinal Health"
+    careers_url: https://cardinalhealth.wd1.myworkdayjobs.com/EXT
+  - name: "Sysco"
+    careers_url: https://sysco.wd5.myworkdayjobs.com/syscocareers
+  - name: "Mondelez International"
+    careers_url: https://mdlz.wd3.myworkdayjobs.com/External
+  - name: "Kimberly-Clark"
+    careers_url: https://kimberlyclark.wd1.myworkdayjobs.com/GLOBAL
+  - name: "3M"
+    careers_url: https://3m.wd1.myworkdayjobs.com/Search
+  - name: "Johnson Controls"
+    careers_url: https://jci.wd5.myworkdayjobs.com/JCI
+  - name: "Thermo Fisher Scientific"
+    careers_url: https://thermofisher.wd5.myworkdayjobs.com/ThermoFisherCareers
+  - name: "Merck"
+    careers_url: https://msd.wd5.myworkdayjobs.com/SearchJobs
+  - name: "Abbott"
+    careers_url: https://abbott.wd5.myworkdayjobs.com/abbottcareers
+  - name: "Northrop Grumman"
+    careers_url: https://ngc.wd1.myworkdayjobs.com/Northrop_Grumman_External_Site
+  - name: "Leidos"
+    careers_url: https://leidos.wd5.myworkdayjobs.com/External
+  - name: "Booz Allen Hamilton"
+    careers_url: https://bah.wd1.myworkdayjobs.com/BAH_Jobs
+  - name: "Guidehouse"
+    careers_url: https://guidehouse.wd1.myworkdayjobs.com/External
+  - name: "Kroll"
+    careers_url: https://kroll.bamboohr.com
+  - name: "Marsh McLennan"
+    careers_url: https://mmc.wd1.myworkdayjobs.com/MMC
+  - name: "Ameriprise"
+    careers_url: https://ameriprise.wd5.myworkdayjobs.com/ameriprise
+  - name: "Fifth Third Bank"
+    careers_url: https://fifththird.wd5.myworkdayjobs.com/53careers
+  - name: "PNC"
+    careers_url: https://pnc.wd5.myworkdayjobs.com/External
+  - name: "Truist"
+    careers_url: https://truist.wd1.myworkdayjobs.com/Careers
+  - name: "US Bank"
+    careers_url: https://usbank.wd1.myworkdayjobs.com/US_Bank_Careers
+  - name: "Synchrony"
+    careers_url: https://synchronyfinancial.wd5.myworkdayjobs.com/careers
+  - name: "Northern Trust"
+    careers_url: https://ntrs.wd1.myworkdayjobs.com/northerntrust
+  - name: "State Street"
+    careers_url: https://statestreet.wd1.myworkdayjobs.com/Global
+  - name: "The Hartford"
+    careers_url: https://thehartford.wd5.myworkdayjobs.com/Careers_External
+  - name: "Mastercard"
+    careers_url: https://mastercard.wd1.myworkdayjobs.com/CorporateCareers
+  - name: "Visa"
+    careers_url: https://visa.wd5.myworkdayjobs.com/Visa
+  - name: "PayPal"
+    careers_url: https://paypal.wd1.myworkdayjobs.com/jobs
+  - name: "Ally Financial"
+    careers_url: https://ally.wd1.myworkdayjobs.com/ally
+  - name: "Fannie Mae"
+    careers_url: https://fanniemae.wd1.myworkdayjobs.com/FannieMaeCareers
+  - name: "S&P Global"
+    careers_url: https://spgi.wd5.myworkdayjobs.com/SPGI_Careers
+  - name: "MassMutual"
+    careers_url: https://massmutual.wd1.myworkdayjobs.com/MMCareers
+  - name: "Verizon"
+    careers_url: https://verizon.wd12.myworkdayjobs.com/verizon-careers
 assessment_domains:
   - "hirevue.com"
   - "shl.com"
