@@ -187,17 +187,17 @@ seed_employers:
   - name: "Tesla"
     careers_url: https://www.tesla.com/careers
   - name: "Ford Motor Company"
-    careers_url: https://corporate.ford.com/careers.html
+    careers_url: https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Deere & Company"
-    careers_url: https://www.deere.com/en/our-company/careers
+    careers_url: https://www.deere.com/en/careers
   - name: "Cummins"
-    careers_url: https://www.cummins.com/company/careers
+    careers_url: https://www.cummins.com/careers
   - name: "Honeywell"
-    careers_url: https://careers.honeywell.com
+    careers_url: https://ibqbjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/Honeywell
   - name: "Lockheed Martin"
     careers_url: https://www.lockheedmartinjobs.com
   - name: "UPS"
-    careers_url: https://www.jobs-ups.com
+    careers_url: https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/US
   - name: "FedEx"
     careers_url: https://careers.fedex.com
   - name: "Apple"

@@ -53,7 +53,7 @@ seed_employers:
   - name: "NielsenIQ"
     careers_url: https://careers.smartrecruiters.com/nielseniq
   - name: "CACI"
-    careers_url: https://careers.smartrecruiters.com/caci
+    careers_url: https://caci.wd1.myworkdayjobs.com/External
   - name: "Capco"
     careers_url: https://job-boards.greenhouse.io/capco
   - name: "Bounteous"
@@ -125,7 +125,7 @@ seed_employers:
   - name: "Deloitte"
     careers_url: https://www.deloitte.com/us/en/careers
   - name: "PwC"
-    careers_url: https://www.pwc.com/us/en/careers
+    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
   - name: "KPMG"

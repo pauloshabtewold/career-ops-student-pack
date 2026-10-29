@@ -64,7 +64,7 @@ seed_employers:
   - name: "Morgan Stanley"
     careers_url: https://ms.wd5.myworkdayjobs.com/External
   - name: "JPMorgan Chase"
-    careers_url: https://careers.jpmorgan.com
+    careers_url: https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001
   - name: "Bank of America"
     careers_url: https://ghr.wd1.myworkdayjobs.com/lateral-us
   - name: "Citi"
@@ -102,7 +102,7 @@ seed_employers:
   - name: "Capital One"
     careers_url: https://capitalone.wd12.myworkdayjobs.com/Capital_One
   - name: "American Express"
-    careers_url: https://www.aexp.com/careers
+    careers_url: https://egug.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "US Bancorp"
     careers_url: https://usbank.wd1.myworkdayjobs.com/US_Bank_Careers
   - name: "PNC"

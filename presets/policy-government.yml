@@ -155,7 +155,7 @@ seed_employers:
   - name: "SAIC"
     careers_url: https://jobs.saic.com
   - name: "CACI"
-    careers_url: https://careers.smartrecruiters.com/caci
+    careers_url: https://caci.wd1.myworkdayjobs.com/External
   - name: "ICF"
     careers_url: https://icf.wd5.myworkdayjobs.com/ICFExternal_Career_Site
   - name: "Abt Associates"

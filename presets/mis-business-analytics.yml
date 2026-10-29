@@ -130,11 +130,11 @@ seed_employers:
   - name: "Capital One"
     careers_url: https://capitalone.wd12.myworkdayjobs.com/Capital_One
   - name: "American Express"
-    careers_url: https://www.aexp.com/careers
+    careers_url: https://egug.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "JPMorgan Chase"
-    careers_url: https://careers.jpmorgan.com
+    careers_url: https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001
   - name: "Bank of America"
-    careers_url: https://campus.bankofamerica.com
+    careers_url: https://ghr.wd1.myworkdayjobs.com/lateral-us
   - name: "Wells Fargo"
     careers_url: https://wf.wd1.myworkdayjobs.com/WellsFargoJobs
   - name: "Citi"
@@ -176,7 +176,7 @@ seed_employers:
   - name: "Autodesk"
     careers_url: https://autodesk.wd1.myworkdayjobs.com/Ext
   - name: "Chubb"
-    careers_url: https://careers.chubb.com
+    careers_url: https://fa-ewgu-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001
   - name: "Marsh McLennan"
     careers_url: https://mmc.wd1.myworkdayjobs.com/MMC
   - name: "Aon"
