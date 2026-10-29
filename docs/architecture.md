@@ -59,7 +59,7 @@ GitHub job lists are churny bot repos. Discovery admits a list only with a push 
 
 ## Coverage outside tech
 
-Coverage equals the quality of the preset's seed employer list. Interview phase 3 states the coverage line per field and never implies automation for a discovery-only preset. Six presets ship; other fields use the bring-your-own-list preset. A monthly job audits the seed lists with upstream `audit-portals.mjs`.
+Coverage equals the quality of the preset's seed employer list. Interview phase 3 states the coverage line per field and never implies automation for a discovery-only preset. Eleven named presets ship, plus the bring-your-own-list preset for other fields. A monthly job audits the seed lists with upstream `audit-portals.mjs`.
 
 ## Parity and CI
 

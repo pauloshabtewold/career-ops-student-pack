@@ -31,7 +31,13 @@ CI runs the check on both operating systems. Loosening a limit is a normal relea
 
 ## Preset audits
 
-On the first of each month `audit-presets.yml` audits every preset seed list with upstream's `audit-portals.mjs` and opens one issue per preset that has boards with no provider, errors, empty results or a halved posting count. `docs/preset-audit.md` holds the counts. Owners and review dates are in `presets/OWNERS.yml`.
+On the first of each month `audit-presets.yml` audits every preset seed list with upstream's `audit-portals.mjs` and opens one issue per preset that has boards with no provider, errors, empty results or a halved posting count. `docs/preset-audit.md` holds the counts from the last manual authoritative audit; the monthly job never edits it. Owners and review dates are in `presets/OWNERS.yml`.
+
+Resolving a preset's seeds: run `discover-ats.mjs` in preview mode against the preset's seed names, then research the enterprise ATS board URL (Workday, SuccessFactors, Oracle Cloud, iCIMS, Phenom, Eightfold, Taleo, Avature, SmartRecruiters) for each seed still unclaimed, and audit again. Keep a URL only when `audit-portals.mjs` then claims it.
+
+Pass rule per named preset: no `error` and no `empty` board, 50 to 150 seeds, and `ok` plus `small` at least the preset's target share of its seeds. `TARGETS` in `tests/presets/preset-catalog.test.mjs` holds the targets: 70% by default, 40% for policy-government, and a documented lower entry (never below 50%) for a preset whose coverage note carries a watch-only sentence. A preset that cannot reach 50% is escalated to the maintainer. A seed edit updates the Seeds cell in the same change; the other cells wait for the next manual audit.
+
+The monthly issues are expected to list the no-provider manual-watch seeds that each preset's allowance already covers. Act on `error`, `empty`, halved postings and no-provider shares above the allowance.
 
 A preset not reviewed for 60 days is shown to students as unmaintained by the interview's coverage line. Review it, then update `last_reviewed`.
 
