@@ -5,7 +5,7 @@
 // Synthetic data only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { auditIssues } from '../../scripts/ci/audit-issues.mjs';
+import { AUDIT_TITLE, auditIssues, auditTitle } from '../../scripts/ci/audit-issues.mjs';
 
 const b = (name, status, postings) => ({ name, status, postings });
 
@@ -45,4 +45,41 @@ test('M-009-S5 works without a previous baseline', () => {
   const issues = auditIssues({ current: { 'preset-one': { boards: [b('Board A', 'empty', 0)] } }, previous: {} });
   assert.equal(issues.length, 1);
   assert.ok(issues[0].body.includes('Board A'));
+});
+
+// M-003-S15 normal: AUDIT_TITLE parses every auditTitle output back to its preset id
+test('M-003-S15 AUDIT_TITLE captures the preset id from auditTitle output for 1 and 3 boards', () => {
+  for (const n of [1, 3]) {
+    const m = AUDIT_TITLE.exec(auditTitle('x', n));
+    assert.ok(m, `no match for ${n}`);
+    assert.equal(m[1], 'x');
+  }
+});
+
+// M-003-S16 normal: auditTitle text is pinned and auditIssues titles come from it
+test('M-003-S16 auditTitle text is pinned for one and several flagged boards', () => {
+  assert.equal(auditTitle('x', 1), 'Preset audit: x has 1 flagged board');
+  assert.equal(auditTitle('x', 3), 'Preset audit: x has 3 flagged boards');
+});
+
+test('M-003-S16 auditIssues titles equal auditTitle output for the fixture presets', () => {
+  const current = {
+    'preset-one': { boards: [b('Board A', 'empty', 0), b('Board B', 'error', 0)] },
+    'preset-three': { boards: [b('Board G', 'error', 0)] },
+  };
+  const issues = auditIssues({ current, previous: {} });
+  assert.equal(issues.length, 2);
+  assert.equal(issues.find((i) => i.preset === 'preset-one').title, auditTitle('preset-one', 2));
+  assert.equal(issues.find((i) => i.preset === 'preset-three').title, auditTitle('preset-three', 1));
+});
+
+// M-003-S20 keep: audit-issues titles and bodies stay unchanged
+test('M-003-S20 auditIssues keeps its title and body text', () => {
+  const current = { 'preset-one': { boards: [b('Board A', 'no-provider', 0), b('Board D', 'ok', 10)] } };
+  const previous = { 'preset-one': { boards: [b('Board D', 'ok', 20)] } };
+  const [issue] = auditIssues({ current, previous });
+  assert.equal(issue.title, 'Preset audit: preset-one has 2 flagged boards');
+  assert.ok(issue.body.startsWith('Monthly audit of the preset-one seed list found boards that need a look.'));
+  assert.ok(issue.body.includes('## Status no-provider (1)'));
+  assert.ok(issue.body.includes('- Board D (20 to 10)'));
 });

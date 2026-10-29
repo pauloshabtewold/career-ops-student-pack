@@ -9,6 +9,10 @@ import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
 
 const FLAGGED = ['no-provider', 'error', 'empty'];
 
+export const AUDIT_TITLE = /^Preset audit: (\S+) has \d+ flagged boards?$/;
+
+export const auditTitle = (preset, total) => '';
+
 // Accepts { boards: [{ name, status, postings }] }; rows with verdict/count are read the same way.
 const boardsOf = (out) => {
   const list = Array.isArray(out) ? out : (out?.boards ?? out?.rows ?? []);
