@@ -37,6 +37,12 @@ test('M-005-S13 maintenance.md names release.yml and mark-unmaintained.yml', () 
 // M-005-S14
 test('M-005-S14 maintenance.md has the exact ## Releases heading', () => {
   assert.ok(/^## Releases$/m.test(doc), 'heading line "## Releases"');
+  const src = readFileSync(join(PACK_ROOT, 'scripts', 'check-safety-tag.mjs'), 'utf8');
+  const thrown = [...src.matchAll(/new NoBaselineError\(([^;]*)\)/g)].map((m) => m[1]);
+  assert.ok(thrown.length > 0, 'check-safety-tag.mjs throws NoBaselineError with a message');
+  for (const msg of thrown) {
+    assert.ok(msg.includes('docs/maintenance.md') && msg.includes('Releases'), `NoBaselineError message points to docs/maintenance.md Releases: ${msg}`);
+  }
 });
 
 // M-005-S15
