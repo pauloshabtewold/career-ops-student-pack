@@ -17,6 +17,8 @@ const TODAY_M1 = '2026-10-29';
 const PROFILE = { start_date: '2027-06', relocation: 'within-locations', eeo: 'leave-blank', how_did_you_hear: 'University career fair' };
 const CV = '# Jordan Testwell\n\nSkills: Python, Java, SQL\n';
 const answersOf = (k) => JSON.parse(readFileSync(join(PACK_ROOT, 'tests', 'fixtures', 'answers', `${k}.json`), 'utf8'));
+// An answers file saved before Phase 3 collected the application profile.
+const withoutProfile = ({ application_profile, ...rest }) => rest;
 const withProfile = (a) => ({ application_profile: PROFILE, ...a });
 
 const TITLE_FILTER = 'title_filter:\n  positive:\n    - "AI"\n    - "Machine Learning"\n  negative:\n    - "word:Intern"\n    - "word:Junior"\n';
@@ -186,10 +188,10 @@ test('M-001-S5 application_profile answers land under application_answers in a n
 
 // M-001-S6 error
 test('M-001-S6 answers without application_profile raise AnswersError naming $.application_profile and write no file', async () => {
-  const r = scratch(answersOf('cs'));
+  const r = scratch(withoutProfile(answersOf('cs')));
   try {
     const before = snapshot(r.root);
-    await assert.rejects(applyAnswers({ answers: answersOf('cs'), root: r.root, today: TODAY_M1 }), (err) => {
+    await assert.rejects(applyAnswers({ answers: withoutProfile(answersOf('cs')), root: r.root, today: TODAY_M1 }), (err) => {
       assert.ok(err instanceof AnswersError);
       assert.match(err.message, /\$\.application_profile/);
       return true;
@@ -206,7 +208,7 @@ test('M-001-S6 answers without application_profile raise AnswersError naming $.a
 
 // M-001-S28 error
 test('M-001-S28 an answers file without application_profile tells the student to re-run interview Phase 3 and writes nothing', () => {
-  const r = scratch(answersOf('mis'));
+  const r = scratch(withoutProfile(answersOf('mis')));
   try {
     const before = snapshot(r.root);
     const res = run(r);
