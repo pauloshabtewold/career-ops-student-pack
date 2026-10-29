@@ -175,7 +175,7 @@ const DEFAULT_MAP = { company: 'company', title: 'title', location: 'location', 
 const CLEARANCE_YES = /^(yes|y|true|required|1)$/i;
 const CLEARANCE_SUFFIX = ' (clearance required)';
 
-// A source maps `closed` to the record field that marks a posting no longer open; such rows are skipped and are not parse errors.
+// A source maps `closed` to the record field that marks a closed posting; such rows are skipped and are not parse errors.
 const CLOSED_YES = /^(yes|y|true|closed|1)$/i;
 
 const isFlagged = (v, yes) => v === true || (typeof v === 'string' && yes.test(v.trim()));
