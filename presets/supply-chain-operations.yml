@@ -1,0 +1,218 @@
+# Supply chain and operations employers; weekly vendor lists feed postings, the seed list carries the rest.
+id: supply-chain-operations
+name: "Supply chain, operations, industrial engineering"
+coverage:
+  level: semi-automated
+  note: "Semi-automated: one vendor's weekly supply chain and industrial engineering lists are the only postings feeds, so the employer list carries the rest. Rotational programs at large manufacturers and retailers are the main route in."
+title_rules:
+  include:
+    - "supply chain"
+    - "logistics"
+    - "procurement"
+    - "sourcing"
+    - "planning"
+    - "operations"
+    - "industrial"
+    - "manufacturing"
+    - "quality"
+    - "process"
+    - "inventory"
+    - "distribution"
+    - "co-?op"
+  exclude:
+    - "inside sales|sales (rep|representative|associate)"
+    - "recruit"
+    - "driver"
+    - "warehouse associate"
+early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst i|associate|junior|university|campus|rotational)\\b"
+recruiting_calendar:
+  rollover_month: 8
+  lead_months: 12
+  terms:
+    - {name: Spring, start_month: 1}
+    - {name: Summer, start_month: 5}
+    - {name: Fall, start_month: 8}
+sources:
+  github_lists:
+    - name: litos-supply-chain
+      repo: mehek-builds/Hiring-Now
+      path: csv/supply-chain.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: litos-industrial-engineering
+      repo: mehek-builds/Hiring-Now
+      path: csv/industrial-engineering.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+  alerts:
+    - name: "Handshake saved search"
+      how: "Save searches for supply chain, logistics and operations intern and co-op."
+    - name: "Society career centers"
+      how: "CSCMP and IISE post boards for members; check them by hand."
+search_terms:
+    - "supply chain intern"
+    - "logistics analyst intern"
+    - "operations rotational program"
+    - "industrial engineering intern"
+    - "procurement analyst new grad"
+seed_employers:
+  - name: "Target"
+    careers_url: https://target.wd5.myworkdayjobs.com/targetcareers
+  - name: "The Home Depot"
+    careers_url: https://homedepot.wd5.myworkdayjobs.com/CareerDepot
+  - name: "Lowe's"
+    careers_url: https://lowes.wd5.myworkdayjobs.com/LWS_External_CS
+  - name: "Procter & Gamble"
+    careers_url: https://pg.wd5.myworkdayjobs.com/1000
+  - name: "The Coca-Cola Company"
+    careers_url: https://coke.wd1.myworkdayjobs.com/coca-cola-careers
+  - name: "Kimberly-Clark"
+    careers_url: https://kimberlyclark.wd1.myworkdayjobs.com/GLOBAL
+  - name: "Pfizer"
+    careers_url: https://pfizer.wd1.myworkdayjobs.com/PfizerCareers
+  - name: "Abbott"
+    careers_url: https://abbott.wd5.myworkdayjobs.com/abbottcareers
+  - name: "Medtronic"
+    careers_url: https://medtronic.wd1.myworkdayjobs.com/MedtronicCareers
+  - name: "Baxter"
+    careers_url: https://baxter.wd1.myworkdayjobs.com/baxter
+  - name: "Stryker"
+    careers_url: https://stryker.wd1.myworkdayjobs.com/StrykerCareers
+  - name: "Cardinal Health"
+    careers_url: https://cardinalhealth.wd1.myworkdayjobs.com/EXT
+  - name: "McKesson"
+    careers_url: https://mckesson.wd3.myworkdayjobs.com/External_Careers
+  - name: "General Motors"
+    careers_url: https://generalmotors.wd5.myworkdayjobs.com/Careers_GM
+  - name: "Caterpillar"
+    careers_url: https://cat.wd5.myworkdayjobs.com/CaterpillarCareers
+  - name: "Boeing"
+    careers_url: https://boeing.wd1.myworkdayjobs.com/EXTERNAL_CAREERS
+  - name: "RTX"
+    careers_url: https://globalhr.wd5.myworkdayjobs.com/REC_RTX_Ext_Gateway
+  - name: "Northrop Grumman"
+    careers_url: https://ngc.wd1.myworkdayjobs.com/Northrop_Grumman_External_Site
+  - name: "Dow"
+    careers_url: https://dow.wd1.myworkdayjobs.com/ExternalCareers
+  - name: "Sysco"
+    careers_url: https://sysco.wd5.myworkdayjobs.com/syscocareers
+  - name: "Intel"
+    careers_url: https://intel.wd1.myworkdayjobs.com/External
+  - name: "Micron"
+    careers_url: https://micron.wd1.myworkdayjobs.com/External
+  - name: "Nike"
+    careers_url: https://nike.wd1.myworkdayjobs.com/nke
+  - name: "3M"
+    careers_url: https://3m.wd1.myworkdayjobs.com/Search
+  - name: "GE Vernova"
+    careers_url: https://gevernova.wd5.myworkdayjobs.com/Vernova_ExternalSite
+  - name: "C.H. Robinson"
+    careers_url: https://chrobinson.wd5.myworkdayjobs.com/CHRobinson
+  - name: "Maersk"
+    careers_url: https://maersk.wd3.myworkdayjobs.com/Maersk_Careers
+  - name: "Mondelez International"
+    careers_url: https://mdlz.wd3.myworkdayjobs.com/External
+  - name: "GE Aerospace"
+    careers_url: https://geaerospace.wd5.myworkdayjobs.com/GE_ExternalSite
+  - name: "Thermo Fisher Scientific"
+    careers_url: https://thermofisher.wd5.myworkdayjobs.com/ThermoFisherCareers
+  - name: "Danaher"
+    careers_url: https://danaher.wd1.myworkdayjobs.com/DanaherJobs
+  - name: "Amgen"
+    careers_url: https://amgen.wd1.myworkdayjobs.com/Careers
+  - name: "Gilead"
+    careers_url: https://gilead.wd1.myworkdayjobs.com/gileadcareers
+  - name: "Merck"
+    careers_url: https://msd.wd5.myworkdayjobs.com/SearchJobs
+  - name: "Johnson Controls"
+    careers_url: https://jci.wd5.myworkdayjobs.com/JCI
+  - name: "Rockwell Automation"
+    careers_url: https://rockwellautomation.wd1.myworkdayjobs.com/External_Rockwell_Automation
+  - name: "Clorox"
+    careers_url: https://clorox.wd1.myworkdayjobs.com/Clorox
+  - name: "Applied Materials"
+    careers_url: https://amat.wd1.myworkdayjobs.com/External
+  - name: "Cisco"
+    careers_url: https://cisco.wd5.myworkdayjobs.com/Cisco_Careers
+  - name: "HP Inc"
+    careers_url: https://hp.wd5.myworkdayjobs.com/ExternalCareerSite
+  - name: "Jabil"
+    careers_url: https://jabil.wd5.myworkdayjobs.com/Jabil_Careers
+  - name: "Air Products"
+    careers_url: https://airproducts.wd5.myworkdayjobs.com/AP0001
+  - name: "Masco"
+    careers_url: https://masco.wd1.myworkdayjobs.com/Masco
+  - name: "Illinois Tool Works"
+    careers_url: https://itw.wd5.myworkdayjobs.com/External
+  - name: "Autodesk"
+    careers_url: https://autodesk.wd1.myworkdayjobs.com/Ext
+  - name: "Michelin"
+    careers_url: https://michelinhr.wd3.myworkdayjobs.com/Michelin
+  - name: "Flex"
+    careers_url: https://flextronics.wd1.myworkdayjobs.com/Careers
+  - name: "Flexport"
+    careers_url: https://job-boards.greenhouse.io/flexport
+  - name: "project44"
+    careers_url: https://job-boards.greenhouse.io/project44
+  - name: "FourKites"
+    careers_url: https://job-boards.greenhouse.io/fourkites
+  - name: "Samsara"
+    careers_url: https://job-boards.greenhouse.io/samsara
+  - name: "Instacart"
+    careers_url: https://job-boards.greenhouse.io/instacart
+  - name: "Hasbro"
+    careers_url: https://job-boards.greenhouse.io/hasbro
+  - name: "SpaceX"
+    careers_url: https://job-boards.greenhouse.io/spacex
+  - name: "Expeditors"
+    careers_url: https://careers.smartrecruiters.com/expeditors
+  - name: "AbbVie"
+    careers_url: https://careers.smartrecruiters.com/abbvie
+  - name: "Wabtec"
+    careers_url: https://careers.smartrecruiters.com/wabtec
+  - name: "Pentair"
+    careers_url: https://careers.smartrecruiters.com/pentair
+  - name: "Brunswick"
+    careers_url: https://jobs.ashbyhq.com/brunswick
+  - name: "Amazon"
+    careers_url: https://www.amazon.jobs
+  - name: "Walmart"
+    careers_url: https://careers.walmart.com
+  - name: "Costco"
+    careers_url: https://www.costco.com/jobs.html
+  - name: "Kroger"
+    careers_url: https://jobs.kroger.com
+  - name: "Tesla"
+    careers_url: https://www.tesla.com/careers
+  - name: "Ford Motor Company"
+    careers_url: https://corporate.ford.com/careers.html
+  - name: "Deere & Company"
+    careers_url: https://www.deere.com/en/our-company/careers
+  - name: "Cummins"
+    careers_url: https://www.cummins.com/company/careers
+  - name: "Honeywell"
+    careers_url: https://careers.honeywell.com
+  - name: "Lockheed Martin"
+    careers_url: https://www.lockheedmartinjobs.com
+  - name: "UPS"
+    careers_url: https://www.jobs-ups.com
+  - name: "FedEx"
+    careers_url: https://careers.fedex.com
+  - name: "Apple"
+    careers_url: https://jobs.apple.com
+  - name: "Whirlpool"
+    careers_url: https://careers.whirlpool.com
+  - name: "Tyson Foods"
+    careers_url: https://careers.tyson.com
+assessment_domains:
+    - "Excel and SQL for planning data"
+    - "Case questions on inventory and capacity"
+    - "Process improvement basics"
+archetypes:
+    - "Supply chain analyst"
+    - "Operations rotational associate"
+    - "Industrial engineer"
+    - "Procurement analyst"
+employer_policies: []
