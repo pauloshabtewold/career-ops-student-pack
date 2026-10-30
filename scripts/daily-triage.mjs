@@ -174,8 +174,8 @@ function agentFailure(configured, err) {
   return `${reason}; ${signInHint('claude')}`;
 }
 
-// The model follows spend_tier (premium opus, otherwise sonnet). At most triage_daily rows are sent per run: that budget
-// ceiling is the cap on unattended model use, and config can only lower it.
+// At most triage_daily rows are sent per run: that budget ceiling is the cap on unattended model use, and config can
+// only lower it.
 export async function dailyTriage({ root, dataDir, packRoot, today, runner = defaultRunner, agent = null, agentPath = null, claude = null, platform = process.platform, say = () => {} }) {
   const config = await loadStudentConfig({ root });
   if (config?.automation !== 'scheduled-discovery-plus-triage') {

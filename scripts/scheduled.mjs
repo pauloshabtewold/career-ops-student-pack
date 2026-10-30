@@ -31,6 +31,7 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
   } catch (err) {
     out(`scheduled: config unreadable (${oneLine(err.message)}); daily triage skipped`);
   }
+  // A schedule installed before the agent flags existed passes only --claude; it keeps working until reinstalled.
   if (config?.automation === 'scheduled-discovery-plus-triage') child('daily-triage.mjs', agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : []);
   return 0;
 }
