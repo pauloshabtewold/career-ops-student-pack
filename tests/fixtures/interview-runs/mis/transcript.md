@@ -2,7 +2,7 @@
 
 Resume: tests/fixtures/resumes/mis.md | Persona: tests/fixtures/answers/mis.json
 
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing, byo-employer-list (snapshot 1e38ac4)
 
 Invented person, school and employer. Test data only. Interviewer script: interview/interview.md, phases 1 to 6.
 
@@ -22,7 +22,7 @@ INTERVIEWER: Which tracks are you after: internship, co-op, new grad? The resume
 
 STUDENT: New grad only, graduating 2027-05.
 
-INTERVIEWER: The pack has twelve presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. Your degree points to mis-business-analytics. I ran node scripts/preset-portals.mjs mis-business-analytics: it seeds 68 tracked companies, starting with Accenture, Deloitte, PwC, EY, KPMG and IBM and running through banks, insurers, retailers and tech firms. One or two presets?
+INTERVIEWER: The pack has thirteen presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing and byo-employer-list. Your degree points to mis-business-analytics. I ran node scripts/preset-portals.mjs mis-business-analytics: it seeds 68 tracked companies, starting with Accenture, Deloitte, PwC, EY, KPMG and IBM and running through banks, insurers, retailers and tech firms. One or two presets?
 
 STUDENT: Just mis-business-analytics.
 

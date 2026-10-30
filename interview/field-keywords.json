@@ -26,6 +26,7 @@
     "finance-economics": ["economics", "equities", "valuation", "discounted cash flow", "dcf", "bloomberg", "financial modeling", "excel modeling", "investment", "portfolio", "capital markets", "econometrics"],
     "marketing-business": ["marketing", "brand", "social media", "campaign", "seo", "market research", "advertising", "sales", "content strategy", "customer acquisition"],
     "mis-business-analytics": ["information systems", "business analytics", "business analyst", "tableau", "power bi", "dashboard", "sql", "excel", "process mapping", "kpi", "erp", "data visualization"],
+    "nursing": ["nursing", "nurse", "registered nurse", "patient care", "patient assessment", "clinical rotation", "charting", "cpr", "bls", "medical-surgical", "nclex", "vital signs", "medication administration"],
     "policy-government": ["political science", "public policy", "policy", "legislative", "government", "congress", "public administration", "nonprofit", "campaign", "federal", "international relations"],
     "software-cs": ["computer science", "software", "python", "java", "javascript", "typescript", "c++", "git", "rest api", "web app", "unit test", "algorithms", "data structures", "backend", "frontend", "full-stack"],
     "statistics-math-actuarial": ["statistics", "statistical", "actuarial", "actuary", "probability", "regression", "mathematics", "applied math", "exam p", "stochastic", "r programming"],

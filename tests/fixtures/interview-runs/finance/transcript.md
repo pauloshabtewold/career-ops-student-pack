@@ -1,7 +1,7 @@
 # SYNTHETIC FIXTURE: recorded personalization interview, finance set (invented person, test data only)
 
 Resume: tests/fixtures/resumes/finance.md | Persona: tests/fixtures/answers/finance.json
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing, byo-employer-list (snapshot 1e38ac4)
 Run date: 2026-10-29. Commands ran against the pack snapshot. Plugin enable, doctor and sign-ins were not performed in a fixture run.
 
 ## Phase 1: resume and identity
@@ -22,7 +22,7 @@ INTERVIEWER: Which tracks are you after (internship, co-op, new grad), and what 
 
 STUDENT: Internship only, graduating May 2028.
 
-INTERVIEWER: Recorded: internship, 2028-05. Next, fields of study. The pack has twelve presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. With a B.A. in Economics and a DCF project, my suggestion is finance-economics. Pick one or two.
+INTERVIEWER: Recorded: internship, 2028-05. Next, fields of study. The pack has thirteen presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing and byo-employer-list. With a B.A. in Economics and a DCF project, my suggestion is finance-economics. Pick one or two.
 
 STUDENT: finance-economics.
 
