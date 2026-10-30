@@ -83,3 +83,8 @@ async function main() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+
+// Stub: formatReport is renamed to this.
+export function formatFirstRunReport(summary, shown) {
+  throw new Error('not implemented');
+}

@@ -38,7 +38,7 @@ const exportedNames = (src) => {
 const loadNs = (rel) => import(pathToFileURL(join(PACK_ROOT, rel)).href);
 
 // M-004-S1
-test('M-004-S1 tools/ and update.mjs import the moved helpers from lib, never from scripts/', () => {
+test('tools/ and update.mjs import the moved helpers from lib, never from scripts/', () => {
   const files = [...mjsIn('tools'), 'update.mjs'];
   let moved = 0;
   for (const f of files) {
@@ -54,7 +54,7 @@ test('M-004-S1 tools/ and update.mjs import the moved helpers from lib, never fr
 });
 
 // M-004-S2
-test('M-004-S2 each renamed or moved name is exported by exactly one pack module and no module exports bare classify or formatReport', () => {
+test('each renamed or moved name is exported by exactly one pack module and no module exports bare classify or formatReport', () => {
   const owners = new Map();
   for (const f of packMjs()) {
     for (const n of exportedNames(read(f))) owners.set(n, [...(owners.get(n) ?? []), f]);
@@ -66,14 +66,14 @@ test('M-004-S2 each renamed or moved name is exported by exactly one pack module
 });
 
 // M-004-S3
-test('M-004-S3 docs/architecture.md describes isMain, lib/run.mjs, lib/temp-dir.mjs and lib/safety-diff.mjs', () => {
+test('docs/architecture.md describes isMain, lib/run.mjs, lib/temp-dir.mjs and lib/safety-diff.mjs', () => {
   const doc = read('docs/architecture.md');
   for (const w of ['isMain', 'lib/run.mjs', 'lib/temp-dir.mjs', 'lib/safety-diff.mjs']) assert.ok(doc.includes(w), `architecture.md lacks ${w}`);
   assert.ok(doc.includes('scripts/check-safety-tag.mjs'), 'still names the gate');
 });
 
 // M-004-S5
-test('M-004-S5 no file under scripts/ exports a moved name directly or by re-export', () => {
+test('no file under scripts/ exports a moved name directly or by re-export', () => {
   for (const f of mjsIn('scripts')) {
     const src = read(f);
     const direct = exportedNames(src).filter((n) => MOVED.includes(n));
@@ -86,7 +86,7 @@ test('M-004-S5 no file under scripts/ exports a moved name directly or by re-exp
 });
 
 // M-004-S6
-test('M-004-S6 apply-triage exports applyVerdicts and daily-triage defines runApplyTriage without exporting applyVerdicts', () => {
+test('apply-triage exports applyVerdicts and daily-triage defines runApplyTriage without exporting applyVerdicts', () => {
   assert.ok(exportedNames(read('scripts/apply-triage.mjs')).includes('applyVerdicts'));
   const daily = read('scripts/daily-triage.mjs');
   assert.ok(/\brunApplyTriage\b/.test(daily), 'runApplyTriage defined');
@@ -95,13 +95,13 @@ test('M-004-S6 apply-triage exports applyVerdicts and daily-triage defines runAp
 });
 
 // M-004-S8
-test('M-004-S8 checkSafetyDiff is undefined on check-safety-tag and classify is undefined on inbox', async () => {
+test('checkSafetyDiff is undefined on check-safety-tag and classify is undefined on inbox', async () => {
   assert.equal((await loadNs('scripts/check-safety-tag.mjs')).checkSafetyDiff, undefined);
   assert.equal((await loadNs('scripts/inbox.mjs')).classify, undefined);
 });
 
 // M-004-S9
-test('M-004-S9 formatReport is undefined on first-run and parity-compare and classify is undefined on lint-imports', async () => {
+test('formatReport is undefined on first-run and parity-compare and classify is undefined on lint-imports', async () => {
   assert.equal((await loadNs('scripts/first-run.mjs')).formatReport, undefined);
   assert.equal((await loadNs('tools/parity-compare.mjs')).formatReport, undefined);
   assert.equal((await loadNs('scripts/lint-imports.mjs')).classify, undefined);

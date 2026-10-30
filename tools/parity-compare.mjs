@@ -304,3 +304,8 @@ export function formatReport(results, meta = {}) {
   ];
   return lines.join('\n');
 }
+
+// Stub: formatReport is renamed to this.
+export function formatParityReport(results, meta = {}) {
+  throw new Error('not implemented');
+}

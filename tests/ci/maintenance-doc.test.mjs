@@ -76,6 +76,6 @@ test('M-005-S13 maintenance.md has no em dash or curly quotes', () => {
 });
 
 // M-004-S4
-test('M-004-S4 maintenance.md orders the v release before a budget.mjs safety tag and gives the v0.1.0 fast-forward commands', () => {
+test('maintenance.md orders the v release before a budget.mjs safety tag and gives the v0.1.0 fast-forward commands', () => {
   mustContain(doc, ['scripts/budget.mjs', 'v0.1.0', 'merge --ff-only', 'fetch --tags'], 'docs/maintenance.md');
 });
