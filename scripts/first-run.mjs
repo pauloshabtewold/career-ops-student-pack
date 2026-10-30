@@ -12,7 +12,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { ingestStepNames, ingestSteps } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { oneLine } from '../lib/text.mjs';
+import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const DEFAULT_SHOWN = 20;
@@ -58,7 +58,7 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
       const detail = oneLine(fn());
       out(`first-run: ${name} ok${detail ? ` (${detail})` : ''}`);
     } catch (err) {
-      out(`first-run: ${name} FAILED (${oneLine(err.stderr || err.stdout || err.message) || 'failed'})`);
+      out(`first-run: ${name} FAILED (${stepErrorText(err)})`);
     }
   };
   ingestSteps({ root, dataDir, packRoot, today, runner, step });

@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { oneLine } from '../lib/text.mjs';
+import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
@@ -20,7 +20,7 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
       const text = runner(process.execPath, [join(packRoot, 'scripts', script), ...extra, ...passThrough], { cwd: root, timeout: CHILD_TIMEOUT_MS });
       if (String(text).trim()) out(String(text).trimEnd());
     } catch (err) {
-      out(`scheduled: ${script} stopped (${oneLine(err.stderr || err.stdout || err.message) || 'failed'})`);
+      out(`scheduled: ${script} stopped (${stepErrorText(err)})`);
     }
   };
   child('daily.mjs', ['--via-scheduled']);

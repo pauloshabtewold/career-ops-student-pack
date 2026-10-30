@@ -40,7 +40,7 @@ export const STAGES = [
 ];
 
 // Resolves symlinks in the longest existing prefix so a link cannot hide a scratch dir inside the pack or source.
-function realish(p) {
+export function realish(p) {
   const abs = resolve(p);
   let head = abs;
   const tail = [];
@@ -56,6 +56,14 @@ export function isInside(child, parent) {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+// 'inside' when scratch lies within any dir, 'contains' when it holds any dir, else null. 'inside' wins so the
+// caller reports the first problem the same way for every dir. Arguments must already be realish paths.
+export function scratchOverlap(scratch, dirs) {
+  if (dirs.some((d) => isInside(scratch, d))) return 'inside';
+  if (dirs.some((d) => isInside(d, scratch))) return 'contains';
+  return null;
+}
+
 export function checkArgs({ source, scratch, studentConfig }, packRoot = PACK_ROOT) {
   for (const [flag, v] of [['--source', source], ['--scratch', scratch], ['--student-config', studentConfig]]) {
     if (!v) throw new UsageError(`${flag} is required`);
@@ -66,8 +74,9 @@ export function checkArgs({ source, scratch, studentConfig }, packRoot = PACK_RO
   const pack = realish(packRoot);
   if (!existsSync(src) || !statSync(src).isDirectory()) throw new UsageError('--source is not a directory');
   if (!existsSync(cfg) || !statSync(cfg).isFile()) throw new UsageError('--student-config is not a file');
-  if (isInside(scr, pack) || isInside(scr, src)) throw new UsageError('--scratch must be outside the pack repo and the source');
-  if (isInside(src, scr) || isInside(pack, scr)) throw new UsageError('--scratch must not contain the pack repo or the source');
+  const overlap = scratchOverlap(scr, [pack, src]);
+  if (overlap === 'inside') throw new UsageError('--scratch must be outside the pack repo and the source');
+  if (overlap === 'contains') throw new UsageError('--scratch must not contain the pack repo or the source');
   if (isInside(cfg, pack)) throw new UsageError('--student-config must be outside the pack repo');
   if (existsSync(scr) && (!statSync(scr).isDirectory() || readdirSync(scr).length > 0)) throw new UsageError('--scratch exists and is not an empty directory');
   return { source: src, scratch: scr, studentConfig: cfg, packRoot: pack };

@@ -11,7 +11,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs, runCli, isMain } from '../lib/args.mjs';
-import { createClock } from '../lib/clock.mjs';
+import { ISO_DATE, createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
@@ -24,7 +24,6 @@ import { CEILINGS, effectiveLimits } from './budget.mjs';
 export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5, effort: 0 });
 const DAY_MS = 86400000;
 const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // A hold value is a leading date, then end of value or whitespace and free text; '2026-11-05x' is not a date.
 const HOLD_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
 // The bare key or the key followed by free text; a longer key such as reserved-slots is a different note.
