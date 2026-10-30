@@ -124,9 +124,10 @@ function set(ctx) {
 async function log({ positionals, flags, paths, today, out, config }) {
   const rows = countArg(positionals[0]);
   const first = Boolean(flags.firstRun);
-  await appendTriageUsage(paths.dataDir, { date: today, source: first ? 'first-run' : 'session', rows });
-  appendDigestLines({ dataDir: paths.dataDir, today, heading: first ? 'First-run triage' : 'Session triage', lines: [`${first ? 'first-run' : 'session'} triage: triaged ${rows}`] });
-  out(`logged ${rows} ${first ? 'first-run' : 'session'} rows for ${today}`);
+  const source = first ? 'first-run' : 'session';
+  await appendTriageUsage(paths.dataDir, { date: today, source, rows });
+  appendDigestLines({ dataDir: paths.dataDir, today, heading: first ? 'First-run triage' : 'Session triage', lines: [`${source} triage: triaged ${rows}`] });
+  out(`logged ${rows} ${source} rows for ${today}`);
   const budget = resolveTriageBudget(config);
   const usage = readTriageUsage(paths.dataDir, today);
   out(first ? `First-run rows left: ${unlimited(rowsLeft(budget.firstRun, usage.firstRun))}` : `Rows left today: ${unlimited(rowsLeft(budget.daily, usage.today))}`);
