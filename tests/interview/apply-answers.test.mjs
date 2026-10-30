@@ -24,6 +24,7 @@ const MODES = ['_brief', '_custom', '_profile'];
 function scratch(answers) {
   const root = mkdtempSync(join(tmpdir(), 'pack-interview-'));
   for (const d of ['config', 'data', 'modes']) mkdirSync(join(root, d));
+  writeFileSync(join(root, 'cv.md'), '# Jordan Testwell\n\nSkills: Python, Java, SQL\n');
   if (answers) writeFileSync(join(root, 'data', 'interview-answers.json'), JSON.stringify(answers, null, 2));
   return {
     root,
@@ -110,7 +111,7 @@ test('M-006-S1 applyAnswers({answers, root, today}) writes the same files in pro
   }
 });
 
-test('M-006-S1 a preset with sources writes trial github sources, and priority and blacklist land in blacklist.md', () => {
+test('M-006-S1 a preset with sources writes trial github sources, and the blacklist lands in blacklist.md and priority companies stay out of it', () => {
   const answers = answersOf('cs');
   const r = scratch(answers);
   try {
@@ -121,7 +122,8 @@ test('M-006-S1 a preset with sources writes trial github sources, and priority a
     assert.match(gh, /"trial"/);
     const bl = r.read('data/blacklist.md');
     assert.ok(bl.startsWith('# Blacklist\n\nUser Entry Corp\n'));
-    for (const c of [...answers.blacklist, ...answers.priority_companies]) assert.ok(bl.includes(c), c);
+    for (const c of answers.blacklist) assert.ok(bl.includes(c), c);
+    for (const c of answers.priority_companies) assert.ok(!bl.includes(c), c);
   } finally {
     r.cleanup();
   }

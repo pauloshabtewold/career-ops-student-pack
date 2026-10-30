@@ -55,10 +55,14 @@ export function computeCycle({ tracks, calendar, today, experienceYears = 0 }) {
     }
   }
   const finals = tracks.filter((t) => t.kind === 'newgrad').map((t) => parseYm(t.graduation));
-  const grad = (finals.length ? finals : tracks.map((t) => parseYm(t.graduation))).sort((a, b) => a.iso.localeCompare(b.iso)).pop();
+  // Graduation is read from the new-grad tracks when there are any, otherwise from the latest track, so an
+  // internship-only student still gets a phase.
+  const grad = [...(finals.length ? finals : tracks.map((t) => parseYm(t.graduation)))].sort((a, b) => a.iso.localeCompare(b.iso)).pop();
   const monthsSince = grad ? (thisYear - grad.year) * 12 + (month - grad.month) : -1;
   const phase = monthsSince < 0 ? 'student' : monthsSince < 12 ? 'new_grad' : 'early_career';
-  const newgradYears = phase === 'student' ? [cycleYear] : phase === 'new_grad' ? [thisYear, cycleYear] : [];
+  // A student sees new-grad postings only for a new-grad track that graduates by the cycle year; an internship-only
+  // student has no new-grad year, so new-grad rows are not theirs.
+  const newgradYears = phase === 'student' ? (finals.some((g) => g.year <= cycleYear) ? [cycleYear] : []) : phase === 'new_grad' ? [thisYear, cycleYear] : [];
   const expYears = experienceYears + Math.max(0, Math.floor(monthsSince / 12));
   return {
     computed_at: today,

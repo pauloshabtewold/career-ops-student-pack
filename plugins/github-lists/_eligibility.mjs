@@ -26,6 +26,8 @@ export function isEligible(row, { cycle, titleRules = {}, earlyCareer } = {}) {
     const stated = termsIn(`${title} ${row.date ?? ''}`);
     if (stated.length && !stated.some((t) => wanted.has(t))) return fail('term outside the cycle');
   } else if (row.kind === 'newgrad') {
+    // A student with no new-grad track has no year that could match, so every new-grad row is outside the cycle.
+    if (cycle?.phase === 'student' && !(cycle.newgrad_years ?? []).length) return fail('no new-grad year in the cycle');
     const years = [...title.matchAll(YEAR_RE)].map((m) => Number(m[1]));
     if (years.length && !years.some((y) => (cycle?.newgrad_years ?? []).includes(y))) return fail('graduation year outside the cycle');
   }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Opt-in daily schedule: a launchd agent on macOS or a Task Scheduler task on Windows that runs
-// student/scripts/daily.mjs. Only the personalization interview offers this; nothing installs on its own.
+// student/scripts/scheduled.mjs, which runs the zero-token daily run and, for scheduled-discovery-plus-triage, the model
+// triage. Only the personalization interview offers this; nothing installs on its own.
 // Usage: schedule.mjs install|remove|status [--time HH:MM] [--dry-run] [--root R]
 // --dry-run prints the artifact and never starts launchctl or powershell, so tests can run it safely.
 import { execFileSync } from 'node:child_process';
@@ -11,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { which } from '../lib/which.mjs';
 
 export const LABEL = 'com.career-ops.student.daily';
 export const TASK_NAME = 'career-ops-student-daily';
@@ -25,11 +27,12 @@ function parseTime(time) {
 const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const psq = (s) => `'${String(s).replace(/'/g, "''")}'`;
 
-export function buildPlist({ nodePath, root, time }) {
+// claude is the absolute path found on the installing user's PATH, or null; a scheduler has a bare PATH of its own.
+export function buildPlist({ nodePath, root, time, claude = null }) {
   const t = parseTime(time);
   // launchd only runs on macOS, so plist paths stay POSIX even when built on Windows.
   const logs = posix.join(root, 'data', 'logs');
-  const daily = posix.join(root, 'student', 'scripts', 'daily.mjs');
+  const scheduled = posix.join(root, 'student', 'scripts', 'scheduled.mjs');
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -40,7 +43,10 @@ export function buildPlist({ nodePath, root, time }) {
     '  <key>ProgramArguments</key>',
     '  <array>',
     `    <string>${xml(nodePath)}</string>`,
-    `    <string>${xml(daily)}</string>`,
+    `    <string>${xml(scheduled)}</string>`,
+    '    <string>--log-file</string>',
+    `    <string>${xml(posix.join(logs, 'student-daily.log'))}</string>`,
+    ...(claude ? ['    <string>--claude</string>', `    <string>${xml(claude)}</string>`] : []),
     '  </array>',
     '  <key>WorkingDirectory</key>',
     `  <string>${xml(root)}</string>`,
@@ -61,15 +67,17 @@ export function buildPlist({ nodePath, root, time }) {
   ].join('\n');
 }
 
-export function buildTaskScript({ nodePath, root, time }) {
+// Windows counterpart of buildPlist: registers scheduled.mjs with the same arguments and the resolved claude path.
+export function buildTaskScript({ nodePath, root, time, claude = null }) {
   const t = parseTime(time);
   const logs = win32.join(root, 'data', 'logs');
-  const daily = win32.join(root, 'student', 'scripts', 'daily.mjs');
+  const scheduled = win32.join(root, 'student', 'scripts', 'scheduled.mjs');
   const logFile = win32.join(logs, 'student-daily.log');
+  const claudeArg = claude ? ` --claude "${claude}"` : '';
   return [
     "$ErrorActionPreference = 'Stop'",
     `New-Item -ItemType Directory -Force -Path ${psq(logs)} | Out-Null`,
-    `$action = New-ScheduledTaskAction -Execute ${psq(nodePath)} -Argument ${psq(`"${daily}" --log-file "${logFile}"`)} -WorkingDirectory ${psq(root)}`,
+    `$action = New-ScheduledTaskAction -Execute ${psq(nodePath)} -Argument ${psq(`"${scheduled}" --log-file "${logFile}"${claudeArg}`)} -WorkingDirectory ${psq(root)}`,
     `$trigger = New-ScheduledTaskTrigger -Daily -At ${psq(t.text)}`,
     '$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries',
     `Register-ScheduledTask -TaskName ${psq(TASK_NAME)} -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null`,
@@ -92,11 +100,22 @@ function tryRun(cmd, args) {
 
 const runPowershell = (script) => tryRun('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
 
-function macCommand(command, { nodePath, root, time, dryRun }) {
+// Said at install time because the scheduled job cannot ask anyone: without a claude path every run skips triage.
+function triageNotes({ automation, claude }) {
+  const lines = [`claude: ${claude ?? 'not found on PATH'}`];
+  if (automation === 'scheduled-discovery-plus-triage' && !claude) {
+    lines.push('warning: claude was not found on PATH, so every scheduled run will skip daily triage and say so in the digest; install claude, run it once to sign in, then run schedule.mjs install again');
+  }
+  return lines;
+}
+
+// Schedule commands for macOS (launchd).
+function macCommand(command, { nodePath, root, time, dryRun, claude, automation }) {
   const file = plistPath();
   const domain = `gui/${process.getuid()}`;
   if (command === 'install') {
-    const xmlText = buildPlist({ nodePath, root, time });
+    const xmlText = buildPlist({ nodePath, root, time, claude });
+    for (const line of triageNotes({ automation, claude })) console.log(line);
     if (dryRun) {
       console.log(xmlText);
       console.log(`dry run: would write ${file} and run launchctl bootstrap ${domain} ${file}`);
@@ -124,9 +143,11 @@ function macCommand(command, { nodePath, root, time, dryRun }) {
   return 0;
 }
 
-function winCommand(command, { nodePath, root, time, dryRun }) {
+// Schedule commands for Windows (Task Scheduler).
+function winCommand(command, { nodePath, root, time, dryRun, claude, automation }) {
   if (command === 'install') {
-    const script = buildTaskScript({ nodePath, root, time });
+    const script = buildTaskScript({ nodePath, root, time, claude });
+    for (const line of triageNotes({ automation, claude })) console.log(line);
     if (dryRun) {
       console.log(script);
       return 0;
@@ -149,13 +170,10 @@ function winCommand(command, { nodePath, root, time, dryRun }) {
 async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status'], flags: { time: 'string' } });
   const paths = resolvePaths({ root: flags.root });
-  let time = flags.time;
-  if (!time) {
-    const config = await loadStudentConfig({ root: paths.root });
-    time = config?.schedule?.time ?? '06:00';
-  }
-  const t = parseTime(time);
-  const ctx = { nodePath: process.execPath, root: paths.root, time: t.text, dryRun: Boolean(flags.dryRun) };
+  const config = await loadStudentConfig({ root: paths.root });
+  const t = parseTime(flags.time ?? config?.schedule?.time ?? '06:00');
+  const claude = command === 'install' ? which('claude') : null;
+  const ctx = { nodePath: process.execPath, root: paths.root, time: t.text, dryRun: Boolean(flags.dryRun), claude, automation: config?.automation ?? 'manual' };
   const platform = process.platform === 'win32' ? 'win32' : process.platform === 'darwin' || ctx.dryRun ? 'darwin' : null;
   if (!platform) throw new UsageError('schedule.mjs supports macOS and Windows 11 only');
   return platform === 'win32' ? winCommand(command, ctx) : macCommand(command, ctx);

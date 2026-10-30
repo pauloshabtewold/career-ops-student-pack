@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { applyAnswers } from '../../interview/apply-answers.mjs';
@@ -13,6 +13,7 @@ const answersOf = (k) => JSON.parse(readFileSync(join(PACK_ROOT, 'tests', 'fixtu
 test('M-001-S8 apply-answers writes audit block and new rank keys at defaults that validate', async () => {
   const root = mkdtempSync(join(tmpdir(), 'pack-knobs-ia-'));
   for (const d of ['config', 'data', 'modes']) mkdirSync(join(root, d));
+  writeFileSync(join(root, 'cv.md'), '# Jordan Testwell\n\nSkills: Python, Java, SQL\n');
   try {
     await applyAnswers({ answers: answersOf('cs'), root, today: TODAY });
     const cfg = await loadStudentConfig({ root });

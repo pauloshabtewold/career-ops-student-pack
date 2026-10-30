@@ -16,6 +16,19 @@
   ],
   "experience_years": 0,
   "locations": [
+    "Boston, MA",
+    "Brighton, MA",
+    "Jamaica Plain, MA",
+    "Newton, MA",
+    "Salem, MA",
+    "Cleveland, OH",
+    "New Orleans, LA",
+    "Seattle, WA",
+    "Nashville, TN",
+    "Minneapolis, MN",
+    "Burlington, VT",
+    "New York, NY",
+    "Allentown, PA",
     "Portland, OR"
   ],
   "work_authorization": "US citizen",
@@ -24,51 +37,55 @@
     "night shift only"
   ],
   "priority_companies": [
-    "Example Health System 1"
+    "Mass General Brigham"
   ],
   "blacklist": [
     "Example Staffing Group"
   ],
   "target_employers": [
     {
-      "name": "Example Health System 1",
-      "careers_url": "https://careers.example.com/nursing/1"
+      "name": "Mass General Brigham",
+      "careers_url": "https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal"
     },
     {
-      "name": "Example Health System 2",
-      "careers_url": "https://careers.example.com/nursing/2"
+      "name": "Cleveland Clinic",
+      "careers_url": "https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers"
     },
     {
-      "name": "Example Health System 3",
-      "careers_url": "https://careers.example.com/nursing/3"
+      "name": "Ochsner Health",
+      "careers_url": "https://ochsner.wd1.myworkdayjobs.com/Ochsner"
     },
     {
-      "name": "Example Health System 4",
-      "careers_url": "https://careers.example.com/nursing/4"
+      "name": "Seattle Children's",
+      "careers_url": "https://seattlechildrens.wd5.myworkdayjobs.com/External"
     },
     {
-      "name": "Example Health System 5",
-      "careers_url": "https://careers.example.com/nursing/5"
+      "name": "Vanderbilt University Medical Center",
+      "careers_url": "https://vumc.wd1.myworkdayjobs.com/vumccareers"
     },
     {
-      "name": "Example Health System 6",
-      "careers_url": "https://careers.example.com/nursing/6"
+      "name": "Allina Health",
+      "careers_url": "https://allina.wd5.myworkdayjobs.com/External"
     },
     {
-      "name": "Example Health System 7",
-      "careers_url": "https://careers.example.com/nursing/7"
+      "name": "UVM Health Network",
+      "careers_url": "https://uvmhealth.wd1.myworkdayjobs.com/External"
     },
     {
-      "name": "Example Health System 8",
-      "careers_url": "https://careers.example.com/nursing/8"
+      "name": "NewYork-Presbyterian",
+      "careers_url": "https://nyp.wd1.myworkdayjobs.com/nypcareers"
     },
     {
-      "name": "Example Health System 9",
-      "careers_url": "https://careers.example.com/nursing/9"
+      "name": "Lehigh Valley Health Network",
+      "careers_url": "https://lvhn.wd1.myworkdayjobs.com/lvhn"
     },
     {
-      "name": "Example Health System 10",
-      "careers_url": "https://careers.example.com/nursing/10"
+      "name": "One Medical",
+      "careers_url": "https://job-boards.greenhouse.io/onemedical"
+    },
+    {
+      "name": "Included Health",
+      "careers_url": "https://jobs.lever.co/includedhealth"
     }
   ],
   "sources_chosen": [],
@@ -95,6 +112,16 @@
   ],
   "archetypes": [
     "Registered nurse residency",
-    "Clinic nurse"
-  ]
+    "Clinic nurse",
+    "Registered nurse",
+    "Nurse extern",
+    "Nursing assistant",
+    "Nurse assistant"
+  ],
+  "application_profile": {
+    "start_date": "2027-07",
+    "relocation": "within-locations",
+    "eeo": "leave-blank",
+    "how_did_you_hear": "Hospital job board"
+  }
 }

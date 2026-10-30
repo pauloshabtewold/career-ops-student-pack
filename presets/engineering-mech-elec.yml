@@ -2,7 +2,7 @@ id: engineering-mech-elec
 name: "Mechanical, aerospace, electrical and chemical engineering"
 coverage:
   level: semi-automated
-  note: "Semi-automated: community lists exist for mechanical, electrical and aerospace; chemical is thin. Defense and aerospace roles often need citizenship, so the filters exclude clearance-only postings."
+  note: "Semi-automated: community lists exist for mechanical, electrical and aerospace; chemical is thin. Defense and aerospace roles often need citizenship, so the filters drop clearance-only postings unless you are a US citizen."
 title_rules:
   include:
     - "engineer"
@@ -21,12 +21,13 @@ title_rules:
     - "embedded"
     - "co-?op"
   exclude:
+    - "sales"
+    - "recruit"
+  exclude_unless_citizen:
     - "security clearance required"
     - "ts/sci"
     - "u\\.s\\. citizen(ship)? only"
     - "citizenship required"
-    - "sales"
-    - "recruit"
 early_career: "\\b(intern(ship)?|co-?op|new ?grad(uate)?|early[- ]career|entry[- ]level|engineer i|associate engineer|junior|university|campus|rotational)\\b"
 recruiting_calendar:
   rollover_month: 8

@@ -3,7 +3,8 @@
 // career-ops checkout inside a scratch directory, compares the stage outputs and writes a count-only report.
 // Every path is explicit; there are no defaults and no flag that keeps the scratch copy, because the copy can hold
 // personal rows and is deleted on every exit path (normal end, a throwing stage, SIGINT, SIGTERM, uncaught error).
-// Usage: parity.mjs --source <career-ops dir> --scratch <new dir> --student-config <yml> [--today D] [--with-feeds] [--report <file>]
+// Usage: parity.mjs --source <career-ops dir> --scratch <new dir> --student-config <yml> [--today D] [--with-feeds] [--untriage N] [--report <file>]
+// --untriage N strips the triage verdict from the first N Pending rows of both copies, so the prefilter stage has input.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { cp } from 'node:fs/promises';
@@ -11,10 +12,11 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
+import { formatRow, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
 import { ConfigError, parseConfig } from '../lib/config.mjs';
 import { auditOptions } from '../scripts/fail-audit.mjs';
 import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
-import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
+import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, comparePrefilter, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // The whole candidate set is compared because top-n order follows score formulas that differ by design.
@@ -29,7 +31,7 @@ const MAX_STAGE_OUTPUT = 64 * 1024 * 1024;
 // just before the pack side runs and compared with the pipeline the stage leaves behind.
 export const STAGES = [
   { name: 'cycle', compare: 'cycle', local: ['cycle.mjs', '--json', '--today', '{today}'], pack: ['cycle.mjs', '--json', '--today', '{today}'] },
-  { name: 'prefilter', compare: 'rows', dependsOn: 'cycle', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
+  { name: 'prefilter', compare: 'prefilter', dependsOn: 'cycle', local: ['prefilter.mjs', '--today', '{today}'], pack: ['prefilter.mjs', '--today', '{today}'] },
   { name: 'apply-triage', compare: 'rows', local: ['apply-triage.mjs', '{frozen}'], pack: ['apply-triage.mjs', '{frozen}'], frozen: 'prefilter', capture: join('data', 'pipeline.md') },
   { name: 'merge-staging', compare: 'rows', explain: 'merge-stats', carry: true, local: ['merge-staging.mjs'], pack: ['merge-post.mjs', '--today', '{today}'], capture: join('data', 'pipeline.md') },
   { name: 'rank-queue', compare: 'rank', local: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'], pack: ['rank-queue.mjs', '--json', '--n', LARGE_N, '--today', '{today}'] },
@@ -182,11 +184,12 @@ const outputOf = (res) => {
   return res && typeof res.stdout === 'string' ? res.stdout : '';
 };
 
-const FLAG_SPEC = { common: false, flags: { source: 'string', scratch: 'string', 'student-config': 'string', today: 'date', 'with-feeds': 'boolean', report: 'string' } };
+const FLAG_SPEC = { common: false, flags: { source: 'string', scratch: 'string', 'student-config': 'string', today: 'date', 'with-feeds': 'boolean', untriage: 'int', report: 'string' } };
 
 function parseRunArgs(argv, packRootOpt) {
   try {
     const { flags } = parseArgs(argv, FLAG_SPEC);
+    if (flags.untriage !== undefined && flags.untriage < 0) throw new UsageError('--untriage expects a whole number of 0 or more');
     const paths = checkArgs(flags, packRootOpt);
     return { flags, paths, config: checkStudentConfig(paths.studentConfig, paths.packRoot) };
   } catch (err) {
@@ -196,7 +199,23 @@ function parseRunArgs(argv, packRootOpt) {
   }
 }
 
-async function setupScratch({ source, scratch, studentConfig, packRoot }) {
+// Removes triage= and reason= from the first n Pending rows and returns how many Pending rows with a title are left
+// without a verdict, which is what the prefilter stage reads. The same call runs on both copies so they stay identical.
+export function untriageRows(file, n) {
+  if (!existsSync(file)) return 0;
+  const doc = parsePipeline(readFileSync(file, 'utf8'));
+  const section = doc.blocks.find((b) => b.kind === 'section' && b.name === 'Pending');
+  const rows = sectionRows(doc, 'Pending');
+  for (const { index, row } of rows.slice(0, n)) {
+    row.notes.delete('triage');
+    row.notes.delete('reason');
+    section.lines[index] = formatRow(row);
+  }
+  if (n > 0 && rows.length) writeFileSync(file, serializePipeline(doc));
+  return rows.filter(({ row }) => row.title && !row.notes.has('triage')).length;
+}
+
+async function setupScratch({ source, scratch, studentConfig, packRoot, untriage = 0 }) {
   const baseline = join(scratch, 'baseline');
   const packDir = join(scratch, 'pack-root');
   await copyTree(source, baseline);
@@ -207,7 +226,8 @@ async function setupScratch({ source, scratch, studentConfig, packRoot }) {
   await cp(studentConfig, join(packDir, 'config', 'student.yml'));
   await copyTree(packRoot, join(packDir, 'student'));
   mkdirSync(join(scratch, 'frozen'));
-  return { baseline, packDir };
+  untriageRows(join(baseline, 'data', 'pipeline.md'), untriage);
+  return { baseline, packDir, prefilterInput: untriageRows(join(packDir, 'data', 'pipeline.md'), untriage) };
 }
 
 const substitute = (args, today, ctx) => args.map((a) => a.replace('{today}', today).replace('{frozen}', ctx.frozen ?? '').replace('{tsv}', ctx.tsv ?? ''));
@@ -266,6 +286,7 @@ function judgeStage(env, stage, base, pack, carried) {
   if (fault) return stageError(stage.name, fault);
   if (stage.compare === 'cycle') return judgeCycle(env, stage.name, base.out, pack.out);
   if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out, { carried });
+  if (stage.compare === 'prefilter') return comparePrefilter(stage.name, base.out, pack.out, { internOnly: env.internOnly });
   if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, env.audit);
   return compareStage(stage.name, base.out, pack.out, { explained: stage.explain === 'merge-stats' ? mergeAllowance(pack.stdout) : 0 });
 }
@@ -341,6 +362,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   const { flags, paths, config } = parsed;
   const today = flags.today ?? createClock({}).today();
   const audit = auditOptions(config);
+  const internOnly = config.rank?.intern_only ?? [];
 
   mkdirSync(paths.scratch, { recursive: true });
   const state = { interrupted: null };
@@ -352,11 +374,11 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   let text = null;
   let failure = null;
   try {
-    const dirs = await setupScratch(paths);
-    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit };
+    const dirs = await setupScratch({ ...paths, untriage: flags.untriage ?? 0 });
+    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit, internOnly };
     if (state.interrupted === null) results = await runStages(env, state);
     if (state.interrupted === null && flags.withFeeds) results.push(await runFeedCompare(env));
-    if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot) });
+    if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot), prefilterInput: dirs.prefilterInput });
   } catch (err) {
     // Only the class name is kept: the message can hold paths or rows from the scratch copy.
     failure = { name: err?.name ?? 'Error' };

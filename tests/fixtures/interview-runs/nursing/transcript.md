@@ -2,7 +2,7 @@
 
 Resume: tests/fixtures/resumes/nursing.md | Persona: tests/fixtures/answers/nursing.json
 
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
 
 Run date: 2026-10-29. Invented person, school and employers; test data only.
 
@@ -28,27 +28,27 @@ INTERVIEWER: Your resume shows a B.S.N. in Nursing, expected May 2027. I propose
 
 STUDENT: New grad only, May 2027.
 
-INTERVIEWER: The pack has seven field presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government and byo-employer-list. None of the first six covers nursing, so I propose byo-employer-list. I ran `node scripts/preset-portals.mjs byo-employer-list`; it returned `tracked_companies: []`, so this preset seeds no employers and you bring your own list. OK to use it?
+INTERVIEWER: The pack has twelve field presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. None of the first eleven covers nursing, so I propose byo-employer-list. I ran `node scripts/preset-portals.mjs byo-employer-list`; it returned `tracked_companies: []`, so this preset seeds no employers and you bring your own list. OK to use it?
 
 STUDENT: Yes, use byo-employer-list.
 
 INTERVIEWER: Coverage line from `node interview/coverage.mjs byo-employer-list`, exactly as returned: "Bring your own employer list [discovery-only]: Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails." This preset is discovery help only. Please give me 10 to 20 target employers, each with its careers page URL.
 
-STUDENT: Example Health System 1, https://careers.example.com/nursing/1. Example Health System 2, https://careers.example.com/nursing/2. Example Health System 3, https://careers.example.com/nursing/3. Example Health System 4, https://careers.example.com/nursing/4. Example Health System 5, https://careers.example.com/nursing/5. Example Health System 6, https://careers.example.com/nursing/6. Example Health System 7, https://careers.example.com/nursing/7. Example Health System 8, https://careers.example.com/nursing/8. Example Health System 9, https://careers.example.com/nursing/9. Example Health System 10, https://careers.example.com/nursing/10.
+STUDENT: Mass General Brigham, https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal, Cleveland Clinic, https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers, Ochsner Health, https://ochsner.wd1.myworkdayjobs.com/Ochsner, Seattle Children's, https://seattlechildrens.wd5.myworkdayjobs.com/External, Vanderbilt University Medical Center, https://vumc.wd1.myworkdayjobs.com/vumccareers, Allina Health, https://allina.wd5.myworkdayjobs.com/External, UVM Health Network, https://uvmhealth.wd1.myworkdayjobs.com/External, NewYork-Presbyterian, https://nyp.wd1.myworkdayjobs.com/nypcareers, Lehigh Valley Health Network, https://lvhn.wd1.myworkdayjobs.com/lvhn, One Medical, https://job-boards.greenhouse.io/onemedical, Included Health, https://jobs.lever.co/includedhealth.
 
-INTERVIEWER: Ten employers recorded. Target roles: from your clinic intake work, blood pressure screening and patient assessment skills, I propose "Registered nurse residency" and "Clinic nurse". Keep both, change, or add?
+INTERVIEWER: Eleven employers recorded. Target roles: from your clinic intake work, blood pressure screening and patient assessment skills, I propose "Registered nurse residency" and "Clinic nurse". Keep both, change, or add?
 
-STUDENT: Keep both.
+STUDENT: Keep both, and add "Registered nurse", "Nurse extern", "Nursing assistant" and "Nurse assistant".
 
 INTERVIEWER: Locations, in order of preference? And years of experience; your resume shows volunteer work only, so I propose 0.
 
-STUDENT: Portland, OR. Zero years.
+STUDENT: Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR. Zero years.
 
-INTERVIEWER: Recorded: locations Portland, OR; experience 0 years. Any priority companies, any hard-no companies, and any dealbreakers (for example "unpaid")?
+INTERVIEWER: Recorded: locations Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR; experience 0 years. Any priority companies, any hard-no companies, and any dealbreakers (for example "unpaid")?
 
-STUDENT: Priority: Example Health System 1. Hard no: Example Staffing Group. Dealbreaker: night shift only.
+STUDENT: Priority: Mass General Brigham. Hard no: Example Staffing Group. Dealbreaker: night shift only.
 
-INTERVIEWER: Recorded: priority Example Health System 1; blacklist Example Staffing Group; dealbreaker "night shift only". Which GitHub job lists would you like to trial? They start as trial and the monthly review keeps or drops them. Default is none.
+INTERVIEWER: Recorded: priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker "night shift only". Which GitHub job lists would you like to trial? They start as trial and the monthly review keeps or drops them. Default is none.
 
 STUDENT: Skip.
 
@@ -106,7 +106,7 @@ STUDENT: Connector.
 
 ## Phase 6: write, check, enable
 
-INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 10 target employers (Example Health System 1 to 10); roles Registered nurse residency and Clinic nurse; Portland, OR; 0 years; priority Example Health System 1; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
+INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 11 target employers (Mass General Brigham, Cleveland Clinic, Ochsner Health, Seattle Children's, Vanderbilt University Medical Center, Allina Health, UVM Health Network, NewYork-Presbyterian, Lehigh Valley Health Network, One Medical, Included Health); roles Registered nurse residency, Clinic nurse, Registered nurse, Nurse extern, Nursing assistant and Nurse assistant; Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR; 0 years; priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
 
 STUDENT: Yes.
 

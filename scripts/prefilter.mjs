@@ -11,7 +11,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { readCycle } from '../lib/cycle-file.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { loadMerged } from '../lib/presets.mjs';
+import { effectiveTitleRules, loadMerged } from '../lib/presets.mjs';
 
 const ABOVE_ENTRY = [
   [/\b(senior|sr\.?|staff|principal|distinguished|director|manager|head of)\b/i, 'above entry level'],
@@ -22,6 +22,10 @@ const PHD = /\bph\.?d\b/i;
 const MS_OK = /\b(ms|m\.s\.|master'?s?)\b/i;
 const LADDER = /\b(i|1)\s*(\/|-|or|to)\s*(ii|2)\b/i;
 const TERM_RE = /(?<![A-Za-z0-9])(fall|autumn|winter|spring|summer)\s*(20\d\d)(?![A-Za-z0-9])/gi;
+// New-grad wording for full-time roles. INTERN_TITLE exempts a title that also names an internship or co-op.
+export const NEWGRAD_TITLE = /\b(new[ -]?grad(uate)?s?|graduate (program(me)?|scheme)|recent graduates?|entry[- ]level)\b/i;
+const INTERN_TITLE = /\b(intern(ship)?s?|co-?ops?)\b/i;
+const YEAR_RE = /(?<![A-Za-z0-9])(20\d\d)(?![A-Za-z0-9])/g;
 
 // Job ids catch the same posting under different URL spellings (board, embed, redirect).
 export function jobIds(text) {
@@ -43,6 +47,16 @@ function namesOnlyOutOfCycleTerm(title, cycle) {
 
 const anyMatch = (patterns, text) => (patterns ?? []).some((p) => new RegExp(p, 'i').test(text));
 
+// A full-time new-grad title is only for a student who has a new-grad track; one that names a year names the
+// graduating class, which must be a year in the cycle.
+function newGradMismatch(title, config, cycle) {
+  if (cycle?.phase !== 'student' || !NEWGRAD_TITLE.test(title) || INTERN_TITLE.test(title)) return null;
+  if (config?.tracks?.length && !config.tracks.some((t) => t.kind === 'newgrad')) return 'new-grad role and no new-grad track';
+  const years = [...title.matchAll(YEAR_RE)].map((m) => Number(m[1]));
+  if (years.length && !years.some((y) => (cycle.newgrad_years ?? []).includes(y))) return 'graduation year not in cycle';
+  return null;
+}
+
 export function prefilter({ pipelineText, applicationsText = '', preset: merged, config, cycle }) {
   const doc = parsePipeline(pipelineText);
   const appliedIds = new Map();
@@ -51,6 +65,7 @@ export function prefilter({ pipelineText, applicationsText = '', preset: merged,
     if (num && /\|\s*(Applied|Responded|Assessment|Interview|Offer|Hired|Rejected)\s*\|/.test(line)) for (const id of jobIds(line)) appliedIds.set(id, `#${num}`);
   }
   const pending = sectionRows(doc, 'Pending');
+  const rules = effectiveTitleRules(merged, config);
   const keeper = new Map();
   for (const { row } of pending) for (const id of jobIds(row.url)) if (!keeper.has(id)) keeper.set(id, row.url);
 
@@ -71,11 +86,13 @@ export function prefilter({ pipelineText, applicationsText = '', preset: merged,
       if (re.test(title) && !(why === 'level III+' && ladder)) reason = why;
     }
     if (!reason && PHD.test(title) && !MS_OK.test(title)) reason = 'PhD role';
-    if (!reason && anyMatch(merged?.title_rules?.exclude, title)) reason = 'excluded title';
+    if (!reason) reason = newGradMismatch(title, config, cycle);
+    // effectiveTitleRules leaves out the clearance and citizenship excludes for a student who is a US citizen.
+    if (!reason && anyMatch(rules.exclude, title)) reason = 'excluded title';
     if (!reason && anyMatch(config?.dealbreakers, `${title} ${row.company}`)) reason = 'dealbreaker';
     if (!reason && merged?.early_career && !new RegExp(merged.early_career, 'i').test(title)) reason = 'not an early-career title';
     if (!reason && namesOnlyOutOfCycleTerm(title, cycle)) reason = 'term not in cycle';
-    if (reason) lines.push(`TRIAGE: FAIL | ${url} | 0.0/5 | Title pre-filter: ${reason} (${title.replace(/[|;]/g, ',').slice(0, 80)})`);
+    if (reason) lines.push(`TRIAGE: FAIL | ${url} | 0.0/5 | Title pre-filter: ${reason} (${title.replace(/[|;]/g, ',').replace(/\(/g, '[').replace(/\)/g, ']').slice(0, 80)})`);
   }
   return lines;
 }

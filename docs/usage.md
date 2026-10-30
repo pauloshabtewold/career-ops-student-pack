@@ -1,12 +1,30 @@
 # Daily use
 
-This guide covers what you do after `node student/install.mjs` has run. Every command is run from your career-ops folder. Replace `<pack-url>` with the address you were given if you need to clone the pack again.
+This guide covers what you do after `node student/install.mjs` has run. Every command is run from your career-ops folder. If you need to clone the pack again, use the clone address from the pack page you were sent.
 
 ## Start with the interview
 
 Every Claude Code session begins with `scripts/session-start.mjs` from the student folder. It prints at most six lines: the update result, any budget notes, and a last line that says what happens next. When config/student.yml is missing or the interview is not finished, the last line starts with `INTERVIEW:` and Claude runs the personalization interview before anything else.
 
-The interview asks about your field, graduation dates, locations, the LinkedIn and Handshake switches, how you want your mail read and whether to set up a daily schedule. It writes config/student.yml from your answers and prints a coverage line that says how many employers and job lists your presets reach. Read that line: a low number means your field is thinly covered and you should add employers by hand.
+The interview reads your resume first (paste it, give a PDF or Word file, or put it in cv.md), proposes your field from what the resume says and shows the lines that led to the proposal. It then asks about graduation dates, locations, 10 to 20 target employers, whether you are a US citizen, the answers application forms ask for again and again (start date, relocation, EEO questions, how you heard about the job), the LinkedIn and Handshake switches, how you want your mail read and whether to set up a daily schedule. It writes config/student.yml from your answers and prints a coverage line that says how many employers and job lists your presets reach. Read that line: a low number means your field is thinly covered and you should add employers by hand. A blank resume stops the interview before anything is written.
+
+Answering yes to the US citizen question keeps postings that ask for clearance or citizenship in your lists; any other answer filters them out. Running the interview again rewrites only the blocks the pack marked in your files. A title filter you edited in portals.yml is kept, and the interview lists the rules it did not apply. If portals.yml has a typo that stops it from loading, the interview stops before it changes any file and names the line; fix the file or move it aside, then run the apply step again. A location such as "Boston, MA" also keeps postings that name only "Boston". Companies you want to work for are not added to the do-not-apply list; only companies you want to avoid go there.
+
+## First run
+
+The interview ends with the first run, and you can repeat it any time:
+
+```
+node student/scripts/first-run.mjs
+```
+
+It makes no model call. It prints one line per step (`first-run: github-lists ok`, `first-run: scan FAILED (reason)`, and so on (a scan that stops early is tried a second time before it is reported as failed) for merge-post and prefilter+triage), then these counts:
+
+- `Pending rows: N`, followed by one `src=<source>: N` line for each source tag found on a row.
+- `Untriaged Pending rows: N`, the rows with no triage score yet.
+- Up to 20 of those rows as `url | company | title`. When more than 20 exist, the last line is `... and N more untriaged Pending rows`; with none it says `no untriaged Pending rows`. Add `--n 10` to show fewer or more.
+
+Claude then scores the listed rows in your session and applies the verdicts with `node student/scripts/apply-triage.mjs <file>`. `node student/scripts/rank-queue.mjs --n 10` shows your top 10. If the top list is empty, the likely causes are an empty feed that day, a field with thin coverage or titles that do not fit your graduation cycle; run the first run again tomorrow or add target employers.
 
 You can say "stop outreach" or "stop handshake" at any time. Both are on by default and either one turns the matching feature off in config/student.yml.
 
@@ -20,7 +38,7 @@ node student/scripts/schedule.mjs status
 node student/scripts/schedule.mjs remove
 ```
 
-`schedule.mjs install` adds a launchd agent on macOS and a Task Scheduler task on Windows. Both use the absolute path of the Node you ran it with and the full path of your career-ops folder. On Windows the task is set to run late if the computer was off at the chosen time and to run on battery. Without `--time` the time from config/student.yml is used, which is 06:00 by default. `schedule.mjs remove` takes the job away again. Add `--dry-run` to either command to print what it would do without changing anything.
+`schedule.mjs install` adds a launchd agent on macOS and a Task Scheduler task on Windows. Both start `scheduled.mjs`, which runs the daily run and then, only when `automation` is `scheduled-discovery-plus-triage`, the daily triage. Both use the absolute path of the Node you ran it with, the full path of your career-ops folder and, when it finds one on your PATH, the absolute path of claude. If automation is `scheduled-discovery-plus-triage` and claude is not found, install still works and prints a warning that every scheduled run will skip triage and say so in the digest. On Windows the task is set to run late if the computer was off at the chosen time and to run on battery. Without `--time` the time from config/student.yml is used, which is 06:00 by default. `schedule.mjs remove` takes the job away again. Add `--dry-run` to either command to print what it would do, including the claude path it found, without changing anything. A schedule installed before this version still starts `daily.mjs` directly: run `node student/scripts/schedule.mjs install` again to get the daily triage; until then the digest carries a note saying so.
 
 Logs go to the logs folder under data.
 
@@ -36,7 +54,11 @@ In order, it:
 4. On Sundays, checks whether Pending postings are still open, without a browser.
 5. Merges new rows into the pipeline and applies the free title filter.
 
-The result is `data/digest/student-<date>.md`, with one line per step and a list of failures. A failed step never stops the run and the exit code is always 0, so look at the digest. Triage by Claude is a separate step you start in a session; `modes/daily-run.md` lists it.
+The result is `data/digest/student-<date>.md`, with one line per step, a list of failures, any notes and the count of Pending rows. A failed step never stops the run and the exit code is always 0, so look at the digest. `node student/scripts/daily.mjs --dry-run` prints the steps it would run, with the monthly and Sunday steps only on the days they apply, and writes nothing.
+
+## Daily triage (optional)
+
+With `automation: scheduled-discovery-plus-triage` the installed schedule runs `node student/scripts/daily-triage.mjs` after the daily run. It sends up to `triage_daily` untriaged Pending rows (ceiling 20 a day; config can only lower it, and 0 turns it off) to one `claude -p` call that has no tools. For each row it first fetches the posting text itself (cut to 6000 characters; if that fails only the title and company are sent). Only well-formed verdict lines for rows that were sent are applied, one per row; every other line is dropped and counted as ignored. It adds one line to the digest: `daily triage: triaged N, passed N, ignored N`. If claude is missing, signed out or too slow, the digest says why, pipeline.md stays as it was and the rows wait for the next day. Run claude once in a terminal to sign in.
 
 ## Mail: the inbox step
 

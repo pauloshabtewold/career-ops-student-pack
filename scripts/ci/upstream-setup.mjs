@@ -38,9 +38,10 @@ export function setupUpstream({ out, version, pack = PACK_ROOT, answers = join('
   const student = join(dest, 'student');
   cpSync(pack, student, { recursive: true, filter: (src) => !['.git', 'node_modules'].includes(basename(src)) });
   runner(process.execPath, [join('student', 'install.mjs'), '--yes'], { cwd: dest });
-  runner(process.execPath, [join('student', 'interview', 'apply-answers.mjs'), join(student, answers)], { cwd: dest });
-  // A real student gets cv.md from the interview; doctor requires it, so the synthetic setup supplies a fixture resume.
+  // A real student gets cv.md from the interview; apply-answers refuses an empty resume and doctor requires one, so the
+  // synthetic setup supplies a fixture resume before the answers are applied.
   copyFileSync(join(student, resume), join(dest, 'cv.md'));
+  runner(process.execPath, [join('student', 'interview', 'apply-answers.mjs'), join(student, answers)], { cwd: dest });
   const doctor = join(dest, 'doctor.json');
   writeFileSync(doctor, runner(process.execPath, ['doctor.mjs', '--json'], { cwd: dest }));
   return { dest, doctor, tag };

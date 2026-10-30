@@ -4,7 +4,7 @@
     "max": "1.38.0",
     "tag_prefix": "career-ops-v"
   },
-  "budgetSha256": "e191e99b1cd1694570d366f1791b1ef5f2d690969aa68084d16a5f1b2668f7d8",
+  "budgetSha256": "a9d678cf706311f1182cbd09858fb5919319df4f18e6db78e3f2281567943150",
   "pipelineSections": [
     "Pending",
     "Flagged",
@@ -37,7 +37,8 @@
     "audit-portals": [
       "--json",
       "--file",
-      "--baseline"
+      "--baseline",
+      "--summary"
     ],
     "plugins": [
       "run",

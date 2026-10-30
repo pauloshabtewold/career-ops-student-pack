@@ -24,14 +24,18 @@ test('M-002-S21 shipped compat.json carries the contract and the budget.mjs hash
   assert.deepEqual(c.upstream, { min: '1.38.0', max: '1.38.0', tag_prefix: 'career-ops-v' });
   assert.deepEqual(c.pipelineSections, ['Pending', 'Flagged', 'Skipped', 'Processed']);
   assert.deepEqual(c.lockProtocol, { suffix: '.lock', owner: 'owner.json', recover: '.lock.recover' });
-  assert.deepEqual(c.cliContracts, {
-    'check-liveness': ['--no-fallback', '--file', '--no-record'],
-    'set-status': ['--note', '--dry-run'],
-    'update-system': ['check', 'apply --confirm', 'dismiss --version'],
-    doctor: ['--json'],
-    'audit-portals': ['--json', '--file', '--baseline'],
-    plugins: ['run', 'trust', 'enable'],
-  });
+  assert.deepEqual([...c.cliContracts['audit-portals']].sort(), ['--baseline', '--file', '--json', '--summary']);
+  assert.deepEqual(
+    { ...c.cliContracts, 'audit-portals': [] },
+    {
+      'check-liveness': ['--no-fallback', '--file', '--no-record'],
+      'set-status': ['--note', '--dry-run'],
+      'update-system': ['check', 'apply --confirm', 'dismiss --version'],
+      doctor: ['--json'],
+      'audit-portals': [],
+      plugins: ['run', 'trust', 'enable'],
+    },
+  );
   assert.equal(c.budgetSha256, sha(join(PACK_ROOT, 'scripts', 'budget.mjs')));
 });
 

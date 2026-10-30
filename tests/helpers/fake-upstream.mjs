@@ -34,8 +34,11 @@ export function createFakeUpstream({ version = '1.38.0' } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'fake-upstream-'));
   execFileSync('git', ['init', '-q'], { cwd: root });
   writeFileSync(join(root, 'package.json'), `${JSON.stringify({ name: 'career-ops', version, type: 'module' }, null, 2)}\n`);
-  for (const d of ['data', 'config', 'modes', 'plugins.local']) mkdirSync(join(root, d), { recursive: true });
-  writeFileSync(join(root, 'portals.yml'), 'tracked_companies: []\n');
+  for (const d of ['data', 'config', 'modes', 'plugins.local', 'templates']) mkdirSync(join(root, d), { recursive: true });
+  // upstream's first run copies templates/portals.example.yml to portals.yml, so both start with the same title_filter.
+  const titleFilter = ['title_filter:', '  positive:', '    - "AI Engineer"', '    - "ML Engineer"', '  negative:', '    - "word:Intern"', '    - "word:Interns"', '    - "Internship"', '    - "Junior"', ''].join('\n');
+  writeFileSync(join(root, 'templates', 'portals.example.yml'), `${titleFilter}tracked_companies: []\n`);
+  writeFileSync(join(root, 'portals.yml'), `${titleFilter}tracked_companies: []\n`);
   for (const cli of STUB_CLIS) writeFileSync(join(root, cli), STUB_SOURCE(cli));
   const callsFile = join(root, 'calls.jsonl');
   writeFileSync(callsFile, '');

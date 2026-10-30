@@ -71,5 +71,12 @@
   "archetypes": [
     "Mechanical design engineer",
     "Test engineer"
-  ]
+  ],
+  "application_profile": {
+    "start_date": "2028-01",
+    "relocation": "yes",
+    "eeo": "ask-each-time",
+    "how_did_you_hear": "Employer website"
+  },
+  "us_citizen": true
 }

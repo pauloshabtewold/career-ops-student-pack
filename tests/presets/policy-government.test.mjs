@@ -7,7 +7,7 @@ const ID = 'policy-government';
 const SHIPPED_SOURCES = {
   github_lists: [],
   alerts: [
-    { name: 'USAJOBS', how: 'Upstream has a keyed USAJOBS source: enable it after getting a free API key; set HiringPath to student and graduates.' },
+    { name: 'USAJOBS', how: 'Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts.' },
     { name: 'Think tank pages', how: 'Check think tank internship pages by hand each term.' },
     { name: 'Idealist', how: 'Idealist bars scraping, so use its email alerts only.' },
   ],

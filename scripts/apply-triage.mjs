@@ -14,7 +14,7 @@ import { appendLines, ensureSections, formatRow, getSection, parsePipeline, pars
 import { resolvePaths } from '../lib/paths.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 
-const VERDICT_RE = /^TRIAGE:\s*(PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*([^|]*)/;
+export const VERDICT_RE = /^TRIAGE:\s*(PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*([^|]*)/;
 const clean = (s) => s.replace(/[|;\n]/g, ',').trim();
 
 export function parseResults(text) {

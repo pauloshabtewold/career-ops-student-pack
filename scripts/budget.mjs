@@ -57,6 +57,8 @@ export const CEILINGS = deepFreeze({
   inbox_lookback_days: down(2, 'days', 'run'),
   notifications_per_run: down(5, 'count', 'run'),
   triage_audit_weekly: down(20, 'count', 'week'),
+  // Daily cap on unattended model triage. Config can lower it and 0 turns daily triage off; nothing raises it.
+  triage_daily: down(20, 'count', 'day'),
   liveness_batch: down(50, 'count', 'run'),
   triage_tier_min: up('standard', 'tier', 'run'),
   // Discovery
@@ -86,7 +88,7 @@ const CHECKABLE = [
   'apply.jd_browser',
 ];
 // Events recorded as they happen; they are not budgeted and carry no gap.
-const OBSERVED = ['linkedin.accept', 'apply.track-confirm'];
+const OBSERVED = ['linkedin.accept', 'apply.track-confirm', 'apply.policy'];
 const APPROVAL_RE = /^(send|submit) (all|\d+(,\s*\d+)*)$/;
 const NEEDS_APPROVAL = [...LINKEDIN_SENDS, 'apply.submit'];
 const EXIT = { ok: 0, refused: 3, wait: 4, 'needs-user': 5 };
