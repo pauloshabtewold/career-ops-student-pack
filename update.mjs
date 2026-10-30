@@ -19,7 +19,7 @@ import { checkSafetyDiff } from './scripts/check-safety-tag.mjs';
 
 const LOCAL_COMMITS = 'student/ has local commits; pack update skipped (fork-and-edit, see README)';
 // A blocked network must fail in seconds, not hang on a credential prompt: 20 s covers a slow first fetch and
-// GIT_TERMINAL_PROMPT=0 makes git give up instead of asking for a password nobody is there to type.
+// GIT_TERMINAL_PROMPT=0 makes git give up rather than ask for a password nobody is there to type.
 const FETCH_OPTS = { timeout: 20000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } };
 
 const git = (runner, packRoot, args, opts) => (opts ? runner('git', ['-C', packRoot, ...args], opts) : runner('git', ['-C', packRoot, ...args]));
