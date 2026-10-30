@@ -83,14 +83,13 @@ function fetchPosting({ root, row, runner }) {
 }
 
 // No tools are granted (--tools ''), so posting text cannot make the model act. The prompt travels on stdin.
-function callClaude({ claudePath, model, prompt, root, runner }) {
+function callClaude({ claudePath, model, prompt, root, runner, platform }) {
   // A .cmd shim on Windows needs a shell; the arguments are fixed literals and the prompt travels on stdin.
   // Through cmd.exe an empty argument vanishes, so it is passed as a quoted pair there.
-  const shell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(claudePath);
+  const shell = shellForm(claudePath, platform);
   const args = ['-p', '--tools', shell ? '""' : '', '--model', model];
   // cmd.exe splits an unquoted path at a space (C:\Users\First Last\AppData\Roaming\npm\claude.cmd), so the shell form quotes it.
-  const program = shell ? `"${claudePath}"` : claudePath;
-  return runner(program, args, { cwd: root, input: prompt, timeout: AGENT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
+  return runner(quoteIf(shell, claudePath), args, { cwd: root, input: prompt, timeout: AGENT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
 }
 
 // The prompt travels on stdin and the answer comes back through -o, so no posting text is ever in argv. The call runs in
@@ -147,6 +146,31 @@ function applyVerdicts({ lines, root, dataDir, packRoot, runner }) {
   }
 }
 
+// A schedule installed for one agent keeps passing that agent's path after config changes; only the configured agent
+// runs, and the digest says to reinstall. A legacy claude path only fits when claude is the configured agent.
+function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
+  const configured = config.agent ?? 'claude';
+  const changed = Boolean(agent) && agent !== configured;
+  const hint = changed ? [`agent changed to ${configured} since the schedule was installed; run node student/scripts/schedule.mjs install again`] : [];
+  const file = (changed ? null : agentPath) ?? (configured === 'claude' ? claude : null) ?? resolveAgentPath(configured, { platform });
+  return { configured, hint, file };
+}
+
+// One call to the configured agent; the model follows spend_tier (premium opus or high effort, otherwise sonnet or medium).
+function callAgent({ configured, file, config, prompt, root, runner, platform }) {
+  const premium = config.spend_tier === 'premium';
+  return configured === 'codex'
+    ? callCodex({ codexPath: file, effort: premium ? 'high' : 'medium', prompt, runner, platform })
+    : callClaude({ claudePath: file, model: premium ? 'opus' : 'sonnet', prompt, root, runner, platform });
+}
+
+// The one-line digest reason for a failed call.
+function agentFailure(configured, err) {
+  if (configured === 'codex') return codexFailure(err);
+  const reason = oneLine(err.stderr) || (err.code === 'ETIMEDOUT' ? 'claude timed out after 15 minutes' : oneLine(err.message)) || 'claude failed';
+  return `${reason}; ${signInHint('claude')}`;
+}
+
 // The model follows spend_tier (premium opus, otherwise sonnet). At most triage_daily rows are sent per run: that budget
 // ceiling is the cap on unattended model use, and config can only lower it.
 export async function dailyTriage({ root, dataDir, packRoot, today, runner = defaultRunner, agent = null, agentPath = null, claude = null, platform = process.platform, say = () => {} }) {
@@ -155,10 +179,7 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
     say('daily-triage: automation is not scheduled-discovery-plus-triage; nothing to do');
     return { ran: false };
   }
-  // A schedule installed for one agent keeps passing that agent's path after config changes; only the configured agent runs.
-  const configured = config.agent ?? 'claude';
-  const changed = agent && agent !== configured;
-  const hint = changed ? [`agent changed to ${configured} since the schedule was installed; run node student/scripts/schedule.mjs install again`] : [];
+  const { configured, hint, file } = resolveTriageAgent({ config, agent, agentPath, claude, platform });
   const note = (lines) => {
     appendDigest({ dataDir, today, lines: [...hint, ...lines] });
     for (const l of [...hint, ...lines]) say(l);
@@ -173,8 +194,7 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
     note(['daily triage: triaged 0, passed 0, ignored 0 (no untriaged Pending rows)']);
     return { ran: true, triaged: 0 };
   }
-  const agentFile = (changed ? null : agentPath) ?? (configured === 'claude' ? claude : null) ?? resolveAgentPath(configured, { platform });
-  if (!agentFile) {
+  if (!file) {
     note([`daily triage skipped: ${configured} was not found; install it, ${signInHint(configured)}, then run node student/scripts/schedule.mjs install again`]);
     return { ran: false };
   }
@@ -182,16 +202,9 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   const prompt = buildPrompt({ brief: readIf(join(root, 'modes', '_brief.md')), postings });
   let output;
   try {
-    const premium = config.spend_tier === 'premium';
-    output = configured === 'codex'
-      ? callCodex({ codexPath: agentFile, effort: premium ? 'high' : 'medium', prompt, runner, platform })
-      : callClaude({ claudePath: agentFile, model: premium ? 'opus' : 'sonnet', prompt, root, runner });
+    output = callAgent({ configured, file, config, prompt, root, runner, platform });
   } catch (err) {
-    if (configured === 'codex') note([`daily triage skipped: ${codexFailure(err)}`]);
-    else {
-      const reason = oneLine(err.stderr) || (err.code === 'ETIMEDOUT' ? 'claude timed out after 15 minutes' : oneLine(err.message)) || 'claude failed';
-      note([`daily triage skipped: ${reason}; ${signInHint('claude')}`]);
-    }
+    note([`daily triage skipped: ${agentFailure(configured, err)}`]);
     return { ran: false };
   }
   const { lines, passed, ignored } = filterVerdicts(output, new Set(rows.map((r) => r.url)));
