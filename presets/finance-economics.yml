@@ -24,7 +24,7 @@ title_rules:
     - "teller"
     - "recruit"
     - "nurse"
-early_career: "\\b(intern(ship)?|summer analyst|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst program|rotational|leadership program|campus|university|associate)\\b"
+early_career: "\\b(intern(ship)?|summer analyst|new ?grad(uate)?|early[- ]career|entry[- ]level|analyst program|rotational|leadership program|campus|university|summer associate|associate (program|intern(ship)?))\\b"
 recruiting_calendar:
   rollover_month: 4
   lead_months: 15

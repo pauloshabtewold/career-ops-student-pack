@@ -6,7 +6,7 @@
 // --dry-run prints the planned steps and writes nothing. --via-scheduled is passed only by scheduled.mjs.
 // Files: data/.student-daily.lock (run lock), data/.snapshots/<date>/, data/digest/student-<date>.md, data/run-log.md
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { ISO_DATE, createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -142,6 +142,7 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   const stamp = () => now().toISOString();
   const runLog = join(dataDir, 'run-log.md');
   mkdirSync(dataDir, { recursive: true });
+  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
   const log = (line) => appendFileSync(runLog, `${line}\n`);
 
   const config = await loadStudentConfig({ root });

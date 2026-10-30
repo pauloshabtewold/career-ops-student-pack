@@ -4,9 +4,10 @@
 // to forward, for example ['--log-file', F]. It never rejects.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { scheduledRun } from '../../scripts/scheduled.mjs';
-import { makeRoot, PACK_ROOT } from '../helpers/script-harness.mjs';
+import { makeRoot, PACK_ROOT, runScript } from '../helpers/script-harness.mjs';
 
 async function run(automation, { fail = null, extra = { claude: '/opt/sample/bin/claude' } } = {}) {
   const r = makeRoot({ config: `automation: ${automation}\n` });
@@ -83,4 +84,23 @@ test('M-002-S14 with no agent path and no claude, daily-triage.mjs gets none of 
   const { calls } = await run('scheduled-discovery-plus-triage', { extra: {} });
   const triage = calls.find((c) => basename(c.args[0]) === 'daily-triage.mjs');
   for (const f of ['--agent', '--agent-path', '--claude']) assert.equal(triage.args.includes(f), false, f);
+});
+
+// W-015-L1: the Codex walkthrough's launchd fire had no data/logs folder and daily-triage stopped with ENOENT.
+test('W-015-L1 scheduled.mjs and daily-triage.mjs create a missing log folder instead of stopping', () => {
+  const r = makeRoot({ config: 'automation: scheduled-discovery-plus-triage\n' });
+  try {
+    const log = join(r.root, 'data', 'logs', 'student-daily.log');
+    const triage = runScript('daily-triage', ['--log-file', log, '--agent', 'claude', '--agent-path', join(r.root, 'no-such-claude')], r);
+    assert.equal(triage.code, 0, triage.stderr);
+    assert.doesNotMatch(triage.stdout + triage.stderr, /ENOENT[^\n]*logs|daily-triage: stopped/);
+    assert.ok(r.exists('data/logs/student-daily.log'), 'daily-triage wrote its line to the log');
+    rmSync(join(r.root, 'data', 'logs'), { recursive: true, force: true });
+    const sched = runScript('scheduled', ['--log-file', log], r);
+    assert.equal(sched.code, 0, sched.stderr);
+    assert.doesNotMatch(sched.stdout, /ENOENT[^\n]*logs/);
+    assert.ok(r.exists('data/logs/student-daily.log'), 'the daily run wrote its summary to the log');
+  } finally {
+    r.cleanup();
+  }
 });

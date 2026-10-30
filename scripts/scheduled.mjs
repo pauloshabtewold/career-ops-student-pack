@@ -3,7 +3,8 @@
 // scheduled-discovery-plus-triage, the model triage, each as its own child process so one cannot stop the other.
 // Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH]
 // Exit 0 always: a scheduler that sees a failure retries, and both steps already report their own problems.
-import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -38,6 +39,8 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
 async function main() {
   const { flags } = parseArgs(process.argv.slice(2), { flags: { agent: 'string', 'agent-path': 'string', claude: 'string', 'log-file': 'string' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
+  // The schedule points --log-file at data/logs, which a student may have deleted since install; both children append to it.
+  if (flags.logFile) mkdirSync(dirname(flags.logFile), { recursive: true });
   const passThrough = [
     '--root', paths.root,
     '--data-dir', paths.dataDir,
