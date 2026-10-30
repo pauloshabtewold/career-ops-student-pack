@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { ingestStepNames, ingestSteps } from '../lib/ingest.mjs';
+import { ingestStepNames, ingestSteps, presetFeedPlugins } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
@@ -61,7 +61,13 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
       out(`first-run: ${name} FAILED (${stepErrorText(err)})`);
     }
   };
-  ingestSteps({ root, dataDir, packRoot, today, runner, step });
+  let feeds = [];
+  try {
+    feeds = presetFeedPlugins({ root, presets: config.presets ?? [] });
+  } catch {
+    // A preset that cannot be read leaves the extra feeds out.
+  }
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds });
   const file = join(dataDir, 'pipeline.md');
   for (const line of formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), shown)) out(line);
   return 0;

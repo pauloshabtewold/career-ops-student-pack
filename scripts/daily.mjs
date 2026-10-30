@@ -11,7 +11,7 @@ import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { ISO_DATE, createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, acquireLock, releaseLock } from '../lib/dir-lock.mjs';
-import { ingestStepNames, ingestSteps, stepRunners } from '../lib/ingest.mjs';
+import { ingestStepNames, ingestSteps, presetFeedPlugins, stepRunners } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
@@ -62,9 +62,18 @@ async function acquireRunLock(lockFile, staleMs, now) {
 const MONTHLY_STEPS = ['cycle', 'discover-github-lists', 'audit-portals'];
 
 // Step names in run order. Monthly and Sunday steps are listed only on the days they run.
-export function plannedSteps({ today, markerText, hasConfig }) {
+export function plannedSteps({ today, markerText, hasConfig, feeds = [] }) {
   if (!hasConfig) return ['config'];
-  return ['snapshot', ...(monthlyDue(today, markerText) ? MONTHLY_STEPS : []), ...ingestStepNames({ sweep: isSunday(today) })];
+  return ['snapshot', ...(monthlyDue(today, markerText) ? MONTHLY_STEPS : []), ...ingestStepNames({ sweep: isSunday(today), feeds })];
+}
+
+// A preset that cannot be read leaves the extra feeds out; github-lists and the scan still run.
+function feedsFor(root, config) {
+  try {
+    return presetFeedPlugins({ root, presets: config?.presets ?? [] });
+  } catch {
+    return [];
+  }
 }
 
 function runSteps({ root, dataDir, packRoot, today, config, limits, runner, results }) {
@@ -93,7 +102,7 @@ function runSteps({ root, dataDir, packRoot, today, config, limits, runner, resu
     step('audit-portals', () => upstream('audit-portals.mjs', ['--summary']));
     writeFileSync(markerFile, `${today.slice(0, 7)}\n`);
   }
-  ingestSteps({ root, dataDir, packRoot, today, runner, step, sweep: isSunday(today) });
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, sweep: isSunday(today), feeds: feedsFor(root, config) });
 }
 
 // Writes the digest and returns the number of failed steps.
@@ -129,12 +138,15 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
     // Read-only: no lock, snapshot, digest, run log or log file is touched.
     let hasConfig = false;
     let configError = '';
+    let feeds = [];
     try {
-      hasConfig = Boolean(await loadStudentConfig({ root }));
+      const config = await loadStudentConfig({ root });
+      hasConfig = Boolean(config);
+      feeds = feedsFor(root, config);
     } catch (err) {
       configError = oneLine(err.message);
     }
-    const steps = plannedSteps({ today, markerText: readIf(join(dataDir, '.student-monthly')), hasConfig });
+    const steps = plannedSteps({ today, markerText: readIf(join(dataDir, '.student-monthly')), hasConfig, feeds });
     console.log(`student-daily dry run: ${steps.length} step(s) would run: ${steps.join(', ')}`);
     if (configError) console.log(`student-daily dry run: config/student.yml is unreadable (${configError}); a real run would stop at the config step`);
     return 0;
