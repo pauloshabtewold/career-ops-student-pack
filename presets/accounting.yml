@@ -32,11 +32,6 @@ recruiting_calendar:
     - {name: Fall, start_month: 9}
 sources:
   github_lists:
-    - name: jobright-account-intern
-      repo: jobright-ai/2026-Account-Internship
-      path: README.md
-      format: markdown-table
-      kind: internship
     - name: jobright-account-newgrad
       repo: jobright-ai/2026-Account-New-Grad
       path: README.md
@@ -73,7 +68,11 @@ seed_employers:
   - name: "CohnReznick"
     careers_url: https://www.cohnreznick.com/careers
   - name: "Crowe"
-    careers_url: https://www.crowe.com/careers
+    careers_url: https://careers.crowe.com
+    provider: phenom
+    phenom:
+      lang: en_us
+      country: us
   - name: "Plante Moran"
     careers_url: https://plantemoran.wd1.myworkdayjobs.com/pmexternalcareers
   - name: "CBIZ"

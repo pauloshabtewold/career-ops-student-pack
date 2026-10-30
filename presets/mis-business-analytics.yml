@@ -37,26 +37,6 @@ recruiting_calendar:
     - {name: Fall, start_month: 8}
 sources:
   github_lists:
-    - name: jobright-ba-intern
-      repo: jobright-ai/2026-Business-Analyst-Internship
-      path: README.md
-      format: markdown-table
-      kind: internship
-    - name: jobright-ba-newgrad
-      repo: jobright-ai/2026-Business-Analyst-New-Grad
-      path: README.md
-      format: markdown-table
-      kind: newgrad
-    - name: jobright-da-intern
-      repo: jobright-ai/2026-Data-Analysis-Internship
-      path: README.md
-      format: markdown-table
-      kind: internship
-    - name: jobright-da-newgrad
-      repo: jobright-ai/2026-Data-Analysis-New-Grad
-      path: README.md
-      format: markdown-table
-      kind: newgrad
     - name: simplify-intern
       repo: SimplifyJobs/Summer2027-Internships
       path: .github/scripts/listings.json
@@ -103,6 +83,7 @@ seed_employers:
     careers_url: https://www.kpmgcareers.com
   - name: "IBM"
     careers_url: https://www.ibm.com/careers
+    provider: ibm
   - name: "Oracle"
     careers_url: https://www.oracle.com/careers
   - name: "SAP"

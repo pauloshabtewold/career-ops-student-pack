@@ -205,7 +205,8 @@ seed_employers:
   - name: "Carrier"
     careers_url: https://carrier.wd5.myworkdayjobs.com/jobs
   - name: "Trane Technologies"
-    careers_url: https://careers.tranetechnologies.com/global/en
+    careers_url: https://careers.tranetechnologies.com
+    provider: phenom
   - name: "3M"
     careers_url: https://3m.wd1.myworkdayjobs.com/Search
   - name: "Dow"
