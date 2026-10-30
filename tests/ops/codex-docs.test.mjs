@@ -94,7 +94,7 @@ test('M-003-S6 interview.md Phase 5 names the agent key with claude and codex', 
 test('M-003-S7 the new docs use plain punctuation and no repo URL', () => {
   for (const rel of ['docs/codex.md', 'docs/codex-spike.md', 'AGENTS.student.md', 'templates/codex-config.suggested.toml']) {
     const text = read(rel);
-    assert.ok(!/[—‘’“”]/.test(text), `${rel}: no em dash or curly quotes`);
+    assert.ok(!/[\u2014\u2018\u2019\u201C\u201D]/.test(text), `${rel}: no em dash or curly quotes`);
     assert.ok(!/github\.com\//i.test(text), `${rel}: no repo URL`);
   }
 });
