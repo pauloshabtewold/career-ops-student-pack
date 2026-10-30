@@ -1,6 +1,6 @@
 // Fixtures for the daily-triage tests: a scratch root with a config, a pipeline and a brief, and a fake runner that
 // answers fetch-jd.mjs and claude calls from the test and runs the pack's own scripts for real.
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { defaultRunner } from '../../lib/upstream.mjs';
 import { PACK_ROOT, TODAY, jobUrl, line, makeRoot, pipelineText } from './script-harness.mjs';
@@ -50,6 +50,17 @@ export function makeRunner(r, { claude = () => '', fetch = (url) => `Posting tex
     return claude(args, opts);
   };
   return { runner, calls };
+}
+
+// The usage ledger: rows are { date, source, rows, outcome } objects; readLedger returns the same shape with string fields.
+const LEDGER_HEADER = 'date\tsource\trows\toutcome';
+export const writeLedger = (r, rows) => writeFileSync(r.file('data/triage-usage.tsv'), `${LEDGER_HEADER}\n${rows.map((x) => `${x.date}\t${x.source}\t${x.rows}\t${x.outcome ?? 'ok'}\n`).join('')}`);
+export function readLedger(r) {
+  if (!r.exists('data/triage-usage.tsv')) return [];
+  return readFileSync(r.file('data/triage-usage.tsv'), 'utf8').split('\n').slice(1).filter(Boolean).map((l) => {
+    const [date, source, rows, outcome] = l.split('\t');
+    return { date, source, rows, outcome };
+  });
 }
 
 export const sentUrls = (input) => new Set(String(input).match(/https:\/\/example\.com\/jobs\/\d+/g) ?? []);

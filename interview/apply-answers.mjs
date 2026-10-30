@@ -24,12 +24,13 @@ export class AnswersError extends Error {
   }
 }
 
-// Small JSON Schema subset: type, enum, pattern, minLength, minItems, maxItems, minimum, required, properties,
+// Small JSON Schema subset: type, enum, anyOf, pattern, minLength, minItems, maxItems, minimum, required, properties,
 // additionalProperties (boolean or schema), items. Enough for answers.schema.json without a validator dependency.
 export function validateAgainst(schema, value, path = '$') {
   const errs = [];
   const type = (v) => (Array.isArray(v) ? 'array' : v === null ? 'null' : Number.isInteger(v) ? 'integer' : typeof v);
   const t = type(value);
+  if (schema.anyOf) return schema.anyOf.some((branch) => validateAgainst(branch, value, path).length === 0) ? [] : [`${path}: must match one of the allowed forms`];
   if (schema.enum && !schema.enum.includes(value)) errs.push(`${path}: must be one of ${schema.enum.join(', ')}`);
   if (schema.type) {
     const ok = schema.type === t || (schema.type === 'number' && t === 'integer');
@@ -201,6 +202,8 @@ export function buildConfig(answers) {
   const { values: limits } = effectiveLimits({ limits: answers.limits ?? {} });
   // A limit looser than its ceiling is written as the ceiling, so the file never claims more than budget.mjs allows.
   const written = Object.fromEntries(Object.keys(answers.limits ?? {}).filter((k) => k in CEILINGS).map((k) => [k, limits[k]]));
+  const legacyDaily = answers.limits?.triage_daily;
+  const triageBudget = { ...(legacyDaily !== undefined ? { daily: legacyDaily } : {}), ...answers.triage_budget };
   const floor = Math.max(answers.score_floor ?? CEILINGS.score_floor.value, CEILINGS.score_floor.value);
   const cfg = deepMerge(
     {},
@@ -215,6 +218,8 @@ export function buildConfig(answers) {
       switches: answers.switches ?? {},
       automation: answers.automation ?? 'manual',
       agent: answers.agent ?? 'claude',
+      plan: answers.plan ?? 'unknown',
+      ...(Object.keys(triageBudget).length ? { triage_budget: triageBudget } : {}),
       spend_tier: answers.spend_tier ?? 'standard',
       daily_target: answers.daily_target ?? 10,
       score_floor: floor,

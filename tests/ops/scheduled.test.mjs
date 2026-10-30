@@ -25,26 +25,26 @@ async function run(automation, { fail = null, extra = { claude: '/opt/sample/bin
   }
 }
 
-// M-002-S10
-test('M-002-S10 plus-triage runs daily.mjs and then daily-triage.mjs', async () => {
+// legacy-M-002-S10
+test('legacy-M-002-S10 plus-triage runs daily.mjs and then daily-triage.mjs', async () => {
   const { calls } = await run('scheduled-discovery-plus-triage');
   assert.deepEqual(calls.map((c) => basename(c.args[0])), ['daily.mjs', 'daily-triage.mjs']);
 });
 
-// M-002-S10
-test('M-002-S10 scheduled-discovery runs daily.mjs only', async () => {
+// legacy-M-002-S10
+test('legacy-M-002-S10 scheduled-discovery runs daily.mjs only', async () => {
   const { calls } = await run('scheduled-discovery');
   assert.deepEqual(calls.map((c) => basename(c.args[0])), ['daily.mjs']);
 });
 
-// M-002-S10
-test('M-002-S10 a failing child does not make scheduledRun reject', async () => {
+// legacy-M-002-S10
+test('legacy-M-002-S10 a failing child does not make scheduledRun reject', async () => {
   await run('scheduled-discovery-plus-triage', { fail: 'daily.mjs' });
   await run('scheduled-discovery-plus-triage', { fail: 'daily-triage.mjs' });
 });
 
-// M-002-S29
-test('M-002-S29 both children start with process.execPath in the career-ops root; daily gets --via-scheduled and the flags pass through', async () => {
+// legacy-M-002-S29
+test('legacy-M-002-S29 both children start with process.execPath in the career-ops root; daily gets --via-scheduled and the flags pass through', async () => {
   const { r, calls } = await run('scheduled-discovery-plus-triage');
   assert.equal(calls.length, 2);
   for (const c of calls) {
@@ -59,8 +59,8 @@ test('M-002-S29 both children start with process.execPath in the career-ops root
   assert.equal(triage.args.includes('--via-scheduled'), false);
 });
 
-// M-002-S14
-test('M-002-S14 scheduledRun passes --agent and --agent-path to daily-triage.mjs', async () => {
+// legacy-M-002-S14
+test('legacy-M-002-S14 scheduledRun passes --agent and --agent-path to daily-triage.mjs', async () => {
   const { calls } = await run('scheduled-discovery-plus-triage', { extra: { agent: 'codex', agentPath: '/opt/sample/bin/codex' } });
   const triage = calls.find((c) => basename(c.args[0]) === 'daily-triage.mjs');
   assert.equal(triage.args[triage.args.indexOf('--agent') + 1], 'codex');
@@ -70,8 +70,8 @@ test('M-002-S14 scheduledRun passes --agent and --agent-path to daily-triage.mjs
   assert.equal(daily.args.includes('--agent'), false);
 });
 
-// M-002-S15
-test('M-002-S15 a legacy claude input still yields --claude <path> and no --agent flags', async () => {
+// legacy-M-002-S15
+test('legacy-M-002-S15 a legacy claude input still yields --claude <path> and no --agent flags', async () => {
   const { calls } = await run('scheduled-discovery-plus-triage', { extra: { claude: '/opt/sample/bin/claude' } });
   const triage = calls.find((c) => basename(c.args[0]) === 'daily-triage.mjs');
   assert.equal(triage.args[triage.args.indexOf('--claude') + 1], '/opt/sample/bin/claude');
@@ -79,8 +79,8 @@ test('M-002-S15 a legacy claude input still yields --claude <path> and no --agen
   assert.equal(triage.args.includes('--agent-path'), false);
 });
 
-// M-002-S14
-test('M-002-S14 with no agent path and no claude, daily-triage.mjs gets none of the agent flags', async () => {
+// legacy-M-002-S14
+test('legacy-M-002-S14 with no agent path and no claude, daily-triage.mjs gets none of the agent flags', async () => {
   const { calls } = await run('scheduled-discovery-plus-triage', { extra: {} });
   const triage = calls.find((c) => basename(c.args[0]) === 'daily-triage.mjs');
   for (const f of ['--agent', '--agent-path', '--claude']) assert.equal(triage.args.includes(f), false, f);

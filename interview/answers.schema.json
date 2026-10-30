@@ -305,6 +305,49 @@
           "minLength": 1
         }
       }
+    },
+    "triage_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "daily": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "enum": [
+                "all"
+              ]
+            }
+          ]
+        },
+        "first_run": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "enum": [
+                "all"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "plan": {
+      "enum": [
+        "claude-pro",
+        "claude-max",
+        "claude-ultra",
+        "chatgpt-plus",
+        "chatgpt-pro",
+        "api",
+        "unknown"
+      ]
     }
   }
 }

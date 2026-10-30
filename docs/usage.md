@@ -22,9 +22,10 @@ It makes no model call. It prints one line per step (`first-run: github-lists ok
 
 - `Pending rows: N`, followed by one `src=<source>: N` line for each source tag found on a row.
 - `Untriaged Pending rows: N`, the rows with no triage score yet.
-- Up to 20 of those rows as `url | company | title`. When more than 20 exist, the last line is `... and N more untriaged Pending rows`; with none it says `no untriaged Pending rows`. Add `--n 10` to show fewer or more.
+- `First-run triage budget: 60 rows (N scored so far, batches of 20)`, the rows the first run may score (60 by default, any whole number or `all`). First-run rows count across every date, so rerunning the interview does not hand out a fresh 60.
+- Up to 20 of those rows as `url | company | title`, never more than the rows left in the first-run budget. When more exist, the last line is `... and N more untriaged Pending rows`; with none it says `no untriaged Pending rows`; with the budget used it lists none and says the daily triage scores the rest. Add `--n 10` to show fewer or more.
 
-Claude then scores the listed rows in your session and applies the verdicts with `node student/scripts/apply-triage.mjs <file>`. `node student/scripts/rank-queue.mjs --n 10` shows your top 10. If the top list is empty, the likely causes are an empty feed that day, a field with thin coverage or titles that do not fit your graduation cycle; run the first run again tomorrow or add target employers.
+Claude then scores the listed rows in your session, applies the verdicts with `node student/scripts/apply-triage.mjs <file>` and records the count with `node student/scripts/triage-budget.mjs log <n> --first-run`. To raise the first-run budget, see the triage budget below (`set <n|all> --first-run`). `node student/scripts/rank-queue.mjs --n 10` shows your top 10. If the top list is empty, the likely causes are an empty feed that day, a field with thin coverage or titles that do not fit your graduation cycle; run the first run again tomorrow or add target employers.
 
 You can say "stop outreach" or "stop handshake" at any time. Both are on by default and either one turns the matching feature off in config/student.yml.
 
@@ -58,7 +59,24 @@ The result is `data/digest/student-<date>.md`, with one line per step, a list of
 
 ## Daily triage (optional)
 
-With `automation: scheduled-discovery-plus-triage` the installed schedule runs `node student/scripts/daily-triage.mjs` after the daily run. It sends up to `triage_daily` untriaged Pending rows (ceiling 20 a day; config can only lower it, and 0 turns it off) to one agent call that has no tools. The `agent` key in config/student.yml picks it: `claude` runs one `claude -p` call, and `codex` runs one read-only `codex exec` call with its tools disabled (a preview; see [codex.md](codex.md)). For each row it first fetches the posting text itself (cut to 6000 characters; if that fails only the title and company are sent). Only well-formed verdict lines for rows that were sent are applied, one per row; every other line is dropped and counted as ignored. It adds one line to the digest: `daily triage: triaged N, passed N, ignored N`. If claude is missing, signed out or too slow, the digest says why, pipeline.md stays as it was and the rows wait for the next day. Run the agent once in a terminal to sign in.
+With `automation: scheduled-discovery-plus-triage` the installed schedule runs `node student/scripts/daily-triage.mjs` after the daily run. It sends up to your daily triage budget of untriaged Pending rows (20 a day unless you choose another whole number or `all`; 0 turns it off), minus the rows already scored today, in calls of 20 rows. Each call is one agent call that has no tools. The `agent` key in config/student.yml picks it: `claude` runs a `claude -p` call, and `codex` runs a read-only `codex exec` call with its tools disabled (a preview; see [codex.md](codex.md)). For each chunk it first fetches the posting text itself (cut to 6000 characters; if that fails only the title and company are sent). Only well-formed verdict lines for rows that were sent are applied, one per row; every other line is dropped and counted as ignored.
+
+The digest gets a line after each chunk (`daily triage chunk k of m: triaged N, passed N, ignored N`), then `daily triage: triaged N, passed N, ignored N` and a cost line with the rows scored today and an estimate of the tokens and dollars. The run stops at the first chunk that fails; verdicts already applied stay, and the rest wait for a later day. If claude is missing, signed out or too slow, the digest says why and pipeline.md stays as it was. Run the agent once in a terminal to sign in.
+
+### Triage budget
+
+The triage budget is yours: it is model usage on your own plan, so it is not one of the `budget.mjs` limits and nothing caps it for you. Every figure the pack prints about it is an estimate; [usage-cost.md](usage-cost.md) explains how each is made, with sources.
+
+```
+node student/scripts/triage-budget.mjs status
+node student/scripts/triage-budget.mjs cost all
+node student/scripts/triage-budget.mjs set 150
+node student/scripts/triage-budget.mjs set 150 --confirm
+node student/scripts/triage-budget.mjs log 7
+node student/scripts/triage-budget.mjs calibrate 6 --rows 150 --window weekly
+```
+
+`status` shows the budgets, the rows scored today and the rows left. `cost` prices a number of rows, or `all` as the untriaged Pending rows there are now. `set` without `--confirm` writes nothing and prints the estimate; the same command with `--confirm` writes `triage_budget.daily` (add `--first-run` for the first-run budget). `log` records rows a session triaged, so they count today. `calibrate` stores your own before-and-after reading from `/usage` or `/status`. You can ask for a change in a session too; it runs the same two steps and asks you first.
 
 ## Mail: the inbox step
 
