@@ -270,6 +270,10 @@ function checkInbox() {
   return mails.length === Object.keys(INBOX_EXPECT).length ? fails : [...fails, 'inbox sample'];
 }
 
+// Every step runs through spawnSync and the awaits around them resolve at once, so without a turn of the event loop a
+// SIGINT handler would not run until the whole run had finished.
+const settle = () => new Promise((res) => setImmediate(res));
+
 async function runSet(args) {
   try {
     return await runSetSteps(args);
@@ -289,13 +293,16 @@ async function runSetSteps({ upstream, scratch, set, today, feeds }) {
     for (let n = 1; n <= ROWS.length; n++) per.rows[n].push('setup');
     return per;
   }
+  await settle();
   const answers = readJson(join(FIXTURES, 'answers', `${set}.json`));
   const apply = student(dir, join('interview', 'apply-answers.mjs'), ['data/interview-answers.json', '--root', dir, '--today', today]);
   Object.assign(per.rows, checkSetup({ dir, set, apply }));
+  await settle();
   const { tags, rows } = feeds === 'fixtures' ? readStaging(set) : { tags: [], rows: [] };
   if (feeds === 'fixtures') writeFileSync(join(dir, 'data', 'pipeline.staging.md'), `${rows.join('\n')}\n`);
   else run(process.execPath, [join(dir, 'plugins.mjs'), 'enable', 'github-lists', '--confirm'], { cwd: dir });
   const first = student(dir, join('scripts', 'first-run.mjs'), ['--root', dir, '--today', today]);
+  await settle();
   const count = (label) => Number(new RegExp(`^${label}: (\\d+)`, 'm').exec(first.stdout)?.[1] ?? 0);
   const triage = await standInTriage({ dir, answers });
   const top = rank(dir, 10, today);
@@ -303,6 +310,7 @@ async function runSetSteps({ upstream, scratch, set, today, feeds }) {
   per.rows[5].push(...ranking.fails);
   if (first.code !== 0) per.rows[6].push('first-run exit');
   if (top.picks.length < TOP_WANTED) per.rows[6].push(top.picks.length ? 'top list under 10' : 'top list empty');
+  await settle();
   per.rows[4].push(...checkDaily({ dir, today }));
   per.rows[7].push(...checkResumeGuard({ dir, set }));
   per.rows[9].push(...checkGates({ dir, today }));
