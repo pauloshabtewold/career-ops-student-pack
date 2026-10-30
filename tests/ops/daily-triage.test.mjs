@@ -18,8 +18,8 @@ const withRoot = async (opts, fn) => {
   }
 };
 
-// M-002-S6
-test('M-003-S13 M-002-S6 sends at most triage_daily untriaged rows and applies only verdicts for sent urls, counts in digest', () =>
+// legacy-M-002-S6
+test('legacy-M-003-S13 legacy-M-002-S6 sends at most triage_daily untriaged rows and applies only verdicts for sent urls, counts in digest', () =>
   withRoot(
     {
       config: `${PLUS}limits:\n  triage_daily: 3\n`,
@@ -45,8 +45,8 @@ test('M-003-S13 M-002-S6 sends at most triage_daily untriaged rows and applies o
     },
   ));
 
-// M-002-S7
-test('M-002-S7 limits.triage_daily 5 caps the batch at 5', () =>
+// legacy-M-002-S7
+test('legacy-M-002-S7 limits.triage_daily 5 caps the batch at 5', () =>
   withRoot({ config: `${PLUS}limits:\n  triage_daily: 5\n`, pending: untriaged(12) }, async (r) => {
     const { runner, calls } = makeRunner(r);
     await dailyTriage({ ...args(r), runner });
@@ -55,16 +55,52 @@ test('M-002-S7 limits.triage_daily 5 caps the batch at 5', () =>
     assert.equal(calls.fetch.length, 5);
   }));
 
-// M-002-S7
-test('M-002-S7 a configured triage_daily of 50 is clamped to the ceiling of 20', () =>
+// M-001-S11
+test('M-001-S11 a legacy limits.triage_daily of 50 is not clamped: all 25 untriaged rows are sent', () =>
   withRoot({ config: `${PLUS}limits:\n  triage_daily: 50\n`, pending: untriaged(25) }, async (r) => {
     const { runner, calls } = makeRunner(r);
     await dailyTriage({ ...args(r), runner });
-    assert.equal(sentUrls(calls.claude[0].opts.input).size, 20);
+    assert.ok(calls.claude.length >= 1);
+    assert.equal(sentUrls(calls.claude.map((c) => c.opts.input).join('\n')).size, 25);
   }));
 
-// M-002-S8
-test('M-002-S8 a non-zero claude exit leaves pipeline.md unchanged and writes a digest note quoting stderr and the sign-in hint', () =>
+// M-001-S11
+test('M-001-S11 triage_budget.daily 5 sends 5 rows', () =>
+  withRoot({ config: `${PLUS}triage_budget:\n  daily: 5\n`, pending: untriaged(12) }, async (r) => {
+    const { runner, calls } = makeRunner(r);
+    await dailyTriage({ ...args(r), runner });
+    assert.equal(sentUrls(calls.claude.map((c) => c.opts.input).join('\n')).size, 5);
+  }));
+
+// M-001-S11
+test('M-001-S11 triage_budget.daily 0 writes the daily triage off note and starts no agent', () =>
+  withRoot({ config: `${PLUS}triage_budget:\n  daily: 0\n`, pending: untriaged(3) }, async (r) => {
+    const before = r.read('data/pipeline.md');
+    const { runner, calls } = makeRunner(r);
+    await dailyTriage({ ...args(r), runner });
+    assert.equal(calls.claude.length + calls.codex.length + calls.fetch.length, 0);
+    assert.equal(r.read('data/pipeline.md'), before);
+    assert.match(r.read(digestFile(r)), /daily triage off/i);
+  }));
+
+// M-001-S11
+test('M-001-S11 triage_budget.daily all sends every untriaged Pending row', () =>
+  withRoot({ config: `${PLUS}triage_budget:\n  daily: all\n`, pending: untriaged(25) }, async (r) => {
+    const { runner, calls } = makeRunner(r);
+    await dailyTriage({ ...args(r), runner });
+    assert.equal(sentUrls(calls.claude.map((c) => c.opts.input).join('\n')).size, 25);
+  }));
+
+// M-001-S11
+test('M-001-S11 triage_budget.daily 5 wins over a legacy limits.triage_daily of 50', () =>
+  withRoot({ config: `${PLUS}triage_budget:\n  daily: 5\nlimits:\n  triage_daily: 50\n`, pending: untriaged(12) }, async (r) => {
+    const { runner, calls } = makeRunner(r);
+    await dailyTriage({ ...args(r), runner });
+    assert.equal(sentUrls(calls.claude.map((c) => c.opts.input).join('\n')).size, 5);
+  }));
+
+// legacy-M-002-S8
+test('legacy-M-002-S8 a non-zero claude exit leaves pipeline.md unchanged and writes a digest note quoting stderr and the sign-in hint', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const fail = () => {
@@ -79,8 +115,8 @@ test('M-002-S8 a non-zero claude exit leaves pipeline.md unchanged and writes a 
     assert.match(digest, /sign/i);
   }));
 
-// M-002-S8
-test('M-002-S8 a missing claude binary leaves pipeline.md unchanged and writes a digest note', () =>
+// legacy-M-002-S8
+test('legacy-M-002-S8 a missing claude binary leaves pipeline.md unchanged and writes a digest note', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const missing = () => {
@@ -92,8 +128,8 @@ test('M-002-S8 a missing claude binary leaves pipeline.md unchanged and writes a
     assert.match(r.read(digestFile(r)), /claude/i);
   }));
 
-// M-002-S9
-test('M-002-S9 automation scheduled-discovery never starts claude', () =>
+// legacy-M-002-S9
+test('legacy-M-002-S9 automation scheduled-discovery never starts claude', () =>
   withRoot({ config: 'automation: scheduled-discovery\n', pending: untriaged(3) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const { runner, calls } = makeRunner(r);
@@ -102,8 +138,8 @@ test('M-002-S9 automation scheduled-discovery never starts claude', () =>
     assert.equal(r.read('data/pipeline.md'), before);
   }));
 
-// M-002-S20
-test('M-002-S20 an effective triage_daily of 0 starts no claude and writes the daily triage off note', () =>
+// legacy-M-002-S20
+test('legacy-M-002-S20 an effective triage_daily of 0 starts no claude and writes the daily triage off note', () =>
   withRoot({ config: `${PLUS}limits:\n  triage_daily: 0\n`, pending: untriaged(3) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const { runner, calls } = makeRunner(r);
@@ -113,8 +149,8 @@ test('M-002-S20 an effective triage_daily of 0 starts no claude and writes the d
     assert.match(r.read(digestFile(r)), /daily triage off/i);
   }));
 
-// M-002-S22
-test('M-002-S22 exactly 20 untriaged rows with the default limit go to claude in one prompt', () =>
+// legacy-M-002-S22
+test('legacy-M-002-S22 exactly 20 untriaged rows with the default limit go to claude in one prompt', () =>
   withRoot({ pending: untriaged(20) }, async (r) => {
     const { runner, calls } = makeRunner(r);
     await dailyTriage({ ...args(r), runner });
@@ -122,8 +158,8 @@ test('M-002-S22 exactly 20 untriaged rows with the default limit go to claude in
     assert.equal(sentUrls(calls.claude[0].opts.input).size, 20);
   }));
 
-// M-002-S23
-test('M-002-S23 malformed TRIAGE lines are dropped, counted ignored and their rows stay untriaged', () =>
+// legacy-M-002-S23
+test('legacy-M-002-S23 malformed TRIAGE lines are dropped, counted ignored and their rows stay untriaged', () =>
   withRoot({ pending: untriaged(4) }, async (r) => {
     const out = [
       verdict('PASS', jobUrl(1), '4.0'),
@@ -141,9 +177,9 @@ test('M-002-S23 malformed TRIAGE lines are dropped, counted ignored and their ro
     assert.ok(countIs(digest, 'triaged', 1), digest);
   }));
 
-// M-002-S25
-// M-002-S18: with agent claude the call stays -p --tools '' --model sonnet|opus.
-test('M-002-S25 claude starts from the --claude path in the career-ops root with --tools "" and the posting text on stdin', () =>
+// legacy-M-002-S25
+// legacy-M-002-S18: with agent claude the call stays -p --tools '' --model sonnet|opus.
+test('legacy-M-002-S25 claude starts from the --claude path in the career-ops root with --tools "" and the posting text on stdin', () =>
   withRoot({ config: `${PLUS}spend_tier: premium\n`, pending: untriaged(2) }, async (r) => {
     const { runner, calls } = makeRunner(r, { fetch: (url) => (url === jobUrl(2) ? 'x'.repeat(9000) : `Posting body for ${url}`) });
     await dailyTriage({ ...args(r, { claude: '/opt/sample bin/claude' }), runner });
@@ -163,8 +199,8 @@ test('M-002-S25 claude starts from the --claude path in the career-ops root with
     }
   }));
 
-// M-002-S25
-test('M-002-S25 standard spend tier uses sonnet and a missed fetch falls back to title and company', () =>
+// legacy-M-002-S25
+test('legacy-M-002-S25 standard spend tier uses sonnet and a missed fetch falls back to title and company', () =>
   withRoot({ pending: [line(jobUrl(1), 'Sample Labs', 'Backend Intern', 'Remote', 'src=handshake')] }, async (r) => {
     const miss = () => {
       throw new Error('fetch failed');
@@ -177,8 +213,8 @@ test('M-002-S25 standard spend tier uses sonnet and a missed fetch falls back to
     assert.match(c.opts.input, /Backend Intern/);
   }));
 
-// M-002-S26
-test('M-002-S26 a claude child past the timeout leaves pipeline.md unchanged and writes a digest note', () =>
+// legacy-M-002-S26
+test('legacy-M-002-S26 a claude child past the timeout leaves pipeline.md unchanged and writes a digest note', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const slow = () => {
@@ -191,8 +227,8 @@ test('M-002-S26 a claude child past the timeout leaves pipeline.md unchanged and
     assert.match(r.read(digestFile(r)), /time.?out|timed out/i);
   }));
 
-// M-002-S31
-test('M-002-S31 extra TRIAGE output for an unsent url or a repeated url is dropped and counted ignored', () =>
+// legacy-M-002-S31
+test('legacy-M-002-S31 extra TRIAGE output for an unsent url or a repeated url is dropped and counted ignored', () =>
   withRoot(
     { pending: [...untriaged(2), line(jobUrl(3), 'Example Robotics', 'Data Intern', 'Remote', 'triage=3.0; reason=earlier')] },
     async (r) => {
@@ -216,8 +252,8 @@ test('M-002-S31 extra TRIAGE output for an unsent url or a repeated url is dropp
     },
   ));
 
-// M-002-S34
-test('M-002-S34 on win32 a .cmd claude path with a space is wrapped in double quotes and run with shell true', () =>
+// legacy-M-002-S34
+test('legacy-M-002-S34 on win32 a .cmd claude path with a space is wrapped in double quotes and run with shell true', () =>
   withRoot({ pending: untriaged(1) }, async (r) => {
     const real = Object.getOwnPropertyDescriptor(process, 'platform');
     Object.defineProperty(process, 'platform', { value: 'win32' });

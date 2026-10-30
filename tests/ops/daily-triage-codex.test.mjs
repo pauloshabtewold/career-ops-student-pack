@@ -56,8 +56,8 @@ async function isolated(fn, { withCodex = false } = {}) {
   }
 }
 
-// M-002-S4
-test('M-002-S4 agent codex makes one call: argv shape, prompt on stdin, verdicts from the -o file applied', () =>
+// legacy-M-002-S4
+test('legacy-M-002-S4 agent codex makes one call: argv shape, prompt on stdin, verdicts from the -o file applied', () =>
   withRoot({ pending: untriaged(3) }, async (r) => {
     const out = ['Here is my review.', verdict('PASS', jobUrl(1), '4.2'), verdict('FAIL', jobUrl(2), '1.0', 'wrong field')].join('\n');
     const { runner, calls } = makeRunner(r, { codex: answer(out) });
@@ -84,8 +84,8 @@ test('M-002-S4 agent codex makes one call: argv shape, prompt on stdin, verdicts
     assert.equal(rowsOf(pipeline, 'Pending').find((x) => x.url === jobUrl(3)).notes.has('triage'), false);
   }));
 
-// M-002-S5
-test('M-002-S5 with 25 untriaged rows and triage_daily 5 only 5 reach the codex prompt', () =>
+// legacy-M-002-S5
+test('legacy-M-002-S5 with 25 untriaged rows and triage_daily 5 only 5 reach the codex prompt', () =>
   withRoot({ config: `${CODEX_CFG}limits:\n  triage_daily: 5\n`, pending: untriaged(25) }, async (r) => {
     const { runner, calls } = makeRunner(r);
     await dailyTriage({ ...codexArgs(r), runner });
@@ -94,8 +94,8 @@ test('M-002-S5 with 25 untriaged rows and triage_daily 5 only 5 reach the codex 
     assert.equal(calls.fetch.length, 5);
   }));
 
-// M-002-S6
-test('M-002-S6 codex exiting 1 leaves pipeline.md unchanged and writes one digest line with the first stderr line and the sign-in step', () =>
+// legacy-M-002-S6
+test('legacy-M-002-S6 codex exiting 1 leaves pipeline.md unchanged and writes one digest line with the first stderr line and the sign-in step', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const { runner } = makeRunner(r, { codex: failing({ status: 1, stderr: 'Authentication required\nsecond line' }) });
@@ -108,8 +108,8 @@ test('M-002-S6 codex exiting 1 leaves pipeline.md unchanged and writes one diges
     assert.doesNotMatch(r.read(digestFile(r)), /second line/);
   }));
 
-// M-002-S7
-test('M-002-S7 codex exiting 0 without an -o file, or with an empty one, writes "codex wrote no answer" and leaves pipeline.md unchanged', () =>
+// legacy-M-002-S7
+test('legacy-M-002-S7 codex exiting 0 without an -o file, or with an empty one, writes "codex wrote no answer" and leaves pipeline.md unchanged', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     for (const codex of [() => '', answer('')]) {
@@ -121,8 +121,8 @@ test('M-002-S7 codex exiting 0 without an -o file, or with an empty one, writes 
     }
   }));
 
-// M-002-S8
-test('M-002-S8 no codex binary found writes one digest line naming codex and schedule.mjs install and makes no agent call', () =>
+// legacy-M-002-S8
+test('legacy-M-002-S8 no codex binary found writes one digest line naming codex and schedule.mjs install and makes no agent call', () =>
   isolated(async () => {
       const r = makeTriageRoot({ config: CODEX_CFG, pending: untriaged(2) });
       try {
@@ -140,8 +140,8 @@ test('M-002-S8 no codex binary found writes one digest line naming codex and sch
       }
     }));
 
-// M-002-S9
-test('M-002-S9 win32 with a codex.cmd path runs with shell true, quoted program, -C and -o, and no posting text in argv', () =>
+// legacy-M-002-S9
+test('legacy-M-002-S9 win32 with a codex.cmd path runs with shell true, quoted program, -C and -o, and no posting text in argv', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const winCodex = 'C:\\Users\\Sample Student\\AppData\\Roaming\\npm\\codex.cmd';
     const { runner, calls } = makeRunner(r, { codex: answer(verdict('PASS', jobUrl(1), '4.2')) });
@@ -162,8 +162,8 @@ test('M-002-S9 win32 with a codex.cmd path runs with shell true, quoted program,
     assert.equal(rowsOf(r.read('data/pipeline.md'), 'Pending').find((x) => x.url === jobUrl(1)).notes.get('triage'), '4.2');
   }));
 
-// M-002-S10
-test('M-002-S10 spend_tier standard passes model_reasoning_effort=medium, premium passes high, and -m is never passed', async () => {
+// legacy-M-002-S10
+test('legacy-M-002-S10 spend_tier standard passes model_reasoning_effort=medium, premium passes high, and -m is never passed', async () => {
   for (const [tier, effort] of [['standard', 'medium'], ['premium', 'high']]) {
     await withRoot({ config: `${CODEX_CFG}spend_tier: ${tier}\n`, pending: untriaged(2) }, async (r) => {
       const { runner, calls } = makeRunner(r);
@@ -176,8 +176,8 @@ test('M-002-S10 spend_tier standard passes model_reasoning_effort=medium, premiu
   }
 });
 
-// M-002-S15
-test('M-002-S15 a legacy claude path with no agent runs claude at that path with -p --tools "" --model', () =>
+// legacy-M-002-S15
+test('legacy-M-002-S15 a legacy claude path with no agent runs claude at that path with -p --tools "" --model', () =>
   withRoot({ config: PLUS, pending: untriaged(2) }, async (r) => {
     const { runner, calls } = makeRunner(r, { claude: () => verdict('PASS', jobUrl(1), '4.2') });
     await dailyTriage({ ...args(r), runner });
@@ -190,8 +190,8 @@ test('M-002-S15 a legacy claude path with no agent runs claude at that path with
     assert.match(a[a.indexOf('--model') + 1], /^(sonnet|opus)$/);
   }));
 
-// M-002-S16
-test('M-002-S16 --agent claude with config agent codex ignores --agent-path, resolves codex and adds the run-install-again hint', () =>
+// legacy-M-002-S16
+test('legacy-M-002-S16 --agent claude with config agent codex ignores --agent-path, resolves codex and adds the run-install-again hint', () =>
   isolated(
     async () => {
       const r = makeTriageRoot({ config: CODEX_CFG, pending: untriaged(2) });
@@ -211,8 +211,8 @@ test('M-002-S16 --agent claude with config agent codex ignores --agent-path, res
     { withCodex: true },
   ));
 
-// M-002-S17
-test('M-002-S17 the -o temp folder is gone after a successful call and after each failed one', async () => {
+// legacy-M-002-S17
+test('legacy-M-002-S17 the -o temp folder is gone after a successful call and after each failed one', async () => {
   const cases = {
     success: answer(verdict('PASS', jobUrl(1), '4.2')),
     exit1: failing({ status: 1, stderr: 'Authentication required' }),
@@ -231,8 +231,8 @@ test('M-002-S17 the -o temp folder is gone after a successful call and after eac
   }
 });
 
-// M-002-S19
-test('M-002-S19 codex exiting 2 reports its first stderr line and "update codex or the pack" without the sign-in hint', () =>
+// legacy-M-002-S19
+test('legacy-M-002-S19 codex exiting 2 reports its first stderr line and "update codex or the pack" without the sign-in hint', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const { runner } = makeRunner(r, { codex: failing({ status: 2, stderr: 'Error: Unknown feature flag: shell_tool\nusage: codex exec' }) });
@@ -245,8 +245,8 @@ test('M-002-S19 codex exiting 2 reports its first stderr line and "update codex 
     assert.doesNotMatch(digest, /usage: codex exec/);
   }));
 
-// M-002-S20
-test('M-002-S20 a codex call that throws ETIMEDOUT writes "codex timed out after 15 minutes", leaves pipeline.md unchanged and resolves', () =>
+// legacy-M-002-S20
+test('legacy-M-002-S20 a codex call that throws ETIMEDOUT writes "codex timed out after 15 minutes", leaves pipeline.md unchanged and resolves', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const before = r.read('data/pipeline.md');
     const { runner } = makeRunner(r, { codex: failing({ code: 'ETIMEDOUT', signal: 'SIGTERM' }) });
@@ -255,8 +255,8 @@ test('M-002-S20 a codex call that throws ETIMEDOUT writes "codex timed out after
     assert.match(r.read(digestFile(r)), /codex timed out after 15 minutes/);
   }));
 
-// M-002-S21
-test('M-002-S21 the codex argv carries --ignore-user-config, --disable hooks and -c web_search=disabled, and -C and cwd are the temp folder', () =>
+// legacy-M-002-S21
+test('legacy-M-002-S21 the codex argv carries --ignore-user-config, --disable hooks and -c web_search=disabled, and -C and cwd are the temp folder', () =>
   withRoot({ pending: untriaged(2) }, async (r) => {
     const { runner, calls } = makeRunner(r);
     await dailyTriage({ ...codexArgs(r), runner });
