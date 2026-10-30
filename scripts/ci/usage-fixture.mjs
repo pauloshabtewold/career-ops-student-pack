@@ -22,10 +22,11 @@ export function syntheticPostings(n) {
 export const fixturePrompt = (n) => buildPrompt({ brief: BRIEF, postings: syntheticPostings(n) });
 
 // The calls differ from daily-triage.mjs only in the usage readout flag (--output-format json, --json) and, for codex, a
-// placeholder folder for -C, because the measurement reads usage from stdout, not from the -o file.
+// placeholder folder for -C, because the measurement reads usage from stdout, not from the -o file. Run the claude call
+// from the career-ops folder of an install, where the settings path resolves and career-ops' CLAUDE.md is excluded.
 const show = (args) => args.map((a) => (a === '' ? "''" : a)).join(' ');
 export function measurementArgv() {
-  const claude = ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'sonnet', '--output-format', 'json'];
+  const claude = ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', 'student/templates/triage-claude-settings.json', '--model', 'sonnet', '--output-format', 'json'];
   const codex = [
     '-a', 'never', 'exec', '--ephemeral', '--skip-git-repo-check', ...CODEX_EXTRA_FLAGS, '-s', 'read-only', '--color', 'never',
     ...CODEX_DISABLED_FEATURES.flatMap((f) => ['--disable', f]),

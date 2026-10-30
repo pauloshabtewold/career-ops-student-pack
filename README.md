@@ -25,7 +25,7 @@ Supported: macOS and Windows 11, Claude Code or Codex, US job markets.
 
 ## Requirements
 
-- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code) or Codex (a preview; see [docs/codex.md](docs/codex.md)), signed in
+- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code) or Codex (Windows and the browser steps are a preview; see [docs/codex.md](docs/codex.md)), signed in
 - Node 22.13 or newer, and git
 - A clone of career-ops at version 1.38.0 or newer (the pack refuses to install on an older one)
 

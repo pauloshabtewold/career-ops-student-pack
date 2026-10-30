@@ -4,6 +4,9 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-022: the claude triage call also passes `--settings student/templates/triage-claude-settings.json`, which excludes CLAUDE.md, so career-ops' 88 KB AGENTS.md no longer adds about 33,000 input tokens to every call; a live 45-row run came within 7% of the estimate on input
+- W-022: the codex triage call also disables image generation, goals and the image viewer, which a live tool listing still showed; an "Unknown feature flag" exit now says to update codex or the pack instead of to sign in
+- W-022: `templates/codex-config.suggested.toml` keys the Gmail tools by the connector id and turns off all 11 that change mail; a live run showed only the 10 read tools; `docs/codex.md` describes the trust step as checked live, and the Codex triage is no longer a preview on macOS (Windows and the browser stay a preview)
 - W-021: new `nyc-jobs` plugin 1.0.0 reads student and entry-level City of New York postings from the keyless NYC Open Data Jobs NYC Postings dataset; presets gain `sources.nyc_jobs`, policy-government turns it on, and the daily and first runs add a `nyc-jobs` step after `github-lists` when the student has enabled the plugin; the interview offers it to policy-government students behind its capability card and enables it only after a yes
 - W-016: the triage budget moves from the `budget.mjs` ceiling to `triage_budget` in config/student.yml (default 20 rows a day and 60 on the first run, a whole number or "all") and a new `plan` key; `scripts/triage-budget.mjs` shows, prices, sets (only with `--confirm`) and logs it
 - W-016: the daily triage sends rows in calls of 20, stops at the first failed call, counts every row sent in `data/triage-usage.tsv` and adds a cost line to the digest; the scheduled child timeout scales with the chunks; the claude call ignores user settings and MCP servers (`--setting-sources project --strict-mcp-config`)

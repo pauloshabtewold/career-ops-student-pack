@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { dailyTriage } from '../../scripts/daily-triage.mjs';
-import { PLUS, args, jobUrl, line, makeRunner, makeTriageRoot, readLedger, sentUrls, untriaged, verdict, BRIEF_MARKER, TODAY, digestFile } from '../helpers/triage-harness.mjs';
+import { PLUS, args, jobUrl, line, makeRunner, makeTriageRoot, readLedger, sentUrls, untriaged, verdict, BRIEF_MARKER, TODAY, digestFile, claudeArgs, CLAUDE_SETTINGS } from '../helpers/triage-harness.mjs';
 import { rowsOf, urlsOf } from '../helpers/script-harness.mjs';
 
 const countIs = (digest, word, n) => new RegExp(`${word}\\D{0,8}\\b${n}\\b|\\b${n}\\s+${word}`, 'i').test(digest);
@@ -188,7 +188,7 @@ test('legacy-M-002-S25 M-002-S2 claude starts from the --claude path in the care
     const c = calls.claude[0];
     assert.equal(c.cmd, '/opt/sample bin/claude');
     assert.equal(c.opts.cwd, r.root);
-    assert.deepEqual(c.args, ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'opus']);
+    assert.deepEqual(c.args, claudeArgs('opus'));
     assert.equal(c.opts.timeout, 15 * 60 * 1000);
     assert.match(c.opts.input, /Posting body for https:\/\/example\.com\/jobs\/1/);
     assert.ok(c.opts.input.includes(BRIEF_MARKER), 'prompt carries the triage rules from modes/_brief.md');
@@ -210,7 +210,7 @@ test('legacy-M-002-S25 standard spend tier uses sonnet and a missed fetch falls 
     const { runner, calls } = makeRunner(r, { fetch: miss });
     await dailyTriage({ ...args(r), runner });
     const c = calls.claude[0];
-    assert.deepEqual(c.args, ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'sonnet']);
+    assert.deepEqual(c.args, claudeArgs('sonnet'));
     assert.match(c.opts.input, /Sample Labs/);
     assert.match(c.opts.input, /Backend Intern/);
   }));
@@ -267,6 +267,8 @@ test('legacy-M-002-S34 on win32 a .cmd claude path with a space is wrapped in do
       const c = calls.claude[0];
       assert.equal(c.cmd, `"${cmdPath}"`);
       assert.equal(c.opts.shell, true);
+      // W-022: the settings path goes through cmd.exe too, so it is quoted the same way.
+      assert.equal(c.args[c.args.indexOf('--settings') + 1], `"${CLAUDE_SETTINGS}"`);
     } finally {
       Object.defineProperty(process, 'platform', real);
     }

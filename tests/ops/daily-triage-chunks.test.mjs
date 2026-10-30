@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dailyTriage } from '../../scripts/daily-triage.mjs';
-import { PLUS, TODAY, args, digestFile, jobUrl, makeRunner, makeTriageRoot, readLedger, sentUrls, untriaged, verdict, writeLedger } from '../helpers/triage-harness.mjs';
+import { PLUS, TODAY, args, digestFile, jobUrl, makeRunner, makeTriageRoot, readLedger, sentUrls, untriaged, verdict, writeLedger, claudeArgs } from '../helpers/triage-harness.mjs';
 import { rowsOf } from '../helpers/script-harness.mjs';
 
 const BUDGET = (daily) => `${PLUS}triage_budget:\n  daily: ${daily}\n`;
@@ -56,7 +56,7 @@ test('M-002-S2 every claude call of a chunked run carries --setting-sources proj
     await dailyTriage({ ...args(r), runner });
     assert.equal(calls.claude.length, 2);
     for (const c of calls.claude) {
-      assert.deepEqual(c.args, ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'sonnet']);
+      assert.deepEqual(c.args, claudeArgs('sonnet'));
       assert.ok(sentUrls(c.opts.input).size > 0);
     }
   }));

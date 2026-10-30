@@ -63,6 +63,7 @@ test('M-001-S6 --print-argv prints the claude and codex argv used for the measur
   assert.equal(out.status, 0, out.stderr);
   assert.match(out.stdout, /--setting-sources project/);
   assert.match(out.stdout, /--strict-mcp-config/);
+  assert.match(out.stdout, /--settings student\/templates\/triage-claude-settings\.json/);
   assert.match(out.stdout, /--model sonnet/);
   assert.match(out.stdout, /--output-format json/);
   assert.match(out.stdout, /codex/);

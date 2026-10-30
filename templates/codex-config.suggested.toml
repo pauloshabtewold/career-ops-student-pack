@@ -12,26 +12,39 @@ approval_policy = "on-request"
 [sandbox_workspace_write]
 network_access = true
 
-# Gmail write tools, switched off. The keys below come from the Codex binary and are unverified: they were not checked
-# in a live Gmail run, so Codex may ignore them. They are a second guard behind the rule in AGENTS.student.md, which
-# says never to call a Gmail write tool.
-[apps.gmail.tools.send_email]
+# Gmail tools that change mail, switched off. The pack only searches and reads mail. Codex keys app settings by the
+# connector id, not by the name "gmail"; this id is the Gmail connector's own and is the same for every account. A live
+# listing run (codex-cli 0.166, trusted folder) showed none of the tools below once this file was in place, and the ten
+# read tools stayed. The rule in AGENTS.student.md, which says never to call a Gmail write tool, stays the main guard.
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.send_email]
 enabled = false
 
-[apps.gmail.tools.send_draft]
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.send_draft]
 enabled = false
 
-[apps.gmail.tools.forward_emails]
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.forward_emails]
 enabled = false
 
-[apps.gmail.tools.delete_emails]
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.delete_emails]
 enabled = false
 
-[apps.gmail.tools.trash_emails]
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.archive_emails]
 enabled = false
 
-[apps.gmail.tools.archive_emails]
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.create_draft]
 enabled = false
 
-[apps.gmail.tools.create_draft]
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.update_draft]
+enabled = false
+
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.batch_modify_email]
+enabled = false
+
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.apply_labels_to_emails]
+enabled = false
+
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.bulk_label_matching_emails]
+enabled = false
+
+[apps.connector_2128aebfecb84f64a069897515042a44.tools.create_label]
 enabled = false

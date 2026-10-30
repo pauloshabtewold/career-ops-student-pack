@@ -37,10 +37,26 @@ A first run tried a remote update check, which the sandbox blocked, and the run 
 
 Only shell and apply_patch. No MCP, web, browser or Gmail call happened in any run. The Gmail connector exposes 21 tools, including send, forward and delete ones, so the suggested config disables the write tools. Two read tools, search and read, showed up through tool discovery.
 
+## Live checks on macOS (codex-cli 0.166.0-alpha.5.1)
+
+| Check | Result |
+|---|---|
+| Triage argv in an empty folder, asked to list its tools and call none | no Gmail, browser, MCP server, web or shell tool; MCP resource listing returned 0 servers |
+| `functions.exec` in that call | a JavaScript runner without `require`, `process` or `fetch` |
+| Image generation, goals and image viewer before they were disabled | listed; gone once disabled |
+| An unknown `--disable` name | exit 1 with "Unknown feature flag" |
+| Daily triage of 45 synthetic rows, budget `all` | 3 calls of 20, 20 and 5 rows, 3 ledger rows, cost line in the digest, 31 s |
+| Measured tokens against the estimate for those 45 rows | input +1%, output +11% |
+| Gmail tools listed in a folder with the suggested config, untrusted | 21; the project config is skipped without a warning |
+| Same folder, trusted | 10 read tools; the 11 that change mail are gone |
+| `codex exec -s workspace-write` in an untrusted folder | writes a trust entry to the user config; that run still ignores the project config |
+| `codex exec -s read-only` in an untrusted folder | writes nothing |
+
+One triage call stalled for the full 15-minute timeout while other Codex runs used the same account at the same time. The digest said "codex timed out after 15 minutes" and the ledger counted the chunk as failed. Run alone, the same triage finished in 31 s.
+
 ## Needs a real account
 
 - Gmail connector search and read through Codex.
 - A live browser run on a real job page.
-- The Windows codex.exe location and a Task Scheduler dry run.
+- The Windows codex.exe location, a Task Scheduler dry run and a Windows triage run that lists its tools.
 - A live interview with a person answering.
-- A live triage run that lists its tools and shows none reachable.

@@ -1,6 +1,6 @@
 # Codex
 
-Codex support is a preview. The interview, the first run, the daily run and the inbox work in Codex the same way they do in Claude Code. The unattended triage is the part that has had the least checking; see the list at the end. Counts and verdicts from the probing are in [codex-spike.md](codex-spike.md).
+On macOS, the interview, the first run, the daily run, the inbox and the unattended triage work in Codex the same way they do in Claude Code; the triage lockdown and the Gmail keys were checked in live runs. Windows and the browser steps are still a preview; see the list at the end. Counts and verdicts from the probing are in [codex-spike.md](codex-spike.md).
 
 ## What Codex reads
 
@@ -27,11 +27,13 @@ mkdir -p .codex
 cp student/templates/codex-config.suggested.toml .codex/config.toml
 ```
 
-On Windows, make a `.codex` folder and copy the file into it under the name config.toml. Codex reads a project config only for a trusted folder, so accept its trust prompt for the folder when it asks. A `codex exec` run with the workspace-write sandbox does not ask: its first run in the folder marks the folder trusted in your own Codex settings, the same as accepting the prompt. The template raises the instruction limit, picks the workspace-write sandbox with network access and switches off the Gmail write tools.
+On Windows, make a `.codex` folder and copy the file into it under the name config.toml. The template raises the instruction limit, picks the workspace-write sandbox with network access and switches off the Gmail tools that change mail.
+
+Codex reads a project config only for a trusted folder. In a folder it does not trust, it skips `.codex/config.toml` without a warning; the header of a `codex exec` run then says `sandbox: read-only` where the template asks for workspace-write. To trust the folder, start `codex` in it once and accept its trust prompt. A `codex exec` run with `-s workspace-write` does not ask: it writes the trust entry into your own Codex settings by itself, even with `--ephemeral`. That first run still ignores the project config, and the next run uses it. A read-only `codex exec` run, such as the scheduled triage, writes no trust entry.
 
 The pack leaves your own Codex settings alone. If you skip the template, the limit can be raised per run with `-c project_doc_max_bytes=131072`.
 
-The Gmail tool keys in the template come from the Codex binary and are unverified. The rule in `AGENTS.student.md` that forbids Gmail send, forward, delete, trash, archive and draft calls is the main guard; the keys are a second one.
+The template turns off 11 Gmail tools: send, send draft, forward, delete, archive, create and update draft, and the four label and modify tools, because a label change can archive or trash mail. Codex keys app settings by the connector id, so the entries read `[apps.connector_2128aebfecb84f64a069897515042a44.tools.send_email]`; an `[apps.gmail...]` entry has no effect. A live run in a trusted folder, asked to list its Gmail tools and call none, showed only the 10 read tools with the template in place and all 21 without it. The rule in `AGENTS.student.md` that forbids Gmail send, forward, delete, trash, archive and draft calls is still the main guard; the template is a second one.
 
 ## After an update
 
@@ -42,10 +44,12 @@ The Gmail tool keys in the template come from the Codex binary and are unverifie
 With `automation: scheduled-discovery-plus-triage` and `agent: codex`, `node student/scripts/schedule.mjs install` sets up a schedule whose triage step runs one read-only `codex exec` call. The call has these locks:
 
 - `--ignore-user-config`, so none of your own MCP servers or hooks load
-- the apps, plugins, browser, computer-use, shell and hooks features disabled
+- the apps, plugins, browser, computer-use, shell, hooks, image generation, goals and image viewer features disabled
 - web search disabled
 
-The locks are checked by the flags being accepted, not by a live run that lists its tools. Treat the triage as a preview.
+A live run on macOS (codex-cli 0.166), asked to list every tool it could call and call none, showed no Gmail, browser, MCP server, web or shell tool. What is left is a JavaScript runner with no file, process or network access, apply_patch (blocked by the read-only sandbox) and the agent-collaboration tools. On Windows the same flags are passed but no live run has listed the tools yet, so treat the Windows triage as a preview.
+
+A codex too old to know one of the disabled feature names stops with "Unknown feature flag"; the digest then says to update codex or the pack, not to sign in.
 
 The call runs once per 20 rows of your daily triage budget. The digest carries the same lines as with Claude: a progress line per chunk, `daily triage: triaged N, passed N, ignored N`, a cost line with the rows scored today and an estimate, or a note saying why triage was skipped (agent not found, signed out, timed out). A skipped triage changes nothing and the rows wait for a later day. For what the estimate means on ChatGPT Plus and Pro, and how to read your own share with `/status`, see [usage-cost.md](usage-cost.md).
 
@@ -58,8 +62,6 @@ The browser steps (applying, the Handshake pass, LinkedIn outreach) use Claude i
 These checks need a live sign-in or a second machine and have not been done:
 
 - Gmail connector search and read through Codex.
-- The Gmail write-tool keys in the template taking effect (unverified).
 - A live browser run on a real job page.
-- The Windows codex.exe location and a Task Scheduler dry run.
+- The Windows codex.exe location, a Task Scheduler dry run and a Windows triage run that lists its tools.
 - A live interview with a person answering.
-- A live triage run asked to list its tools, showing no Gmail, browser, MCP or web tool.
