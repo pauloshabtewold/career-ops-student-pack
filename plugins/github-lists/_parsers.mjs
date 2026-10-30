@@ -80,7 +80,9 @@ function buildRows(tables, kind, today) {
   let parseErrors = 0;
   for (const { headers, cells } of tables) {
     const col = columnMap(headers);
-    if (col.company === undefined || col.title === undefined || col.link === undefined) continue;
+    if (col.company === undefined || col.title === undefined) continue;
+    // Lists with no link column (jobright) put the posting link in the title cell.
+    const linkCol = col.link ?? col.title;
     let prevCompany = '';
     for (const row of cells) {
       if (row.length !== headers.length) {
@@ -90,7 +92,7 @@ function buildRows(tables, kind, today) {
       let company = textOf(row[col.company]);
       if (CONTINUATION.has(company)) company = prevCompany;
       else prevCompany = company;
-      const cellLink = row[col.link];
+      const cellLink = row[linkCol];
       // Lock and closed markers mean the posting takes no applications.
       if (/\u{1F512}|closed/iu.test(cellLink) || /\u{1F512}/u.test(row[col.title])) continue;
       const url = firstLink(cellLink);

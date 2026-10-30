@@ -141,3 +141,17 @@ test('M-001-S9 a source with no closed mapping keeps the row', () => {
   const c = csvOf([CSV_HEAD, csvLine('', 'TRUE')], H.CSV_FIELD_MAP);
   assert.equal(c.rows.length, 1);
 });
+
+// W-017: jobright READMEs have no link column; the posting link sits in the Job Title cell.
+test('W-017 markdown-table with no link column takes the url from the title cell', () => {
+  const text = [
+    '| Company | Job Title | Location | Work Model | Date Posted |',
+    '| ----- | --------- |  --------- | ---- | ------- |',
+    '| **[Example Advisory](https://example.com/)** | **[Consulting Analyst, New Grad](https://jobright.ai/jobs/info/abc123?utm_source=1103)** | Austin, TX, United States | On Site | Oct 30 |',
+    '| **[Sample Labs](https://example.org/)** | Analyst, New Grad | Denver, CO | Remote | Oct 29 |',
+  ].join('\n');
+  const { rows } = parseSource(text, { format: 'markdown-table', kind: 'newgrad' });
+  assert.deepEqual(rows, [
+    { company: 'Example Advisory', title: 'Consulting Analyst, New Grad', location: 'Austin, TX, United States', date: 'Oct 30', url: 'https://jobright.ai/jobs/info/abc123?utm_source=1103', kind: 'newgrad' },
+  ]);
+});
