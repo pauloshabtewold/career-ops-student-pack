@@ -202,7 +202,8 @@ export function buildConfig(answers) {
   const { values: limits } = effectiveLimits({ limits: answers.limits ?? {} });
   // A limit looser than its ceiling is written as the ceiling, so the file never claims more than budget.mjs allows.
   const written = Object.fromEntries(Object.keys(answers.limits ?? {}).filter((k) => k in CEILINGS).map((k) => [k, limits[k]]));
-  const triageBudget = answers.triage_budget ?? (answers.limits?.triage_daily !== undefined ? { daily: answers.limits.triage_daily } : {});
+  const legacyDaily = answers.limits?.triage_daily;
+  const triageBudget = { ...(legacyDaily !== undefined ? { daily: legacyDaily } : {}), ...answers.triage_budget };
   const floor = Math.max(answers.score_floor ?? CEILINGS.score_floor.value, CEILINGS.score_floor.value);
   const cfg = deepMerge(
     {},

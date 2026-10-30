@@ -157,12 +157,16 @@ async function main() {
   if (flags.plan && !PLAN_IDS.includes(flags.plan)) throw new UsageError(`--plan expects one of ${PLAN_IDS.join(', ')}, got "${flags.plan}"`);
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   let config = null;
+  let configNote = null;
   try {
     config = await loadStudentConfig({ root: paths.root });
   } catch (err) {
     if (!(err instanceof ConfigError)) throw err;
-    console.log(`${err.message}; fix config/student.yml first`);
-    return 1;
+    configNote = `${err.message}; fix config/student.yml first`;
+    if (command !== 'cost') {
+      console.log(configNote);
+      return 1;
+    }
   }
   // cost needs no config: --plan and --agent let a student price a budget before the interview has run.
   if (!config && command !== 'cost') {
@@ -170,7 +174,9 @@ async function main() {
     return 1;
   }
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
-  return HANDLERS[command]({ positionals, flags, paths, config, today, out: (line) => console.log(line) });
+  const code = HANDLERS[command]({ positionals, flags, paths, config, today, out: (line) => console.log(line) });
+  if (configNote) console.log(`note: ${configNote}; this price uses the defaults`);
+  return code;
 }
 
 if (isMain(import.meta.url)) await runCli(main);

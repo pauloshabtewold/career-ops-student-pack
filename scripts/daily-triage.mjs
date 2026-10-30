@@ -18,7 +18,7 @@ import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { oneLine } from '../lib/text.mjs';
-import { ALL, CHUNK_ROWS, appendDigestLines, appendTriageUsage, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
+import { CHUNK_ROWS, appendDigestLines, appendTriageUsage, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
 import { VERDICT_RE } from '../lib/triage-verdict.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { formatCostLine } from '../lib/usage-cost.mjs';
@@ -251,7 +251,7 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   };
   const { daily, calibration, left, stop } = budgetGate({ config, dataDir, today });
   // Rows scored today come from the ledger after this run's chunks are written to it.
-  const costLine = (rows) => `daily triage cost: ${readTriageUsage(dataDir, today).today} rows scored today of a budget of ${daily === ALL ? ALL : daily}; ${formatCostLine({ agent: configured, plan: config.plan, rows, spendTier: config.spend_tier, calibration })}`;
+  const costLine = (rows) => `daily triage cost: ${readTriageUsage(dataDir, today).today} rows scored today of a budget of ${daily}; ${formatCostLine({ agent: configured, plan: config.plan, rows, spendTier: config.spend_tier, calibration })}`;
   if (stop) {
     note([stop]);
     return { ran: false };
