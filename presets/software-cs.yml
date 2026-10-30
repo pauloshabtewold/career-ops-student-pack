@@ -17,7 +17,7 @@ title_rules:
     - "product manag"
     - "backend"
     - "frontend"
-    - "full.?stack"
+    - "full(-| )?stack"
     - "platform"
     - "infrastructure"
     - "security"

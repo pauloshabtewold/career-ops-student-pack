@@ -60,7 +60,7 @@ git clone <pack-address> student
 node student/install.mjs
 ```
 
-`install.mjs` installs the pack's own packages (`npm ci --omit=dev` in the student folder) and, if career-ops has no `node_modules` yet, runs `npm install` there too. Then it writes only inside your career-ops folder: it lists the student folder and `CLAUDE.local.md` in the local-paths file in your config folder, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into upstream's local plugins folder. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again and leaves its other edits as they are.
+`install.mjs` installs the pack's own packages (`npm ci --omit=dev` in the student folder) and, if career-ops has no `node_modules` yet, runs `npm install` there too. Then it writes only inside your career-ops folder: it lists `student/`, `CLAUDE.local.md`, `AGENTS.override.md` and `.codex/config.toml` in `config/local-paths.txt`, adds the same four plus `config/student.yml` to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, generates `AGENTS.override.md` for Codex (the pack rules, then a copy of upstream's `AGENTS.md`), and copies the pack plugins into `plugins.local/`. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again and leaves its other edits as they are.
 
 **2. Open the career-ops folder in Claude Code or Codex.** Codex install steps are in [docs/codex.md](docs/codex.md). The personalization interview starts on its own the first time. It reads your resume, asks a few questions and ends with your first top 10 list of postings to apply to.
 
@@ -72,7 +72,7 @@ Applying, the Handshake pass and LinkedIn outreach run in a browser you sign in 
 
 - **Codex.** On macOS Codex uses the ChatGPT in-app browser. Windows has no Codex browser tool, so browser steps stay in Claude Code there.
 - **Claude in Chrome.** Install Google Chrome and the Claude in Chrome extension from the Chrome Web Store, then sign in to LinkedIn, Handshake and your job sites in that Chrome.
-- **Playwright.** Upstream also uses its own headless browser for some pages. In the career-ops folder run `npx playwright install chromium` once.
+- **Playwright.** Upstream also uses its own headless browser for some pages. In the career-ops folder run `npx playwright install chromium` once. Upstream's `doctor.mjs` also warns when the Playwright MCP tools are missing; the pack uses Claude in Chrome for browser steps, so that warning can be left alone.
 - **Fewer permission prompts (optional).** `templates/claude-settings.suggested.json` in the pack lists the pack commands that are safe to allow without asking each time. If you want it, merge those entries into your own Claude Code settings by hand. The pack never writes a settings file for you.
 
 ## Update
@@ -87,12 +87,22 @@ This updates the pack and career-ops together and keeps career-ops inside the ve
 
 - **Interview.** The first Claude Code session starts the personalization interview on its own; it writes config/student.yml. Running it again rewrites only the blocks the pack marked in your files and never overwrites the files `cv.md` and `profile.yml` in your career-ops folder.
 - **First run.** `node student/scripts/first-run.mjs` brings in the first postings and lists up to 20 that still need a verdict. The interview runs it for you, scores those rows in the session and shows your top 10 with `node student/scripts/rank-queue.mjs --n 10`.
-- **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it. The job starts `scheduled.mjs`, which runs the daily run and, only if you chose scheduled discovery plus triage, a capped model triage.
+- **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it. The time is read in the time zone from your interview, and install prints the matching time on the computer's clock when the two differ. The job starts `scheduled.mjs`, which runs the daily run and, only if you chose scheduled discovery plus triage, a capped model triage.
 - **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and applies the free title filter without any model call, then writes a digest in the digest folder under data. Add `--dry-run` to see the steps without running them.
 - **Inbox.** `node student/scripts/inbox.mjs` reads pasted or connector-provided mail and updates the tracker.
 - **Pilot report.** `node student/scripts/pilot-report.mjs` prints weekly counts and nothing else.
 
 Details are in [docs/usage.md](docs/usage.md); the reasoning behind the design is in [docs/architecture.md](docs/architecture.md).
+
+## Uninstall
+
+From the career-ops folder:
+
+```
+node student/uninstall.mjs
+```
+
+It removes the daily schedule (only if it runs this career-ops folder), the pack plugins through upstream's `plugins.mjs remove`, the pack blocks in `CLAUDE.local.md` and `AGENTS.override.md` (deleting each file only if nothing else is in it), and the pack lines in `config/local-paths.txt` and `.git/info/exclude`. Your data folder, `cv.md`, `profile.yml`, `portals.yml` and `config/student.yml` stay. Add `--dry-run` to see the list first. Then delete the `student` folder: `rm -rf student` on macOS, `Remove-Item -Recurse -Force student` in PowerShell.
 
 ## Switching things off
 

@@ -11,6 +11,7 @@ import { applyAnswers, AnswersError } from '../../interview/apply-answers.mjs';
 import { loadStudentConfig } from '../../lib/config.mjs';
 import { loadPreset } from '../../lib/presets.mjs';
 import { PACK_ROOT } from '../helpers/script-harness.mjs';
+import { copyPack, cleanupAll } from '../goal-check/_harness.mjs';
 
 const SETS = ['cs', 'mis', 'finance', 'mechanical', 'nursing'];
 const TODAY_M1 = '2026-10-29';
@@ -47,8 +48,8 @@ function scratch(answers, { cv = CV, template = null, portals = null } = {}) {
   };
 }
 
-function run(r) {
-  const out = spawnSync(process.execPath, [join(PACK_ROOT, 'interview', 'apply-answers.mjs'), '--root', r.root, '--data-dir', join(r.root, 'data'), '--today', TODAY_M1], { cwd: PACK_ROOT, encoding: 'utf8', timeout: 60000 });
+function run(r, pack = PACK_ROOT) {
+  const out = spawnSync(process.execPath, [join(pack, 'interview', 'apply-answers.mjs'), '--root', r.root, '--data-dir', join(r.root, 'data'), '--today', TODAY_M1], { cwd: pack, encoding: 'utf8', timeout: 60000 });
   return { code: out.status, stdout: out.stdout ?? '', stderr: out.stderr ?? '' };
 }
 
@@ -344,11 +345,15 @@ test('M-001-S19 an unmarked location_filter equal to the template key is replace
 
 // M-001-S21 edge
 test('M-001-S21 a preset include regex that cannot be expanded is left out of portals.yml and named in a note', () => {
-  const unconvertible = loadPreset('software-cs').title_rules.include.find((s) => s.includes('.?'));
-  assert.ok(unconvertible, 'software-cs ships an include regex with .?');
+  // The shipped presets all convert (W-015-P1), so a scratch copy of the pack carries one rule that cannot.
+  const unconvertible = 'full.?stack';
+  const pack = copyPack();
+  const presetFile = join(pack, 'presets', 'software-cs.yml');
+  writeFileSync(presetFile, readFileSync(presetFile, 'utf8').replace('    - "backend"\n', `    - "backend"\n    - "${unconvertible}"\n`));
+  assert.ok(readFileSync(presetFile, 'utf8').includes(`"${unconvertible}"`), 'scratch preset carries the rule');
   const r = scratch(withProfile(answersOf('cs')));
   try {
-    const res = run(r);
+    const res = run(r, pack);
     assert.equal(res.code, 0, res.stderr);
     assert.ok(res.stdout.includes(unconvertible), `note names ${unconvertible}`);
     const positive = yaml.load(r.read('portals.yml')).title_filter.positive.map(String);
@@ -356,6 +361,7 @@ test('M-001-S21 a preset include regex that cannot be expanded is left out of po
     assert.ok(positive.map((p) => p.toLowerCase()).includes('software'), 'expandable terms still written');
   } finally {
     r.cleanup();
+    cleanupAll();
   }
 });
 
