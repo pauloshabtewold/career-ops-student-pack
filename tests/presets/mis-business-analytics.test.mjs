@@ -35,10 +35,6 @@ test('M-010-S3 id, name, coverage level and sources block are unchanged', () => 
   assert.equal(p.name, 'MIS, information systems, business analytics');
   assert.equal(p.coverage.level, 'semi-automated');
   assert.deepEqual(p.sources.github_lists.map((g) => [g.name, g.repo, g.path, g.format, g.kind]), [
-    ['jobright-ba-intern', 'jobright-ai/2026-Business-Analyst-Internship', 'README.md', 'markdown-table', 'internship'],
-    ['jobright-ba-newgrad', 'jobright-ai/2026-Business-Analyst-New-Grad', 'README.md', 'markdown-table', 'newgrad'],
-    ['jobright-da-intern', 'jobright-ai/2026-Data-Analysis-Internship', 'README.md', 'markdown-table', 'internship'],
-    ['jobright-da-newgrad', 'jobright-ai/2026-Data-Analysis-New-Grad', 'README.md', 'markdown-table', 'newgrad'],
     ['simplify-intern', 'SimplifyJobs/Summer2027-Internships', '.github/scripts/listings.json', 'simplify-json', 'internship'],
     ['simplify-newgrad', 'SimplifyJobs/New-Grad-Positions', '.github/scripts/listings.json', 'simplify-json', 'newgrad'],
     ['litos-data-science', 'mehek-builds/Hiring-Now', 'csv/data-science.csv', 'csv', 'internship'],

@@ -6,7 +6,6 @@ const ID = 'accounting';
 
 const SHIPPED_SOURCES = {
   github_lists: [
-    { name: 'jobright-account-intern', repo: 'jobright-ai/2026-Account-Internship', path: 'README.md', format: 'markdown-table', kind: 'internship' },
     { name: 'jobright-account-newgrad', repo: 'jobright-ai/2026-Account-New-Grad', path: 'README.md', format: 'markdown-table', kind: 'newgrad' },
   ],
   alerts: [
