@@ -356,15 +356,13 @@ test('M-002-S2 a successful set-status prints the marked status notice', async (
   }
 });
 
-// M-004-S7
-test('classifyMail returns ignore for a plain mail from a domain that is neither a tracker company nor an assessment domain', () => {
+test('M-004-S7 classifyMail returns ignore for a plain mail from a domain that is neither a tracker company nor an assessment domain', () => {
   const ctx = { assessmentDomains: ASSESS, companies: [{ name: 'Northwind Robotics', domains: ['northwindrobotics.example.com'] }] };
   const res = classifyMail(msg('c-7', 'x@example.org', 'Hello', 'Just saying hello, nothing else to add here.'), ctx);
   assert.equal(res.kind, 'ignore');
 });
 
-// M-004-S10
-test('classifyMail returns rejection for the REJECT fixture from a tracker company domain', () => {
+test('M-004-S10 classifyMail returns rejection for the REJECT fixture from a tracker company domain', () => {
   const ctx = { assessmentDomains: ASSESS, companies: [{ name: 'Northwind Robotics', domains: ['northwindrobotics.example.com'] }] };
   assert.equal(classifyMail(REJECT('r-1', 'hr@northwindrobotics.example.com'), ctx).kind, 'rejection');
 });

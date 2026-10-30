@@ -37,13 +37,11 @@ async function runDiscover(timezone) {
   }
 }
 
-// M-001-S1
-test('without --today the config timezone decides the date', async () => {
+test('M-001-S1 without --today the config timezone decides the date', async () => {
   assert.deepEqual(await runDiscover('America/Los_Angeles'), ['2026-10-29']);
 });
 
-// M-001-S9
-test('an empty config timezone computes today in the host zone', async () => {
+test('M-001-S9 an empty config timezone computes today in the host zone', async () => {
   const before = process.env.TZ;
   process.env.TZ = 'Pacific/Pago_Pago';
   try {

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { withTempDir } from '../../lib/temp-dir.mjs';
 
-// M-003-S3 normal: returns fn's value and removes the directory
-test('withTempDir returns the value and removes the directory', () => {
+// normal: returns fn's value and removes the directory
+test('M-003-S3 withTempDir returns the value and removes the directory', () => {
   let seen;
   const result = withTempDir('m003-sync-', (dir) => {
     seen = dir;
@@ -16,8 +16,8 @@ test('withTempDir returns the value and removes the directory', () => {
   assert.equal(existsSync(seen), false);
 });
 
-// M-003-S6 edge: async fn keeps the directory until it settles
-test('withTempDir keeps the directory while an async fn is pending', async () => {
+// edge: async fn keeps the directory until it settles
+test('M-003-S6 withTempDir keeps the directory while an async fn is pending', async () => {
   let seen;
   let release;
   const gate = new Promise((r) => {
@@ -36,8 +36,8 @@ test('withTempDir keeps the directory while an async fn is pending', async () =>
   assert.equal(existsSync(seen), false);
 });
 
-// M-003-S8 error: removes the directory and rethrows the same error
-test('withTempDir removes the directory and rethrows when fn throws or rejects', async () => {
+// error: removes the directory and rethrows the same error
+test('M-003-S8 withTempDir removes the directory and rethrows when fn throws or rejects', async () => {
   const boom = new Error('sync-boom');
   let seen;
   assert.throws(

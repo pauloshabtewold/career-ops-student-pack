@@ -18,8 +18,7 @@ function scratch() {
   return { dir, file, other, url: pathToFileURL(file).href, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
-// M-001-S3
-test('isMain is true for the module absolute path and for a path relative to cwd', () => {
+test('M-001-S3 isMain is true for the module absolute path and for a path relative to cwd', () => {
   const s = scratch();
   const before = process.cwd();
   try {
@@ -33,8 +32,7 @@ test('isMain is true for the module absolute path and for a path relative to cwd
   }
 });
 
-// M-001-S7
-test('isMain is true when argv1 reaches the module through a directory link', () => {
+test('M-001-S7 isMain is true when argv1 reaches the module through a directory link', () => {
   const s = scratch();
   const real = join(s.dir, 'real');
   const link = join(s.dir, 'link');
@@ -49,8 +47,7 @@ test('isMain is true when argv1 reaches the module through a directory link', ()
   }
 });
 
-// M-001-S10
-test('isMain returns false without throwing for an empty argv1, a file: URL argv1 and missing paths', () => {
+test('M-001-S10 isMain returns false without throwing for an empty argv1, a file: URL argv1 and missing paths', () => {
   const s = scratch();
   try {
     assert.equal(isMain(s.url, ''), false);
@@ -62,8 +59,7 @@ test('isMain returns false without throwing for an empty argv1, a file: URL argv
   }
 });
 
-// M-001-S11
-test('isMain returns false for a different existing file', () => {
+test('M-001-S11 isMain returns false for a different existing file', () => {
   const s = scratch();
   try {
     assert.equal(isMain(s.url, s.other), false);
@@ -72,8 +68,7 @@ test('isMain returns false for a different existing file', () => {
   }
 });
 
-// M-001-S4
-test('pii-lint started by a relative path (through a pack-root link) runs main and prints its result line', () => {
+test('M-001-S4 pii-lint started by a relative path (through a pack-root link) runs main and prints its result line', () => {
   const s = scratch();
   try {
     execFileSync('git', ['init', '-q'], { cwd: s.dir });
@@ -142,8 +137,7 @@ function walk(dir, out = []) {
   return out;
 }
 
-// M-001-S6
-test('no inline process.argv[1] guard is left and all 40 entry files use isMain(import.meta.url)', () => {
+test('M-001-S6 no inline process.argv[1] guard is left and all 40 entry files use isMain(import.meta.url)', () => {
   const offenders = walk(PACK_ROOT).filter((f) => /process\.argv\[1\]\s*&&/.test(readFileSync(f, 'utf8'))).map((f) => relative(PACK_ROOT, f));
   assert.deepEqual(offenders, []);
   assert.equal(ENTRY_FILES.length, 40);
@@ -151,8 +145,7 @@ test('no inline process.argv[1] guard is left and all 40 entry files use isMain(
   assert.deepEqual(missing, []);
 });
 
-// M-001-S12 keep
-test('compat-hash --check exits 0 for the shipped budget.mjs and compat.json', () => {
+test('M-001-S12 compat-hash --check exits 0 for the shipped budget.mjs and compat.json', () => {
   const out = spawnSync(process.execPath, [join('scripts', 'compat-hash.mjs'), '--check'], { cwd: PACK_ROOT, encoding: 'utf8' });
   assert.equal(out.status, 0, out.stdout + out.stderr);
 });

@@ -8,8 +8,7 @@ after(cleanupAll);
 
 const USAGE = '--scratch must be a new directory outside the pack and the upstream checkout';
 
-// M-002-S6
-test('a --scratch under a junction that resolves into the pack exits 2 and creates nothing', () => {
+test('M-002-S6 a --scratch under a junction that resolves into the pack exits 2 and creates nothing', () => {
   const pack = copyPack();
   const s = setup({ pack });
   const link = join(tmp('goal-check-link-'), 'link');
@@ -21,8 +20,7 @@ test('a --scratch under a junction that resolves into the pack exits 2 and creat
   assert.ok(!existsSync(join(pack, 'via-link')));
 });
 
-// M-002-S7
-test('a --scratch inside the upstream checkout exits 2 with the usage message and creates nothing', () => {
+test('M-002-S7 a --scratch inside the upstream checkout exits 2 with the usage message and creates nothing', () => {
   const s = setup();
   const scratch = join(s.up.root, 'inner-scratch');
   s.argv[s.argv.indexOf('--scratch') + 1] = scratch;

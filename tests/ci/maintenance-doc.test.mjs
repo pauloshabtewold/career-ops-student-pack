@@ -75,7 +75,6 @@ test('M-005-S13 maintenance.md has no em dash or curly quotes', () => {
   for (const b of bad) assert.ok(!doc.includes(b), `contains U+${b.charCodeAt(0).toString(16)}`);
 });
 
-// M-004-S4
-test('maintenance.md orders the v release before a budget.mjs safety tag and gives the v0.1.0 fast-forward commands', () => {
+test('M-004-S4 maintenance.md orders the v release before a budget.mjs safety tag and gives the v0.1.0 fast-forward commands', () => {
   mustContain(doc, ['scripts/budget.mjs', 'v0.1.0', 'merge --ff-only', 'fetch --tags'], 'docs/maintenance.md');
 });

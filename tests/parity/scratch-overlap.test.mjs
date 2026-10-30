@@ -7,8 +7,7 @@ import { tmp, cleanupTmp } from './_source.mjs';
 
 after(cleanupTmp);
 
-// M-002-S3
-test('scratchOverlap returns inside, contains or null', () => {
+test('M-002-S3 scratchOverlap returns inside, contains or null', () => {
   const base = tmp();
   const guarded = join(base, 'pack');
   const other = join(base, 'other');

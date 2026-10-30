@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { setupUpstream } from '../../scripts/ci/upstream-setup.mjs';
 
-// M-003-S4 normal: the env parameter reaches the npm install run, plus the Playwright flag
-test('setupUpstream passes the given env plus PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 to npm install', () => {
+// normal: the env parameter reaches the npm install run, plus the Playwright flag
+test('M-003-S4 setupUpstream passes the given env plus PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 to npm install', () => {
   const root = mkdtempSync(join(tmpdir(), 'upstream-env-'));
   const put = (rel, text) => {
     mkdirSync(dirname(join(root, rel)), { recursive: true });
