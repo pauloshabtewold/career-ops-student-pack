@@ -79,7 +79,7 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 
 1. Write the answers to interview-answers.json in the data folder following `interview/answers.schema.json`. Read the file back to the student in a short summary and ask for a yes.
 2. Run `node student/interview/apply-answers.mjs data/interview-answers.json`. If it exits non-zero, nothing was written; fix the listed problems and run it again.
-3. Enable the GitHub-lists plugin only after showing its capability card: run `node plugins.mjs enable github-lists`, show the card to the student, and run it again with `--confirm` only after they agree.
+3. Enable the GitHub-lists plugin only after showing its capability card: run `node plugins.mjs enable github-lists`, show the card to the student, and run it again with `--confirm` only after they agree. If the chosen presets include `policy-government`, offer the NYC Jobs feed the same way: say "Policy and government students can also read recent City of New York student and entry-level postings from NYC Open Data. It needs no account or key. Enable it?", run `node plugins.mjs enable nyc-jobs`, show its card, and run it again with `--confirm` only after the student says yes. Without that yes the feed stays off.
 4. Run `node doctor.mjs --json` and report anything not green. Do not mark setup done while doctor reports unpersonalized files.
 5. Sign-in order for the first run: LinkedIn, then Handshake (if on), then the mailbox. The student does each sign-in; stop and wait after each.
 6. First run, in this order:
