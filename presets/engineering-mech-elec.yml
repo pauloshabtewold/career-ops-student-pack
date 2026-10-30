@@ -141,8 +141,7 @@ seed_employers:
   - name: "General Dynamics"
     careers_url: https://gdit.wd5.myworkdayjobs.com/External_Career_Site
   - name: "L3Harris"
-    careers_url: https://careers.l3harris.com/en/search-jobs
-    provider: radancy
+    careers_url: https://careers.l3harris.com
   - name: "BAE Systems"
     careers_url: https://www.baesystems.com/en-us/careers
   - name: "Huntington Ingalls Industries"

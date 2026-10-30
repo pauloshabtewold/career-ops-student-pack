@@ -58,8 +58,11 @@ test('W-019 presetPortals passes a seed provider and its config through to porta
   const crowe = doc.tracked_companies.find((e) => e.name === 'Crowe');
   assert.equal(crowe.provider, 'phenom');
   assert.deepEqual(crowe.phenom, { lang: 'en_us', country: 'us' });
-  const eide = doc.tracked_companies.find((e) => e.name === 'Eide Bailly');
-  assert.equal(eide.provider, 'jibeapply');
-  assert.match(eide.api, /^https:\/\//);
-  assert.equal(eide.enabled, true);
+  assert.equal(crowe.enabled, true);
+  const mis = yaml.load(String(await presetPortals('mis-business-analytics')));
+  const ibm = mis.tracked_companies.find((e) => e.name === 'IBM');
+  assert.equal(ibm.provider, 'ibm');
+  assert.equal(ibm.enabled, true);
+  // A watch-only seed carries no provider key at all.
+  assert.equal('provider' in doc.tracked_companies.find((e) => e.name === 'Eide Bailly'), false);
 });

@@ -138,8 +138,7 @@ seed_employers:
   - name: "PwC"
     careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
-    careers_url: https://usearlycareers.ey.com/en/search-jobs
-    provider: radancy
+    careers_url: https://www.ey.com/en_us/careers
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
   - name: "Accenture"

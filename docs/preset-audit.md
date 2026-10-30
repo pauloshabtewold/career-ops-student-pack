@@ -8,15 +8,15 @@ Upstream version: 1.38.0
 | Preset | Seeds | ok | small | empty | error | no-provider | removed |
 |---|---|---|---|---|---|---|---|
 | software-cs | 101 | 100 | 1 | 0 | 0 | 0 | 0 |
-| mis-business-analytics | 72 | 60 | 1 | 0 | 0 | 11 | 0 |
+| mis-business-analytics | 72 | 59 | 1 | 0 | 0 | 12 | 0 |
 | finance-economics | 75 | 67 | 2 | 0 | 0 | 6 | 0 |
-| accounting | 97 | 89 | 0 | 0 | 0 | 8 | 2 |
-| engineering-mech-elec | 96 | 76 | 1 | 0 | 0 | 19 | 0 |
+| accounting | 97 | 87 | 0 | 0 | 0 | 10 | 2 |
+| engineering-mech-elec | 96 | 75 | 1 | 0 | 0 | 20 | 0 |
 | policy-government | 98 | 33 | 14 | 0 | 0 | 51 | 12 |
 | supply-chain-operations | 74 | 62 | 3 | 0 | 0 | 9 | 0 |
 | statistics-math-actuarial | 96 | 96 | 0 | 0 | 0 | 0 | 0 |
 | marketing-business | 82 | 76 | 6 | 0 | 0 | 0 | 0 |
-| consulting | 50 | 38 | 2 | 0 | 0 | 10 | 0 |
+| consulting | 50 | 37 | 2 | 0 | 0 | 11 | 0 |
 | cybersecurity | 82 | 81 | 1 | 0 | 0 | 0 | 0 |
 | byo-employer-list | 0 | - | - | - | - | - | - |
 
