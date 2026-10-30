@@ -56,6 +56,24 @@ STUDENT: Call it cs-main, one page.
 
 INTERVIEWER: Recorded: variant cs-main, track internship, graduation 2028-05, page limit 1.
 
+INTERVIEWER: Now the application profile answers I reuse on forms. When could you start? Give a month as YYYY-MM.
+
+STUDENT: 2027-06.
+
+INTERVIEWER: Are you willing to relocate? Answer `yes`, `no` or `within-locations` (only the locations you listed).
+
+STUDENT: within-locations.
+
+INTERVIEWER: For the voluntary EEO questions, should I `leave-blank`, `ask-each-time`, or fill them in?
+
+STUDENT: leave-blank.
+
+INTERVIEWER: How did you hear about opportunities like these? One short phrase is fine.
+
+STUDENT: University career fair.
+
+INTERVIEWER: Recorded: start date 2027-06, relocation within-locations, EEO leave-blank, how did you hear "University career fair".
+
 ## Phase 4: switches and disclosures
 
 INTERVIEWER: Before the switches, a disclaimer I read once, word for word: This pack is not affiliated with or endorsed by LinkedIn, Handshake, career-ops or any employer. You are responsible for following the terms of every site you use it with. LinkedIn and Handshake automation can lead to limits or restrictions on your accounts; both are on by default and each can be switched off at any time ("stop outreach", "stop handshake"). The software comes with no warranty of any kind (MIT license).

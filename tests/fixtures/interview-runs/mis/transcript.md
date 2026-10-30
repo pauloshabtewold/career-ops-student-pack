@@ -58,6 +58,24 @@ STUDENT: mis-main, one page, new grad track, graduation 2027-05.
 
 INTERVIEWER: Recorded: variant mis-main, track newgrad, graduation 2027-05, page limit 1. The file itself stays under your control.
 
+INTERVIEWER: Now the application profile answers I reuse on forms. When could you start? Give a month as YYYY-MM.
+
+STUDENT: 2027-06.
+
+INTERVIEWER: Are you willing to relocate? Answer `yes`, `no` or `within-locations` (only the locations you listed).
+
+STUDENT: within-locations.
+
+INTERVIEWER: For the voluntary EEO questions, should I `leave-blank`, `ask-each-time`, or fill them in?
+
+STUDENT: leave-blank.
+
+INTERVIEWER: How did you hear about opportunities like these? One short phrase is fine.
+
+STUDENT: Professor referral.
+
+INTERVIEWER: Recorded: start date 2027-06, relocation within-locations, EEO leave-blank, how did you hear "Professor referral".
+
 ## Phase 4: switches and disclosures
 
 INTERVIEWER: Before the disclosures, one disclaimer, read word for word.

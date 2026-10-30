@@ -54,6 +54,24 @@ INTERVIEWER: For the co-op track (graduation 2027-12), I suggest a variant named
 
 STUDENT: Yes, mechanical-main, one page.
 
+INTERVIEWER: Now the application profile answers I reuse on forms. When could you start? Give a month as YYYY-MM.
+
+STUDENT: 2028-01.
+
+INTERVIEWER: Are you willing to relocate? Answer `yes`, `no` or `within-locations` (only the locations you listed).
+
+STUDENT: yes.
+
+INTERVIEWER: For the voluntary EEO questions, should I `leave-blank`, `ask-each-time`, or fill them in?
+
+STUDENT: ask-each-time.
+
+INTERVIEWER: How did you hear about opportunities like these? One short phrase is fine.
+
+STUDENT: Employer website.
+
+INTERVIEWER: Recorded: start date 2028-01, relocation yes, EEO ask-each-time, how did you hear "Employer website".
+
 ## Phase 4: switches and disclosures
 
 INTERVIEWER: Before the disclosures, one disclaimer: This pack is not affiliated with or endorsed by LinkedIn, Handshake, career-ops or any employer. You are responsible for following the terms of every site you use it with. LinkedIn and Handshake automation can lead to limits or restrictions on your accounts; both are on by default and each can be switched off at any time ("stop outreach", "stop handshake"). The software comes with no warranty of any kind (MIT license).
