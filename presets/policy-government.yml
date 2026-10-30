@@ -31,7 +31,13 @@ recruiting_calendar:
     - {name: Summer, start_month: 5}
     - {name: Fall, start_month: 8}
 sources:
-  github_lists: []
+  github_lists:
+    - name: litos-policy
+      repo: mehek-builds/Hiring-Now
+      path: csv/policy-government-affairs.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
   alerts:
     - name: "USAJOBS"
       how: "Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts."

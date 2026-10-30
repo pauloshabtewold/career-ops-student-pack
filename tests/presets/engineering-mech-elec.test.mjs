@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadPreset } from '../../lib/presets.mjs';
 
 const ID = 'engineering-mech-elec';
-const PERMITTED = ['tracker05-me', 'wonofakind-2027', 'hiderrick-eng', 'litos-me', 'litos-ee', 'litos-aero', 'litos-che', 'meche-intern', 'meche-newgrad'];
+const PERMITTED = ['tracker05-me', 'wonofakind-2027', 'hiderrick-eng', 'litos-me', 'litos-ee', 'litos-aero', 'litos-che', 'meche-intern', 'meche-newgrad', 'litos-civil', 'litos-eng-intern', 'litos-mech-newgrad', 'litos-eng-newgrad', 'zapply-hardware-newgrad'];
 const LITOS = ['litos-me', 'litos-ee', 'litos-aero', 'litos-che'];
 const lists = () => loadPreset(ID).sources.github_lists ?? [];
 const isLitos = (g) => /^mehek-builds\//i.test(g.repo ?? '');

@@ -5,7 +5,9 @@ import { loadPreset } from '../../lib/presets.mjs';
 const ID = 'policy-government';
 
 const SHIPPED_SOURCES = {
-  github_lists: [],
+  github_lists: [
+    { name: 'litos-policy', repo: 'mehek-builds/Hiring-Now', path: 'csv/policy-government-affairs.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
+  ],
   alerts: [
     { name: 'USAJOBS', how: 'Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts.' },
     { name: 'Think tank pages', how: 'Check think tank internship pages by hand each term.' },

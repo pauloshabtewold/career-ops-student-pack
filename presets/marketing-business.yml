@@ -3,7 +3,7 @@ id: marketing-business
 name: "Marketing, general business"
 coverage:
   level: semi-automated
-  note: "Semi-automated: no marketing-specific list is maintained anywhere, so the employer list carries this preset; one vendor's weekly marketing list adds postings. Brand and rotational programs hire mostly through company sites."
+  note: "Semi-automated: two vendor marketing lists add postings that count once matched to an employer board, so the employer list carries this preset. Brand and rotational programs hire mostly through company sites."
 title_rules:
   include:
     - "marketing"
@@ -41,6 +41,11 @@ sources:
       format: csv
       kind: internship
       field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: jobright-marketing-newgrad
+      repo: jobright-ai/2026-Marketing-New-Grad
+      path: README.md
+      format: markdown-table
+      kind: newgrad
   alerts:
     - name: "Handshake saved search"
       how: "Save searches for marketing, brand and business development intern."
