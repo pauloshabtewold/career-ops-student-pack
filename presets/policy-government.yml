@@ -2,7 +2,7 @@ id: policy-government
 name: "Policy, political science, government"
 coverage:
   level: semi-automated
-  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 51% of the seed list. State and city boards on governmentjobs.com are not scanned, because that site disallows bots."
+  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 52% of the seed list. State and city boards on governmentjobs.com are not scanned, because that site disallows bots."
 title_rules:
   include:
     - "policy"
@@ -125,7 +125,7 @@ seed_employers:
   - name: "U.S. Agency for International Development"
     careers_url: https://www.usaid.gov/careers
   - name: "World Bank"
-    careers_url: https://worldbankgroup.csod.com/ux/ats/careersite/1/home?c=worldbankgroup
+    careers_url: https://www.worldbank.org/en/about/careers
   - name: "International Monetary Fund"
     careers_url: https://www.imf.org/en/About/Recruitment
   - name: "United Nations"

@@ -12,7 +12,7 @@ Upstream version: 1.38.0
 | finance-economics | 75 | 67 | 2 | 0 | 0 | 6 | 0 |
 | accounting | 97 | 86 | 0 | 0 | 0 | 11 | 2 |
 | engineering-mech-elec | 96 | 74 | 1 | 0 | 0 | 21 | 0 |
-| policy-government | 98 | 34 | 14 | 0 | 0 | 50 | 12 |
+| policy-government | 98 | 33 | 14 | 0 | 0 | 51 | 12 |
 | supply-chain-operations | 74 | 62 | 3 | 0 | 0 | 9 | 0 |
 | statistics-math-actuarial | 96 | 96 | 0 | 0 | 0 | 0 | 0 |
 | marketing-business | 82 | 76 | 6 | 0 | 0 | 0 | 0 |
