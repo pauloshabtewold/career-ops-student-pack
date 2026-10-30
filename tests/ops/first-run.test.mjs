@@ -115,3 +115,27 @@ test('the report says plainly when fewer than 10 postings came in, and stays sil
   const enough = formatReport({ total: 10, sources: [], untriaged: rows(10) }, 20);
   assert.ok(!enough.some((l) => /^Fewer than 10/.test(l)));
 });
+
+test('a scan that fails once is run a second time, and a second failure is reported', async () => {
+  const { ingestSteps } = await import('../../lib/ingest.mjs');
+  const drive = (failures) => {
+    let scans = 0;
+    const outcomes = [];
+    const runner = (_cmd, args) => {
+      if (args[0].endsWith('scan.mjs') && ++scans <= failures) throw new Error('exit 2');
+      return '{}';
+    };
+    const step = (name, fn) => {
+      try {
+        fn();
+        outcomes.push(`${name} ok`);
+      } catch {
+        outcomes.push(`${name} FAILED`);
+      }
+    };
+    ingestSteps({ root: '/r', dataDir: '/r/data', packRoot: '/p', today: '2026-10-27', runner, step });
+    return { scans, scan: outcomes.find((o) => o.startsWith('scan')) };
+  };
+  assert.deepEqual(drive(1), { scans: 2, scan: 'scan ok' });
+  assert.deepEqual(drive(2), { scans: 2, scan: 'scan FAILED' });
+});

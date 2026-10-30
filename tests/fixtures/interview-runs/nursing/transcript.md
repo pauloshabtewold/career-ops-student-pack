@@ -34,17 +34,17 @@ STUDENT: Yes, use byo-employer-list.
 
 INTERVIEWER: Coverage line from `node interview/coverage.mjs byo-employer-list`, exactly as returned: "Bring your own employer list [discovery-only]: Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails." This preset is discovery help only. Please give me 10 to 20 target employers, each with its careers page URL.
 
-STUDENT: Mass General Brigham, https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal, Seattle Children's, https://seattlechildrens.wd5.myworkdayjobs.com/External, Cleveland Clinic, https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers, Ochsner Health, https://ochsner.wd1.myworkdayjobs.com/Ochsner, One Medical, https://job-boards.greenhouse.io/onemedical, Included Health, https://jobs.lever.co/includedhealth, Ro, https://jobs.lever.co/ro, LifeStance Health, https://jobs.lever.co/lifestance, Talkspace, https://job-boards.greenhouse.io/talkspace, Two Chairs, https://job-boards.greenhouse.io/twochairs.
+STUDENT: Mass General Brigham, https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal, Cleveland Clinic, https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers, Ochsner Health, https://ochsner.wd1.myworkdayjobs.com/Ochsner, Seattle Children's, https://seattlechildrens.wd5.myworkdayjobs.com/External, Vanderbilt University Medical Center, https://vumc.wd1.myworkdayjobs.com/vumccareers, Allina Health, https://allina.wd5.myworkdayjobs.com/External, UVM Health Network, https://uvmhealth.wd1.myworkdayjobs.com/External, NewYork-Presbyterian, https://nyp.wd1.myworkdayjobs.com/nypcareers, Lehigh Valley Health Network, https://lvhn.wd1.myworkdayjobs.com/lvhn, One Medical, https://job-boards.greenhouse.io/onemedical, Included Health, https://jobs.lever.co/includedhealth.
 
-INTERVIEWER: Ten employers recorded. Target roles: from your clinic intake work, blood pressure screening and patient assessment skills, I propose "Registered nurse residency" and "Clinic nurse". Keep both, change, or add?
+INTERVIEWER: Eleven employers recorded. Target roles: from your clinic intake work, blood pressure screening and patient assessment skills, I propose "Registered nurse residency" and "Clinic nurse". Keep both, change, or add?
 
-STUDENT: Keep both, and add "Registered nurse".
+STUDENT: Keep both, and add "Registered nurse", "Nurse extern", "Nursing assistant" and "Nurse assistant".
 
 INTERVIEWER: Locations, in order of preference? And years of experience; your resume shows volunteer work only, so I propose 0.
 
-STUDENT: Boston, MA, Cleveland, OH, New Orleans, LA, Seattle, WA, Portland, OR. Zero years.
+STUDENT: Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR. Zero years.
 
-INTERVIEWER: Recorded: locations Boston, MA, Cleveland, OH, New Orleans, LA, Seattle, WA, Portland, OR; experience 0 years. Any priority companies, any hard-no companies, and any dealbreakers (for example "unpaid")?
+INTERVIEWER: Recorded: locations Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR; experience 0 years. Any priority companies, any hard-no companies, and any dealbreakers (for example "unpaid")?
 
 STUDENT: Priority: Mass General Brigham. Hard no: Example Staffing Group. Dealbreaker: night shift only.
 
@@ -106,7 +106,7 @@ STUDENT: Connector.
 
 ## Phase 6: write, check, enable
 
-INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 10 target employers (Mass General Brigham, Seattle Children's, Cleveland Clinic, Ochsner Health, One Medical, Included Health, Ro, LifeStance Health, Talkspace, Two Chairs); roles Registered nurse residency, Clinic nurse and Registered nurse; Boston, MA, Cleveland, OH, New Orleans, LA, Seattle, WA, Portland, OR; 0 years; priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
+INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 11 target employers (Mass General Brigham, Cleveland Clinic, Ochsner Health, Seattle Children's, Vanderbilt University Medical Center, Allina Health, UVM Health Network, NewYork-Presbyterian, Lehigh Valley Health Network, One Medical, Included Health); roles Registered nurse residency, Clinic nurse, Registered nurse, Nurse extern, Nursing assistant and Nurse assistant; Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR; 0 years; priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
 
 STUDENT: Yes.
 

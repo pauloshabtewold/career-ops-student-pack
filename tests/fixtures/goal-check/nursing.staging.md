@@ -23,3 +23,7 @@
 - [ ] https://jobs.example.com/nursing/24 | Example Health 24 | Nurse Residency Program, Pediatrics Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d
 <!-- tag: in-field -->
 - [ ] https://jobs.example.com/nursing/25 | Example Health 25 | New Grad Registered Nurse, Labor and Delivery Float Pool | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/21 | Example Health 21 | Nurse Extern, Medical Surgical | Remote | note: src=fixture; imported=2026-10-27; posted~2d
+<!-- tag: in-field -->
+- [ ] https://jobs.example.com/nursing/22 | Example Health 22 | Nursing Assistant Trainee, Telemetry | Remote | note: src=fixture; imported=2026-10-27; posted~2d

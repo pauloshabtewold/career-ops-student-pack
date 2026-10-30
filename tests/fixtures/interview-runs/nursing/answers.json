@@ -17,9 +17,18 @@
   "experience_years": 0,
   "locations": [
     "Boston, MA",
+    "Brighton, MA",
+    "Jamaica Plain, MA",
+    "Newton, MA",
+    "Salem, MA",
     "Cleveland, OH",
     "New Orleans, LA",
     "Seattle, WA",
+    "Nashville, TN",
+    "Minneapolis, MN",
+    "Burlington, VT",
+    "New York, NY",
+    "Allentown, PA",
     "Portland, OR"
   ],
   "work_authorization": "US citizen",
@@ -39,10 +48,6 @@
       "careers_url": "https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal"
     },
     {
-      "name": "Seattle Children's",
-      "careers_url": "https://seattlechildrens.wd5.myworkdayjobs.com/External"
-    },
-    {
       "name": "Cleveland Clinic",
       "careers_url": "https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers"
     },
@@ -51,28 +56,36 @@
       "careers_url": "https://ochsner.wd1.myworkdayjobs.com/Ochsner"
     },
     {
+      "name": "Seattle Children's",
+      "careers_url": "https://seattlechildrens.wd5.myworkdayjobs.com/External"
+    },
+    {
+      "name": "Vanderbilt University Medical Center",
+      "careers_url": "https://vumc.wd1.myworkdayjobs.com/vumccareers"
+    },
+    {
+      "name": "Allina Health",
+      "careers_url": "https://allina.wd5.myworkdayjobs.com/External"
+    },
+    {
+      "name": "UVM Health Network",
+      "careers_url": "https://uvmhealth.wd1.myworkdayjobs.com/External"
+    },
+    {
+      "name": "NewYork-Presbyterian",
+      "careers_url": "https://nyp.wd1.myworkdayjobs.com/nypcareers"
+    },
+    {
+      "name": "Lehigh Valley Health Network",
+      "careers_url": "https://lvhn.wd1.myworkdayjobs.com/lvhn"
+    },
+    {
       "name": "One Medical",
       "careers_url": "https://job-boards.greenhouse.io/onemedical"
     },
     {
       "name": "Included Health",
       "careers_url": "https://jobs.lever.co/includedhealth"
-    },
-    {
-      "name": "Ro",
-      "careers_url": "https://jobs.lever.co/ro"
-    },
-    {
-      "name": "LifeStance Health",
-      "careers_url": "https://jobs.lever.co/lifestance"
-    },
-    {
-      "name": "Talkspace",
-      "careers_url": "https://job-boards.greenhouse.io/talkspace"
-    },
-    {
-      "name": "Two Chairs",
-      "careers_url": "https://job-boards.greenhouse.io/twochairs"
     }
   ],
   "sources_chosen": [],
@@ -100,7 +113,10 @@
   "archetypes": [
     "Registered nurse residency",
     "Clinic nurse",
-    "Registered nurse"
+    "Registered nurse",
+    "Nurse extern",
+    "Nursing assistant",
+    "Nurse assistant"
   ],
   "application_profile": {
     "start_date": "2027-07",
