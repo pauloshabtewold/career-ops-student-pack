@@ -21,6 +21,11 @@ daily_target: 10
 score_floor: 3.5
 linkedin_tier: free
 limits: {}
+# Model-usage triage budget, owned by the student: daily rows (default 20) and first-run rows (default 60), each a whole
+# number or "all". Change it with node student/scripts/triage-budget.mjs set, which shows the cost first.
+triage_budget: {}
+# One of claude-pro, claude-max, claude-ultra, chatgpt-plus, chatgpt-pro, api, unknown. It only picks the estimate line shown.
+plan: unknown
 resume_variants: []
 mailbox:
   backend: connector

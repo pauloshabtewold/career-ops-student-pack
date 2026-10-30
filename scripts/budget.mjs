@@ -2,6 +2,7 @@
 // Hard budget ceilings for LinkedIn, Handshake, applications, unattended runs and discovery.
 // CEILINGS is frozen and nothing reads the environment: config limits can only tighten a ceiling, and every
 // clamp of a looser value is logged. compat.json carries this file's SHA-256 (scripts/compat-hash.mjs).
+// Model-usage triage is not a ceiling here: the student owns that budget (lib/triage-budget.mjs).
 // Exit codes: 0 ok, 2 usage, 3 refused, 4 wait, 5 needs the user.
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -56,8 +57,6 @@ export const CEILINGS = deepFreeze({
   inbox_lookback_days: down(2, 'days', 'run'),
   notifications_per_run: down(5, 'count', 'run'),
   triage_audit_weekly: down(20, 'count', 'week'),
-  // Daily cap on unattended model triage. Config can lower it and 0 turns daily triage off; nothing raises it.
-  triage_daily: down(20, 'count', 'day'),
   liveness_batch: down(50, 'count', 'run'),
   triage_tier_min: up('standard', 'tier', 'run'),
   // Discovery

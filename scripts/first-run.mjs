@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // First run, right after the interview: brings in the first postings and lists the rows still waiting for a
 // verdict, so the student's session can triage them and show a real top 10. It uses the same ingest steps as the
-// daily run, makes no model call and opens no browser; the verdicts come from the session that runs it.
+// daily run, makes no model call and opens no browser; the verdicts come from the session that runs it. It lists only
+// the rows left in the student's first-run triage budget (lib/triage-budget.mjs).
 // Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run]
 // Exit 0 after the report (a failed step is a line in it), 1 when the interview has not written config/student.yml.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -12,6 +13,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { ingestStepNames, ingestSteps } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { ALL, CHUNK_ROWS, DEFAULT_FIRST_RUN, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
@@ -33,10 +35,13 @@ export function summarizePending(pipelineText) {
   };
 }
 
-// Counts first, then up to `shown` untriaged rows as url | company | title for the session to judge.
-export function formatFirstRunReport(summary, shown) {
+// Counts first, the first-run triage budget, then up to `shown` untriaged rows as url | company | title for the session
+// to judge. With the budget used up no rows are listed: the daily triage scores the rest.
+export function formatFirstRunReport(summary, shown, { budget = DEFAULT_FIRST_RUN, used = 0 } = {}) {
   const lines = [`Pending rows: ${summary.total}`, ...summary.sources.map(([src, n]) => `  src=${src}: ${n}`), `Untriaged Pending rows: ${summary.untriaged.length}`];
   if (summary.total < TOP_LIST_SIZE) lines.push(`Fewer than ${TOP_LIST_SIZE} postings fit your setup today (${summary.total}), so the top list will be shorter than ${TOP_LIST_SIZE}. The daily run adds new postings as they appear.`);
+  lines.push(budget === ALL ? `First-run triage budget: all (batches of ${CHUNK_ROWS} until no untriaged rows remain)` : `First-run triage budget: ${budget} rows (${used} scored so far, batches of ${CHUNK_ROWS})`);
+  if (rowsLeft(budget, used) === 0) return [...lines, `first-run triage budget used (${used} of ${budget}); the daily triage scores the rest`];
   if (!summary.untriaged.length) return [...lines, 'no untriaged Pending rows'];
   lines.push(...summary.untriaged.slice(0, shown).map((r) => `${r.url} | ${r.company} | ${r.title}`));
   if (summary.untriaged.length > shown) lines.push(`... and ${summary.untriaged.length - shown} more untriaged Pending rows`);
@@ -63,7 +68,10 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
   };
   ingestSteps({ root, dataDir, packRoot, today, runner, step });
   const file = join(dataDir, 'pipeline.md');
-  for (const line of formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), shown)) out(line);
+  const budget = resolveTriageBudget(config).firstRun;
+  const used = readTriageUsage(dataDir, today).firstRun;
+  const report = formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), Math.min(shown, rowsLeft(budget, used)), { budget, used });
+  for (const line of report) out(line);
   return 0;
 }
 

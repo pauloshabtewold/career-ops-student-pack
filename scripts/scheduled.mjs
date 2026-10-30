@@ -1,24 +1,29 @@
 #!/usr/bin/env node
 // Entry point the installed schedule starts. It runs the zero-token daily run first and then, only for
 // scheduled-discovery-plus-triage, the model triage, each as its own child process so one cannot stop the other.
+// daily.mjs gets 60 minutes. The triage child gets a timeout that scales with the chunks the student's triage budget
+// allows today and stays under run_lock_hours (triageChildTimeoutMs in daily-triage.mjs).
 // Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH]
 // Exit 0 always: a scheduler that sees a failure retries, and both steps already report their own problems.
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
+import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
+import { effectiveLimits } from './budget.mjs';
+import { plannedChunks, triageChildTimeoutMs } from './daily-triage.mjs';
 
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 
 // Each script runs as its own child process, so a crash or timeout in the daily run cannot stop triage and the reverse.
 // daily.mjs gets --via-scheduled so it knows this wrapper already starts triage.
-export async function scheduledRun({ root, packRoot, passThrough, agent, agentPath, claude, runner = defaultRunner, out = (s) => console.log(s) }) {
-  const child = (script, extra = []) => {
+export async function scheduledRun({ root, packRoot, passThrough, agent, agentPath, claude, dataDir = resolvePaths({ root }).dataDir, today, runner = defaultRunner, out = (s) => console.log(s) }) {
+  const child = (script, extra = [], timeout = CHILD_TIMEOUT_MS) => {
     try {
-      const text = runner(process.execPath, [join(packRoot, 'scripts', script), ...extra, ...passThrough], { cwd: root, timeout: CHILD_TIMEOUT_MS });
+      const text = runner(process.execPath, [join(packRoot, 'scripts', script), ...extra, ...passThrough], { cwd: root, timeout });
       if (String(text).trim()) out(String(text).trimEnd());
     } catch (err) {
       out(`scheduled: ${script} stopped (${stepErrorText(err)})`);
@@ -32,8 +37,21 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
     out(`scheduled: config unreadable (${oneLine(err.message)}); daily triage skipped`);
   }
   // A schedule installed before the agent flags existed passes only --claude; it keeps working until reinstalled.
-  if (config?.automation === 'scheduled-discovery-plus-triage') child('daily-triage.mjs', agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : []);
+  if (config?.automation === 'scheduled-discovery-plus-triage') {
+    const agentFlags = agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : [];
+    child('daily-triage.mjs', agentFlags, triageTimeout({ config, dataDir, today }));
+  }
   return 0;
+}
+
+// A throw while sizing the run (an unreadable ledger or pipeline) falls back to the 60-minute timeout every child had.
+function triageTimeout({ config, dataDir, today }) {
+  try {
+    const day = today ?? createClock({ timezone: config.timezone }).today();
+    return triageChildTimeoutMs({ chunks: plannedChunks({ config, dataDir, today: day }), runLockHours: effectiveLimits(config).values.run_lock_hours });
+  } catch {
+    return CHILD_TIMEOUT_MS;
+  }
 }
 
 async function main() {
@@ -48,7 +66,7 @@ async function main() {
     ...(flags.logFile ? ['--log-file', flags.logFile] : []),
   ];
   try {
-    return await scheduledRun({ root: paths.root, packRoot: paths.packRoot, passThrough, agent: flags.agent, agentPath: flags.agentPath, claude: flags.claude });
+    return await scheduledRun({ root: paths.root, packRoot: paths.packRoot, passThrough, agent: flags.agent, agentPath: flags.agentPath, claude: flags.claude, dataDir: paths.dataDir, today: flags.today });
   } catch (err) {
     if (err instanceof UsageError) throw err;
     console.log(`scheduled: stopped (${oneLine(err.message)})`);

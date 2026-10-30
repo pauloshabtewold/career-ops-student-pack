@@ -47,7 +47,7 @@ With `automation: scheduled-discovery-plus-triage` and `agent: codex`, `node stu
 
 The locks are checked by the flags being accepted, not by a live run that lists its tools. Treat the triage as a preview.
 
-The digest carries the same lines as with Claude: `daily triage: triaged N, passed N, ignored N`, or a note saying why triage was skipped (agent not found, signed out, timed out). A skipped triage changes nothing and the rows wait for the next day.
+The call runs once per 20 rows of your daily triage budget. The digest carries the same lines as with Claude: a progress line per chunk, `daily triage: triaged N, passed N, ignored N`, a cost line with the rows scored today and an estimate, or a note saying why triage was skipped (agent not found, signed out, timed out). A skipped triage changes nothing and the rows wait for a later day. For what the estimate means on ChatGPT Plus and Pro, and how to read your own share with `/status`, see [usage-cost.md](usage-cost.md).
 
 ## What stays Claude-only
 
