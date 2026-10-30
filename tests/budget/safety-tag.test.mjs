@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { checkSafetyDiff } from '../../scripts/check-safety-tag.mjs';
+import { checkSafetyDiff } from '../../lib/safety-diff.mjs';
 import * as checker from '../../scripts/check-safety-tag.mjs';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
 
