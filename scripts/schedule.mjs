@@ -93,7 +93,7 @@ const statusScript = () => `Get-ScheduledTask -TaskName ${psq(TASK_NAME)} | Sele
 
 const plistPath = () => join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 
-function tryRun(cmd, args) {
+export function tryRun(cmd, args) {
   try {
     return { ok: true, out: execFileSync(cmd, args, { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }) };
   } catch (err) {
