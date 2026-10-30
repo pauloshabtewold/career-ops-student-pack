@@ -6,12 +6,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, posix } from 'node:path';
 import { AGENTS, AGENT_TIMEOUT_MS, CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS, knownLocations, quoteIf, resolveAgentPath, shellForm, signInHint } from '../../lib/agent.mjs';
 
 const BUNDLE = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex';
 const HOME = '/Users/sample';
-const HOME_BUNDLE = join(HOME, 'Applications', 'ChatGPT.app', 'Contents', 'Resources', 'codex-cli', 'bin', 'codex');
+// The bundle paths are macOS paths, so posix.join keeps the expectation the same on a Windows test host.
+const HOME_BUNDLE = posix.join(HOME, 'Applications', 'ChatGPT.app', 'Contents', 'Resources', 'codex-cli', 'bin', 'codex');
 
 function scratchBin({ codex = true } = {}) {
   const tmp = mkdtempSync(join(tmpdir(), 'agent-bin-'));
