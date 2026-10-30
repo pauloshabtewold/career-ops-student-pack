@@ -3,13 +3,13 @@
 // agent reads it before anything else: update result, integrity restore, budget session and clamps, interview trigger,
 // switch states. A sandboxed or offline agent cannot reach the pack remote, so a failed update check is one quiet
 // line and never stops the rest. Usage: session-start.mjs [--root R]
-import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { refreshOverride } from '../lib/agents-override.mjs';
 import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { verifyAndRestore } from '../lib/integrity.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { runText } from '../lib/run.mjs';
 import { oneLine } from '../lib/text.mjs';
 import { runUpdate } from '../update.mjs';
 
@@ -33,11 +33,7 @@ function collapseOffline(lines) {
 
 function runBudgetSessionStart({ root, packRoot }) {
   try {
-    const out = execFileSync(process.execPath, [join(packRoot, 'scripts', 'budget.mjs'), 'session-start', '--root', root], {
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const out = runText(process.execPath, [join(packRoot, 'scripts', 'budget.mjs'), 'session-start', '--root', root]);
     return out.split('\n').map((l) => l.trim()).filter(Boolean);
   } catch (err) {
     return [`budget session start failed: ${String(err.stderr || err.message).split('\n')[0]}`];
