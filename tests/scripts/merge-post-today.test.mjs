@@ -23,7 +23,7 @@ const merge = (r, extra, env = {}) => {
 const firstSeen = (r) => r.read('data/scan-history.tsv').trim().split('\n').slice(1).map((l) => l.split('\t')[0]);
 
 // M-001-S2
-test('M-001-S2 first_seen is the config-timezone date, not the host-zone date', () => {
+test('first_seen is the config-timezone date, not the host-zone date', () => {
   const r = setup('timezone: Pacific/Pago_Pago\n');
   try {
     const zone = { timezone: 'Pacific/Pago_Pago' };
@@ -40,7 +40,7 @@ test('M-001-S2 first_seen is the config-timezone date, not the host-zone date', 
 });
 
 // M-001-S8
-test('M-001-S8 --today keeps that date and never reads an unparsable student.yml', () => {
+test('--today keeps that date and never reads an unparsable student.yml', () => {
   const r = setup('timezone: [unclosed\n  : : :\n');
   try {
     const out = merge(r, ['--today', '2026-03-10']);

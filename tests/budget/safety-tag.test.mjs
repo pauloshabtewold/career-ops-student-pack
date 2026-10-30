@@ -354,12 +354,12 @@ test('W-011-S4 pickBase falls back to the baseline when the only ancestor v tags
     assert.equal(res.reason, 'baseline');
   }));
 
-// M-001-S5
 const GUARDED_IMPORTS = "import { realpathSync } from 'node:fs';\nimport { resolve } from 'node:path';\nimport { fileURLToPath } from 'node:url';\n";
 const GUARD_LINE = "\nasync function main() {}\nif (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await main();\n";
 const guardedBudget = (opts) => GUARDED_IMPORTS + budgetSource(opts) + GUARD_LINE;
 
-test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still compares ceilings', () =>
+// M-001-S5
+test('a ref whose budget.mjs ends with the v0.1.0 realpath guard still compares ceilings', () =>
   withRepo(async (root) => {
     const base = guardedBudget();
     put(root, 'scripts/budget.mjs', base);
