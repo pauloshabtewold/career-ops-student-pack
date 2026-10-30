@@ -147,6 +147,7 @@ for (const k of SETS) {
 }
 
 // M-008-S5
+// M-004-S4: the Phase 3 profile turns keep the Phase 1 to 6 heading order.
 for (const k of SETS) {
   test(`M-008-S5 ${k} transcript has the marker, Preset set line and Phase 1 to 6 headings in order`, () => {
     const text = transcriptOf(k);
@@ -165,6 +166,7 @@ for (const k of SETS) {
 }
 
 // M-008-S6
+// M-004-S4: pii-lint stays clean over the transcripts with the Phase 3 profile turns.
 test('M-008-S6 pii-lint scanText finds nothing in any interview-runs fixture file', () => {
   assert.ok(existsSync(RUNS), 'interview-runs directory exists');
   const files = [];

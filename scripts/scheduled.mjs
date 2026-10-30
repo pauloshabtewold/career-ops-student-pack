@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Entry point the installed schedule starts. It runs the zero-token daily run first and then, only for
 // scheduled-discovery-plus-triage, the model triage, each as its own child process so one cannot stop the other.
-// Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--claude PATH]
+// Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH]
 // Exit 0 always: a scheduler that sees a failure retries, and both steps already report their own problems.
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,7 @@ const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 
 // Each script runs as its own child process, so a crash or timeout in the daily run cannot stop triage and the reverse.
 // daily.mjs gets --via-scheduled so it knows this wrapper already starts triage.
-export async function scheduledRun({ root, packRoot, passThrough, claude, runner = defaultRunner, out = (s) => console.log(s) }) {
+export async function scheduledRun({ root, packRoot, passThrough, agent, agentPath, claude, runner = defaultRunner, out = (s) => console.log(s) }) {
   const child = (script, extra = []) => {
     try {
       const text = runner(process.execPath, [join(packRoot, 'scripts', script), ...extra, ...passThrough], { cwd: root, timeout: CHILD_TIMEOUT_MS });
@@ -31,12 +31,13 @@ export async function scheduledRun({ root, packRoot, passThrough, claude, runner
   } catch (err) {
     out(`scheduled: config unreadable (${oneLine(err.message)}); daily triage skipped`);
   }
-  if (config?.automation === 'scheduled-discovery-plus-triage') child('daily-triage.mjs', claude ? ['--claude', claude] : []);
+  // A schedule installed before the agent flags existed passes only --claude; it keeps working until reinstalled.
+  if (config?.automation === 'scheduled-discovery-plus-triage') child('daily-triage.mjs', agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : []);
   return 0;
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { claude: 'string', 'log-file': 'string' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { agent: 'string', 'agent-path': 'string', claude: 'string', 'log-file': 'string' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const passThrough = [
     '--root', paths.root,
@@ -45,7 +46,7 @@ async function main() {
     ...(flags.logFile ? ['--log-file', flags.logFile] : []),
   ];
   try {
-    return await scheduledRun({ root: paths.root, packRoot: paths.packRoot, passThrough, claude: flags.claude });
+    return await scheduledRun({ root: paths.root, packRoot: paths.packRoot, passThrough, agent: flags.agent, agentPath: flags.agentPath, claude: flags.claude });
   } catch (err) {
     if (err instanceof UsageError) throw err;
     console.log(`scheduled: stopped (${oneLine(err.message)})`);

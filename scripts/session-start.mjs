@@ -1,18 +1,37 @@
 #!/usr/bin/env node
-// Runs first in every Claude Code session (see AGENTS.student.md). Output is at most six lines because the agent
-// reads it before anything else: update result, integrity restore, budget session and clamps, interview trigger,
-// switch states. Usage: session-start.mjs [--root R]
+// Runs first in every Claude Code or Codex session (see AGENTS.student.md). Output is at most six lines because the
+// agent reads it before anything else: update result, integrity restore, budget session and clamps, interview trigger,
+// switch states. A sandboxed or offline agent cannot reach the pack remote, so a failed update check is one quiet
+// line and never stops the rest. Usage: session-start.mjs [--root R]
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { refreshOverride } from '../lib/agents-override.mjs';
 import { parseArgs, runCli } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { verifyAndRestore } from '../lib/integrity.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { oneLine } from '../lib/text.mjs';
 import { runUpdate } from '../update.mjs';
 
 const MAX_LINES = 6;
+const OFFLINE_LINE = 'update check skipped (offline)';
+const UNREACHABLE_RE = /could not reach|unreachable|update check (skipped|failed)/i;
+
+// Every way of saying the remote could not be reached becomes the same single line.
+function collapseOffline(lines) {
+  const out = [];
+  let seen = false;
+  for (const line of lines) {
+    if (!UNREACHABLE_RE.test(line)) out.push(line);
+    else if (!seen) {
+      out.push(OFFLINE_LINE);
+      seen = true;
+    }
+  }
+  return out;
+}
 
 function runBudgetSessionStart({ root, packRoot }) {
   try {
@@ -27,12 +46,19 @@ function runBudgetSessionStart({ root, packRoot }) {
   }
 }
 
-export async function sessionStart({ root, packRoot, update = runUpdate }) {
+export async function sessionStart({ root, packRoot, update = runUpdate, refresh = refreshOverride }) {
   const lines = [];
   try {
-    lines.push(...(await update({ root, packRoot, safetyOnly: true })).lines);
+    lines.push(...collapseOffline((await update({ root, packRoot, safetyOnly: true })).lines));
   } catch {
-    lines.push('pack update check failed; continuing');
+    lines.push(OFFLINE_LINE);
+  }
+  // Runs after the update step because that step can replace AGENTS.student.md. An unwritable folder costs one line.
+  try {
+    const res = refresh({ root, packRoot });
+    if (res.line) lines.push(res.line);
+  } catch (err) {
+    lines.push(`AGENTS.override.md not refreshed (${oneLine(err.message) || 'write failed'})`);
   }
   const integrity = verifyAndRestore({ packRoot });
   if (integrity.restored || !integrity.ok) lines.push(integrity.message);

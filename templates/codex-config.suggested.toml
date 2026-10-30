@@ -1,0 +1,37 @@
+# Suggested Codex settings for the career-ops folder. This file is optional.
+#
+# To use it, copy it to .codex/config.toml inside your career-ops folder yourself. The pack never writes that file.
+# Codex reads a project config only for a folder you have trusted: accept its trust prompt for this folder when it asks.
+
+# Reads the whole AGENTS.override.md (upstream's rules alone are larger than the 32768 byte default).
+project_doc_max_bytes = 131072
+
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+network_access = true
+
+# Gmail write tools, switched off. The keys below come from the Codex binary and are unverified: they were not checked
+# in a live Gmail run, so Codex may ignore them. They are a second guard behind the rule in AGENTS.student.md, which
+# says never to call a Gmail write tool.
+[apps.gmail.tools.send_email]
+enabled = false
+
+[apps.gmail.tools.send_draft]
+enabled = false
+
+[apps.gmail.tools.forward_emails]
+enabled = false
+
+[apps.gmail.tools.delete_emails]
+enabled = false
+
+[apps.gmail.tools.trash_emails]
+enabled = false
+
+[apps.gmail.tools.archive_emails]
+enabled = false
+
+[apps.gmail.tools.create_draft]
+enabled = false

@@ -8,16 +8,21 @@ import { cpSync, existsSync, readFileSync, readdirSync, realpathSync, rmSync } f
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
+import { refreshOverride } from './lib/agents-override.mjs';
 import { parseArgs, runCli } from './lib/args.mjs';
 import { verifyAndRestore } from './lib/integrity.mjs';
 import { resolvePaths } from './lib/paths.mjs';
 import { inRange } from './lib/semver.mjs';
+import { oneLine } from './lib/text.mjs';
 import { createUpstream, defaultRunner } from './lib/upstream.mjs';
 import { checkSafetyDiff } from './scripts/check-safety-tag.mjs';
 
 const LOCAL_COMMITS = 'student/ has local commits; pack update skipped (fork-and-edit, see README)';
+// A blocked network must fail in seconds, not hang on a credential prompt: 20 s covers a slow first fetch and
+// GIT_TERMINAL_PROMPT=0 makes git give up rather than ask for a password nobody is there to type.
+const FETCH_OPTS = { timeout: 20000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } };
 
-const git = (runner, packRoot, args) => runner('git', ['-C', packRoot, ...args]);
+const git = (runner, packRoot, args, opts) => (opts ? runner('git', ['-C', packRoot, ...args], opts) : runner('git', ['-C', packRoot, ...args]));
 
 function newestTag(runner, packRoot, pattern) {
   const out = git(runner, packRoot, ['tag', '--list', pattern, '--sort=-version:refname']);
@@ -90,9 +95,9 @@ async function updatePack({ packRoot, runner, offline, dryRun, safetyOnly, say }
   let localCommits = false;
   if (!offline && !dryRun) {
     try {
-      git(runner, packRoot, ['fetch', '--tags']);
+      git(runner, packRoot, ['fetch', '--tags'], FETCH_OPTS);
     } catch {
-      say('pack: could not reach the pack remote; using tags already fetched');
+      say('update check skipped (offline)');
     }
   }
   const safety = newestTag(runner, packRoot, 'safety-*');
@@ -141,6 +146,18 @@ export async function runUpdate({ root, packRoot, offline = false, dryRun = fals
   const localCommits = await updatePack({ packRoot, runner, offline, dryRun, safetyOnly, say });
   if (!localCommits) syncPlugins({ root, packRoot, upstream: up, dryRun, say });
   if (!offline && !safetyOnly) updateUpstream({ up, packRoot, dryRun, say });
+
+  // Refreshed after every step that can replace AGENTS.md or AGENTS.student.md. Session start runs this with safetyOnly
+  // and refreshes and reports the override itself, so only an explicit update touches it here.
+  if (!safetyOnly) {
+    try {
+      const override = refreshOverride({ root, packRoot, dryRun });
+      if (override.line) say(override.line);
+      else if (override.status === 'created' || override.status === 'updated') say(dryRun ? 'AGENTS.override.md: would refresh' : 'AGENTS.override.md: refreshed');
+    } catch (err) {
+      say(`AGENTS.override.md not refreshed (${oneLine(err.message) || 'write failed'})`);
+    }
+  }
 
   const last = verifyAndRestore({ packRoot, runner });
   if (last.restored || !last.ok) say(last.message);

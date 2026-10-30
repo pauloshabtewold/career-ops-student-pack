@@ -1,5 +1,5 @@
-// Assumed: buildPlist and buildTaskScript take an optional claude (absolute path or null). They start
-// student/scripts/scheduled.mjs and add `--claude <path>` when a path is given. `schedule.mjs install --dry-run` finds
+// Assumed: buildPlist and buildTaskScript take { agent = 'claude', agentPath = null } (a legacy claude path maps to agent claude).
+// They start student/scripts/scheduled.mjs and add `--agent <agent> --agent-path <path>` when a path is given. `schedule.mjs install --dry-run` finds
 // claude on the PATH of the install process; under scheduled-discovery-plus-triage with no claude it still prints the
 // artifact and a warning that scheduled runs will skip triage. Nothing here starts launchctl or powershell.
 import { test } from 'node:test';
@@ -55,13 +55,16 @@ test('M-002-S11 install --dry-run prints a job that starts student/scripts/sched
 });
 
 // M-002-S27
-test('M-002-S27 buildPlist writes the absolute claude path as the --claude argument and omits it without claude', () => {
+test('M-002-S27 buildPlist writes --agent claude --agent-path with the absolute claude path and omits them without claude', () => {
   const xml = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30', claude: '/opt/sample bin/claude' });
   assert.match(xml, /<string>[^<]*student[\\/]scripts[\\/]scheduled\.mjs<\/string>/);
-  assert.match(xml, /<string>--claude<\/string>\s*<string>\/opt\/sample bin\/claude<\/string>/);
+  assert.match(xml, /<string>--agent<\/string>\s*<string>claude<\/string>\s*<string>--agent-path<\/string>\s*<string>\/opt\/sample bin\/claude<\/string>/);
+  assert.doesNotMatch(xml, /--claude/);
+  const legacy = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30', claude: '/opt/sample bin/claude' });
+  assert.match(legacy, /<string>--agent-path<\/string>\s*<string>\/opt\/sample bin\/claude<\/string>/);
   assert.match(xml, new RegExp(`<key>WorkingDirectory</key>\\s*<string>${esc(ROOT)}</string>`));
   const none = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30' });
-  assert.doesNotMatch(none, /--claude/);
+  assert.doesNotMatch(none, /--claude|--agent/);
   assert.match(none, /scheduled\.mjs/);
 });
 
@@ -70,18 +73,20 @@ test('M-002-S27 buildTaskScript starts scheduled.mjs and carries the claude path
   const ps = buildTaskScript({ nodePath: WIN_NODE, root: WIN_ROOT, time: '07:30', claude: WIN_CLAUDE });
   assert.match(ps, /scheduled\.mjs/);
   assert.doesNotMatch(ps, /daily\.mjs/);
-  assert.match(ps, /--claude/);
+  assert.match(ps, /--agent claude --agent-path\s+\S*"/);
+  assert.doesNotMatch(ps, /--claude/);
   assert.ok(ps.includes(WIN_CLAUDE), 'absolute claude path is in the action');
   assert.match(ps, new RegExp(`-WorkingDirectory\\s+['"]${esc(WIN_ROOT)}['"]`));
-  assert.doesNotMatch(buildTaskScript({ nodePath: WIN_NODE, root: WIN_ROOT, time: '07:30' }), /--claude/);
+  assert.doesNotMatch(buildTaskScript({ nodePath: WIN_NODE, root: WIN_ROOT, time: '07:30' }), /--claude|--agent/);
 });
 
 // M-002-S27
-test('M-002-S27 install --dry-run with claude on PATH shows its resolved absolute path as --claude', () => {
+test('M-002-S27 install --dry-run with claude on PATH shows its resolved absolute path as --agent-path', () => {
   const d = dryRun({ config: 'automation: scheduled-discovery-plus-triage\n', withClaude: true });
   try {
     assert.equal(d.out.status, 0, d.out.stderr);
-    assert.ok(d.out.stdout.includes('--claude'), d.out.stdout);
+    assert.ok(d.out.stdout.includes('--agent'), d.out.stdout);
+    assert.ok(d.out.stdout.includes('--agent-path'), d.out.stdout);
     assert.ok(d.out.stdout.includes(join(d.bin, 'claude')), 'resolved path shown');
     assert.doesNotMatch(d.out.stdout + d.out.stderr, /skip triage/i);
   } finally {
@@ -97,7 +102,8 @@ test('M-002-S28 plus-triage with no claude on PATH still installs and prints the
     assert.match(d.out.stdout, /scheduled\.mjs/, 'the job is still produced');
     const text = d.out.stdout + d.out.stderr;
     assert.match(text, /skip(ped)?[^\n]*triage|triage[^\n]*skip/i);
-    assert.doesNotMatch(d.out.stdout, /--claude/);
+    assert.match(text, /claude/i, 'the warning names claude');
+    assert.doesNotMatch(d.out.stdout, /--agent-path|--claude/);
   } finally {
     d.cleanup();
   }

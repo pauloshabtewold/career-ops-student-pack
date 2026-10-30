@@ -14,6 +14,8 @@ switches:
   submission: agent
 # Becomes scheduled-discovery after the first successful run (set by the interview).
 automation: manual
+# The agent that runs the daily triage (claude or codex); the interview records the one it runs in.
+agent: claude
 spend_tier: standard
 daily_target: 10
 score_floor: 3.5

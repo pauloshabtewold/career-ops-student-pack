@@ -4,6 +4,9 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-013: Codex support: `AGENTS.override.md` is generated with the pack block first, config/student.yml gains an `agent` key, the daily triage can run as one read-only `codex exec` call, and `schedule.mjs` takes `--agent` and `--agent-path` (the older `--claude` still works)
+- W-013: session start tolerates an offline sandbox; interview fixtures carry the Phase 3 application profile
+- W-013: `docs/codex.md`, `docs/codex-spike.md` and `templates/codex-config.suggested.toml` describe the Codex path, a preview until the live checks listed there are done
 - W-011: audit issue reuse, single BYO coverage line, semver-only pickBase, parity node_modules link
 - W-012: the interview takes over the template title and location filters, collects an application profile, reads Word resumes and proposes the field from the resume
 - W-012: `first-run.mjs` brings in the first postings and lists rows to triage; `daily.mjs --dry-run` writes nothing

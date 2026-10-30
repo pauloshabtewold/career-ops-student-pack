@@ -156,6 +156,12 @@
         "gmail-plugin"
       ]
     },
+    "agent": {
+      "enum": [
+        "claude",
+        "codex"
+      ]
+    },
     "spend_tier": {
       "enum": [
         "standard",

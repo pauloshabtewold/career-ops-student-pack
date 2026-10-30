@@ -16,15 +16,16 @@ The pack does not fork career-ops. You keep a plain clone of upstream career-ops
 career-ops/                 plain clone of career-ops-hq/career-ops
   student/                  this pack, its own git clone and update channel
   CLAUDE.local.md           generated hook that imports student/AGENTS.student.md
+  AGENTS.override.md        generated for Codex, pack rules first
   config/local-paths.txt    declares the pack files as user-owned
   plugins.local/            pack feeds installed as upstream ingest plugins
 ```
 
-Supported: macOS and Windows 11, Claude Code, US job markets.
+Supported: macOS and Windows 11, Claude Code or Codex, US job markets.
 
 ## Requirements
 
-- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code), signed in
+- macOS or Windows 11 with [Claude Code](https://claude.com/claude-code) or Codex (a preview; see [docs/codex.md](docs/codex.md)), signed in
 - Node 22.13 or newer, and git
 - A clone of career-ops at version 1.38.0 or newer (the pack refuses to install on an older one)
 
@@ -61,7 +62,7 @@ node student/install.mjs
 
 `install.mjs` installs the pack's own packages (`npm ci --omit=dev` in the student folder) and, if career-ops has no `node_modules` yet, runs `npm install` there too. Then it writes only inside your career-ops folder: it lists the student folder and `CLAUDE.local.md` in the local-paths file in your config folder, adds the pack entries to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, and copies the pack plugins into upstream's local plugins folder. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again and leaves its other edits as they are.
 
-**2. Open the career-ops folder in Claude Code.** The personalization interview starts on its own the first time. It reads your resume, asks a few questions and ends with your first top 10 list of postings to apply to.
+**2. Open the career-ops folder in Claude Code or Codex.** Codex install steps are in [docs/codex.md](docs/codex.md). The personalization interview starts on its own the first time. It reads your resume, asks a few questions and ends with your first top 10 list of postings to apply to.
 
 Keep the career-ops folder out of iCloud Drive, OneDrive, Dropbox and Google Drive. Your resume, tracker and pipeline live in its `data` folder, and a sync client can upload them or make conflicting copies.
 
@@ -69,6 +70,7 @@ Keep the career-ops folder out of iCloud Drive, OneDrive, Dropbox and Google Dri
 
 Applying, the Handshake pass and LinkedIn outreach run in a browser you sign in to yourself; the agent never types a password.
 
+- **Codex.** On macOS Codex uses the ChatGPT in-app browser. Windows has no Codex browser tool, so browser steps stay in Claude Code there.
 - **Claude in Chrome.** Install Google Chrome and the Claude in Chrome extension from the Chrome Web Store, then sign in to LinkedIn, Handshake and your job sites in that Chrome.
 - **Playwright.** Upstream also uses its own headless browser for some pages. In the career-ops folder run `npx playwright install chromium` once.
 - **Fewer permission prompts (optional).** `templates/claude-settings.suggested.json` in the pack lists the pack commands that are safe to allow without asking each time. If you want it, merge those entries into your own Claude Code settings by hand. The pack never writes a settings file for you.

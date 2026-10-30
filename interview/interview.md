@@ -64,11 +64,12 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 
 ## Phase 5: schedule and spend
 
-1. Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`. The last one adds a daily model triage of up to `triage_daily` rows (ceiling 20) and needs claude signed in on this computer.
+1. Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`. The last one adds a daily model triage of up to `triage_daily` rows (ceiling 20) and needs the chosen agent (Claude Code or Codex) signed in on this computer.
 2. Local time for the daily run and the time zone.
 3. Model tier: `standard` or `premium`. There is no economy tier.
 4. Daily target for applications (default 10; the ceiling still applies).
 5. How mail will be read for the inbox pass: `connector`, `paste` or `gmail-plugin`.
+6. Agent: record `agent` as `codex` when this interview runs in Codex and `claude` when it runs in Claude Code. Do not ask; the daily triage uses it.
 
 ## Phase 6: write, check, enable
 

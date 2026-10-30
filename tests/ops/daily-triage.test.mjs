@@ -142,6 +142,7 @@ test('M-002-S23 malformed TRIAGE lines are dropped, counted ignored and their ro
   }));
 
 // M-002-S25
+// M-002-S18: with agent claude the call stays -p --tools '' --model sonnet|opus.
 test('M-002-S25 claude starts from the --claude path in the career-ops root with --tools "" and the posting text on stdin', () =>
   withRoot({ config: `${PLUS}spend_tier: premium\n`, pending: untriaged(2) }, async (r) => {
     const { runner, calls } = makeRunner(r, { fetch: (url) => (url === jobUrl(2) ? 'x'.repeat(9000) : `Posting body for ${url}`) });

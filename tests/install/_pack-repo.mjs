@@ -45,12 +45,16 @@ export function snapshot(dir, { skip = [] } = {}) {
   return out;
 }
 
-export function makePack({ upstreamVersion = '1.38.0', checkout = true } = {}) {
+export const DEFAULT_AGENTS_MD = '# Synthetic career-ops rules\n\nAlways keep the pipeline tidy.\n';
+
+// agentsMd is the text of AGENTS.md written into the fake upstream root; null writes none.
+export function makePack({ upstreamVersion = '1.38.0', checkout = true, agentsMd = DEFAULT_AGENTS_MD } = {}) {
   let root;
   let up = null;
   if (checkout) {
     up = createFakeUpstream({ version: upstreamVersion });
     root = up.root;
+    if (agentsMd !== null) writeFileSync(join(root, 'AGENTS.md'), agentsMd);
   } else {
     root = mkdtempSync(join(tmpdir(), 'not-career-ops-'));
   }

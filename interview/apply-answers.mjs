@@ -215,6 +215,7 @@ export function buildConfig(answers) {
       locations: answers.locations,
       switches: answers.switches ?? {},
       automation: answers.automation ?? 'manual',
+      agent: answers.agent ?? 'claude',
       spend_tier: answers.spend_tier ?? 'standard',
       daily_target: answers.daily_target ?? 10,
       score_floor: floor,

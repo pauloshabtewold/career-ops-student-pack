@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Installs the pack into a plain career-ops checkout. Run as `node student/install.mjs` from the career-ops folder.
 // Writes only inside the career-ops root: local-paths.txt and .git/info/exclude entries, the CLAUDE.local.md import
-// block, and full copies of the pack plugins in plugins.local/. It never enables a plugin (consent belongs to the
-// interview) and never touches a Claude Code settings file. It also installs the dependencies the pack needs:
+// block, the generated AGENTS.override.md that Codex reads, and full copies of the pack plugins in plugins.local/. It
+// never enables a plugin (consent belongs to the interview) and never touches a Claude Code settings file or a Codex
+// config file. It also installs the dependencies the pack needs:
 // `npm ci --omit=dev` in the pack folder and, when career-ops has no node_modules yet, `npm install` there;
 // --skip-npm leaves those out for tests and offline repairs.
 // Usage: install.mjs [--root R] [--dry-run] [--yes] [--skip-npm]
@@ -10,6 +11,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync,
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, runCli } from './lib/args.mjs';
+import { refreshOverride } from './lib/agents-override.mjs';
 import { compare } from './lib/semver.mjs';
 import { resolvePaths } from './lib/paths.mjs';
 import { oneLine } from './lib/text.mjs';
@@ -17,8 +19,9 @@ import { defaultRunner } from './lib/upstream.mjs';
 
 export class InstallError extends Error {}
 
-const LOCAL_PATHS = ['student/', 'CLAUDE.local.md'];
-const EXCLUDES = ['student/', 'CLAUDE.local.md', 'config/student.yml'];
+// .codex/config.toml is listed so a student's own copy of the suggested Codex config stays out of upstream's commits.
+const LOCAL_PATHS = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml'];
+const EXCLUDES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', 'config/student.yml'];
 const BLOCK_RE = /<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/;
 const BLOCK = '<!-- student-pack:start -->@student/AGENTS.student.md<!-- student-pack:end -->';
 const NPM_TIMEOUT_MS = 10 * 60 * 1000;
@@ -111,6 +114,9 @@ export function install({ root, packRoot, dryRun = false, runner = defaultRunner
   edit(join(root, 'config', 'local-paths.txt'), (t) => addLines(t, LOCAL_PATHS), 'config/local-paths.txt: added pack paths');
   edit(join(root, '.git', 'info', 'exclude'), (t) => addLines(t, EXCLUDES), '.git/info/exclude: added pack entries');
   edit(join(root, 'CLAUDE.local.md'), withBlock, 'CLAUDE.local.md: wrote the pack import block');
+  const override = refreshOverride({ root, packRoot, dryRun });
+  if (override.status === 'created' || override.status === 'updated') actions.push('AGENTS.override.md: wrote the pack block and the career-ops AGENTS.md copy');
+  else if (override.line) actions.push(override.line);
 
   const pluginsDir = join(packRoot, 'plugins');
   const ids = existsSync(pluginsDir) ? readdirSync(pluginsDir).filter((d) => existsSync(join(pluginsDir, d, 'manifest.json'))) : [];
@@ -128,7 +134,7 @@ async function main() {
   try {
     const res = install({ root: paths.root, packRoot: paths.packRoot, dryRun: flags.dryRun, skipNpm: flags.skipNpm });
     for (const a of res.actions) console.log(`${flags.dryRun ? 'would do' : 'done'}: ${a}`);
-    console.log('Next: open the career-ops folder in Claude Code and say hello; the personalization interview starts by itself.');
+    console.log('Next: open the career-ops folder in Claude Code, or in Codex (see student/docs/codex.md), and say hello; the personalization interview starts by itself.');
     return 0;
   } catch (err) {
     if (err instanceof InstallError) {
