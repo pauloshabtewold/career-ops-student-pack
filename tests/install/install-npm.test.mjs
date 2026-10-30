@@ -108,6 +108,8 @@ test('M-002-S17 install.mjs exits 1 with the failed step and manual command when
   try {
     writeFileSync(join(bin, 'npm'), "#!/usr/bin/env node\nconsole.error('npm ERR! sample failure');\nprocess.exit(1);\n");
     chmodSync(join(bin, 'npm'), 0o755);
+    // install.mjs starts npm.cmd through a shell on Windows, which never runs the extensionless shim above.
+    writeFileSync(join(bin, 'npm.cmd'), '@echo off\r\necho npm ERR! sample failure 1>&2\r\nexit /b 1\r\n');
     const r = spawnSync(process.execPath, [join(PACK_ROOT, 'install.mjs'), '--root', up.root, '--yes'], {
       cwd: up.root,
       encoding: 'utf8',

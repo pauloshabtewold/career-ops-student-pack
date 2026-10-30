@@ -61,7 +61,8 @@ test('M-004-S3 a fixture whose apply-answers step fails marks affected rows not 
 });
 
 // M-004-S4
-test('M-004-S4 SIGINT during a run removes the scratch dir and exits 130', async () => {
+// Windows has no SIGINT delivery to a child process: kill('SIGINT') terminates it outright, so no handler can run.
+test('M-004-S4 SIGINT during a run removes the scratch dir and exits 130', { skip: process.platform === 'win32' && 'no SIGINT delivery on Windows' }, async () => {
   const s = setup();
   const { child, done } = runAsync(s);
   const deadline = Date.now() + 60000;

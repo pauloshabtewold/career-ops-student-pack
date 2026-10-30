@@ -62,7 +62,8 @@ test('M-002-S33 on win32 a name that already ends in a PATHEXT suffix is tried a
 });
 
 // M-002-S27
-test('M-002-S27 on posix the first PATH dir holding a file wins and a directory of that name is skipped', () => {
+// A Windows host's temp dirs carry a drive letter whose colon collides with the posix PATH separator.
+test('M-002-S27 on posix the first PATH dir holding a file wins and a directory of that name is skipped', { skip: process.platform === 'win32' && 'posix PATH cannot hold drive-letter dirs' }, () => {
   const s = scratch({ a: ['claude/'], b: ['claude'], c: ['claude'] });
   try {
     const env = { PATH: [s.dirs.a, s.dirs.b, s.dirs.c].join(delimiter) };

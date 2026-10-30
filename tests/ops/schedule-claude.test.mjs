@@ -29,6 +29,8 @@ function dryRun({ config, withClaude }) {
   if (withClaude) {
     writeFileSync(join(bin, 'claude'), '#!/usr/bin/env node\nprocess.exit(0);\n');
     chmodSync(join(bin, 'claude'), 0o755);
+    // which() on Windows matches only PATHEXT names, the way a real npm-global claude.cmd is found.
+    writeFileSync(join(bin, 'claude.cmd'), '@echo off\r\nexit /b 0\r\n');
   }
   const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'schedule.mjs'), 'install', '--dry-run', '--time', '07:30', '--root', tmp], {
     cwd: PACK_ROOT,
