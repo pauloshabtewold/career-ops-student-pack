@@ -18,6 +18,7 @@ Upstream version: 1.38.0
 | marketing-business | 82 | 76 | 6 | 0 | 0 | 0 | 0 |
 | consulting | 50 | 37 | 2 | 0 | 0 | 11 | 0 |
 | cybersecurity | 82 | 81 | 1 | 0 | 0 | 0 | 0 |
+| nursing | 76 | 76 | 0 | 0 | 0 | 0 | 0 |
 | byo-employer-list | 0 | - | - | - | - | - | - |
 
 Meaning of the columns: `ok` returned postings, `small` returned very few, `empty` returned none, `error` failed to load, `no-provider` has a careers page upstream cannot read, `removed` was dropped from the preset during this audit because no readable board exists. Seeds with no provider are kept as manual-watch entries. Four boards that timed out in the batch run were audited again on their own and are counted as `ok`. The 12 policy-government seeds removed in this audit pointed at a host whose robots.txt disallows bots; the 2 accounting seeds were firms that merged into firms already listed.

@@ -2,7 +2,7 @@ id: byo-employer-list
 name: "Bring your own employer list"
 coverage:
   level: discovery-only
-  note: "Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails."
+  note: "Discovery help, not automation: for fields such as education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails."
 title_rules:
   include: []
   exclude:

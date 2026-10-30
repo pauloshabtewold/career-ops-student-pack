@@ -11,7 +11,7 @@ import { CYCLE } from '../helpers/feed-harness.mjs';
 const NAMED = [
   'software-cs', 'mis-business-analytics', 'finance-economics', 'accounting', 'engineering-mech-elec',
   'policy-government', 'supply-chain-operations', 'statistics-math-actuarial', 'marketing-business',
-  'consulting', 'cybersecurity',
+  'consulting', 'cybersecurity', 'nursing',
 ];
 const BYO = 'byo-employer-list';
 const COLUMNS = ['Preset', 'Seeds', 'ok', 'small', 'empty', 'error', 'no-provider', 'removed'];
@@ -36,7 +36,7 @@ function parseTable(text) {
 const presetIds = () => readdirSync(join(PACK_ROOT, 'presets')).filter((f) => f.endsWith('.yml') && f !== 'OWNERS.yml').map((f) => f.slice(0, -4));
 
 // M-015-S1
-test('M-015-S1 presets/ holds exactly the eleven named presets plus byo-employer-list and OWNERS.yml has exactly those keys', () => {
+test('M-015-S1 presets/ holds exactly the twelve named presets plus byo-employer-list and OWNERS.yml has exactly those keys', () => {
   const expected = [...NAMED, BYO].sort();
   assert.deepEqual(presetIds().sort(), expected);
   const owners = yaml.load(read('presets', 'OWNERS.yml'));
@@ -108,7 +108,7 @@ test('M-015-S6 architecture.md states a named preset count equal to the presets/
   assert.ok(m, 'named preset count phrase');
   const stated = /^\d+$/.test(m[1]) ? Number(m[1]) : words[m[1].toLowerCase()];
   assert.equal(stated, presetIds().filter((i) => i !== BYO).length);
-  assert.equal(stated, 11);
+  assert.equal(stated, 12);
 });
 
 // M-015-S7
