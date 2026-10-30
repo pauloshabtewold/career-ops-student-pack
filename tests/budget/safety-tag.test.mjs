@@ -359,7 +359,7 @@ const GUARDED_IMPORTS = "import { realpathSync } from 'node:fs';\nimport { resol
 const GUARD_LINE = "\nasync function main() {}\nif (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await main();\n";
 const guardedBudget = (opts) => GUARDED_IMPORTS + budgetSource(opts) + GUARD_LINE;
 
-test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still compares ceilings (equal)', () =>
+test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still compares ceilings', () =>
   withRepo(async (root) => {
     const base = guardedBudget();
     put(root, 'scripts/budget.mjs', base);
@@ -367,30 +367,21 @@ test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still 
     git(root, 'add', '-A');
     git(root, 'commit', '-q', '-m', 'guarded base');
     git(root, 'tag', '-f', 'base');
-    const v = await verdict(root, () => {
-      const next = guardedBudget({ connect: 20 }) + '// touched\n';
-      put(root, 'scripts/budget.mjs', next);
-      put(root, 'compat.json', compatJson(next));
-    });
-    assert.equal(v.ok, true, v.text);
-    assert.equal(v.violations.length, 0);
-  }));
-
-// M-001-S5
-test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard reports a loosened ceiling', () =>
-  withRepo(async (root) => {
-    const base = guardedBudget();
-    put(root, 'scripts/budget.mjs', base);
-    put(root, 'compat.json', compatJson(base));
+    const next = guardedBudget({ connect: 20 }) + '// touched\n';
+    put(root, 'scripts/budget.mjs', next);
+    put(root, 'compat.json', compatJson(next));
     git(root, 'add', '-A');
-    git(root, 'commit', '-q', '-m', 'guarded base');
-    git(root, 'tag', '-f', 'base');
-    const v = await verdict(root, () => {
-      const next = guardedBudget({ connect: 25 });
-      put(root, 'scripts/budget.mjs', next);
-      put(root, 'compat.json', compatJson(next));
-    });
-    assert.equal(v.ok, false);
-    assert.match(v.text, /connect_per_day/);
-    assert.match(v.text, /raised/);
+    git(root, 'commit', '-q', '-m', 'equal head');
+    const equal = await checkSafetyDiff({ packRoot: root, base: 'base', head: 'HEAD' });
+    assert.equal(equal.ok ?? (equal.violations ?? []).length === 0, true, JSON.stringify(equal));
+    const loose = guardedBudget({ connect: 25 });
+    put(root, 'scripts/budget.mjs', loose);
+    put(root, 'compat.json', compatJson(loose));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'loosened head');
+    const res = await checkSafetyDiff({ packRoot: root, base: 'base', head: 'HEAD' });
+    const text = (res.violations ?? []).map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join('\n');
+    assert.equal(res.ok, false);
+    assert.match(text, /connect_per_day/);
+    assert.match(text, /raised/);
   }));

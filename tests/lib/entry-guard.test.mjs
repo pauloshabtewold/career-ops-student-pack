@@ -19,20 +19,11 @@ function scratch() {
 }
 
 // M-001-S3
-test('M-001-S3 isMain is true for the module absolute path', () => {
-  const s = scratch();
-  try {
-    assert.equal(isMain(s.url, s.file), true);
-  } finally {
-    s.cleanup();
-  }
-});
-
-// M-001-S3
-test('M-001-S3 isMain is true for a path relative to cwd', () => {
+test('M-001-S3 isMain is true for the module absolute path and for a path relative to cwd', () => {
   const s = scratch();
   const before = process.cwd();
   try {
+    assert.equal(isMain(s.url, s.file), true);
     process.chdir(s.dir);
     assert.equal(isMain(s.url, 'mod.mjs'), true);
     assert.equal(isMain(s.url, relative(process.cwd(), s.file)), true);
@@ -59,29 +50,11 @@ test('M-001-S7 isMain is true when argv1 reaches the module through a directory 
 });
 
 // M-001-S10
-test('M-001-S10 isMain returns false without throwing for an empty argv1', () => {
+test('M-001-S10 isMain returns false without throwing for an empty argv1, a file: URL argv1 and missing paths', () => {
   const s = scratch();
   try {
     assert.equal(isMain(s.url, ''), false);
-  } finally {
-    s.cleanup();
-  }
-});
-
-// M-001-S10
-test('M-001-S10 isMain returns false without throwing for a file: URL argv1', () => {
-  const s = scratch();
-  try {
     assert.equal(isMain(s.url, s.url), false);
-  } finally {
-    s.cleanup();
-  }
-});
-
-// M-001-S10
-test('M-001-S10 isMain returns false when the module or argv1 path does not exist', () => {
-  const s = scratch();
-  try {
     assert.equal(isMain(s.url, join(s.dir, 'missing.mjs')), false);
     assert.equal(isMain(pathToFileURL(join(s.dir, 'missing.mjs')).href, s.file), false);
   } finally {
@@ -170,13 +143,9 @@ function walk(dir, out = []) {
 }
 
 // M-001-S6
-test('M-001-S6 no pack file keeps an inline process.argv[1] entry guard', () => {
+test('M-001-S6 no inline process.argv[1] guard is left and all 40 entry files use isMain(import.meta.url)', () => {
   const offenders = walk(PACK_ROOT).filter((f) => /process\.argv\[1\]\s*&&/.test(readFileSync(f, 'utf8'))).map((f) => relative(PACK_ROOT, f));
   assert.deepEqual(offenders, []);
-});
-
-// M-001-S6
-test('M-001-S6 all 40 entry files start their main through isMain(import.meta.url)', () => {
   assert.equal(ENTRY_FILES.length, 40);
   const missing = ENTRY_FILES.filter((f) => !/\bif\s*\(\s*isMain\(import\.meta\.url\)\s*\)/.test(readFileSync(join(PACK_ROOT, f), 'utf8')));
   assert.deepEqual(missing, []);
