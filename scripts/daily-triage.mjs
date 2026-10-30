@@ -16,9 +16,9 @@ import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { oneLine } from '../lib/text.mjs';
+import { ALL, appendTriageUsage, resolveTriageBudget } from '../lib/triage-budget.mjs';
 import { VERDICT_RE } from '../lib/triage-verdict.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
-import { effectiveLimits } from './budget.mjs';
 
 const FETCH_TIMEOUT_MS = 30 * 1000;
 const JD_CHARS = 6000;
@@ -89,7 +89,7 @@ function callClaude({ claudePath, model, prompt, root, runner, platform }) {
   // A .cmd shim on Windows needs a shell; the arguments are fixed literals and the prompt travels on stdin.
   // Through cmd.exe an empty argument vanishes, so it is passed as a quoted pair there.
   const shell = shellForm(claudePath, platform);
-  const args = ['-p', '--tools', shell ? '""' : '', '--model', model];
+  const args = ['-p', '--tools', shell ? '""' : '', '--setting-sources', 'project', '--strict-mcp-config', '--model', model];
   // cmd.exe splits an unquoted path at a space (C:\Users\First Last\AppData\Roaming\npm\claude.cmd), so the shell form quotes it.
   return runner(quoteIf(shell, claudePath), args, callOptions({ cwd: root, prompt, shell }));
 }
@@ -169,8 +169,8 @@ function agentFailure(configured, err) {
   return `${reason}; ${signInHint('claude')}`;
 }
 
-// At most triage_daily rows are sent per run: that budget ceiling is the cap on unattended model use, and config can
-// only lower it.
+// The rows sent per run are the student's own triage budget (lib/triage-budget.mjs): 20 unless the student chose another
+// number or "all".
 export async function dailyTriage({ root, dataDir, packRoot, today, runner = defaultRunner, agent = null, agentPath = null, claude = null, platform = process.platform, say = () => {} }) {
   const config = await loadStudentConfig({ root });
   if (config?.automation !== 'scheduled-discovery-plus-triage') {
@@ -183,12 +183,12 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
     appendDigest({ dataDir, today, lines: all });
     for (const l of all) say(l);
   };
-  const limit = effectiveLimits(config).values.triage_daily;
-  if (!(limit > 0)) {
-    note(['daily triage off (triage_daily 0)']);
+  const { daily } = resolveTriageBudget(config);
+  if (daily === 0) {
+    note(['daily triage off (triage budget 0)']);
     return { ran: false };
   }
-  const rows = selectUntriagedRows(dataDir, limit);
+  const rows = selectUntriagedRows(dataDir, daily === ALL ? Infinity : daily);
   if (!rows.length) {
     note(['daily triage: triaged 0, passed 0, ignored 0 (no untriaged Pending rows)']);
     return { ran: true, triaged: 0 };
@@ -199,10 +199,13 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   }
   const postings = rows.map((row) => ({ url: row.url, company: row.company, title: row.title, text: fetchPosting({ root, row, runner }) }));
   const prompt = buildPrompt({ brief: readIf(join(root, 'modes', '_brief.md')), postings });
+  const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: rows.length, outcome });
   let output;
   try {
     output = callAgent({ configured, file, config, prompt, root, runner, platform });
   } catch (err) {
+    // A call that started spent tokens whether it worked or not; a spawn error spent none.
+    if (err.code !== 'ENOENT') await record('failed');
     note([`daily triage skipped: ${agentFailure(configured, err)}`]);
     return { ran: false };
   }
@@ -210,10 +213,12 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   if (lines.length) {
     const failure = runApplyTriage({ lines, root, dataDir, packRoot, runner });
     if (failure) {
+      await record('failed');
       note([`daily triage could not apply its verdicts: ${failure}`]);
       return { ran: false };
     }
   }
+  await record('ok');
   note([`daily triage: triaged ${lines.length}, passed ${passed}, ignored ${ignored}`]);
   return { ran: true, triaged: lines.length, passed, ignored };
 }
