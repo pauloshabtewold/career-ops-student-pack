@@ -91,7 +91,7 @@ test('M-004-S2 the five docs name the triage budget and none calls triage_daily 
 test('M-004-S3 the edited docs hold no em dash and no curly quote', () => {
   for (const f of EDITED.filter((x) => existsSync(join(PACK_ROOT, x)))) {
     const text = readDoc(f);
-    assert.ok(!/[—‘’“”]/.test(text), `${f} uses plain punctuation`);
+    assert.ok(!/[\u2014\u2018\u2019\u201c\u201d]/.test(text), `${f} uses plain punctuation`);
   }
 });
 
