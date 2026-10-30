@@ -1,0 +1,7 @@
+[
+  {"job_id": "900001", "agency": "DEPT OF EXAMPLE SERVICES", "business_title": "College Aide", "work_location": "100 Example Plaza", "posting_date": "2026-10-28T00:00:00.000"},
+  {"job_id": "900002", "agency": "EXAMPLE OFFICE OF DATA", "business_title": "  Policy   Analyst Trainee ", "work_location": "", "posting_date": "2026-10-27T00:00:00.000"},
+  {"job_id": "900001", "agency": "DEPT OF EXAMPLE SERVICES", "business_title": "College Aide", "work_location": "100 Example Plaza", "posting_date": "2026-10-28T00:00:00.000"},
+  {"job_id": "not-a-number", "agency": "EXAMPLE", "business_title": "Bad id", "work_location": "1 Example St", "posting_date": "2026-10-27T00:00:00.000"},
+  {"job_id": "900003", "agency": "EXAMPLE", "business_title": "", "work_location": "1 Example St", "posting_date": "2026-10-27T00:00:00.000"}
+]

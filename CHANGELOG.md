@@ -4,6 +4,7 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-021: new `nyc-jobs` plugin 1.0.0 reads student and entry-level City of New York postings from the keyless NYC Open Data Jobs NYC Postings dataset; presets gain `sources.nyc_jobs`, policy-government turns it on, and the daily and first runs add a `nyc-jobs` step after `github-lists` when the student has enabled the plugin; the interview offers it to policy-government students behind its capability card and enables it only after a yes
 - W-016: the triage budget moves from the `budget.mjs` ceiling to `triage_budget` in config/student.yml (default 20 rows a day and 60 on the first run, a whole number or "all") and a new `plan` key; `scripts/triage-budget.mjs` shows, prices, sets (only with `--confirm`) and logs it
 - W-016: the daily triage sends rows in calls of 20, stops at the first failed call, counts every row sent in `data/triage-usage.tsv` and adds a cost line to the digest; the scheduled child timeout scales with the chunks; the claude call ignores user settings and MCP servers (`--setting-sources project --strict-mcp-config`)
 - W-016: `docs/usage-cost.md` explains the estimates with measured tokens and dated first-party sources. This is a normal release (a loosening of `budget.mjs`), never a safety tag.

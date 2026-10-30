@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { ingestStepNames, ingestSteps } from '../lib/ingest.mjs';
+import { ingestStepNames, ingestSteps, presetFeedPlugins } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { ALL, CHUNK_ROWS, DEFAULT_FIRST_RUN, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
@@ -66,7 +66,13 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
       out(`first-run: ${name} FAILED (${stepErrorText(err)})`);
     }
   };
-  ingestSteps({ root, dataDir, packRoot, today, runner, step });
+  let feeds = [];
+  try {
+    feeds = presetFeedPlugins({ root, presets: config.presets ?? [] });
+  } catch {
+    // A preset that cannot be read leaves the extra feeds out.
+  }
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds });
   const file = join(dataDir, 'pipeline.md');
   const budget = resolveTriageBudget(config).firstRun;
   const used = readTriageUsage(dataDir, today).firstRun;
