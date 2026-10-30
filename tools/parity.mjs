@@ -16,7 +16,7 @@ import { formatRow, parsePipeline, sectionRows, serializePipeline } from '../lib
 import { ConfigError, parseConfig } from '../lib/config.mjs';
 import { auditOptions } from '../scripts/fail-audit.mjs';
 import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
-import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, comparePrefilter, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
+import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, comparePrefilter, compareRankQueue, compareStage, exitNote, formatParityReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // The whole candidate set is compared because top-n order follows score formulas that differ by design.
@@ -387,7 +387,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
     const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit, internOnly };
     if (state.interrupted === null) results = await runStages(env, state);
     if (state.interrupted === null && flags.withFeeds) results.push(await runFeedCompare(env));
-    if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot), prefilterInput: dirs.prefilterInput });
+    if (state.interrupted === null) text = formatParityReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot), prefilterInput: dirs.prefilterInput });
   } catch (err) {
     // Only the class name is kept: the message can hold paths or rows from the scratch copy.
     failure = { name: err?.name ?? 'Error' };

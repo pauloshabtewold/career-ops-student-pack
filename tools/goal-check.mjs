@@ -17,9 +17,9 @@ import { install } from '../install.mjs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { STEP_TIMEOUT_MS } from '../lib/ingest.mjs';
+import { classifyMail } from '../lib/mail-classify.mjs';
 import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
-import { classify } from '../scripts/inbox.mjs';
-import { NEWGRAD_TITLE } from '../scripts/prefilter.mjs';
+import { INTERN_TITLE, NEWGRAD_TITLE } from '../lib/title-patterns.mjs';
 import { realish, scratchOverlap } from './parity.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -27,7 +27,6 @@ const FIXTURES = join(PACK_ROOT, 'tests', 'fixtures');
 const SETS = ['cs', 'finance', 'mechanical', 'mis', 'nursing'];
 const TOP_WANTED = 10;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const INTERN_TITLE = /\b(intern(ship)?s?|co-?ops?)\b/i;
 const PROFILE_KEYS = ['start_date', 'relocation', 'eeo', 'how_did_you_hear'];
 
 const ROWS = [
@@ -263,7 +262,7 @@ const INBOX_CTX = { companies: [{ name: 'Example', domains: ['example.com'] }] }
 
 function checkInbox() {
   const mails = readJson(join(FIXTURES, 'goal-check', 'inbox-sample.json'));
-  const fails = mails.filter((m) => classify({ ...m, snippet: m.body }, INBOX_CTX).kind !== INBOX_EXPECT[m.id]).map(() => 'inbox classification');
+  const fails = mails.filter((m) => classifyMail({ ...m, snippet: m.body }, INBOX_CTX).kind !== INBOX_EXPECT[m.id]).map(() => 'inbox classification');
   return mails.length === Object.keys(INBOX_EXPECT).length ? fails : [...fails, 'inbox sample'];
 }
 

@@ -48,7 +48,7 @@ function insideString(text, idx) {
   return open !== null;
 }
 
-export function classify(spec, fileRel, root) {
+export function classifySpecifier(spec, fileRel, root) {
   if (spec.startsWith('node:')) return null;
   if (/^file:/i.test(spec)) return 'file-url';
   if (isAbsolute(spec) || /^[A-Za-z]:[\\/]/.test(spec) || spec.startsWith('\\\\')) return 'absolute-path';
@@ -82,7 +82,7 @@ export function lintText(fileRel, text, root = '.') {
     for (const m of text.matchAll(re)) {
       const at = m.index + m[0].search(/\S/);
       if (isFullLineComment(text, at) || insideString(text, at)) continue;
-      const rule = classify(m[2], fileRel, root);
+      const rule = classifySpecifier(m[2], fileRel, root);
       if (rule) add(at, rule);
     }
   }

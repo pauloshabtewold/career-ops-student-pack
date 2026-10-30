@@ -14,6 +14,7 @@ import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { ISO_DATE, createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
+import { companyKey } from '../lib/company-key.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { parseTsv } from '../lib/tsv.mjs';
@@ -23,7 +24,6 @@ import { CEILINGS, effectiveLimits } from './budget.mjs';
 // effort defaults to 0 so default scores ignore it; a student opts in through rank.weights.
 export const DEFAULT_WEIGHTS = Object.freeze({ triage: 10, age: 4, marquee: 2, metro: 1, warm: 2, referral: 5, effort: 0 });
 const DAY_MS = 86400000;
-const GENERIC = new Set(['inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'the', 'group', 'technologies', 'technology', 'labs', 'lab', 'software', 'systems', 'holdings']);
 // A hold value is a leading date, then end of value or whitespace and free text; '2026-11-05x' is not a date.
 const HOLD_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
 // The bare key or the key followed by free text; a longer key such as reserved-slots is a different note.
@@ -33,21 +33,8 @@ const DEFAULT_EASY_HOSTS = ['greenhouse', 'ashby', 'lever'];
 // Statuses that mean an application was made. Rejected is left out: a rejected row stops counting toward track history,
 // and its slot against company_caps survives only through the logged submit in submitCounts.
 const APPLIED_STATUS = new Set(['applied', 'responded', 'assessment', 'interview', 'offer', 'hired']);
-const tokens = (s, ignore = []) => String(s ?? '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !GENERIC.has(t) && !ignore.includes(t));
-const rawKey = (s, ignore) => tokens(s, ignore).sort().join(' ');
 // co-?op covers both spellings; \b keeps 'internal' from reading as an internship.
 const isIntern = (title) => /\b(intern|internship|co-?op)\b/i.test(title ?? '');
-
-// parent_companies: { parent: [alias, ...] } so a subsidiary counts against its parent's cap.
-// ignore: extra lowercase tokens dropped from every key, on top of GENERIC (rank.ignore_words).
-export function companyKey(name, parents = {}, ignore = []) {
-  const key = rawKey(name, ignore);
-  for (const [parent, aliases] of Object.entries(parents)) {
-    const all = [parent, ...(Array.isArray(aliases) ? aliases : [])].map((a) => rawKey(a, ignore));
-    if (all.some((a) => a && (key === a || key.split(' ').includes(a)))) return rawKey(parent, ignore);
-  }
-  return key;
-}
 
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / DAY_MS);

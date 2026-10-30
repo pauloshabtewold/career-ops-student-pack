@@ -11,6 +11,7 @@ import { readCycle } from '../lib/cycle-file.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { effectiveTitleRules, loadMerged } from '../lib/presets.mjs';
+import { INTERN_TITLE, NEWGRAD_TITLE } from '../lib/title-patterns.mjs';
 
 const ABOVE_ENTRY = [
   [/\b(senior|sr\.?|staff|principal|distinguished|director|manager|head of)\b/i, 'above entry level'],
@@ -21,9 +22,6 @@ const PHD = /\bph\.?d\b/i;
 const MS_OK = /\b(ms|m\.s\.|master'?s?)\b/i;
 const LADDER = /\b(i|1)\s*(\/|-|or|to)\s*(ii|2)\b/i;
 const TERM_RE = /(?<![A-Za-z0-9])(fall|autumn|winter|spring|summer)\s*(20\d\d)(?![A-Za-z0-9])/gi;
-// New-grad wording for full-time roles. INTERN_TITLE exempts a title that also names an internship or co-op.
-export const NEWGRAD_TITLE = /\b(new[ -]?grad(uate)?s?|graduate (program(me)?|scheme)|recent graduates?|entry[- ]level)\b/i;
-const INTERN_TITLE = /\b(intern(ship)?s?|co-?ops?)\b/i;
 const YEAR_RE = /(?<![A-Za-z0-9])(20\d\d)(?![A-Za-z0-9])/g;
 
 // Job ids catch the same posting under different URL spellings (board, embed, redirect).

@@ -34,7 +34,7 @@ export function summarizePending(pipelineText) {
 }
 
 // Counts first, then up to `shown` untriaged rows as url | company | title for the session to judge.
-export function formatReport(summary, shown) {
+export function formatFirstRunReport(summary, shown) {
   const lines = [`Pending rows: ${summary.total}`, ...summary.sources.map(([src, n]) => `  src=${src}: ${n}`), `Untriaged Pending rows: ${summary.untriaged.length}`];
   if (summary.total < TOP_LIST_SIZE) lines.push(`Fewer than ${TOP_LIST_SIZE} postings fit your setup today (${summary.total}), so the top list will be shorter than ${TOP_LIST_SIZE}. The daily run adds new postings as they appear.`);
   if (!summary.untriaged.length) return [...lines, 'no untriaged Pending rows'];
@@ -63,7 +63,7 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
   };
   ingestSteps({ root, dataDir, packRoot, today, runner, step });
   const file = join(dataDir, 'pipeline.md');
-  for (const line of formatReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), shown)) out(line);
+  for (const line of formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), shown)) out(line);
   return 0;
 }
 
@@ -82,8 +82,3 @@ async function main() {
 }
 
 if (isMain(import.meta.url)) await runCli(main);
-
-// Stub: formatReport is renamed to this.
-export function formatFirstRunReport(summary, shown) {
-  throw new Error('not implemented');
-}

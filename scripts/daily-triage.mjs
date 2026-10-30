@@ -16,8 +16,8 @@ import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { oneLine } from '../lib/text.mjs';
+import { VERDICT_RE } from '../lib/triage-verdict.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
-import { VERDICT_RE } from './apply-triage.mjs';
 import { effectiveLimits } from './budget.mjs';
 
 const FETCH_TIMEOUT_MS = 30 * 1000;
@@ -131,7 +131,7 @@ function selectUntriagedRows(dataDir, limit) {
 }
 
 // Hands the kept verdict lines to apply-triage.mjs. Returns null on success, else the one-line reason it failed.
-function applyVerdicts({ lines, root, dataDir, packRoot, runner }) {
+function runApplyTriage({ lines, root, dataDir, packRoot, runner }) {
   try {
     return withTempDir('daily-triage-', (tmp) => {
       const file = join(tmp, 'verdicts.txt');
@@ -208,7 +208,7 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   }
   const { lines, passed, ignored } = filterVerdicts(output, new Set(rows.map((r) => r.url)));
   if (lines.length) {
-    const failure = applyVerdicts({ lines, root, dataDir, packRoot, runner });
+    const failure = runApplyTriage({ lines, root, dataDir, packRoot, runner });
     if (failure) {
       note([`daily triage could not apply its verdicts: ${failure}`]);
       return { ran: false };

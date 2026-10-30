@@ -11,10 +11,10 @@ import { refreshOverride } from './lib/agents-override.mjs';
 import { parseArgs, runCli, isMain } from './lib/args.mjs';
 import { verifyAndRestore } from './lib/integrity.mjs';
 import { resolvePaths } from './lib/paths.mjs';
+import { checkSafetyDiff } from './lib/safety-diff.mjs';
 import { inRange } from './lib/semver.mjs';
 import { oneLine } from './lib/text.mjs';
 import { createUpstream, defaultRunner } from './lib/upstream.mjs';
-import { checkSafetyDiff } from './scripts/check-safety-tag.mjs';
 
 const LOCAL_COMMITS = 'student/ has local commits; pack update skipped (fork-and-edit, see README)';
 // A blocked network must fail in seconds, not hang on a credential prompt: 20 s covers a slow first fetch and
