@@ -116,7 +116,7 @@ test('W-021-S9 the feed joins the ingest steps only for a preset that asks for i
 
 test('W-021-S10 ingestSteps runs the feed plugin right after github-lists and before the scan', () => {
   const calls = [];
-  const runner = (_c, args) => { calls.push(args.slice(0, 2).map((a) => a.split('/').pop()).join(':')); return ''; };
+  const runner = (_c, args) => { calls.push(args.slice(0, 2).map((a) => a.split(/[\\/]/).pop()).join(':')); return ''; };
   ingestSteps({ root: '/r', dataDir: '/r/data', packRoot: '/p', today: '2026-10-30', runner, step: (_n, fn) => fn(), feeds: ['nyc-jobs'] });
   assert.deepEqual(calls.slice(0, 3), ['plugins.mjs:run', 'plugins.mjs:run', 'scan.mjs']);
   assert.deepEqual(ingestStepNames({ feeds: ['nyc-jobs'] }).slice(0, 3), ['github-lists', 'nyc-jobs', 'scan']);
