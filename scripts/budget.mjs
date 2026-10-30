@@ -3,11 +3,10 @@
 // CEILINGS is frozen and nothing reads the environment: config limits can only tighten a ceiling, and every
 // clamp of a looser value is logged. compat.json carries this file's SHA-256 (scripts/compat-hash.mjs).
 // Exit codes: 0 ok, 2 usage, 3 refused, 4 wait, 5 needs the user.
-import { existsSync, readFileSync, realpathSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli, UsageError } from '../lib/args.mjs';
+import { parseArgs, runCli, UsageError, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { parseConfig, ConfigError, deepFreeze } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -257,7 +256,7 @@ function gapOrOk({ group, rows, nowMs, remainingFrom }) {
 }
 
 /** Decides one action. history is the action-log rows; gaps are drawn at log time, not here. */
-export function evaluate({ action, args = {}, history = [], config = {}, session = '', now = new Date() }) {
+export function evaluate({ action, args = {}, history = [], config = {}, session = '', now = createClock({ timezone: config.timezone }).now() }) {
   const ctx = makeContext({ action, args, history, config, session, now });
   if (!CHECKABLE.includes(action)) return ctx.refuse(`unknown action ${action}`);
   for (const check of PREFLIGHT) {
@@ -433,11 +432,11 @@ function actionFrom({ command, positionals, flags }) {
 }
 
 async function logAllowed({ action, now, env, res }) {
-  const { flags, config, write, mkRow } = env;
+  const { flags, config, write, mkRow, rng } = env;
   const details = [];
   if (groupOf(action) === 'linkedin') {
     if (flags.length > 0 && action === 'linkedin.connect') details.push(`note=${flags.length}`);
-    details.push(`next_allowed=${new Date(now.getTime() + drawGapMs(config, Math.random)).toISOString()}`);
+    details.push(`next_allowed=${new Date(now.getTime() + drawGapMs(config, rng)).toISOString()}`);
   }
   if (flags.track) details.push(`track=${flags.track}`);
   const searchId = flags.search ?? flags.target ?? '';
@@ -498,8 +497,8 @@ async function main() {
   const history = await readActionLog(file);
   const mkRow = (action, o = {}) => ({ ts: clock.now().toISOString(), date: clock.today(), session, action, target: '', company: '', approval: '', detail: '', ...o });
   const write = (rows) => (flags.dryRun ? Promise.resolve() : appendAction(file, rows));
-  const env = { command, positionals, flags, paths, file, config, clock, sess, session, history, mkRow, write };
+  const env = { command, positionals, flags, paths, file, config, clock, sess, session, history, mkRow, write, rng: Math.random };
   return (COMMAND_HANDLERS[command] ?? cmdCheckLog)(env);
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

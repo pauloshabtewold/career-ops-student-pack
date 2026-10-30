@@ -5,12 +5,12 @@
 // Also exported (checkSafetyDiff) for update.mjs.
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import * as yaml from 'js-yaml';
-import { parseArgs, runCli, UsageError } from '../lib/args.mjs';
+import { parseArgs, runCli, UsageError, isMain } from '../lib/args.mjs';
 import { compare } from '../lib/semver.mjs';
 
 const defaultPackRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -29,7 +29,9 @@ const RANKS = {
 const RELEASE_TAG = /^v\d+\.\d+\.\d+$/;
 const BASE_NOTE = { previous: 'nearest earlier tag', baseline: 'baseline: first release tag' };
 
-const LOAD_SCRIPT = 'const m = await import(process.argv[1]); process.stdout.write(JSON.stringify(m.CEILINGS));';
+// argv is cut to [node] before the import: every released budget.mjs guard (realpath or resolve form) then sees no
+// argv[1] and skips its CLI, so loading a ref's module never runs its main.
+const LOAD_SCRIPT = 'const url = process.argv[1]; process.argv.length = 1; const m = await import(url); process.stdout.write(JSON.stringify(m.CEILINGS));';
 
 const gitRunner = (args, { cwd }) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -184,4 +186,4 @@ async function main() {
   return verdict(picked.base, refs[0]);
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);
