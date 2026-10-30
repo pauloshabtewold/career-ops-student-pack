@@ -3,22 +3,22 @@
 // synthetic answers file and writes doctor.json. Used by ci.yml, canary.yml and audit-presets.yml.
 // Usage: upstream-setup.mjs --out <new dir> [--version X.Y.Z] [--pack <dir>] [--answers <file>] [--resume <file>]
 //   --version defaults to compat.json upstream.max. Prints the checkout path on the last line.
-import { execFileSync } from 'node:child_process';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
+import { runText } from '../../lib/run.mjs';
 
 const UPSTREAM_REPO = 'https://github.com/career-ops-hq/career-ops';
 const PACK_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
-export const defaultRunner = (cmd, args, opts = {}) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true, maxBuffer: 64 * 1024 * 1024, ...opts });
+export const defaultRunner = (cmd, args, opts = {}) => runText(cmd, args, { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 64 * 1024 * 1024, ...opts });
 
 // npm is a .cmd file on Windows and cannot be spawned directly, so it is run through its own entry script.
-export function npmCli() {
+export function npmCli(env = process.env) {
   const bin = dirname(process.execPath);
   const candidates = [
-    process.env.npm_execpath?.endsWith('npm-cli.js') ? process.env.npm_execpath : null,
+    env.npm_execpath?.endsWith('npm-cli.js') ? env.npm_execpath : null,
     join(bin, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
     join(bin, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
   ].filter(Boolean);
@@ -27,14 +27,14 @@ export function npmCli() {
   return found;
 }
 
-export function setupUpstream({ out, version, pack = PACK_ROOT, answers = join('tests', 'fixtures', 'answers', 'cs.json'), resume = join('tests', 'fixtures', 'resumes', 'cs.md'), runner = defaultRunner }) {
+export function setupUpstream({ out, version, pack = PACK_ROOT, answers = join('tests', 'fixtures', 'answers', 'cs.json'), resume = join('tests', 'fixtures', 'resumes', 'cs.md'), runner = defaultRunner, env = process.env }) {
   const dest = resolve(out);
   if (existsSync(dest) && readdirSync(dest).length) throw new UsageError('--out exists and is not empty');
   mkdirSync(dirname(dest), { recursive: true });
   const compat = JSON.parse(readFileSync(join(pack, 'compat.json'), 'utf8'));
   const tag = `${compat.upstream.tag_prefix}${version ?? compat.upstream.max}`;
   runner('git', ['clone', '--depth', '1', '--branch', tag, UPSTREAM_REPO, dest]);
-  runner(process.execPath, [npmCli(), 'install', '--no-audit', '--no-fund'], { cwd: dest, env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' } });
+  runner(process.execPath, [npmCli(env), 'install', '--no-audit', '--no-fund'], { cwd: dest, env: { ...env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' } });
   const student = join(dest, 'student');
   cpSync(pack, student, { recursive: true, filter: (src) => !['.git', 'node_modules'].includes(basename(src)) });
   runner(process.execPath, [join('student', 'install.mjs'), '--yes'], { cwd: dest });

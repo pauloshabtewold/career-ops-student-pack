@@ -6,8 +6,7 @@
 // Usage: daily-triage.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--agent claude|codex] [--agent-path PATH]
 //        [--claude PATH] [--log-file F]   (--claude PATH is the older spelling of --agent claude --agent-path PATH)
 // Exit 0 always: a missing binary, timeout or sign-in problem becomes a digest note and pipeline.md stays unchanged.
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, AGENT_TIMEOUT_MS, CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS, quoteIf, resolveAgentPath, shellForm, signInHint } from '../lib/agent.mjs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
@@ -15,6 +14,7 @@ import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { withTempDir } from '../lib/temp-dir.mjs';
 import { oneLine } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { VERDICT_RE } from './apply-triage.mjs';
@@ -98,8 +98,7 @@ function callClaude({ claudePath, model, prompt, root, runner, platform }) {
 // an empty temp folder (-C and cwd) so a read-only sandbox still has nothing of the student's to read; the folder is
 // removed whether the call succeeds or not.
 function callCodex({ codexPath, effort, prompt, runner, platform }) {
-  const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-codex-'));
-  try {
+  return withTempDir('daily-triage-codex-', (tmp) => {
     const out = join(tmp, 'last.txt');
     const shell = shellForm(codexPath, platform);
     const args = [
@@ -111,9 +110,7 @@ function callCodex({ codexPath, effort, prompt, runner, platform }) {
     const answer = existsSync(out) ? readFileSync(out, 'utf8') : '';
     if (!answer.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
     return answer;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  });
 }
 
 // One digest reason per way a codex call fails. Exit 2 is a usage error (a flag this codex does not know), which signing
@@ -135,16 +132,15 @@ function selectUntriagedRows(dataDir, limit) {
 
 // Hands the kept verdict lines to apply-triage.mjs. Returns null on success, else the one-line reason it failed.
 function applyVerdicts({ lines, root, dataDir, packRoot, runner }) {
-  const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-'));
   try {
-    const file = join(tmp, 'verdicts.txt');
-    writeFileSync(file, `${lines.join('\n')}\n`);
-    runner(process.execPath, [join(packRoot, 'scripts', 'apply-triage.mjs'), file, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: FETCH_TIMEOUT_MS });
-    return null;
+    return withTempDir('daily-triage-', (tmp) => {
+      const file = join(tmp, 'verdicts.txt');
+      writeFileSync(file, `${lines.join('\n')}\n`);
+      runner(process.execPath, [join(packRoot, 'scripts', 'apply-triage.mjs'), file, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: FETCH_TIMEOUT_MS });
+      return null;
+    });
   } catch (err) {
     return oneLine(err.stderr || err.message) || 'failed';
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
   }
 }
 

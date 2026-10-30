@@ -4,13 +4,13 @@
 // Usage: inbox.mjs --backend connector --input F | paste --file F | gmail-plugin
 //                  [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--propose-only]
 // Status changes go only through upstream set-status.mjs. Seen message ids live in data/.student-inbox-seen.
-import { execFile } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { runResult } from '../lib/run.mjs';
 import { loadMerged } from '../lib/presets.mjs';
 import { effectiveLimits } from './budget.mjs';
 
@@ -164,12 +164,7 @@ function trackerCompanies(text) {
   return [...byName.values()];
 }
 
-export const defaultRunner = (argv, { cwd }) =>
-  new Promise((done) => {
-    execFile(process.execPath, argv, { cwd, encoding: 'utf8', windowsHide: true }, (err, stdout) => {
-      done({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout: stdout ?? '' });
-    });
-  });
+export const defaultRunner = async (argv, { cwd }) => runResult(process.execPath, argv, { cwd });
 
 const PROPOSAL_TEXT = {
   rejection: 'looks like a rejection; consider Rejected',

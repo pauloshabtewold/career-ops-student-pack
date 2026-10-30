@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import * as yaml from 'js-yaml';
 import { parseArgs, runCli, UsageError, isMain } from '../lib/args.mjs';
+import { gitRunner } from '../lib/run.mjs';
 import { compare } from '../lib/semver.mjs';
 
 const defaultPackRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -32,8 +33,6 @@ const BASE_NOTE = { previous: 'nearest earlier tag', baseline: 'baseline: first 
 // argv is cut to [node] before the import: every released budget.mjs guard (realpath or resolve form) then sees no
 // argv[1] and skips its CLI, so loading a ref's module never runs its main.
 const LOAD_SCRIPT = 'const url = process.argv[1]; process.argv.length = 1; const m = await import(url); process.stdout.write(JSON.stringify(m.CEILINGS));';
-
-const gitRunner = (args, { cwd }) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 
 const toComparable = (v) => (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v) ? Number(v.slice(0, 2)) * 60 + Number(v.slice(3)) : v);
 
