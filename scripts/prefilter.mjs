@@ -4,9 +4,8 @@
 // Only unambiguous title-level rules live here; anything that needs the JD is left to triage.
 // Usage: prefilter.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readCycle } from '../lib/cycle-file.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
@@ -114,4 +113,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

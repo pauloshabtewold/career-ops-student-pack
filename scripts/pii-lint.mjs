@@ -15,8 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 
 // Stored as char codes so this file never contains the literal strings it hunts for;
 // the maintainer's pre-push grep would otherwise flag the lint itself.
@@ -145,6 +144,6 @@ function main(argv) {
   return findings.length ? 1 : 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMain(import.meta.url)) {
   await runCli(() => main(process.argv.slice(2)));
 }

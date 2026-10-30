@@ -4,9 +4,8 @@
 // pick [--n 20]      JSON of the newest unaudited judgment FAIL rows
 // apply <results>    consumes 'AUDIT: KEEP|WRONG | url | X.X/5 | reason'; WRONG rows return to Pending
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
@@ -127,4 +126,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

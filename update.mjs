@@ -4,12 +4,11 @@
 // The pack enforces the upstream version range itself: upstream's dismiss file does not gate `apply`, and
 // `check --force` bypasses it, so this script never passes --force and never applies a version outside compat.json.
 // Usage: update.mjs [--root R] [--offline] [--dry-run] [--safety-only]
-import { cpSync, existsSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { cpSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { refreshOverride } from './lib/agents-override.mjs';
-import { parseArgs, runCli } from './lib/args.mjs';
+import { parseArgs, runCli, isMain } from './lib/args.mjs';
 import { verifyAndRestore } from './lib/integrity.mjs';
 import { resolvePaths } from './lib/paths.mjs';
 import { inRange } from './lib/semver.mjs';
@@ -172,4 +171,4 @@ async function main() {
   return res.code;
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

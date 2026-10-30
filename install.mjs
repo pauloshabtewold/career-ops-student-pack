@@ -7,10 +7,9 @@
 // `npm ci --omit=dev` in the pack folder and, when career-ops has no node_modules yet, `npm install` there;
 // --skip-npm leaves those out for tests and offline repairs.
 // Usage: install.mjs [--root R] [--dry-run] [--yes] [--skip-npm]
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from './lib/args.mjs';
+import { parseArgs, runCli, isMain } from './lib/args.mjs';
 import { refreshOverride } from './lib/agents-override.mjs';
 import { compare } from './lib/semver.mjs';
 import { resolvePaths } from './lib/paths.mjs';
@@ -145,4 +144,4 @@ async function main() {
   }
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

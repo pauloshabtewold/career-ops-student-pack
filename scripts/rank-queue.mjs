@@ -9,9 +9,8 @@
 // note (free text after the key is allowed; the company's other Pending rows are blocked, not held).
 // Usage: rank-queue.mjs [--n N] [--json] [--root R] [--data-dir D] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
@@ -367,4 +366,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

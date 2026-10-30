@@ -4,11 +4,9 @@
 // switch states. A sandboxed or offline agent cannot reach the pack remote, so a failed update check is one quiet
 // line and never stops the rest. Usage: session-start.mjs [--root R]
 import { execFileSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { refreshOverride } from '../lib/agents-override.mjs';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { verifyAndRestore } from '../lib/integrity.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -86,4 +84,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

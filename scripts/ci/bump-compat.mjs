@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
 import { compare } from '../../lib/semver.mjs';
 
 const DEFAULT_FILE = join(dirname(dirname(dirname(fileURLToPath(import.meta.url)))), 'compat.json');
@@ -32,4 +32,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

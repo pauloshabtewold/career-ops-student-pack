@@ -3,9 +3,8 @@
 // scheduled-discovery-plus-triage, the model triage, each as its own child process so one cannot stop the other.
 // Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH]
 // Exit 0 always: a scheduler that sees a failure retries, and both steps already report their own problems.
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { oneLine } from '../lib/text.mjs';
@@ -54,4 +53,4 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

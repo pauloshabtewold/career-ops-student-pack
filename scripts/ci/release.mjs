@@ -5,10 +5,10 @@
 //        release.mjs changelog [--file CHANGELOG.md]                 adds a section per release tag the file lacks
 // Exit 0 ok, 1 refused (notes still fail pii-lint after withholding, CI not green), 2 usage.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
 import { compare, parse } from '../../lib/semver.mjs';
 import { scanText } from '../pii-lint.mjs';
 
@@ -157,4 +157,4 @@ async function main() {
   throw new UsageError('usage: release.mjs plan | gate | changelog');
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

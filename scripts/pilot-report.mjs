@@ -3,9 +3,8 @@
 // when present, data/student-cost.tsv. Company names, URLs and message text are never printed, and nothing is sent.
 // Usage: pilot-report.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { readTsv } from '../lib/tsv.mjs';
@@ -117,4 +116,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 
 const chars = (...codes) => String.fromCharCode(...codes);
 const BANNED_EXT = ['sh', 'bash', 'zsh', 'ps1', 'py', 'bat', 'cmd', 'command'];
@@ -65,4 +65,4 @@ function main() {
   return findings.length ? 1 : 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

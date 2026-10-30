@@ -6,9 +6,8 @@
 // Status changes go only through upstream set-status.mjs. Seen message ids live in data/.student-inbox-seen.
 import { execFile } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -303,4 +302,4 @@ export async function main(argv, deps = {}) {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(() => main(process.argv.slice(2)));
+if (isMain(import.meta.url)) await runCli(() => main(process.argv.slice(2)));

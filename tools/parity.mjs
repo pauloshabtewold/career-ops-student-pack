@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { cp } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { formatRow, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
 import { ConfigError, parseConfig } from '../lib/config.mjs';
@@ -389,4 +389,4 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   return reportAndExit({ interrupted: state.interrupted, failure, text, results, report: flags.report });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(() => runParity(process.argv.slice(2)));
+if (isMain(import.meta.url)) await runCli(() => runParity(process.argv.slice(2)));
