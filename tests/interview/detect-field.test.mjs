@@ -11,7 +11,7 @@ const EXPECTED = {
   finance: 'finance-economics',
   mechanical: 'engineering-mech-elec',
   mis: 'mis-business-analytics',
-  nursing: 'byo-employer-list',
+  nursing: 'nursing',
 };
 const PRESET_IDS = readdirSync(join(PACK_ROOT, 'presets')).filter((f) => f.endsWith('.yml') && f !== 'OWNERS.yml').map((f) => f.slice(0, -4));
 

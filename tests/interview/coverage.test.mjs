@@ -28,12 +28,12 @@ test('M-006-S6 one line per preset carrying its coverage level and note', async 
   assert.equal((await lines(['software-cs', 'finance-economics'])).length, 2);
 });
 
-test('M-006-S6 the nursing answer set gets the discovery-only line that says discovery help, not automation', async () => {
+test('W-020-S1 the nursing answer set gets the semi-automated nursing line, not the discovery-only lead', async () => {
   const nursing = JSON.parse(readFileSync(join(PACK_ROOT, 'tests', 'fixtures', 'answers', 'nursing.json'), 'utf8'));
+  assert.deepEqual(nursing.presets, ['nursing']);
   const [line] = await lines(nursing.presets);
-  assert.match(line, /discovery[- ]only/i);
-  assert.match(line, /discovery help/i);
-  assert.match(line, /not automation/i);
+  assert.match(line, /^Nursing \[semi-automated\]/);
+  assert.doesNotMatch(line, /discovery help, not automation/i);
 });
 
 // M-006-S7

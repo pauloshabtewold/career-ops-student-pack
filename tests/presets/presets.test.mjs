@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import * as yaml from 'js-yaml';
-import { loadPreset } from '../../lib/presets.mjs';
+import { loadPreset, validatePreset } from '../../lib/presets.mjs';
 import { scanText } from '../../scripts/pii-lint.mjs';
 import { PACK_ROOT } from '../helpers/script-harness.mjs';
 
@@ -70,13 +70,61 @@ test('M-006-S9 a policy without source_url fails validation naming the preset an
 });
 
 // M-006-S12
-test('M-006-S12 every seed_employers entry carries exactly name and careers_url', () => {
+test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config', () => {
+  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm']);
   for (const id of ids()) {
     const raw = yaml.load(readFileSync(join(dir, `${id}.yml`), 'utf8'));
     (raw.seed_employers ?? []).forEach((e, i) => {
-      assert.deepEqual(Object.keys(e).sort(), ['careers_url', 'name'], `${id} seed_employers[${i}] (${e.name ?? 'unnamed'})`);
+      const keys = Object.keys(e);
+      const at = `${id} seed_employers[${i}] (${e.name ?? 'unnamed'})`;
+      assert.ok(keys.includes('name') && keys.includes('careers_url'), at);
+      for (const k of keys) assert.ok(allowed.has(k), `${at} key ${k}`);
+      if (!e.provider) assert.deepEqual(keys.sort(), ['careers_url', 'name'], at);
     });
   }
+});
+
+const seed = (extra) => ({ name: 'Example Co', careers_url: 'https://careers.example.com', ...extra });
+const withSeed = (extra) => {
+  const p = structuredClone(loadPreset('software-cs'));
+  p.seed_employers = [seed(extra)];
+  return p;
+};
+
+test('W-019 a seed may carry a provider from the allowlist with only the config keys it reads', () => {
+  const good = [
+    { provider: 'phenom', phenom: { lang: 'en_us', country: 'us' } },
+    { provider: 'phenom' },
+    { provider: 'radancy' },
+    { provider: 'radancy', api: 'https://careers.example.com/en/search-jobs' },
+    { provider: 'jibeapply', api: 'https://careers.example.com/api/jobs' },
+    { provider: 'ibm', ibm: { country: 'US', categories: ['Intern'] } },
+  ];
+  for (const extra of good) assert.doesNotThrow(() => validatePreset(withSeed(extra), 'software-cs'), JSON.stringify(extra));
+});
+
+test('W-019 a seed is rejected for an unknown provider, config without a provider, or a key the provider does not read', () => {
+  const bad = [
+    { provider: 'workday' },
+    { provider: 'greenhouse', api: 'https://x.example.com' },
+    { api: 'https://careers.example.com/api/jobs' },
+    { phenom: { lang: 'en_us' } },
+    { provider: 'ibm', phenom: { lang: 'en_us' } },
+    { provider: 'jibeapply', ibm: { country: 'US' } },
+    { provider: 'phenom', phenom: { widgetsApi: 'x' } },
+    { provider: 'phenom', phenom: 'en_us' },
+    { provider: 'ibm', ibm: { categories: 'Intern' } },
+    { provider: 'jibeapply', api: 'http://careers.example.com/api/jobs' },
+    { provider: 'radancy', max_pages: 5 },
+    { enabled: true },
+  ];
+  for (const extra of bad) assert.throws(() => validatePreset(withSeed(extra), 'software-cs'), /seed_employers\[0\]/, JSON.stringify(extra));
+});
+
+test('W-019 name and careers_url stay required on a provider seed', () => {
+  const p = withSeed({ provider: 'phenom' });
+  delete p.seed_employers[0].careers_url;
+  assert.throws(() => validatePreset(p, 'software-cs'), /seed_employers\[0\]/);
 });
 
 // M-006-S13

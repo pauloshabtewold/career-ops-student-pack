@@ -2,7 +2,7 @@
 
 Resume: tests/fixtures/resumes/nursing.md | Persona: tests/fixtures/answers/nursing.json
 
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing, byo-employer-list (snapshot 1e38ac4)
 
 Run date: 2026-10-29. Invented person, school and employers; test data only.
 
@@ -28,11 +28,11 @@ INTERVIEWER: Your resume shows a B.S.N. in Nursing, expected May 2027. I propose
 
 STUDENT: New grad only, May 2027.
 
-INTERVIEWER: The pack has twelve field presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. None of the first eleven covers nursing, so I propose byo-employer-list. I ran `node scripts/preset-portals.mjs byo-employer-list`; it returned `tracked_companies: []`, so this preset seeds no employers and you bring your own list. OK to use it?
+INTERVIEWER: The pack has thirteen field presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing and byo-employer-list. Your resume matches nursing, so I propose nursing. I ran `node scripts/preset-portals.mjs nursing`; it seeds 76 tracked companies, hospital systems and health employers from Allina Health and Cleveland Clinic to Mayo Clinic and Sutter Health. OK to use it?
 
-STUDENT: Yes, use byo-employer-list.
+STUDENT: Yes, use nursing.
 
-INTERVIEWER: Coverage line from `node interview/coverage.mjs byo-employer-list`, exactly as returned: "Bring your own employer list [discovery-only]: Discovery help, not automation: for fields such as nursing, education, biology, design and communications the pack has no job lists or employer seeds, so you bring 10 to 20 target employers and set up job-alert emails." This preset is discovery help only. Please give me 10 to 20 target employers, each with its careers page URL.
+INTERVIEWER: Coverage line from `node interview/coverage.mjs nursing`, exactly as returned: "Nursing [semi-automated]: Semi-automated: the seed employer list covers about 75 US hospital systems, children's hospitals and health employers whose career boards the scan reads, so residency, graduate nurse and extern postings reach your ranking daily. No community list covers nursing, so a posting that lives only on a system's own site, a state board or a school placement office is not seen: Kaiser Permanente, Providence, Ascension, CommonSpirit and several large academic centers use boards the scan cannot read, so add those to your own employer list and keep a Handshake alert for them." The preset seeds the employers it lists; name any other target employers with their careers page URLs, up to 20.
 
 STUDENT: Mass General Brigham, https://massgeneralbrigham.wd1.myworkdayjobs.com/MGBExternal, Cleveland Clinic, https://ccf.wd1.myworkdayjobs.com/ClevelandClinicCareers, Ochsner Health, https://ochsner.wd1.myworkdayjobs.com/Ochsner, Seattle Children's, https://seattlechildrens.wd5.myworkdayjobs.com/External, Vanderbilt University Medical Center, https://vumc.wd1.myworkdayjobs.com/vumccareers, Allina Health, https://allina.wd5.myworkdayjobs.com/External, UVM Health Network, https://uvmhealth.wd1.myworkdayjobs.com/External, NewYork-Presbyterian, https://nyp.wd1.myworkdayjobs.com/nypcareers, Lehigh Valley Health Network, https://lvhn.wd1.myworkdayjobs.com/lvhn, One Medical, https://job-boards.greenhouse.io/onemedical, Included Health, https://jobs.lever.co/includedhealth.
 
@@ -124,7 +124,7 @@ STUDENT: Connector.
 
 ## Phase 6: write, check, enable
 
-INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset byo-employer-list with 11 target employers (Mass General Brigham, Cleveland Clinic, Ochsner Health, Seattle Children's, Vanderbilt University Medical Center, Allina Health, UVM Health Network, NewYork-Presbyterian, Lehigh Valley Health Network, One Medical, Included Health); roles Registered nurse residency, Clinic nurse, Registered nurse, Nurse extern, Nursing assistant and Nurse assistant; Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR; 0 years; priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
+INTERVIEWER: I wrote data/interview-answers.json following interview/answers.schema.json. Summary: Taylor Bedside, taylor.bedside@example.edu, 415-555-0144; US citizen, no sponsorship; new grad track, graduating 2027-05, resume variant nursing-main (one page); preset nursing with 11 target employers (Mass General Brigham, Cleveland Clinic, Ochsner Health, Seattle Children's, Vanderbilt University Medical Center, Allina Health, UVM Health Network, NewYork-Presbyterian, Lehigh Valley Health Network, One Medical, Included Health); roles Registered nurse residency, Clinic nurse, Registered nurse, Nurse extern, Nursing assistant and Nurse assistant; Boston, MA; Brighton, MA; Jamaica Plain, MA; Newton, MA; Salem, MA; Cleveland, OH; New Orleans, LA; Seattle, WA; Nashville, TN; Minneapolis, MN; Burlington, VT; New York, NY; Allentown, PA; Portland, OR; 0 years; priority Mass General Brigham; blacklist Example Staffing Group; dealbreaker night shift only; no GitHub lists; outreach drafts, Handshake on, submission user; score floor 4, limits unchanged; scheduled-discovery at 06:30 America/Los_Angeles; standard tier; daily target 8; mail via connector. Is this right?
 
 STUDENT: Yes.
 
