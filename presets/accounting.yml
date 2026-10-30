@@ -68,7 +68,11 @@ seed_employers:
   - name: "CohnReznick"
     careers_url: https://www.cohnreznick.com/careers
   - name: "Crowe"
-    careers_url: https://www.crowe.com/careers
+    careers_url: https://careers.crowe.com
+    provider: phenom
+    phenom:
+      lang: en_us
+      country: us
   - name: "Plante Moran"
     careers_url: https://plantemoran.wd1.myworkdayjobs.com/pmexternalcareers
   - name: "CBIZ"

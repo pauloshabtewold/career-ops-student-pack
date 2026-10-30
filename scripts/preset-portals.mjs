@@ -8,7 +8,7 @@ import { loadPreset } from '../lib/presets.mjs';
 
 export function presetPortals(id) {
   const preset = loadPreset(id);
-  const entries = preset.seed_employers.map((e) => ({ name: e.name, careers_url: e.careers_url, enabled: true }));
+  const entries = preset.seed_employers.map(({ name, careers_url, ...rest }) => ({ name, careers_url, ...rest, enabled: true }));
   return yaml.dump({ tracked_companies: entries }, { lineWidth: -1 });
 }
 
