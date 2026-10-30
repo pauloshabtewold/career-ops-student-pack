@@ -26,6 +26,8 @@ test('M-002-S1 agent codex loads as codex, claude loads as claude, and an absent
 
 // M-002-S2
 test('M-002-S2 agent gemini throws a ConfigError whose path is agent', async () => {
+  // Positive control: the base schema rejects any agent key, so the rejection alone proves nothing.
+  assert.equal((await load('agent: codex\n')).agent, 'codex');
   await assert.rejects(
     load('agent: gemini\n'),
     (e) => e instanceof ConfigError && e.path === 'agent',
