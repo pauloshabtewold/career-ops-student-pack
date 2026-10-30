@@ -20,6 +20,12 @@ const SHIPPED_SOURCES = {
       format: 'markdown-table',
       kind: 'newgrad',
     },
+    { name: 'simplify-intern', repo: 'SimplifyJobs/Summer2027-Internships', path: '.github/scripts/listings.json', format: 'simplify-json', kind: 'internship' },
+    { name: 'simplify-newgrad', repo: 'SimplifyJobs/New-Grad-Positions', path: '.github/scripts/listings.json', format: 'simplify-json', kind: 'newgrad' },
+    { name: 'quant-intern', repo: 'quant-scraper/Quant-Internships-New-Grad-2027', path: 'README.md', format: 'markdown-table', kind: 'internship' },
+    { name: 'litos-finance-intern', repo: 'mehek-builds/Hiring-Now', path: 'csv/finance-internships.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
+    { name: 'litos-visa-finance', repo: 'mehek-builds/Finance-Accounting-Visa-Internships', path: 'csv/finance.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
+    { name: 'litos-visa-quant', repo: 'mehek-builds/Finance-Accounting-Visa-Internships', path: 'csv/quant-risk.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
   ],
   alerts: [
     { name: 'Handshake saved search', how: 'Save searches for summer analyst, finance intern and rotational program.' },

@@ -80,6 +80,45 @@ sources:
       format: csv
       kind: internship
       field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: meche-intern
+      repo: eyaghmour07/MechEJobTracker
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: meche-newgrad
+      repo: eyaghmour07/MechEJobTracker
+      path: NEW_GRAD_USA.md
+      format: markdown-table
+      kind: newgrad
+    - name: litos-civil
+      repo: mehek-builds/Hiring-Now
+      path: csv/civil-engineering.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: litos-eng-intern
+      repo: mehek-builds/Hiring-Now
+      path: csv/engineering-internships.csv
+      format: csv
+      kind: internship
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: litos-mech-newgrad
+      repo: mehek-builds/Mechanical-Manufacturing-Design-New-Grad-Jobs
+      path: csv/all.csv
+      format: csv
+      kind: newgrad
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: litos-eng-newgrad
+      repo: mehek-builds/New-Grad-2027
+      path: csv/engineering.csv
+      format: csv
+      kind: newgrad
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: zapply-hardware-newgrad
+      repo: zapplyjobs/New-Grad-Hardware-Engineering-Jobs-2027
+      path: README.md
+      format: markdown-table
+      kind: newgrad
   alerts:
     - name: "Handshake saved search"
       how: "Save searches for mechanical, electrical or aerospace engineering intern and co-op."

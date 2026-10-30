@@ -5,7 +5,9 @@ import { loadPreset } from '../../lib/presets.mjs';
 const ID = 'policy-government';
 
 const SHIPPED_SOURCES = {
-  github_lists: [],
+  github_lists: [
+    { name: 'litos-policy', repo: 'mehek-builds/Hiring-Now', path: 'csv/policy-government-affairs.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
+  ],
   alerts: [
     { name: 'USAJOBS', how: 'Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts.' },
     { name: 'Think tank pages', how: 'Check think tank internship pages by hand each term.' },
@@ -56,4 +58,11 @@ test('M-014-S4 coverage note has a watch-only sentence with a percentage', () =>
     sentences.some((s) => /watch-only/i.test(s) && /\d+\s*%/.test(s)),
     `no sentence with watch-only and a percentage in: ${note}`,
   );
+});
+
+// W-017: governmentjobs.com robots.txt disallows all bots, so no seed may point there.
+test('W-017 no policy-government seed points at governmentjobs.com', () => {
+  for (const e of loadPreset(ID).seed_employers) {
+    assert.ok(!/governmentjobs\.com/i.test(e.careers_url), `${e.name} points at governmentjobs.com`);
+  }
 });

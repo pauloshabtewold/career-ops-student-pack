@@ -41,6 +41,8 @@ test('M-010-S3 id, name, coverage level and sources block are unchanged', () => 
     ['jobright-da-newgrad', 'jobright-ai/2026-Data-Analysis-New-Grad', 'README.md', 'markdown-table', 'newgrad'],
     ['simplify-intern', 'SimplifyJobs/Summer2027-Internships', '.github/scripts/listings.json', 'simplify-json', 'internship'],
     ['simplify-newgrad', 'SimplifyJobs/New-Grad-Positions', '.github/scripts/listings.json', 'simplify-json', 'newgrad'],
+    ['litos-data-science', 'mehek-builds/Hiring-Now', 'csv/data-science.csv', 'csv', 'internship'],
+    ['litos-bizops-newgrad', 'mehek-builds/New-Grad-2027', 'csv/business-operations.csv', 'csv', 'newgrad'],
   ]);
   assert.deepEqual(p.sources.alerts.map((a) => a.name), ['Handshake saved search', 'LinkedIn job alerts']);
 });
