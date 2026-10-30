@@ -5,15 +5,14 @@
 // Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run]
 // Exit 0 after the report (a failed step is a line in it), 1 when the interview has not written config/student.yml.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { ingestStepNames, ingestSteps } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { oneLine } from '../lib/text.mjs';
+import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const DEFAULT_SHOWN = 20;
@@ -35,7 +34,7 @@ export function summarizePending(pipelineText) {
 }
 
 // Counts first, then up to `shown` untriaged rows as url | company | title for the session to judge.
-export function formatReport(summary, shown) {
+export function formatFirstRunReport(summary, shown) {
   const lines = [`Pending rows: ${summary.total}`, ...summary.sources.map(([src, n]) => `  src=${src}: ${n}`), `Untriaged Pending rows: ${summary.untriaged.length}`];
   if (summary.total < TOP_LIST_SIZE) lines.push(`Fewer than ${TOP_LIST_SIZE} postings fit your setup today (${summary.total}), so the top list will be shorter than ${TOP_LIST_SIZE}. The daily run adds new postings as they appear.`);
   if (!summary.untriaged.length) return [...lines, 'no untriaged Pending rows'];
@@ -59,12 +58,12 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
       const detail = oneLine(fn());
       out(`first-run: ${name} ok${detail ? ` (${detail})` : ''}`);
     } catch (err) {
-      out(`first-run: ${name} FAILED (${oneLine(err.stderr || err.stdout || err.message) || 'failed'})`);
+      out(`first-run: ${name} FAILED (${stepErrorText(err)})`);
     }
   };
   ingestSteps({ root, dataDir, packRoot, today, runner, step });
   const file = join(dataDir, 'pipeline.md');
-  for (const line of formatReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), shown)) out(line);
+  for (const line of formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), shown)) out(line);
   return 0;
 }
 
@@ -82,4 +81,4 @@ async function main() {
   return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

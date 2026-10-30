@@ -13,7 +13,7 @@ function parity(args) {
 }
 
 // M-007-S4
-test('M-007-S4 scratch inside the pack repo exits 2 and creates nothing', () => {
+test('M-002-S9 M-007-S4 scratch inside the pack repo exits 2 and creates nothing', () => {
   const source = makeSource();
   const before = snapshot(source);
   const scratch = join(PACK_ROOT, 'scratch-parity-guard-test');

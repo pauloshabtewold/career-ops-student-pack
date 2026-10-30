@@ -4,9 +4,7 @@
 // Usage: check-resume.mjs --pdf FILE --html FILE --variant NAME [--root R]
 // Exit 0 ok, 1 mismatch (one line per problem), 2 usage or unknown variant.
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 
@@ -53,4 +51,4 @@ async function main() {
   return res.code;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

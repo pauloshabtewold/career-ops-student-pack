@@ -2,28 +2,21 @@
 // Weekly liveness sweep of Pending rows, API-only: check-liveness runs with --no-fallback so no browser opens.
 // Only EXPIRED results change the pipeline (moved to Skipped); 'uncertain' is never treated as closed.
 // Usage: liveness-sweep.mjs [--root R] [--data-dir D] [--limit N] [--dry-run]
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { runResult } from '../lib/run.mjs';
+import { withTempDir } from '../lib/temp-dir.mjs';
 import { applyTriageFile } from './apply-triage.mjs';
 import { CEILINGS, effectiveLimits } from './budget.mjs';
 
 const RESULT_RE = /\b(active|expired|uncertain)\b.*?(https?:\/\/[^\s|)\]>]+)/i;
 
 // argv is everything after node; check-liveness may exit non-zero after printing results, so stdout is kept.
-export const defaultRunner = async (argv, { cwd }) => {
-  try {
-    return { code: 0, stdout: execFileSync(process.execPath, argv, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], cwd }) };
-  } catch (err) {
-    return { code: err.status ?? 1, stdout: err.stdout?.toString() ?? '' };
-  }
-};
+export const defaultRunner = async (argv, { cwd }) => runResult(process.execPath, argv, { cwd });
 
 export function selectRows(doc, floor) {
   return sectionRows(doc, 'Pending')
@@ -50,8 +43,7 @@ export async function sweep({ root, dataDir, config, limit, dryRun, runner = def
   if (limit) rows = rows.slice(0, limit);
   const expired = [];
   let uncertain = 0;
-  const tmp = mkdtempSync(join(tmpdir(), 'liveness-'));
-  try {
+  await withTempDir('liveness-', async (tmp) => {
     for (let i = 0; i < rows.length; i += batchSize) {
       const file = join(tmp, `batch-${i}.txt`);
       writeFileSync(file, `${rows.slice(i, i + batchSize).map((r) => r.url).join('\n')}\n`);
@@ -61,9 +53,7 @@ export async function sweep({ root, dataDir, config, limit, dryRun, runner = def
         else if (r.status === 'uncertain') uncertain++;
       }
     }
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  });
   const verdicts = new Map(expired.map((url) => [url, { verdict: 'EXPIRED', score: '0.0', reason: 'liveness sweep: posting closed' }]));
   const counts = expired.length ? await applyTriageFile({ pipelineFile, verdicts, dryRun }) : null;
   return { checked: rows.length, expired: expired.length, uncertain, counts };
@@ -79,4 +69,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

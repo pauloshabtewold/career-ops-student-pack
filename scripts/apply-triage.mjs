@@ -6,15 +6,14 @@
 // dead is dead wherever the row sits.
 // Usage: apply-triage.mjs <results.txt> [--data-dir D] [--dry-run]    prints JSON counts
 import { readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
 import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, serializePipeline } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { VERDICT_RE } from '../lib/triage-verdict.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 
-export const VERDICT_RE = /^TRIAGE:\s*(PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*([^|]*)/;
 const clean = (s) => s.replace(/[|;\n]/g, ',').trim();
 
 export function parseResults(text) {
@@ -121,4 +120,4 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

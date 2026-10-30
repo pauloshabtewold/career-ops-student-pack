@@ -10,13 +10,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { cp } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { formatRow, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
 import { ConfigError, parseConfig } from '../lib/config.mjs';
 import { auditOptions } from '../scripts/fail-audit.mjs';
 import { CycleFileError, writeCycle } from '../lib/cycle-file.mjs';
-import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, comparePrefilter, compareRankQueue, compareStage, exitNote, formatReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
+import { NOTES, carriedPending, compareCycle, compareFailAudit, compareFeed, comparePrefilter, compareRankQueue, compareStage, exitNote, formatParityReport, mergeAllowance, overallVerdict, skippedStage, stageError } from './parity-compare.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // The whole candidate set is compared because top-n order follows score formulas that differ by design.
@@ -40,7 +40,7 @@ export const STAGES = [
 ];
 
 // Resolves symlinks in the longest existing prefix so a link cannot hide a scratch dir inside the pack or source.
-function realish(p) {
+export function realish(p) {
   const abs = resolve(p);
   let head = abs;
   const tail = [];
@@ -56,6 +56,16 @@ export function isInside(child, parent) {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+// 'inside' when scratch lies within any dir, 'contains' when it holds any dir, else null. 'inside' wins so the
+// caller reports the first problem the same way for every dir. Both sides are resolved through realish here.
+export function scratchOverlap(scratch, dirs) {
+  const scr = realish(scratch);
+  const real = dirs.map(realish);
+  if (real.some((d) => isInside(scr, d))) return 'inside';
+  if (real.some((d) => isInside(d, scr))) return 'contains';
+  return null;
+}
+
 export function checkArgs({ source, scratch, studentConfig }, packRoot = PACK_ROOT) {
   for (const [flag, v] of [['--source', source], ['--scratch', scratch], ['--student-config', studentConfig]]) {
     if (!v) throw new UsageError(`${flag} is required`);
@@ -66,8 +76,9 @@ export function checkArgs({ source, scratch, studentConfig }, packRoot = PACK_RO
   const pack = realish(packRoot);
   if (!existsSync(src) || !statSync(src).isDirectory()) throw new UsageError('--source is not a directory');
   if (!existsSync(cfg) || !statSync(cfg).isFile()) throw new UsageError('--student-config is not a file');
-  if (isInside(scr, pack) || isInside(scr, src)) throw new UsageError('--scratch must be outside the pack repo and the source');
-  if (isInside(src, scr) || isInside(pack, scr)) throw new UsageError('--scratch must not contain the pack repo or the source');
+  const overlap = scratchOverlap(scr, [pack, src]);
+  if (overlap === 'inside') throw new UsageError('--scratch must be outside the pack repo and the source');
+  if (overlap === 'contains') throw new UsageError('--scratch must not contain the pack repo or the source');
   if (isInside(cfg, pack)) throw new UsageError('--student-config must be outside the pack repo');
   if (existsSync(scr) && (!statSync(scr).isDirectory() || readdirSync(scr).length > 0)) throw new UsageError('--scratch exists and is not an empty directory');
   return { source: src, scratch: scr, studentConfig: cfg, packRoot: pack };
@@ -378,7 +389,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
     const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit, internOnly };
     if (state.interrupted === null) results = await runStages(env, state);
     if (state.interrupted === null && flags.withFeeds) results.push(await runFeedCompare(env));
-    if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot), prefilterInput: dirs.prefilterInput });
+    if (state.interrupted === null) text = formatParityReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot), prefilterInput: dirs.prefilterInput });
   } catch (err) {
     // Only the class name is kept: the message can hold paths or rows from the scratch copy.
     failure = { name: err?.name ?? 'Error' };
@@ -389,4 +400,4 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   return reportAndExit({ interrupted: state.interrupted, failure, text, results, report: flags.report });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(() => runParity(process.argv.slice(2)));
+if (isMain(import.meta.url)) await runCli(() => runParity(process.argv.slice(2)));

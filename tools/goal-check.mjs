@@ -10,23 +10,23 @@
 // launchd or Task Scheduler registration is made.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { install } from '../install.mjs';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { STEP_TIMEOUT_MS } from '../lib/ingest.mjs';
+import { classifyMail } from '../lib/mail-classify.mjs';
 import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
-import { classify } from '../scripts/inbox.mjs';
-import { NEWGRAD_TITLE } from '../scripts/prefilter.mjs';
+import { INTERN_TITLE, NEWGRAD_TITLE } from '../lib/title-patterns.mjs';
+import { realish, scratchOverlap } from './parity.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const FIXTURES = join(PACK_ROOT, 'tests', 'fixtures');
 const SETS = ['cs', 'finance', 'mechanical', 'mis', 'nursing'];
 const TOP_WANTED = 10;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const INTERN_TITLE = /\b(intern(ship)?s?|co-?ops?)\b/i;
 const PROFILE_KEYS = ['start_date', 'relocation', 'eeo', 'how_did_you_hear'];
 
 const ROWS = [
@@ -48,10 +48,6 @@ const run = (cmd, args, opts = {}) => {
 };
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
-const isInside = (child, parent) => {
-  const rel = relative(parent, child);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
-};
 
 function copyTree(from, to, skip) {
   cpSync(from, to, { recursive: true, filter: (src) => !skip.has(src.split(/[\\/]/).pop()) });
@@ -266,7 +262,7 @@ const INBOX_CTX = { companies: [{ name: 'Example', domains: ['example.com'] }] }
 
 function checkInbox() {
   const mails = readJson(join(FIXTURES, 'goal-check', 'inbox-sample.json'));
-  const fails = mails.filter((m) => classify({ ...m, snippet: m.body }, INBOX_CTX).kind !== INBOX_EXPECT[m.id]).map(() => 'inbox classification');
+  const fails = mails.filter((m) => classifyMail({ ...m, snippet: m.body }, INBOX_CTX).kind !== INBOX_EXPECT[m.id]).map(() => 'inbox classification');
   return mails.length === Object.keys(INBOX_EXPECT).length ? fails : [...fails, 'inbox sample'];
 }
 
@@ -357,10 +353,12 @@ export function formatGoalReport({ results, meta }) {
 function checkArgs({ upstream, scratch, feeds = 'fixtures' }) {
   if (!upstream || !scratch) throw new UsageError('usage: goal-check.mjs --upstream <dir> --scratch <new dir> [--feeds fixtures|live] [--today D] [--report F]');
   if (!['fixtures', 'live'].includes(feeds)) throw new UsageError('--feeds expects fixtures or live');
-  const up = resolve(upstream);
-  const scr = resolve(scratch);
+  // realish, not resolve: a symlinked scratch dir could otherwise sit inside the pack and pass.
+  // It resolves links in the existing part of each path, so a scratch reached through a link into the pack is caught.
+  const up = realish(upstream);
+  const scr = realish(scratch);
   if (!existsSync(up) || !statSync(up).isDirectory() || !existsSync(join(up, 'package.json'))) throw new UsageError('--upstream is not a career-ops checkout');
-  if (isInside(scr, PACK_ROOT) || isInside(scr, up) || isInside(PACK_ROOT, scr) || isInside(up, scr)) throw new UsageError('--scratch must be a new directory outside the pack and the upstream checkout');
+  if (scratchOverlap(scr, [realish(PACK_ROOT), up])) throw new UsageError('--scratch must be a new directory outside the pack and the upstream checkout');
   if (existsSync(scr) && (!statSync(scr).isDirectory() || readdirSync(scr).length > 0)) throw new UsageError('--scratch exists and is not an empty directory');
   return { up, scr, feeds };
 }
@@ -399,4 +397,4 @@ async function main() {
   return allMet ? 0 : 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

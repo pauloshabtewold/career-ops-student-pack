@@ -2,11 +2,11 @@
 // Tracked-file lint for the Node-only and plain-punctuation rules.
 // Its own patterns are built from char codes so this file passes its own scan.
 // Exit 0 clean, 1 findings (file:line rule), 2 usage.
-import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
+import { runText } from '../lib/run.mjs';
 
 const chars = (...codes) => String.fromCharCode(...codes);
 const BANNED_EXT = ['sh', 'bash', 'zsh', 'ps1', 'py', 'bat', 'cmd', 'command'];
@@ -17,7 +17,7 @@ const CODE_EXT = /\.(mjs|js)$/;
 
 function listFiles(root) {
   try {
-    const out = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = runText('git', ['ls-files', '-z'], { cwd: root });
     return out.split('\0').filter(Boolean);
   } catch {
     const acc = [];
@@ -65,4 +65,4 @@ function main() {
   return findings.length ? 1 : 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

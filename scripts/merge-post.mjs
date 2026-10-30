@@ -9,10 +9,10 @@
 // 5. moves needs-url and aggregator-host rows to Flagged
 // Everything runs under the pipeline lock. Usage: merge-post.mjs [--data-dir D] [--today D] [--dry-run]
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
+import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, withLock } from '../lib/dir-lock.mjs';
 import { appendLines, ensureSections, formatRow, getSection, parsePipeline, parseRow, serializePipeline } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -233,10 +233,11 @@ export async function mergePost({ dataDir, today, dryRun = false, lockOptions })
   );
 }
 
-async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: {} });
+async function main(argv = process.argv.slice(2), deps = {}) {
+  const { flags } = parseArgs(argv, { flags: {} });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
-  const today = createClock({ today: flags.today }).today();
+  // With --today the config is never read. Missing config or empty timezone uses the host zone; a malformed one stops the run.
+  const today = flags.today ?? createClock({ timezone: (await loadStudentConfig({ root: paths.root }))?.timezone, nowFn: deps.now }).today();
   let res;
   try {
     res = await mergePost({ dataDir: paths.dataDir, today, dryRun: flags.dryRun });
@@ -250,4 +251,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

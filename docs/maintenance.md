@@ -27,7 +27,15 @@ When the gate reports `CI is not green` on the target commit, rerun `ci.yml` on 
 
 A `safety-*` tag is for a change that makes the pack safer for students: it may only tighten a limit in `scripts/budget.mjs` (lower a maximum, raise a minimum) or switch a default off. `safety-tag.yml` runs `scripts/check-safety-tag.mjs <tag>`, which compares the tag with its nearest earlier release or safety tag and fails on anything looser. When no earlier tag exists the check falls back to the first v tag, and it fails with a message to cut the first release when no v tag exists yet. Cut safety tags from the newest release tag so the diff holds only allowed files. Cut one when a platform changes its rules, a warning rate rises, or a limit proves too high. Students receive it on their next `node student/update.mjs`, which runs the same check before applying it.
 
+Order of release:
+
+- Cut a v release that carries `isMain` (`lib/args.mjs`) and the argv-clearing ceilings loader before any safety tag that edits `scripts/budget.mjs`. `update.mjs` loads a ref's `budget.mjs` only when a pending safety tag changes it, and a v0.1.0 checkout's loader cannot load any `budget.mjs`.
+- A student still on v0.1.0 who is blocked runs `git -C student fetch --tags` then `git -C student merge --ff-only <newest v tag>`.
+- `scripts/budget.mjs` imports only names that `lib/` has exported since the release that added `isMain`; v0.1.0 clients are covered by the fast-forward step above. `check-safety-tag` evaluates a ref's `budget.mjs` against the student's own `lib/`.
+
 ## Changing `budget.mjs`
+
+`CEILINGS` stays in `budget.mjs`: the file is hash-pinned in `compat.json` and `check-safety-tag` loads `CEILINGS` from it at older refs.
 
 Any edit to `scripts/budget.mjs` needs `compat.json` `budgetSha256` updated in the same commit:
 

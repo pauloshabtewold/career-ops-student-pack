@@ -2,10 +2,10 @@
 // Keeps compat.json budgetSha256 equal to the SHA-256 of scripts/budget.mjs.
 // --check exits 0 when they match and 1 when they differ; --write rewrites only that field.
 import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli, UsageError } from '../lib/args.mjs';
+import { parseArgs, runCli, UsageError, isMain } from '../lib/args.mjs';
 
 const packRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const FIELD = /("budgetSha256"\s*:\s*")([0-9a-f]*)(")/;
@@ -35,4 +35,4 @@ function main() {
   return 0;
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

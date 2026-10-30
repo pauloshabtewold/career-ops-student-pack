@@ -4,7 +4,7 @@
     "max": "1.38.0",
     "tag_prefix": "career-ops-v"
   },
-  "budgetSha256": "a9d678cf706311f1182cbd09858fb5919319df4f18e6db78e3f2281567943150",
+  "budgetSha256": "d6b6ca4e2fa7765c7a560d47a61eb5b760cc30a036fe2a54fc0c8599275dd261",
   "pipelineSections": [
     "Pending",
     "Flagged",

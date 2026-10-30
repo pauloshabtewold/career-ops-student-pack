@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   compareStage,
   compareFeed,
-  formatReport,
+  formatParityReport,
   overallVerdict,
   stageError,
   skippedStage,
@@ -36,9 +36,9 @@ test('M-007-S1 identical stage outputs report pass with both counts', () => {
 });
 
 // M-007-S1
-test('M-007-S1 formatReport renders counts and verdicts without row content', () => {
+test('M-004-S12 M-007-S1 formatParityReport renders counts and verdicts without row content', () => {
   const text = doc(`- [ ] ${FIXTURE_URL} | ${FIXTURE_COMPANY} | ${FIXTURE_TITLE} | Remote`);
-  const out = formatReport([compareStage('prefilter', text, text), compareStage('rank-queue', doc(row(1)), doc(row(1), row(2)))]);
+  const out = formatParityReport([compareStage('prefilter', text, text), compareStage('rank-queue', doc(row(1)), doc(row(1), row(2)))]);
   assert.match(out, /prefilter/);
   assert.match(out, /rank-queue/);
   assert.match(out, /pass/);
@@ -356,14 +356,14 @@ test('M-001-S10 overallVerdict fails on any error result and ignores skipped res
 });
 
 // M-001-S11
-test('M-001-S11 formatReport renders the Explained column and a Warnings block for skipped, error and zero-input stages', () => {
+test('M-001-S11 formatParityReport renders the Explained column and a Warnings block for skipped, error and zero-input stages', () => {
   const zero = { stage: 'rank-queue', baseline_count: 0, pack_count: 0, added: 0, missing: 0, explained: 0, verdict: 'pass' };
   const results = [
     stageError('triage', 'baseline script missing'),
     skippedStage('merge', 'depends on a failed stage'),
     zero,
   ];
-  const out = formatReport(results, { date: '2026-10-27' });
+  const out = formatParityReport(results, { date: '2026-10-27' });
   assert.equal(REPORT_HEADER, '| Stage | Baseline | Pack | Added | Missing | Explained | Verdict |');
   assert.ok(out.split('\n').includes(REPORT_HEADER));
   assert.ok(out.includes('| triage | - | - | - | - | - | error |'));
@@ -378,19 +378,19 @@ test('M-001-S11 formatReport renders the Explained column and a Warnings block f
 });
 
 // M-001-S11
-test('M-001-S11 formatReport omits Warnings when there are none and renders feed explained as 0', () => {
+test('M-001-S11 formatParityReport omits Warnings when there are none and renders feed explained as 0', () => {
   const feed = compareFeed(doc(row(1), row(2)), doc(row(1), row(2)), doc(row(1), row(2)));
-  const out = formatReport([feed, compareStage('merge', doc(row(1)), doc(row(1)))]);
+  const out = formatParityReport([feed, compareStage('merge', doc(row(1)), doc(row(1)))]);
   assert.ok(!out.includes('Warnings:'));
   assert.ok(out.includes('| feed | 2 | 2 | 0 | 0 | 0 | pass |'));
   assert.ok(out.includes('Overall: pass'));
 });
 
 // M-001-S12
-test('M-001-S12 formatReport text holds none of the synthetic URL, company or title from the compared rows', () => {
+test('M-001-S12 formatParityReport text holds none of the synthetic URL, company or title from the compared rows', () => {
   const line = `- [ ] ${FIXTURE_URL} | ${FIXTURE_COMPANY} | ${FIXTURE_TITLE} | Remote`;
   const results = [compareStage('prefilter', doc(line), doc(line)), compareStage('merge', doc(line), doc(row(1))), compareFeed(doc(line), doc(line), doc(row(1)))];
-  const out = formatReport(results);
+  const out = formatParityReport(results);
   for (const secret of [FIXTURE_URL, FIXTURE_COMPANY, FIXTURE_TITLE, 'zeta-4471', 'Quantum']) {
     assert.ok(!out.includes(secret), `report leaked ${secret}`);
   }

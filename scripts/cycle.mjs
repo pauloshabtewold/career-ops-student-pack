@@ -6,10 +6,9 @@
 // --today pins the date for simulation, so it is allowed only with --dry-run or --json (a simulated date must
 // never reach the real files).
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import * as yaml from 'js-yaml';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { writeCycle } from '../lib/cycle-file.mjs';
@@ -178,4 +177,4 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(() => main());
+if (isMain(import.meta.url)) await runCli(() => main());

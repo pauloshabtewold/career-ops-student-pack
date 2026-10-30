@@ -1,9 +1,9 @@
 // Stage comparison for the parity harness. Everything returned or rendered here is a count or a verdict:
 // row text never leaves this module, so a report built from it cannot carry URLs, companies or titles.
+import { companyKey } from '../lib/company-key.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { reasonPredicate } from '../scripts/fail-audit.mjs';
-import { companyKey } from '../scripts/rank-queue.mjs';
 
 function flatten(value, prefix, out) {
   if (Array.isArray(value)) value.forEach((v, i) => flatten(v, `${prefix}[${i}]`, out));
@@ -284,7 +284,7 @@ function warningsOf(results) {
 }
 
 // meta: { date, upstream, pack, prefilterInput }. Stage names come from the fixed stage table, never from input data.
-export function formatReport(results, meta = {}) {
+export function formatParityReport(results, meta = {}) {
   const warnings = warningsOf(results);
   const lines = [
     '# Parity report',

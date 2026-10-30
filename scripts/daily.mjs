@@ -6,21 +6,19 @@
 // --dry-run prints the planned steps and writes nothing. --via-scheduled is passed only by scheduled.mjs.
 // Files: data/.student-daily.lock (run lock), data/.snapshots/<date>/, data/digest/student-<date>.md, data/run-log.md
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
-import { createClock } from '../lib/clock.mjs';
+import { join } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
+import { ISO_DATE, createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, acquireLock, releaseLock } from '../lib/dir-lock.mjs';
 import { ingestStepNames, ingestSteps, stepRunners } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { oneLine } from '../lib/text.mjs';
+import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
 
 const HOUR_MS = 3600000;
-const SNAPSHOT_DIR = /^\d{4}-\d{2}-\d{2}$/;
 
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
@@ -38,7 +36,7 @@ export function snapshot({ dataDir, today, keep }) {
   for (const name of ['applications.md', 'pipeline.md']) {
     if (existsSync(join(dataDir, name))) copyFileSync(join(dataDir, name), join(dir, name));
   }
-  const folders = readdirSync(snaps, { withFileTypes: true }).filter((e) => e.isDirectory() && SNAPSHOT_DIR.test(e.name)).map((e) => e.name).sort();
+  const folders = readdirSync(snaps, { withFileTypes: true }).filter((e) => e.isDirectory() && ISO_DATE.test(e.name)).map((e) => e.name).sort();
   const dropped = folders.slice(0, Math.max(0, folders.length - keep));
   for (const name of dropped) rmSync(join(snaps, name), { recursive: true, force: true });
   return dropped.length;
@@ -74,7 +72,7 @@ function runSteps({ root, dataDir, packRoot, today, config, limits, runner, resu
     try {
       results.push({ name, ok: true, detail: oneLine(fn()) });
     } catch (err) {
-      results.push({ name, ok: false, detail: oneLine(err.stderr || err.stdout || err.message) || 'failed' });
+      results.push({ name, ok: false, detail: stepErrorText(err) });
     }
   };
   const { upstream, pack } = stepRunners({ root, dataDir, packRoot, runner });
@@ -207,6 +205,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMain(import.meta.url)) {
   await runCli(main);
 }

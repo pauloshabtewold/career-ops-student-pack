@@ -5,11 +5,11 @@
 // Usage: mark-unmaintained.mjs --issues <file> [--owners <file>] [--today YYYY-MM-DD]
 // --issues is gh issue list --json number,title,createdAt,comments output. Prints "- <preset>: <reason>" per marked
 // preset (the pull request body). Exit 0, 1 when an OWNERS line cannot be rewritten, 2 usage.
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
-import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
 import { createClock } from '../../lib/clock.mjs';
 import { AUDIT_TITLE } from './audit-issues.mjs';
 
@@ -88,4 +88,4 @@ async function main() {
   return 0;
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

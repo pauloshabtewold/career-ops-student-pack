@@ -23,7 +23,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { classify, main, normalize } from '../../scripts/inbox.mjs';
+import { main, normalize } from '../../scripts/inbox.mjs';
+import { classifyMail } from '../../lib/mail-classify.mjs';
 
 const TODAY = '2026-10-27';
 const FRESH = '2026-10-26T15:00:00.000Z';
@@ -274,11 +275,11 @@ test('M-008-S11 paste and connector inputs normalize to identical message object
 });
 
 // M-008-S11
-test('M-008-S11 classify keeps assessment, plain reply and proposal categories apart', () => {
+test('M-008-S11 classifyMail keeps assessment, plain reply and proposal categories apart', () => {
   const ctx = { assessmentDomains: ASSESS, companies: [{ name: 'Northwind Robotics', domains: ['northwindrobotics.example.com'] }] };
-  const a = classify(msg('c-1', 'x@assess.example.com', 'Northwind Robotics assessment', 'Complete it by 2026-11-02.'), ctx);
-  const b = classify(msg('c-2', 'hr@northwindrobotics.example.com', 'Re: hello', 'The office is in Austin.'), ctx);
-  const c = classify(REJECT('c-3', 'hr@northwindrobotics.example.com'), ctx);
+  const a = classifyMail(msg('c-1', 'x@assess.example.com', 'Northwind Robotics assessment', 'Complete it by 2026-11-02.'), ctx);
+  const b = classifyMail(msg('c-2', 'hr@northwindrobotics.example.com', 'Re: hello', 'The office is in Austin.'), ctx);
+  const c = classifyMail(REJECT('c-3', 'hr@northwindrobotics.example.com'), ctx);
   assert.equal(new Set([JSON.stringify(a), JSON.stringify(b), JSON.stringify(c)]).size, 3);
 });
 
@@ -353,4 +354,15 @@ test('M-002-S2 a successful set-status prints the marked status notice', async (
   } finally {
     s.cleanup();
   }
+});
+
+test('M-004-S7 classifyMail returns ignore for a plain mail from a domain that is neither a tracker company nor an assessment domain', () => {
+  const ctx = { assessmentDomains: ASSESS, companies: [{ name: 'Northwind Robotics', domains: ['northwindrobotics.example.com'] }] };
+  const res = classifyMail(msg('c-7', 'x@example.org', 'Hello', 'Just saying hello, nothing else to add here.'), ctx);
+  assert.equal(res.kind, 'ignore');
+});
+
+test('M-004-S10 classifyMail returns rejection for the REJECT fixture from a tracker company domain', () => {
+  const ctx = { assessmentDomains: ASSESS, companies: [{ name: 'Northwind Robotics', domains: ['northwindrobotics.example.com'] }] };
+  assert.equal(classifyMail(REJECT('r-1', 'hr@northwindrobotics.example.com'), ctx).kind, 'rejection');
 });

@@ -4,11 +4,11 @@
 //        release.mjs gate --sha <sha> --runs <file>                  exit 0 only when ci.yml succeeded on the sha
 //        release.mjs changelog [--file CHANGELOG.md]                 adds a section per release tag the file lacks
 // Exit 0 ok, 1 refused (notes still fail pii-lint after withholding, CI not green), 2 usage.
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
+import { gitRunner } from '../../lib/run.mjs';
 import { compare, parse } from '../../lib/semver.mjs';
 import { scanText } from '../pii-lint.mjs';
 
@@ -20,8 +20,6 @@ const MERGE_SUBJECT = /^Merge pull request #(\d+) from \S+/;
 
 export const CHANGELOG_SUBJECT_PREFIX = 'Update CHANGELOG.md for ';
 export const WITHHELD_NOTE = '(subject withheld: failed the personal-data check)';
-
-const gitRunner = (args, { cwd }) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 
 const releaseTags = (tags) => tags.filter((t) => RELEASE_TAG.test(t)).sort((a, b) => compare(a.slice(1), b.slice(1)));
 const lines = (text) => text.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -157,4 +155,4 @@ async function main() {
   throw new UsageError('usage: release.mjs plan | gate | changelog');
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

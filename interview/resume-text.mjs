@@ -5,9 +5,8 @@
 // Usage: resume-text.mjs <resume.docx|.md|.txt>    exit 0 text printed, 1 unreadable or unsupported, 2 usage
 import { readFileSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 
 const EOCD_SIG = 0x06054b50;
 const CENTRAL_SIG = 0x02014b50;
@@ -93,4 +92,4 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

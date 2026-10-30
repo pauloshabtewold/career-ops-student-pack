@@ -4,9 +4,9 @@
 // paced 6 s apart, because the gh CLI needs a login that students do not have.
 // Usage: discover-github-lists.mjs [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--no-search] [--max-add N] [--json]
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { parseArgs, runCli, isMain } from '../lib/args.mjs';
+import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readCycle } from '../lib/cycle-file.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -148,7 +148,8 @@ export async function discover({ dataDir, root, preset, today, dryRun = false, n
 export async function main(argv = process.argv.slice(2), deps = {}) {
   const { flags } = parseArgs(argv, { flags: { 'no-search': 'boolean', 'max-add': 'int' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
-  const today = flags.today ?? new Date().toISOString().slice(0, 10);
+  // The student's own calendar day: a UTC slice would roll to tomorrow every evening west of Greenwich.
+  const today = flags.today ?? createClock({ timezone: (await loadStudentConfig({ root: paths.root }))?.timezone, nowFn: deps.now }).today();
   const result = await discover({
     dataDir: paths.dataDir,
     root: paths.root,
@@ -164,4 +165,4 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(() => main());
+if (isMain(import.meta.url)) await runCli(() => main());

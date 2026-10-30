@@ -2,9 +2,7 @@
 // Fails CI when upstream's doctor output says setup is incomplete after the pack was installed and personalized.
 // Usage: assert-doctor.mjs <doctor.json>    exit 0 healthy, 1 problems listed, 2 usage
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
 
 const label = (m) => (typeof m === 'string' ? m : (m.path ?? JSON.stringify(m)));
 
@@ -31,4 +29,4 @@ async function main() {
   return 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

@@ -4,15 +4,14 @@
 // triage. Only the personalization interview offers this; nothing installs on its own.
 // Usage: schedule.mjs install|remove|status [--time HH:MM] [--dry-run] [--root R]
 // --dry-run prints the artifact and never starts launchctl or powershell, so tests can run it safely.
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, posix, resolve, win32 } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { join, posix, win32 } from 'node:path';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { resolveAgentPath, signInHint } from '../lib/agent.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { runResult } from '../lib/run.mjs';
 
 export const LABEL = 'com.career-ops.student.daily';
 export const TASK_NAME = 'career-ops-student-daily';
@@ -93,12 +92,9 @@ const statusScript = () => `Get-ScheduledTask -TaskName ${psq(TASK_NAME)} | Sele
 
 const plistPath = () => join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 
-function tryRun(cmd, args) {
-  try {
-    return { ok: true, out: execFileSync(cmd, args, { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }) };
-  } catch (err) {
-    return { ok: false, out: String(err.stderr || err.message) };
-  }
+export function tryRun(cmd, args) {
+  const r = runResult(cmd, args);
+  return { ok: !r.error, out: r.error ? String(r.error.stderr || r.error.message) : r.stdout };
 }
 
 const runPowershell = (script) => tryRun('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
@@ -183,4 +179,4 @@ async function main() {
   return platform === 'win32' ? winCommand(command, ctx) : macCommand(command, ctx);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

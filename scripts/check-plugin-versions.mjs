@@ -2,10 +2,10 @@
 // Upstream pins each plugin by a hash of its files, and a changed plugin without a new manifest version is skipped
 // silently. This check fails when plugin files changed since a base ref but the manifest version did not increase.
 // Usage: check-plugin-versions.mjs <base-ref> [--pack-root P]    exit 0 ok, 1 offending plugins, 2 usage
-import { readFileSync, realpathSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { compare } from '../lib/semver.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
@@ -41,4 +41,4 @@ async function main() {
   return offenders.length ? 1 : 0;
 }
 
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await runCli(main);
+if (isMain(import.meta.url)) await runCli(main);

@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { checkSafetyDiff } from '../../scripts/check-safety-tag.mjs';
+import { checkSafetyDiff } from '../../lib/safety-diff.mjs';
 import * as checker from '../../scripts/check-safety-tag.mjs';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
 
@@ -106,7 +106,7 @@ test('M-002-S23 raising a min ceiling passes', () =>
   }));
 
 // M-002-S22
-test('M-002-S22 raising a max ceiling fails and names it', () =>
+test('M-004-S13 M-002-S22 raising a max ceiling fails and names it', () =>
   withRepo(async (root) => {
     const v = await verdict(root, () => {
       const next = budgetSource({ connect: 25 });
@@ -153,7 +153,7 @@ test('M-002-S22 raising automation fails', () =>
     assert.match(v.text, /automation/);
   }));
 
-test('M-002-S22 touching a file outside the allowed set fails and names the file', () =>
+test('M-004-S13 M-002-S22 touching a file outside the allowed set fails and names the file', () =>
   withRepo(async (root) => {
     const v = await verdict(root, () => put(root, 'lib/extra.mjs', 'export const x = 2;\n'));
     assert.equal(v.ok, false);
@@ -352,4 +352,35 @@ test('W-011-S4 pickBase falls back to the baseline when the only ancestor v tags
     const res = checker.pickBase({ packRoot: root, tag: 'safety-1' });
     assert.equal(res.base, 'v0.3.0');
     assert.equal(res.reason, 'baseline');
+  }));
+
+const GUARDED_IMPORTS = "import { realpathSync } from 'node:fs';\nimport { resolve } from 'node:path';\nimport { fileURLToPath } from 'node:url';\n";
+const GUARD_LINE = "\nasync function main() {}\nif (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await main();\n";
+const guardedBudget = (opts) => GUARDED_IMPORTS + budgetSource(opts) + GUARD_LINE;
+
+test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still compares ceilings', () =>
+  withRepo(async (root) => {
+    const base = guardedBudget();
+    put(root, 'scripts/budget.mjs', base);
+    put(root, 'compat.json', compatJson(base));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'guarded base');
+    git(root, 'tag', '-f', 'base');
+    const next = guardedBudget({ connect: 20 }) + '// touched\n';
+    put(root, 'scripts/budget.mjs', next);
+    put(root, 'compat.json', compatJson(next));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'equal head');
+    const equal = await checkSafetyDiff({ packRoot: root, base: 'base', head: 'HEAD' });
+    assert.equal(equal.ok ?? (equal.violations ?? []).length === 0, true, JSON.stringify(equal));
+    const loose = guardedBudget({ connect: 25 });
+    put(root, 'scripts/budget.mjs', loose);
+    put(root, 'compat.json', compatJson(loose));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'loosened head');
+    const res = await checkSafetyDiff({ packRoot: root, base: 'base', head: 'HEAD' });
+    const text = (res.violations ?? []).map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join('\n');
+    assert.equal(res.ok, false);
+    assert.match(text, /connect_per_day/);
+    assert.match(text, /raised/);
   }));

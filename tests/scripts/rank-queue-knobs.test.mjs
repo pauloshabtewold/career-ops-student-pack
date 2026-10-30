@@ -69,7 +69,7 @@ test('M-003-S2 cap 3 with 2 applied lists exactly 1 of 3 eligible Acme rows', ()
 });
 
 // M-003-S3
-test('M-003-S3 cap 2 with 2 applied lists no Acme row and the header reports 3 blocked', () => {
+test('M-004-S11 M-003-S3 cap 2 with 2 applied lists no Acme row and the header reports 3 blocked', () => {
   const out = run({
     config: cfg('  company_caps:\n    Acme: 2\n'),
     pending: [row(1, 'Acme', 'Intern A', '4.9'), row(2, 'Acme', 'Intern B', '4.8'), row(3, 'Acme', 'Intern C', '4.7'), row(4, 'Globex', 'Intern D', '4.0')],
