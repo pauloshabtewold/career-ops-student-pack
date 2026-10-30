@@ -353,3 +353,44 @@ test('W-011-S4 pickBase falls back to the baseline when the only ancestor v tags
     assert.equal(res.base, 'v0.3.0');
     assert.equal(res.reason, 'baseline');
   }));
+
+// M-001-S5
+const GUARDED_IMPORTS = "import { realpathSync } from 'node:fs';\nimport { resolve } from 'node:path';\nimport { fileURLToPath } from 'node:url';\n";
+const GUARD_LINE = "\nasync function main() {}\nif (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]))) await main();\n";
+const guardedBudget = (opts) => GUARDED_IMPORTS + budgetSource(opts) + GUARD_LINE;
+
+test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still compares ceilings (equal)', () =>
+  withRepo(async (root) => {
+    const base = guardedBudget();
+    put(root, 'scripts/budget.mjs', base);
+    put(root, 'compat.json', compatJson(base));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'guarded base');
+    git(root, 'tag', '-f', 'base');
+    const v = await verdict(root, () => {
+      const next = guardedBudget({ connect: 20 }) + '// touched\n';
+      put(root, 'scripts/budget.mjs', next);
+      put(root, 'compat.json', compatJson(next));
+    });
+    assert.equal(v.ok, true, v.text);
+    assert.equal(v.violations.length, 0);
+  }));
+
+// M-001-S5
+test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard reports a loosened ceiling', () =>
+  withRepo(async (root) => {
+    const base = guardedBudget();
+    put(root, 'scripts/budget.mjs', base);
+    put(root, 'compat.json', compatJson(base));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'guarded base');
+    git(root, 'tag', '-f', 'base');
+    const v = await verdict(root, () => {
+      const next = guardedBudget({ connect: 25 });
+      put(root, 'scripts/budget.mjs', next);
+      put(root, 'compat.json', compatJson(next));
+    });
+    assert.equal(v.ok, false);
+    assert.match(v.text, /connect_per_day/);
+    assert.match(v.text, /raised/);
+  }));
