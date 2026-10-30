@@ -8,6 +8,7 @@ One section per pack release, newest first. The release workflow writes each sec
 - W-012: the interview takes over the template title and location filters, collects an application profile, reads Word resumes and proposes the field from the resume
 - W-012: `first-run.mjs` brings in the first postings and lists rows to triage; `daily.mjs --dry-run` writes nothing
 - W-012: `daily-triage.mjs` and `scheduled.mjs` give scheduled discovery plus triage an unattended path, capped by the new `triage_daily` ceiling. A schedule installed earlier still starts `daily.mjs`: run `node student/scripts/schedule.mjs install` again to get daily triage.
+- W-012: a scan that exits non-zero is run once more; `github-lists` 1.2.1 reads `ctx.dataRoot`, stops at 11 s, reads the least recently read sources first and logs deferred rows; priority companies stay out of `blacklist.md`; a "City, ST" answer also allows the bare city; a bad `portals.yml` is an `AnswersError`; `lib/text.mjs` holds the shared `oneLine`; goal-check yields to the event loop so SIGINT cleans up
 - W-012: `install.mjs` installs the pack's packages and js-yaml is now a dependency; clearance and citizenship titles stay for US citizens; the inbox keeps interview mail that follows a receipt; the README covers setup from zero for macOS and Windows
 
 ## v0.1.0 (2026-10-29)

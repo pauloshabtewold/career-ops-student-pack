@@ -297,7 +297,7 @@ function writeConfigAndProfile({ answers, cvText, cfg, paths, out }) {
     }),
     { keep: true },
   );
-  // profile.yml is a keep file the student may have edited, so a rerun reports the answers instead of merging them.
+  // profile.yml is a keep file the student may have edited, so a rerun reports the answers and does not merge them.
   return profileExists ? Object.keys(apply).map((k) => `config/profile.yml already exists and was kept, so application_answers.${k} (${apply[k]}) was not written`) : [];
 }
 

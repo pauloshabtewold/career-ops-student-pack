@@ -8,7 +8,7 @@ Every Claude Code session begins with `scripts/session-start.mjs` from the stude
 
 The interview reads your resume first (paste it, give a PDF or Word file, or put it in cv.md), proposes your field from what the resume says and shows the lines that led to the proposal. It then asks about graduation dates, locations, 10 to 20 target employers, whether you are a US citizen, the answers application forms ask for again and again (start date, relocation, EEO questions, how you heard about the job), the LinkedIn and Handshake switches, how you want your mail read and whether to set up a daily schedule. It writes config/student.yml from your answers and prints a coverage line that says how many employers and job lists your presets reach. Read that line: a low number means your field is thinly covered and you should add employers by hand. A blank resume stops the interview before anything is written.
 
-Answering yes to the US citizen question keeps postings that ask for clearance or citizenship in your lists; any other answer filters them out. Running the interview again rewrites only the blocks the pack marked in your files. A title filter you edited in portals.yml is kept, and the interview lists the rules it did not apply.
+Answering yes to the US citizen question keeps postings that ask for clearance or citizenship in your lists; any other answer filters them out. Running the interview again rewrites only the blocks the pack marked in your files. A title filter you edited in portals.yml is kept, and the interview lists the rules it did not apply. If portals.yml has a typo that stops it from loading, the interview stops before it changes any file and names the line; fix the file or move it aside, then run the apply step again. A location such as "Boston, MA" also keeps postings that name only "Boston". Companies you want to work for are not added to the do-not-apply list; only companies you want to avoid go there.
 
 ## First run
 
@@ -18,7 +18,7 @@ The interview ends with the first run, and you can repeat it any time:
 node student/scripts/first-run.mjs
 ```
 
-It makes no model call. It prints one line per step (`first-run: github-lists ok`, `first-run: scan FAILED (reason)`, and so on for merge-post and prefilter+triage), then these counts:
+It makes no model call. It prints one line per step (`first-run: github-lists ok`, `first-run: scan FAILED (reason)`, and so on (a scan that stops early is tried a second time before it is reported as failed) for merge-post and prefilter+triage), then these counts:
 
 - `Pending rows: N`, followed by one `src=<source>: N` line for each source tag found on a row.
 - `Untriaged Pending rows: N`, the rows with no triage score yet.

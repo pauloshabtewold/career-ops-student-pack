@@ -128,7 +128,7 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
     if (logFile) appendFileSync(logFile, `${line}\n`);
   };
   if (dryRun) {
-    // Read-only on purpose: no lock, snapshot, digest, run log or log file is touched.
+    // Read-only: no lock, snapshot, digest, run log or log file is touched.
     let hasConfig = false;
     let configError = '';
     try {

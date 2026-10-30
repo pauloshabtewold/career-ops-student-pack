@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Proposes which field preset fits a resume, so the interview can show its evidence instead of asking cold.
+// Proposes which field preset fits a resume, so the interview can show its evidence without asking cold.
 // Each preset in interview/field-keywords.json is scored by how many of its keywords appear in the resume text
 // (whole words, any letter case). Fewer than MIN_SCORE matches is not evidence of a field, so the pick falls back to
 // byo-employer-list, which works for any field because the student supplies the employers.

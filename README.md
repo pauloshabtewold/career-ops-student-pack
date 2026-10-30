@@ -71,7 +71,7 @@ Applying, the Handshake pass and LinkedIn outreach run in a browser you sign in 
 
 - **Claude in Chrome.** Install Google Chrome and the Claude in Chrome extension from the Chrome Web Store, then sign in to LinkedIn, Handshake and your job sites in that Chrome.
 - **Playwright.** Upstream also uses its own headless browser for some pages. In the career-ops folder run `npx playwright install chromium` once.
-- **Fewer permission prompts (optional).** `student/templates/claude-settings.suggested.json` lists the pack commands that are safe to allow without asking each time. If you want it, merge those entries into your own Claude Code settings by hand. The pack never writes a settings file for you.
+- **Fewer permission prompts (optional).** `templates/claude-settings.suggested.json` in the pack lists the pack commands that are safe to allow without asking each time. If you want it, merge those entries into your own Claude Code settings by hand. The pack never writes a settings file for you.
 
 ## Update
 
@@ -83,7 +83,7 @@ This updates the pack and career-ops together and keeps career-ops inside the ve
 
 ## Daily use
 
-- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes config/student.yml. Running it again rewrites only the blocks the pack marked in your files and never overwrites `cv.md` or `config/profile.yml`.
+- **Interview.** The first Claude Code session starts the personalization interview on its own; it writes config/student.yml. Running it again rewrites only the blocks the pack marked in your files and never overwrites the files `cv.md` and `profile.yml` in your career-ops folder.
 - **First run.** `node student/scripts/first-run.mjs` brings in the first postings and lists up to 20 that still need a verdict. The interview runs it for you, scores those rows in the session and shows your top 10 with `node student/scripts/rank-queue.mjs --n 10`.
 - **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it. The job starts `scheduled.mjs`, which runs the daily run and, only if you chose scheduled discovery plus triage, a capped model triage.
 - **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and applies the free title filter without any model call, then writes a digest in the digest folder under data. Add `--dry-run` to see the steps without running them.
