@@ -141,7 +141,8 @@ seed_employers:
   - name: "General Dynamics"
     careers_url: https://gdit.wd5.myworkdayjobs.com/External_Career_Site
   - name: "L3Harris"
-    careers_url: https://careers.l3harris.com
+    careers_url: https://careers.l3harris.com/en/search-jobs
+    provider: radancy
   - name: "BAE Systems"
     careers_url: https://www.baesystems.com/en-us/careers
   - name: "Huntington Ingalls Industries"
@@ -205,7 +206,8 @@ seed_employers:
   - name: "Carrier"
     careers_url: https://carrier.wd5.myworkdayjobs.com/jobs
   - name: "Trane Technologies"
-    careers_url: https://careers.tranetechnologies.com/global/en
+    careers_url: https://careers.tranetechnologies.com
+    provider: phenom
   - name: "3M"
     careers_url: https://3m.wd1.myworkdayjobs.com/Search
   - name: "Dow"

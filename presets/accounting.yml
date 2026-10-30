@@ -59,7 +59,8 @@ seed_employers:
   - name: "PwC"
     careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
-    careers_url: https://www.ey.com/en_us/careers
+    careers_url: https://usearlycareers.ey.com/en/search-jobs
+    provider: radancy
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
   - name: "Grant Thornton"
@@ -73,7 +74,11 @@ seed_employers:
   - name: "CohnReznick"
     careers_url: https://www.cohnreznick.com/careers
   - name: "Crowe"
-    careers_url: https://www.crowe.com/careers
+    careers_url: https://careers.crowe.com
+    provider: phenom
+    phenom:
+      lang: en_us
+      country: us
   - name: "Plante Moran"
     careers_url: https://plantemoran.wd1.myworkdayjobs.com/pmexternalcareers
   - name: "CBIZ"
@@ -83,7 +88,9 @@ seed_employers:
   - name: "Cherry Bekaert"
     careers_url: https://cbh.wd12.myworkdayjobs.com/CherryBekaert
   - name: "Eide Bailly"
-    careers_url: https://www.eidebailly.com/careers
+    careers_url: https://careers.eidebailly.com/jobs
+    provider: jibeapply
+    api: https://careers.eidebailly.com/api/jobs
   - name: "EisnerAmper"
     careers_url: https://eisneramper.wd1.myworkdayjobs.com/EisnerAmper_External
   - name: "Withum"

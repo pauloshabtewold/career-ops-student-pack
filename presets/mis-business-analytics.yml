@@ -98,11 +98,13 @@ seed_employers:
   - name: "PwC"
     careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
-    careers_url: https://www.ey.com/en_us/careers
+    careers_url: https://usearlycareers.ey.com/en/search-jobs
+    provider: radancy
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
   - name: "IBM"
     careers_url: https://www.ibm.com/careers
+    provider: ibm
   - name: "Oracle"
     careers_url: https://www.oracle.com/careers
   - name: "SAP"

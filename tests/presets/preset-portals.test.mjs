@@ -18,10 +18,7 @@ function check(id, text) {
   assert.ok(Array.isArray(doc.tracked_companies), id);
   assert.equal(doc.tracked_companies.length, seeds.length, id);
   doc.tracked_companies.forEach((e, i) => {
-    assert.deepEqual(Object.keys(e).sort(), ['careers_url', 'enabled', 'name'], `${id} entry ${i}`);
-    assert.equal(e.enabled, true, `${id} entry ${i}`);
-    assert.equal(e.name, seeds[i].name);
-    assert.equal(e.careers_url, seeds[i].careers_url);
+    assert.deepEqual(e, { ...seeds[i], enabled: true }, `${id} entry ${i}`);
   });
 }
 
@@ -53,4 +50,16 @@ test('M-006-S11 every resume fixture is marked SYNTHETIC FIXTURE with example em
     assert.ok(phones.length > 0, `${f} has a phone`);
     for (const m of phones) assert.ok(m[2] === '555' && /^01\d\d$/.test(m[3]), `${f} phone ${m[0]}`);
   }
+});
+
+// W-019
+test('W-019 presetPortals passes a seed provider and its config through to portals.yml', async () => {
+  const doc = yaml.load(String(await presetPortals('accounting')));
+  const crowe = doc.tracked_companies.find((e) => e.name === 'Crowe');
+  assert.equal(crowe.provider, 'phenom');
+  assert.deepEqual(crowe.phenom, { lang: 'en_us', country: 'us' });
+  const eide = doc.tracked_companies.find((e) => e.name === 'Eide Bailly');
+  assert.equal(eide.provider, 'jibeapply');
+  assert.match(eide.api, /^https:\/\//);
+  assert.equal(eide.enabled, true);
 });

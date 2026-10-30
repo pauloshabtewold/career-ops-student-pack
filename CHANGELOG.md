@@ -4,6 +4,7 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-019: a preset seed may carry an upstream `provider` (phenom, radancy, jibeapply or ibm) and only the config that provider reads, which `preset-portals.mjs` passes to `portals.yml`; six employers whose boards upstream could not detect (Crowe, Eide Bailly, EY, IBM, L3Harris, Trane Technologies) are now readable, in accounting, consulting, mis-business-analytics and engineering-mech-elec; `docs/preset-audit.md` ok and no-provider counts updated for those four presets
 - W-017: `github-lists` 1.3.0 reads markdown tables whose link sits in the title cell, which revives the jobright lists; new lists that match 5 or more rows to employer boards go into software-cs, finance-economics, engineering-mech-elec, mis-business-analytics, consulting, policy-government and marketing-business; seeds move to boards upstream reads, the 12 governmentjobs.com policy seeds are removed (its robots.txt disallows bots) and 15 policy boards are added; `docs/preset-audit.md` and `docs/goal-check.md` carry the 2026-10-30 counts
 - W-013: Codex support: `AGENTS.override.md` is generated with the pack block first, config/student.yml gains an `agent` key, the daily triage can run as one read-only `codex exec` call, and `schedule.mjs` takes `--agent` and `--agent-path` (the older `--claude` still works)
 - W-013: session start tolerates an offline sandbox; interview fixtures carry the Phase 3 application profile
