@@ -365,6 +365,19 @@ function writeSources({ answers, merged, cfg, paths, today, out, read }) {
   if (entries.length) out('data/blacklist.md', blacklistRows(read('data/blacklist.md'), entries, today));
 }
 
+// A portals.yml the YAML parser rejects is reported before anything is written, so cv.md and student.yml are not left
+// behind by a run that then stops on a raw parser stack.
+function checkPortalsParses(file) {
+  if (!existsSync(file)) return;
+  const text = readFileSync(file, 'utf8');
+  if (!text.trim()) return;
+  try {
+    yaml.load(text);
+  } catch (err) {
+    throw new AnswersError([`portals.yml cannot be parsed (${err.reason ?? err.name}${err.mark ? ` at line ${err.mark.line + 1}` : ''}); fix it or move it aside, then apply again`]);
+  }
+}
+
 export async function applyAnswers({ answers, root, packRoot, today, dryRun = false }) {
   packRoot ??= resolvePaths({ root }).packRoot;
   if (answers?.application_profile === undefined) {
@@ -378,6 +391,7 @@ export async function applyAnswers({ answers, root, packRoot, today, dryRun = fa
   const cvText = resolveCvText(answers, paths.root);
   // Without resume facts every later evaluation has nothing to work from, so onboarding must not complete.
   if (!cvText.trim() && !nonEmptyFile(join(paths.root, 'cv.md'))) throw new AnswersError(['resume is empty: paste the resume or give the path of a resume file, then apply again']);
+  checkPortalsParses(join(paths.root, 'portals.yml'));
   const merged = loadMerged(answers.presets);
   const written = [];
   const out = (rel, text, { keep = false } = {}) => {

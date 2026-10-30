@@ -15,13 +15,13 @@ import { LockTimeoutError, acquireLock, releaseLock } from '../lib/dir-lock.mjs'
 import { ingestStepNames, ingestSteps, stepRunners } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { oneLine } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
 
 const HOUR_MS = 3600000;
 const SNAPSHOT_DIR = /^\d{4}-\d{2}-\d{2}$/;
 
-const oneLine = (text, max = 160) => String(text ?? '').split('\n').map((l) => l.trim()).find(Boolean)?.slice(0, max) ?? '';
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 export const isSunday = (today) => new Date(`${today}T00:00:00Z`).getUTCDay() === 0;

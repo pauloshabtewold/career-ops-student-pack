@@ -13,8 +13,10 @@ import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { oneLine } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { which } from '../lib/which.mjs';
+import { VERDICT_RE } from './apply-triage.mjs';
 import { effectiveLimits } from './budget.mjs';
 
 const FETCH_TIMEOUT_MS = 30 * 1000;
@@ -22,10 +24,7 @@ const CLAUDE_TIMEOUT_MS = 15 * 60 * 1000;
 const JD_CHARS = 6000;
 const MAX_BUFFER = 64 * 1024 * 1024;
 const SIGN_IN_HINT = 'run claude once in a terminal to sign in';
-// Same grammar as apply-triage.mjs; repeated here because that script does not export it.
-const VERDICT_RE = /^TRIAGE:\s*(PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER)\s*\|\s*(\S+)\s*\|\s*([\d.]+)(?:\/5)?\s*\|\s*([^|]*)/;
 
-const oneLine = (text, max = 160) => String(text ?? '').split('\n').map((l) => l.trim()).find(Boolean)?.slice(0, max) ?? '';
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 // Keeps the first well-formed line per url that was sent; every other TRIAGE line is counted as ignored. Prose is skipped.
@@ -94,6 +93,29 @@ function callClaude({ claudePath, model, prompt, root, runner }) {
   return runner(program, args, { cwd: root, input: prompt, timeout: CLAUDE_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
 }
 
+// The first `limit` Pending rows that have a title and no triage= note yet.
+function selectUntriagedRows(dataDir, limit) {
+  return sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending')
+    .map(({ row }) => row)
+    .filter((row) => !row.notes.has('triage') && row.title)
+    .slice(0, limit);
+}
+
+// Hands the kept verdict lines to apply-triage.mjs. Returns null on success, else the one-line reason it failed.
+function applyVerdicts({ lines, root, dataDir, packRoot, runner }) {
+  const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-'));
+  try {
+    const file = join(tmp, 'verdicts.txt');
+    writeFileSync(file, `${lines.join('\n')}\n`);
+    runner(process.execPath, [join(packRoot, 'scripts', 'apply-triage.mjs'), file, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: FETCH_TIMEOUT_MS });
+    return null;
+  } catch (err) {
+    return oneLine(err.stderr || err.message) || 'failed';
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // The model follows spend_tier (premium opus, otherwise sonnet). At most triage_daily rows are sent per run: that budget
 // ceiling is the cap on unattended model use, and config can only lower it.
 export async function dailyTriage({ root, dataDir, packRoot, today, runner = defaultRunner, claude = null, say = () => {} }) {
@@ -111,10 +133,7 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
     note(['daily triage off (triage_daily 0)']);
     return { ran: false };
   }
-  const rows = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending')
-    .map(({ row }) => row)
-    .filter((row) => !row.notes.has('triage') && row.title)
-    .slice(0, limit);
+  const rows = selectUntriagedRows(dataDir, limit);
   if (!rows.length) {
     note(['daily triage: triaged 0, passed 0, ignored 0 (no untriaged Pending rows)']);
     return { ran: true, triaged: 0 };
@@ -136,16 +155,10 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   }
   const { lines, passed, ignored } = filterVerdicts(output, new Set(rows.map((r) => r.url)));
   if (lines.length) {
-    const tmp = mkdtempSync(join(tmpdir(), 'daily-triage-'));
-    try {
-      const file = join(tmp, 'verdicts.txt');
-      writeFileSync(file, `${lines.join('\n')}\n`);
-      runner(process.execPath, [join(packRoot, 'scripts', 'apply-triage.mjs'), file, '--root', root, '--data-dir', dataDir], { cwd: root, timeout: FETCH_TIMEOUT_MS });
-    } catch (err) {
-      note([`daily triage could not apply its verdicts: ${oneLine(err.stderr || err.message)}`]);
+    const failure = applyVerdicts({ lines, root, dataDir, packRoot, runner });
+    if (failure) {
+      note([`daily triage could not apply its verdicts: ${failure}`]);
       return { ran: false };
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
     }
   }
   note([`daily triage: triaged ${lines.length}, passed ${passed}, ignored ${ignored}`]);

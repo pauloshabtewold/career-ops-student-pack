@@ -13,12 +13,11 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { ingestStepNames, ingestSteps } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { oneLine } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const DEFAULT_SHOWN = 20;
 const TOP_LIST_SIZE = 10;
-// First non-empty line of a child's output, cut to fit one report line.
-const oneLine = (text, max = 160) => String(text ?? '').split('\n').map((l) => l.trim()).find(Boolean)?.slice(0, max) ?? '';
 
 // Pending rows grouped by their src= note, and the ones that have no triage= note yet.
 export function summarizePending(pipelineText) {

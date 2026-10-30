@@ -20,6 +20,7 @@ const CORP = /\b(inc|incorporated|llc|ltd|limited|corp|corporation|co|company|pl
 // Five hops covers aggregator -> tracker -> employer chains; longer chains are treated as no answer.
 const MAX_REDIRECT_HOPS = 5;
 const NO_DATA = Object.freeze({ finalUrl: null, body: null });
+export const DEFERRED = 'deferred: time budget reached';
 const ZAPPLY_PATH = /^\/l\/d\/(greenhouse|ashby|lever)-(.+)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+)\/?$/i;
 
 function nextHop(res, current) {
@@ -216,7 +217,8 @@ export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTi
         if (hit) return { url: hit.url, how: `board-${k}` };
       }
     }
-    return { url: null, how: 'not found at employer' };
+    // A search the deadline cut short proves nothing about the employer, so it is deferred rather than reported as a miss.
+    return Date.now() > deadline ? { url: null, how: DEFERRED } : { url: null, how: 'not found at employer' };
   }
 
   return { resolve, gate };
@@ -224,18 +226,22 @@ export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTi
 
 /**
  * Employer-ATS rows pass through, aggregator rows come back with the employer posting url, and forbidden or
- * unresolved rows are dropped and appended to <dataRoot>/student-agg-unresolved.tsv unless dryRun is set.
+ * unresolved rows are dropped and appended to <dataRoot>/student-agg-unresolved.tsv unless dryRun is set. Rows the
+ * deadline cut off are dropped too but not recorded as unresolved; onDeferred(count) reports how many there were.
  */
-export async function resolveAggregator(rows, { fetch, sleep, dataRoot, today, dryRun = false, deadline }) {
+export async function resolveAggregator(rows, { fetch, sleep, dataRoot, today, dryRun = false, deadline, onDeferred = () => {} }) {
   const resolver = createResolver({ fetch, sleep, deadline });
   const verdicts = await Promise.all(rows.map((row) => resolver.resolve(row)));
   const out = [];
   const unresolved = [];
+  let deferred = 0;
   rows.forEach((row, i) => {
     const { url, how } = verdicts[i];
     if (url) out.push({ ...row, url });
+    else if (how === DEFERRED) deferred++;
     else unresolved.push({ date: today, company: row.company, title: row.title, source: row.source || how });
   });
   if (!dryRun && dataRoot) await appendStats(join(dataRoot, 'student-agg-unresolved.tsv'), UNRESOLVED_HEADER, unresolved);
+  if (deferred) onDeferred(deferred);
   return out;
 }

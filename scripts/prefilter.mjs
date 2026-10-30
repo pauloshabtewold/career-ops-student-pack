@@ -23,7 +23,7 @@ const MS_OK = /\b(ms|m\.s\.|master'?s?)\b/i;
 const LADDER = /\b(i|1)\s*(\/|-|or|to)\s*(ii|2)\b/i;
 const TERM_RE = /(?<![A-Za-z0-9])(fall|autumn|winter|spring|summer)\s*(20\d\d)(?![A-Za-z0-9])/gi;
 // New-grad wording for full-time roles. INTERN_TITLE exempts a title that also names an internship or co-op.
-const NEWGRAD_TITLE = /\b(new[ -]?grad(uate)?s?|graduate (program(me)?|scheme)|recent graduates?|entry[- ]level)\b/i;
+export const NEWGRAD_TITLE = /\b(new[ -]?grad(uate)?s?|graduate (program(me)?|scheme)|recent graduates?|entry[- ]level)\b/i;
 const INTERN_TITLE = /\b(intern(ship)?s?|co-?ops?)\b/i;
 const YEAR_RE = /(?<![A-Za-z0-9])(20\d\d)(?![A-Za-z0-9])/g;
 

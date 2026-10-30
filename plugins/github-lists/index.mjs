@@ -69,7 +69,6 @@ async function ingestSource(ctx, source, env, acc) {
   if (!fetched) return stat;
   const { hash, parsed } = fetched;
   source.failed_parses = 0;
-  source.last_ingest = env.today;
   if (hash !== source.last_hash) source.last_push = env.today;
   source.last_push ??= env.today;
   source.last_hash = hash;
@@ -80,7 +79,11 @@ async function ingestSource(ctx, source, env, acc) {
     .filter((row) => isEligible(row, { cycle, titleRules, earlyCareer }).ok)
     .map((row) => ({ ...row, source: source.name }));
   stat.eligible = eligible.length;
-  const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline: env.deadline });
+  let deferred = 0;
+  const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline: env.deadline, onDeferred: (n) => { deferred = n; } });
+  // A source with rows the time budget cut off keeps its old last_ingest, so it is read again first next run.
+  if (deferred) ctx.log?.(`github-lists: ${source.name}: ${deferred} row(s) deferred, time budget reached`);
+  else source.last_ingest = env.today;
   collectUnique(resolved, source, stat, env, acc);
   return stat;
 }

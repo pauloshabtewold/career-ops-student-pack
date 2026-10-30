@@ -16,16 +16,16 @@ import * as yaml from 'js-yaml';
 import { install } from '../install.mjs';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { STEP_TIMEOUT_MS } from '../lib/ingest.mjs';
 import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
 import { classify } from '../scripts/inbox.mjs';
+import { NEWGRAD_TITLE } from '../scripts/prefilter.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const FIXTURES = join(PACK_ROOT, 'tests', 'fixtures');
 const SETS = ['cs', 'finance', 'mechanical', 'mis', 'nursing'];
 const TOP_WANTED = 10;
-const STEP_TIMEOUT_MS = 30 * 60 * 1000;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const NEWGRAD_TITLE = /\b(new[ -]?grad(uate)?s?|graduate program(me)?|entry[- ]level)\b/i;
 const INTERN_TITLE = /\b(intern(ship)?s?|co-?ops?)\b/i;
 const PROFILE_KEYS = ['start_date', 'relocation', 'eeo', 'how_did_you_hear'];
 
@@ -277,9 +277,10 @@ const settle = () => new Promise((res) => setImmediate(res));
 async function runSet(args) {
   try {
     return await runSetSteps(args);
-  } catch {
+  } catch (err) {
+    // Only the class name is kept: the message can hold paths or rows from the scratch copy.
     const per = { counts: {}, rows: {} };
-    for (let n = 1; n <= ROWS.length; n++) per.rows[n] = ['fixture step'];
+    for (let n = 1; n <= ROWS.length; n++) per.rows[n] = [`fixture step (${err?.name ?? 'Error'})`];
     return per;
   }
 }
@@ -289,8 +290,8 @@ async function runSetSteps({ upstream, scratch, set, today, feeds }) {
   let dir;
   try {
     dir = prepare({ upstream, scratch, set });
-  } catch {
-    for (let n = 1; n <= ROWS.length; n++) per.rows[n].push('setup');
+  } catch (err) {
+    for (let n = 1; n <= ROWS.length; n++) per.rows[n].push(`setup (${err?.name ?? 'Error'})`);
     return per;
   }
   await settle();

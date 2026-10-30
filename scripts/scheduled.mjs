@@ -8,10 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { oneLine } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
-const oneLine = (text, max = 160) => String(text ?? '').split('\n').map((l) => l.trim()).find(Boolean)?.slice(0, max) ?? '';
 
 // Each script runs as its own child process, so a crash or timeout in the daily run cannot stop triage and the reverse.
 // daily.mjs gets --via-scheduled so it knows this wrapper already starts triage.
