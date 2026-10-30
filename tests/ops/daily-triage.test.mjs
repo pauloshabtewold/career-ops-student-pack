@@ -19,7 +19,7 @@ const withRoot = async (opts, fn) => {
 };
 
 // M-002-S6
-test('M-002-S6 sends at most triage_daily untriaged rows and applies only verdicts for sent urls, counts in digest', () =>
+test('M-003-S13 M-002-S6 sends at most triage_daily untriaged rows and applies only verdicts for sent urls, counts in digest', () =>
   withRoot(
     {
       config: `${PLUS}limits:\n  triage_daily: 3\n`,

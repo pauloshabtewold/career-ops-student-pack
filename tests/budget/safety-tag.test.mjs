@@ -106,7 +106,7 @@ test('M-002-S23 raising a min ceiling passes', () =>
   }));
 
 // M-002-S22
-test('M-002-S22 raising a max ceiling fails and names it', () =>
+test('M-004-S13 M-002-S22 raising a max ceiling fails and names it', () =>
   withRepo(async (root) => {
     const v = await verdict(root, () => {
       const next = budgetSource({ connect: 25 });
@@ -153,7 +153,7 @@ test('M-002-S22 raising automation fails', () =>
     assert.match(v.text, /automation/);
   }));
 
-test('M-002-S22 touching a file outside the allowed set fails and names the file', () =>
+test('M-004-S13 M-002-S22 touching a file outside the allowed set fails and names the file', () =>
   withRepo(async (root) => {
     const v = await verdict(root, () => put(root, 'lib/extra.mjs', 'export const x = 2;\n'));
     assert.equal(v.ok, false);

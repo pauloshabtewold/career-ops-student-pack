@@ -8,7 +8,7 @@ import { createFakeUpstream } from '../helpers/fake-upstream.mjs';
 import { PACK_ROOT, TODAY, pipelineText } from '../helpers/script-harness.mjs';
 import { defaultRunner } from '../../lib/upstream.mjs';
 
-test('a step whose runner throws prints one FAILED line with the first stderr line and the run still reports', async () => {
+test('M-002-S8 a step whose runner throws prints one FAILED line with the first stderr line and the run still reports', async () => {
   const up = createFakeUpstream();
   try {
     writeFileSync(join(up.root, 'config', 'student.yml'), 'timezone: America/Chicago\npresets: []\n');

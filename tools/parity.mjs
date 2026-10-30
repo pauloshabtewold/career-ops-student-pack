@@ -57,10 +57,12 @@ export function isInside(child, parent) {
 }
 
 // 'inside' when scratch lies within any dir, 'contains' when it holds any dir, else null. 'inside' wins so the
-// caller reports the first problem the same way for every dir. Arguments must already be realish paths.
+// caller reports the first problem the same way for every dir. Both sides are resolved through realish here.
 export function scratchOverlap(scratch, dirs) {
-  if (dirs.some((d) => isInside(scratch, d))) return 'inside';
-  if (dirs.some((d) => isInside(d, scratch))) return 'contains';
+  const scr = realish(scratch);
+  const real = dirs.map(realish);
+  if (real.some((d) => isInside(scr, d))) return 'inside';
+  if (real.some((d) => isInside(d, scr))) return 'contains';
   return null;
 }
 

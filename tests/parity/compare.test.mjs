@@ -36,7 +36,7 @@ test('M-007-S1 identical stage outputs report pass with both counts', () => {
 });
 
 // M-007-S1
-test('M-007-S1 formatParityReport renders counts and verdicts without row content', () => {
+test('M-004-S12 M-007-S1 formatParityReport renders counts and verdicts without row content', () => {
   const text = doc(`- [ ] ${FIXTURE_URL} | ${FIXTURE_COMPANY} | ${FIXTURE_TITLE} | Remote`);
   const out = formatParityReport([compareStage('prefilter', text, text), compareStage('rank-queue', doc(row(1)), doc(row(1), row(2)))]);
   assert.match(out, /prefilter/);

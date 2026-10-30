@@ -71,7 +71,7 @@ for (const status of ['offline', 'up-to-date', 'dismissed']) {
 }
 
 // M-005-S7
-test('M-005-S7 a safety tag that passes the gate is fast-forwarded to with one line, before the release step', () =>
+test('M-004-S14 M-005-S7 a safety tag that passes the gate is fast-forwarded to with one line, before the release step', () =>
   withPack((p) => {
     p.up.setOutput('update-system', checkJson('up-to-date', { remote: '1.38.0' }));
     const safe = p.publish((o) => put(o, 'AGENTS.student.md', 'Pack rules, tightened.\n'), 'safety release', ['safety-1']);
@@ -96,7 +96,7 @@ test('M-005-S7 the safety-only run makes no upstream call', () =>
   }));
 
 // M-005-S8
-test('M-005-S8 a safety tag that fails the gate is refused, HEAD stays, one line names the tag', () =>
+test('M-004-S14 M-005-S8 a safety tag that fails the gate is refused, HEAD stays, one line names the tag', () =>
   withPack((p) => {
     p.up.setOutput('update-system', checkJson('up-to-date', { remote: '1.38.0' }));
     const before = p.head();

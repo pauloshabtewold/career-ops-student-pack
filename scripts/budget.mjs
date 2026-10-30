@@ -480,7 +480,7 @@ async function cmdCheckLog(env) {
 
 const COMMAND_HANDLERS = { warning: cmdWarning, 'due-withdrawals': cmdDueWithdrawals, 'session-start': cmdSessionStart, status: cmdStatus };
 
-async function main() {
+export async function main({ rng = Math.random } = {}) {
   const { command, positionals, flags } = parseArgs(process.argv.slice(2), { commands: COMMANDS, flags: FLAGS });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const file = join(paths.dataDir, 'action-log.tsv');
@@ -497,7 +497,7 @@ async function main() {
   const history = await readActionLog(file);
   const mkRow = (action, o = {}) => ({ ts: clock.now().toISOString(), date: clock.today(), session, action, target: '', company: '', approval: '', detail: '', ...o });
   const write = (rows) => (flags.dryRun ? Promise.resolve() : appendAction(file, rows));
-  const env = { command, positionals, flags, paths, file, config, clock, sess, session, history, mkRow, write, rng: Math.random };
+  const env = { command, positionals, flags, paths, file, config, clock, sess, session, history, mkRow, write, rng };
   return (COMMAND_HANDLERS[command] ?? cmdCheckLog)(env);
 }
 

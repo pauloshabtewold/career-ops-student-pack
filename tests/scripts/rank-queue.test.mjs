@@ -54,7 +54,7 @@ test('M-004-S11 ties break by url and --n caps the list', () => {
 });
 
 // M-004-S12
-test('M-004-S12 a connect under 5 days old holds the company unless the posting is over 14 days old', () => {
+test('M-002-S10 M-004-S12 a connect under 5 days old holds the company unless the posting is over 14 days old', () => {
   const r = setup(
     [
       row(1, 'Hold Co', '4.5', 'posted~3d'),
