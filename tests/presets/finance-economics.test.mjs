@@ -62,3 +62,10 @@ test('M-011-S3 finance-economics keeps id, name, coverage level and sources bloc
   assert.equal(p.coverage.level, 'semi-automated');
   assert.deepEqual(p.sources, SHIPPED_SOURCES);
 });
+
+// W-015-F1: the Codex walkthrough's finance student got 20 full-time "Associate" roles needing 3-5 years, all FAIL.
+test('W-015-F1 finance early_career keeps summer associate and associate programs but not a bare Associate title', () => {
+  const re = new RegExp(loadPreset(ID).early_career, 'i');
+  for (const t of ['Summer Associate, Investment Banking', 'Associate Program 2027', 'Associate Intern, Wealth', 'Summer Analyst']) assert.ok(re.test(t), t);
+  for (const t of ['Investment Associate', 'Senior Associate, Private Equity', 'Associate, Credit Risk']) assert.ok(!re.test(t), t);
+});

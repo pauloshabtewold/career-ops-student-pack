@@ -3,12 +3,14 @@
 // student/scripts/scheduled.mjs, which runs the zero-token daily run and, for scheduled-discovery-plus-triage, the model
 // triage. Only the personalization interview offers this; nothing installs on its own.
 // Usage: schedule.mjs install|remove|status [--time HH:MM] [--dry-run] [--root R]
+// --time and the config time are read in the config time zone (timezone in config/student.yml).
 // --dry-run prints the artifact and never starts launchctl or powershell, so tests can run it safely.
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, posix, win32 } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { resolveAgentPath, signInHint } from '../lib/agent.mjs';
+import { createClock, zonedInstant } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
@@ -21,6 +23,19 @@ function parseTime(time) {
   const m = TIME_RE.exec(String(time));
   if (!m) throw new UsageError(`--time expects HH:MM on a 24 hour clock, got "${time}"`);
   return { hour: Number(m[1]), minute: Number(m[2]), text: `${m[1].padStart(2, '0')}:${m[2]}` };
+}
+
+// launchd and Task Scheduler both fire on this computer's clock, while the student picks the time in the time zone of
+// config/student.yml; the two differ for a student whose laptop is set to another zone. Converted with today's offsets,
+// which holds until one of the two zones changes daylight saving time without the other.
+export function machineTime(time, { timezone, machineZone, now = new Date() }) {
+  const t = parseTime(time);
+  const machine = machineZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!timezone || timezone === machine) return { time: t.text, note: null };
+  const today = createClock({ timezone, nowFn: () => now }).today();
+  const local = createClock({ timezone: machine }).localTime(zonedInstant(today, timezone, t.hour, t.minute));
+  const text = `${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`;
+  return { time: text, note: `time: ${t.text} ${timezone} is ${text} on this computer's clock (${machine})` };
 }
 
 const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -170,10 +185,11 @@ async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status'], flags: { time: 'string' } });
   const paths = resolvePaths({ root: flags.root });
   const config = await loadStudentConfig({ root: paths.root });
-  const t = parseTime(flags.time ?? config?.schedule?.time ?? '06:00');
+  const t = machineTime(flags.time ?? config?.schedule?.time ?? '06:00', { timezone: config?.timezone });
+  if (t.note && command === 'install') console.log(t.note);
   const agent = config?.agent ?? 'claude';
   const agentPath = command === 'install' ? resolveAgentPath(agent) : null;
-  const ctx = { nodePath: process.execPath, root: paths.root, time: t.text, dryRun: Boolean(flags.dryRun), agent, agentPath, automation: config?.automation ?? 'manual' };
+  const ctx = { nodePath: process.execPath, root: paths.root, time: t.time, dryRun: Boolean(flags.dryRun), agent, agentPath, automation: config?.automation ?? 'manual' };
   const platform = process.platform === 'win32' ? 'win32' : process.platform === 'darwin' || ctx.dryRun ? 'darwin' : null;
   if (!platform) throw new UsageError('schedule.mjs supports macOS and Windows 11 only');
   return platform === 'win32' ? winCommand(command, ctx) : macCommand(command, ctx);

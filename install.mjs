@@ -19,9 +19,9 @@ import { defaultRunner } from './lib/upstream.mjs';
 export class InstallError extends Error {}
 
 // .codex/config.toml is listed so a student's own copy of the suggested Codex config stays out of upstream's commits.
-const LOCAL_PATHS = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml'];
-const EXCLUDES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', 'config/student.yml'];
-const BLOCK_RE = /<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/;
+export const LOCAL_PATHS = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml'];
+export const EXCLUDES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', 'config/student.yml'];
+export const BLOCK_RE = /<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/;
 const BLOCK = '<!-- student-pack:start -->@student/AGENTS.student.md<!-- student-pack:end -->';
 const NPM_TIMEOUT_MS = 10 * 60 * 1000;
 

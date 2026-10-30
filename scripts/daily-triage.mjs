@@ -7,7 +7,7 @@
 //        [--claude PATH] [--log-file F]   (--claude PATH is the older spelling of --agent claude --agent-path PATH)
 // Exit 0 always: a missing binary, timeout or sign-in problem becomes a digest note and pipeline.md stays unchanged.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { AGENTS, AGENT_TIMEOUT_MS, CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS, quoteIf, resolveAgentPath, shellForm, signInHint } from '../lib/agent.mjs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
@@ -222,6 +222,7 @@ async function main() {
   const { flags } = parseArgs(process.argv.slice(2), { flags: { agent: 'string', 'agent-path': 'string', claude: 'string', 'log-file': 'string' } });
   if (flags.agent && !AGENTS.includes(flags.agent)) throw new UsageError(`--agent expects ${AGENTS.join(' or ')}, got "${flags.agent}"`);
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
+  if (flags.logFile) mkdirSync(dirname(flags.logFile), { recursive: true });
   const say = (line) => {
     console.log(line);
     if (flags.logFile) appendFileSync(flags.logFile, `${line}\n`);

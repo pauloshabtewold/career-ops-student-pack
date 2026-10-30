@@ -183,3 +183,13 @@ test('M-005-S16 local commits in student/ block the fast-forward: one line, HEAD
     assert.equal(p.git('stash', 'list'), '');
     assert.ok(sysCalls(p).some((c) => c.argv[0] === 'check'), 'upstream step must still run');
   }));
+
+// W-015-UP1
+test('W-015-UP1 an update with nothing new says the pack and upstream are up to date', () =>
+  withPack((p) => {
+    p.up.setOutput('update-system', checkJson('up-to-date', { remote: '1.38.0' }));
+    const r = p.run('update.mjs');
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.ok(r.lines.some((l) => /^pack: up to date/.test(l)), r.stdout);
+    assert.ok(r.lines.includes('upstream: up to date (1.38.0)'), r.stdout);
+  }));

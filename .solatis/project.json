@@ -1,0 +1,6 @@
+{
+  "tiers": {
+    "static": ["npm run lint"],
+    "e2e": ["node --test --test-concurrency=1 \"tests/e2e/*.test.mjs\""]
+  }
+}

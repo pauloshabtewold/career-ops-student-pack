@@ -107,7 +107,9 @@ async function updatePack({ packRoot, runner, offline, dryRun, safetyOnly, say }
   }
   if (!safetyOnly && !localCommits) {
     const release = newestTag(runner, packRoot, 'v*');
-    if (release && !isContained(runner, packRoot, release) && !fastForward(env, release, 'release')) localCommits = true;
+    if (release && !isContained(runner, packRoot, release)) {
+      if (!fastForward(env, release, 'release')) localCommits = true;
+    } else say(`pack: up to date${release ? ` (${release})` : ''}`);
   }
   return localCommits;
 }
@@ -132,6 +134,7 @@ function updateUpstream({ up, packRoot, dryRun, say }) {
     say('upstream: update check failed');
   }
   if (status?.status === 'update-available') applyUpstream({ status, up, compat, dryRun, say });
+  else if (status) say(`upstream: up to date (${up.version()})`);
 }
 
 export async function runUpdate({ root, packRoot, offline = false, dryRun = false, safetyOnly = false, runner = defaultRunner, upstream }) {

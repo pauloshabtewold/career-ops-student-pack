@@ -33,7 +33,7 @@ test('M-002-S21 shipped compat.json carries the contract and the budget.mjs hash
       'update-system': ['check', 'apply --confirm', 'dismiss --version'],
       doctor: ['--json'],
       'audit-portals': [],
-      plugins: ['run', 'trust', 'enable'],
+      plugins: ['run', 'trust', 'enable', 'remove'],
     },
   );
   assert.equal(c.budgetSha256, sha(join(PACK_ROOT, 'scripts', 'budget.mjs')));

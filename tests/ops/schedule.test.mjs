@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { buildPlist, buildTaskScript } from '../../scripts/schedule.mjs';
+import { buildPlist, buildTaskScript, machineTime } from '../../scripts/schedule.mjs';
 import { PACK_ROOT } from '../helpers/script-harness.mjs';
 
 const NODE = '/opt/example node/bin/node';
@@ -100,6 +100,40 @@ test('M-008-S3 install --dry-run prints the artifact and starts no launchctl or 
     assert.ok(out.stdout.includes(tmp), 'artifact names the root');
     assert.equal(existsSync(marker), false, 'no launchctl or powershell process was started');
     assert.equal(existsSync(join(home, 'Library', 'LaunchAgents')), false, 'dry run writes no plist');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// W-015-S1
+test('W-015-S1 machineTime reads the time in the config zone and converts it to the computer clock', () => {
+  const now = new Date('2026-10-30T12:00:00Z');
+  assert.deepEqual(machineTime('06:30', { timezone: 'America/Chicago', machineZone: 'America/Chicago', now }), { time: '06:30', note: null });
+  assert.equal(machineTime('06:30', { timezone: undefined, machineZone: 'America/Los_Angeles', now }).time, '06:30');
+  const west = machineTime('06:30', { timezone: 'America/Chicago', machineZone: 'America/Los_Angeles', now });
+  assert.equal(west.time, '04:30');
+  assert.match(west.note, /06:30 America\/Chicago is 04:30 on this computer's clock \(America\/Los_Angeles\)/);
+  // Crossing midnight and a daylight-saving gap: Chicago is on CST again by 2026-11-02 while UTC never changes.
+  assert.equal(machineTime('00:30', { timezone: 'America/New_York', machineZone: 'America/Los_Angeles', now }).time, '21:30');
+  assert.equal(machineTime('06:30', { timezone: 'America/Chicago', machineZone: 'UTC', now: new Date('2026-11-02T12:00:00Z') }).time, '12:30');
+});
+
+// W-015-S1
+test('W-015-S1 install --dry-run names the converted time when the config zone differs from the computer', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'sched-tz-'));
+  try {
+    const home = join(tmp, 'home');
+    mkdirSync(join(tmp, 'config'), { recursive: true });
+    mkdirSync(home);
+    writeFileSync(join(tmp, 'config', 'student.yml'), 'timezone: Pacific/Honolulu\nschedule:\n  time: "07:30"\n');
+    const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'schedule.mjs'), 'install', '--dry-run', '--root', tmp], {
+      cwd: PACK_ROOT,
+      encoding: 'utf8',
+      timeout: 60000,
+      env: { ...process.env, HOME: home, USERPROFILE: home, TZ: 'Asia/Tokyo' },
+    });
+    assert.equal(out.status, 0, out.stderr);
+    assert.match(out.stdout, /time: 07:30 Pacific\/Honolulu is \d\d:\d\d on this computer's clock/);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

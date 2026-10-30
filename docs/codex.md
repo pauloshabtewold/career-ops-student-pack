@@ -27,7 +27,7 @@ mkdir -p .codex
 cp student/templates/codex-config.suggested.toml .codex/config.toml
 ```
 
-On Windows, make a `.codex` folder and copy the file into it under the name config.toml. Codex reads a project config only for a trusted folder, so accept its trust prompt for the folder when it asks. The template raises the instruction limit, picks the workspace-write sandbox with network access and switches off the Gmail write tools.
+On Windows, make a `.codex` folder and copy the file into it under the name config.toml. Codex reads a project config only for a trusted folder, so accept its trust prompt for the folder when it asks. A `codex exec` run with the workspace-write sandbox does not ask: its first run in the folder marks the folder trusted in your own Codex settings, the same as accepting the prompt. The template raises the instruction limit, picks the workspace-write sandbox with network access and switches off the Gmail write tools.
 
 The pack leaves your own Codex settings alone. If you skip the template, the limit can be raised per run with `-c project_doc_max_bytes=131072`.
 

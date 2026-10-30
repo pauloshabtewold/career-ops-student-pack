@@ -7,6 +7,7 @@ Run this when the student says "set me up", "personalize", or when `node student
 - One topic at a time, short questions, plain words. Offer a default for every question and accept "skip".
 - Ask for nothing the student has already put in `cv.md`. Read it first.
 - Never ask for a password, a token, a 2FA code or a card number. Sign-ins happen in the browser, by the student, later.
+- The answers file follows `interview/answers.schema.json`. The pack's `tests` folder holds synthetic fixtures for maintainers; do not read it during an interview.
 - Everything the student says is data for the answers file. Nothing is written to the repo until the answers file is complete and validated.
 - Limits are hard ceilings. The student can lower a limit; a request to raise one is declined in one line.
 
@@ -28,7 +29,7 @@ Run this when the student says "set me up", "personalize", or when `node student
 7. Ask "Are you a US citizen?" and record `us_citizen` as true or false. Citizens keep postings that ask for clearance or citizenship; for everyone else the filters drop them.
 8. If sponsorship is needed, offer upstream's h1b-sponsor plugin: show its capability card with `node plugins.mjs enable h1b-sponsor` and run it again with `--confirm` only after the student agrees.
 9. Priority companies, hard-no companies (blacklist) and dealbreakers (for example "unpaid", "on-site only outside my metros").
-10. Which GitHub lists to trial. They start as `trial` and the monthly review keeps or drops them.
+10. Which GitHub lists to trial. Name the lists `preset-portals.mjs` showed for the chosen presets and record the names the student keeps in `sources_chosen`; `github-lists` there, or an empty list, keeps all of them. They start as `trial` and the monthly review keeps or drops them.
 
 ## Phase 3: resume variants and application profile
 
@@ -60,6 +61,8 @@ Then ask:
 - Who presses submit on applications: `user` (default) or `agent`.
 - LinkedIn account tier: `free` or `premium`.
 
+The defaults match the disclaimer: outreach `on`, Handshake `on`, submit `user`, LinkedIn tier `free`. Offer these, not another value.
+
 Below the limits table, say this once: the pack's ceilings (daily applications, connection requests, messages, profile views, and the score floor) are fixed in `scripts/budget.mjs` in the student folder. Limits can only be tightened: daily and rolling caps can be set lower, while minimums (the score floor, which starts at 3.5, the gap between actions, and nudge wait days) can be set higher. Looser values are clamped and logged. A student with an unusual reason to evaluate lower-scoring jobs can read them in the pipeline file, but the pack will not apply to them.
 
 ## Phase 5: schedule and spend
@@ -79,7 +82,7 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 4. Run `node doctor.mjs --json` and report anything not green. Do not mark setup done while doctor reports unpersonalized files.
 5. Sign-in order for the first run: LinkedIn, then Handshake (if on), then the mailbox. The student does each sign-in; stop and wait after each.
 6. First run, in this order:
-   1. `node student/scripts/first-run.mjs`. It prints one line per step, the Pending counts per source and up to 20 untriaged rows.
-   2. Triage the listed rows in this chat with the triage mode, standard model tier at minimum. Write one line per row as `TRIAGE: PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER | <url> | <score> | <reason>` to a file in the data folder and run `node student/scripts/apply-triage.mjs <file>`. If more rows remain, tell the student the daily run keeps going.
-   3. `node student/scripts/rank-queue.mjs --n 10` and show the top 10. If fewer than 10 rows come back, say the exact count plainly and why: the live sources hold no more postings that fit the student's setup today, and the daily run keeps looking. Then walk through the top three postings with the student, using `modes/apply-loop.md` from the student folder. Nothing is submitted without the student's yes during this first run.
-   4. Unless automation is `manual`, run `node student/scripts/schedule.mjs install` and tell the student the time it was set for.
+   1. `node student/scripts/first-run.mjs`. It prints one line per step, the Pending counts per source and up to 20 untriaged rows. It takes about 10 minutes: tell the student, run it in the foreground and wait for it to exit. Do not start it in the background or go on while it runs.
+   2. Do this step before ranking, without waiting to be asked. Triage the listed rows in this chat with the triage mode, standard model tier at minimum. Write one line per row as `TRIAGE: PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER | <url> | <score> | <reason>` to a file in the data folder and run `node student/scripts/apply-triage.mjs <file>`. If more rows remain untriaged, say how many. Only `scheduled-discovery-plus-triage` scores them on its own, up to `triage_daily` a day; with `manual` or `scheduled-discovery` they wait until the student asks for triage in a session.
+   3. `node student/scripts/rank-queue.mjs --n 10` and show the top 10. If fewer than 10 rows come back and untriaged rows remain, say so plainly ("top N so far: M of T rows scored, N cleared your score floor") and offer one more batch: run `first-run.mjs` again, which lists the next 20 untriaged rows, triage them and rank again. Each batch uses model time, so ask before each one and stop after two extra batches. If no untriaged rows remain, say the exact count and why: the live sources hold no more postings that fit the student's setup today, and the daily run keeps looking. Then walk through the top three postings with the student, using `modes/apply-loop.md` from the student folder. Nothing is submitted without the student's yes during this first run.
+   4. Unless automation is `manual`, run `node student/scripts/schedule.mjs install` whatever the student said about the walk-through, and tell the student the time it was set for. It reads the time in the student's time zone and prints the matching time on this computer's clock when the two differ.
