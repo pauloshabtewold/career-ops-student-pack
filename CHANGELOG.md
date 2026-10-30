@@ -4,6 +4,9 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-016: the triage budget moves from the `budget.mjs` ceiling to `triage_budget` in config/student.yml (default 20 rows a day and 60 on the first run, a whole number or "all") and a new `plan` key; `scripts/triage-budget.mjs` shows, prices, sets (only with `--confirm`) and logs it
+- W-016: the daily triage sends rows in calls of 20, stops at the first failed call, counts every row sent in `data/triage-usage.tsv` and adds a cost line to the digest; the scheduled child timeout scales with the chunks; the claude call ignores user settings and MCP servers (`--setting-sources project --strict-mcp-config`)
+- W-016: `docs/usage-cost.md` explains the estimates with measured tokens and dated first-party sources. This is a normal release (a loosening of `budget.mjs`), never a safety tag.
 - W-013: Codex support: `AGENTS.override.md` is generated with the pack block first, config/student.yml gains an `agent` key, the daily triage can run as one read-only `codex exec` call, and `schedule.mjs` takes `--agent` and `--agent-path` (the older `--claude` still works)
 - W-013: session start tolerates an offline sandbox; interview fixtures carry the Phase 3 application profile
 - W-013: `docs/codex.md`, `docs/codex-spike.md` and `templates/codex-config.suggested.toml` describe the Codex path, a preview until the live checks listed there are done
