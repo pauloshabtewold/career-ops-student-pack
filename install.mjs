@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, runCli } from './lib/args.mjs';
 import { compare } from './lib/semver.mjs';
 import { resolvePaths } from './lib/paths.mjs';
+import { oneLine } from './lib/text.mjs';
 import { defaultRunner } from './lib/upstream.mjs';
 
 export class InstallError extends Error {}
@@ -65,7 +66,7 @@ function npmSteps({ root, packRoot, dryRun, runner, platform, actions, skipNpm }
     try {
       runner(win ? 'npm.cmd' : 'npm', step.args, { cwd: step.cwd, timeout: NPM_TIMEOUT_MS, ...(win ? { shell: true } : {}) });
     } catch (err) {
-      const first = String(err.stderr || err.message).split('\n').map((l) => l.trim()).find(Boolean) ?? 'failed';
+      const first = oneLine(err.stderr || err.message) || 'failed';
       throw new InstallError(`${step.name} failed (${first}); run "npm ${step.args.join(' ')}" in ${step.cwd} by hand, then run this again`);
     }
   }

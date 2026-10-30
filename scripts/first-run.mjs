@@ -73,7 +73,8 @@ async function main() {
   if (flags.n !== undefined && flags.n < 1) throw new UsageError('--n expects a whole number of 1 or more');
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   if (flags.dryRun) {
-    console.log(`first-run dry run: ${ingestStepNames().length} step(s) would run: ${ingestStepNames().join(', ')}`);
+    const names = ingestStepNames();
+    console.log(`first-run dry run: ${names.length} step(s) would run: ${names.join(', ')}`);
     return 0;
   }
   const config = await loadStudentConfig({ root: paths.root });
