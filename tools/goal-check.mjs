@@ -353,7 +353,8 @@ export function formatGoalReport({ results, meta }) {
 function checkArgs({ upstream, scratch, feeds = 'fixtures' }) {
   if (!upstream || !scratch) throw new UsageError('usage: goal-check.mjs --upstream <dir> --scratch <new dir> [--feeds fixtures|live] [--today D] [--report F]');
   if (!['fixtures', 'live'].includes(feeds)) throw new UsageError('--feeds expects fixtures or live');
-  // realish resolves links in the existing part of each path, so a scratch reached through a link into the pack is caught.
+  // realish, not resolve: a symlinked scratch dir could otherwise sit inside the pack and pass.
+  // It resolves links in the existing part of each path, so a scratch reached through a link into the pack is caught.
   const up = realish(upstream);
   const scr = realish(scratch);
   if (!existsSync(up) || !statSync(up).isDirectory() || !existsSync(join(up, 'package.json'))) throw new UsageError('--upstream is not a career-ops checkout');

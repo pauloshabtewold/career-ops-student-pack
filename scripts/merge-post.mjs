@@ -236,7 +236,7 @@ export async function mergePost({ dataDir, today, dryRun = false, lockOptions })
 async function main(argv = process.argv.slice(2), deps = {}) {
   const { flags } = parseArgs(argv, { flags: {} });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
-  // With --today the config is never read, so a broken student.yml cannot fail a pinned run.
+  // With --today the config is never read. Missing config or empty timezone uses the host zone; a malformed one stops the run.
   const today = flags.today ?? createClock({ timezone: (await loadStudentConfig({ root: paths.root }))?.timezone, nowFn: deps.now }).today();
   let res;
   try {

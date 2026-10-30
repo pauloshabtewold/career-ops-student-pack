@@ -70,6 +70,7 @@ function trackerCompanies(text) {
   return [...byName.values()];
 }
 
+// Sync under an async signature: inbox awaits one call at a time, and the child sees EOF on stdin instead of hanging.
 export const defaultRunner = async (argv, { cwd }) => runResult(process.execPath, argv, { cwd });
 
 const PROPOSAL_TEXT = {
