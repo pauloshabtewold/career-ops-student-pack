@@ -25,6 +25,9 @@ const FETCH_TIMEOUT_MS = 30 * 1000;
 const JD_CHARS = 6000;
 const MAX_BUFFER = 64 * 1024 * 1024;
 
+// Options shared by both agent calls: the prompt on stdin, captured output, and the shell form for Windows shims.
+const callOptions = ({ cwd, prompt, shell }) => ({ cwd, input: prompt, timeout: AGENT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
+
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 // Keeps the first well-formed line per url that was sent; every other TRIAGE line is counted as ignored. Prose is skipped.
@@ -89,7 +92,7 @@ function callClaude({ claudePath, model, prompt, root, runner, platform }) {
   const shell = shellForm(claudePath, platform);
   const args = ['-p', '--tools', shell ? '""' : '', '--model', model];
   // cmd.exe splits an unquoted path at a space (C:\Users\First Last\AppData\Roaming\npm\claude.cmd), so the shell form quotes it.
-  return runner(quoteIf(shell, claudePath), args, { cwd: root, input: prompt, timeout: AGENT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
+  return runner(quoteIf(shell, claudePath), args, callOptions({ cwd: root, prompt, shell }));
 }
 
 // The prompt travels on stdin and the answer comes back through -o, so no posting text is ever in argv. The call runs in
@@ -105,7 +108,7 @@ function callCodex({ codexPath, effort, prompt, runner, platform }) {
       ...CODEX_DISABLED_FEATURES.flatMap((f) => ['--disable', f]),
       '-c', `model_reasoning_effort=${effort}`, '-C', quoteIf(shell, tmp), '-o', quoteIf(shell, out), '-',
     ];
-    runner(quoteIf(shell, codexPath), args, { cwd: tmp, input: prompt, timeout: AGENT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
+    runner(quoteIf(shell, codexPath), args, callOptions({ cwd: tmp, prompt, shell }));
     const answer = existsSync(out) ? readFileSync(out, 'utf8') : '';
     if (!answer.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
     return answer;
@@ -181,8 +184,9 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   }
   const { configured, hint, file } = resolveTriageAgent({ config, agent, agentPath, claude, platform });
   const note = (lines) => {
-    appendDigest({ dataDir, today, lines: [...hint, ...lines] });
-    for (const l of [...hint, ...lines]) say(l);
+    const all = [...hint, ...lines];
+    appendDigest({ dataDir, today, lines: all });
+    for (const l of all) say(l);
   };
   const limit = effectiveLimits(config).values.triage_daily;
   if (!(limit > 0)) {
