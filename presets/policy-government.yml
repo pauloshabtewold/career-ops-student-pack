@@ -2,7 +2,7 @@ id: policy-government
 name: "Policy, political science, government"
 coverage:
   level: semi-automated
-  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 56% of the seed list."
+  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 51% of the seed list. State and city boards on governmentjobs.com are not scanned, because that site disallows bots."
 title_rules:
   include:
     - "policy"
@@ -119,7 +119,7 @@ seed_employers:
   - name: "U.S. Agency for International Development"
     careers_url: https://www.usaid.gov/careers
   - name: "World Bank"
-    careers_url: https://www.worldbank.org/en/about/careers
+    careers_url: https://worldbankgroup.csod.com/ux/ats/careersite/1/home?c=worldbankgroup
   - name: "International Monetary Fund"
     careers_url: https://www.imf.org/en/About/Recruitment
   - name: "United Nations"
@@ -139,7 +139,7 @@ seed_employers:
   - name: "American Enterprise Institute"
     careers_url: https://careers-aei.icims.com/jobs/search
   - name: "Council on Foreign Relations"
-    careers_url: https://www.cfr.org/careers
+    careers_url: https://careers-cfr.icims.com/jobs/search
   - name: "Carnegie Endowment for International Peace"
     careers_url: https://www.carnegieendowment.org/about/careers
   - name: "Center for Strategic and International Studies"
@@ -171,17 +171,13 @@ seed_employers:
   - name: "Robert Wood Johnson Foundation"
     careers_url: https://www.rwjf.org/careers
   - name: "Rockefeller Foundation"
-    careers_url: https://www.rockefellerfoundation.org/careers
+    careers_url: https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=24726181-f57f-46a1-824d-3c8a89c3328a&ccId=19000101_000001&type=MP&lang=en_US
   - name: "Bloomberg Philanthropies"
     careers_url: https://job-boards.greenhouse.io/bloombergorg
   - name: "Open Society Foundations"
     careers_url: https://www.opensocietyfoundations.org/careers
   - name: "Teach For America"
     careers_url: https://teachforamerica.wd1.myworkdayjobs.com/TFA_Careers
-  - name: "City of Los Angeles"
-    careers_url: https://www.governmentjobs.com/careers/lacity
-  - name: "City of Seattle"
-    careers_url: https://www.governmentjobs.com/careers/seattle
   - name: "Pew Charitable Trusts"
     careers_url: https://pewtrusts.wd5.myworkdayjobs.com/TrustsExternal
   - name: "FHI 360"
@@ -216,26 +212,36 @@ seed_employers:
     careers_url: https://jobs.lever.co/commoncause
   - name: "Sierra Club"
     careers_url: https://jobs.lever.co/sierraclub
-  - name: "District of Columbia Government"
-    careers_url: https://www.governmentjobs.com/careers/dc
-  - name: "State of Washington"
-    careers_url: https://www.governmentjobs.com/careers/washington
-  - name: "State of Colorado"
-    careers_url: https://www.governmentjobs.com/careers/colorado
-  - name: "State of Michigan"
-    careers_url: https://www.governmentjobs.com/careers/michigan
-  - name: "State of Iowa"
-    careers_url: https://www.governmentjobs.com/careers/iowa
-  - name: "Fairfax County"
-    careers_url: https://www.governmentjobs.com/careers/fairfaxcounty
-  - name: "Montgomery County Maryland"
-    careers_url: https://www.governmentjobs.com/careers/montgomerycountymd
-  - name: "City of Boston"
-    careers_url: https://www.governmentjobs.com/careers/boston
-  - name: "King County"
-    careers_url: https://www.governmentjobs.com/careers/kingcounty
-  - name: "City of San Diego"
-    careers_url: https://www.governmentjobs.com/careers/sandiego
+  - name: "Human Rights Watch"
+    careers_url: https://job-boards.greenhouse.io/humanrightswatch
+  - name: "Partnership for Public Service"
+    careers_url: https://job-boards.greenhouse.io/partnershipforpublicservice
+  - name: "GiveWell"
+    careers_url: https://job-boards.greenhouse.io/givewell
+  - name: "GiveDirectly"
+    careers_url: https://job-boards.greenhouse.io/givedirectly
+  - name: "IDinsight"
+    careers_url: https://jobs.ashbyhq.com/idinsight
+  - name: "Natural Resources Defense Council"
+    careers_url: https://careers-nrdc.icims.com/jobs/search
+  - name: "Center for a New American Security"
+    careers_url: https://cnas.bamboohr.com/careers
+  - name: "RepresentUs"
+    careers_url: https://jobs.lever.co/representus
+  - name: "Evergreen Action"
+    careers_url: https://job-boards.greenhouse.io/evergreenaction
+  - name: "Brunswick Group"
+    careers_url: https://job-boards.greenhouse.io/brunswickgroup
+  - name: "Teneo"
+    careers_url: https://job-boards.greenhouse.io/teneo
+  - name: "Acumen"
+    careers_url: https://job-boards.greenhouse.io/acumen
+  - name: "Wikimedia Foundation"
+    careers_url: https://job-boards.greenhouse.io/wikimedia
+  - name: "EMILY's List"
+    careers_url: https://jobs.lever.co/emilyslist
+  - name: "ProPublica"
+    careers_url: https://job-boards.greenhouse.io/propublica
 assessment_domains:
   - "hirevue.com"
   - "usajobs.gov"

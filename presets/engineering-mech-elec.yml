@@ -80,6 +80,16 @@ sources:
       format: csv
       kind: internship
       field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
+    - name: meche-intern
+      repo: eyaghmour07/MechEJobTracker
+      path: README.md
+      format: markdown-table
+      kind: internship
+    - name: meche-newgrad
+      repo: eyaghmour07/MechEJobTracker
+      path: NEW_GRAD_USA.md
+      format: markdown-table
+      kind: newgrad
   alerts:
     - name: "Handshake saved search"
       how: "Save searches for mechanical, electrical or aerospace engineering intern and co-op."

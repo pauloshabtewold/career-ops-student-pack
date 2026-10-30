@@ -195,7 +195,7 @@ seed_employers:
   - name: "Leidos"
     careers_url: https://leidos.wd5.myworkdayjobs.com/External
   - name: "PwC"
-    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
+    careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "Verizon"
     careers_url: https://verizon.wd12.myworkdayjobs.com/verizon-careers
   - name: "AT&T"

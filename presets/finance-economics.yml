@@ -45,6 +45,21 @@ sources:
       path: README.md
       format: markdown-table
       kind: newgrad
+    - name: simplify-intern
+      repo: SimplifyJobs/Summer2027-Internships
+      path: .github/scripts/listings.json
+      format: simplify-json
+      kind: internship
+    - name: simplify-newgrad
+      repo: SimplifyJobs/New-Grad-Positions
+      path: .github/scripts/listings.json
+      format: simplify-json
+      kind: newgrad
+    - name: quant-intern
+      repo: quant-scraper/Quant-Internships-New-Grad-2027
+      path: README.md
+      format: markdown-table
+      kind: internship
   alerts:
     - name: "Handshake saved search"
       how: "Save searches for summer analyst, finance intern and rotational program."
@@ -84,7 +99,7 @@ seed_employers:
   - name: "Vanguard"
     careers_url: https://vanguard.wd5.myworkdayjobs.com/vanguard_external
   - name: "Fidelity Investments"
-    careers_url: https://fmr.wd1.myworkdayjobs.com/FidelityCareers
+    careers_url: https://fmr.wd1.myworkdayjobs.com/targeted
   - name: "State Street"
     careers_url: https://statestreet.wd1.myworkdayjobs.com/Global
   - name: "T. Rowe Price"
@@ -122,7 +137,7 @@ seed_employers:
   - name: "KKR"
     careers_url: https://www.kkr.com/careers
   - name: "Apollo Global Management"
-    careers_url: https://www.apollo.com/careers
+    careers_url: https://athene.wd5.myworkdayjobs.com/Apollo_Careers
   - name: "Carlyle"
     careers_url: https://carlyle.wd1.myworkdayjobs.com/carlyle
   - name: "Citadel"
@@ -136,7 +151,7 @@ seed_employers:
   - name: "S&P Global"
     careers_url: https://spgi.wd5.myworkdayjobs.com/SPGI_Careers
   - name: "Bloomberg"
-    careers_url: https://www.bloomberg.com/careers
+    careers_url: https://bloomberg.avature.net/careers
   - name: "Morningstar"
     careers_url: https://morningstar.wd5.myworkdayjobs.com/Americas
   - name: "Nasdaq"
@@ -154,7 +169,7 @@ seed_employers:
   - name: "Marsh McLennan"
     careers_url: https://mmc.wd1.myworkdayjobs.com/MMC
   - name: "PwC"
-    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
+    careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "Procter & Gamble"
     careers_url: https://pg.wd5.myworkdayjobs.com/1000
   - name: "General Electric"
@@ -207,6 +222,8 @@ seed_employers:
     careers_url: https://unum.wd1.myworkdayjobs.com/External
   - name: "Synchrony"
     careers_url: https://synchronyfinancial.wd5.myworkdayjobs.com/careers
+  - name: "LPL Financial"
+    careers_url: https://lplfinancial.wd1.myworkdayjobs.com/university
 assessment_domains:
   - "hirevue.com"
   - "shl.com"

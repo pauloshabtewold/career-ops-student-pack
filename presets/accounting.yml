@@ -57,7 +57,7 @@ seed_employers:
   - name: "Deloitte"
     careers_url: https://www.deloitte.com/us/en/careers
   - name: "PwC"
-    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
+    careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
   - name: "KPMG"
@@ -67,31 +67,27 @@ seed_employers:
   - name: "BDO USA"
     careers_url: https://ebqb.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/BDOEntryLevelCareers
   - name: "RSM US"
-    careers_url: https://www.rsmus.com/careers
+    careers_url: https://rsm.wd1.myworkdayjobs.com/RSMCareers
   - name: "Baker Tilly"
     careers_url: https://bakertilly.wd5.myworkdayjobs.com/BTCareers
   - name: "CohnReznick"
     careers_url: https://www.cohnreznick.com/careers
   - name: "Crowe"
     careers_url: https://www.crowe.com/careers
-  - name: "Moss Adams"
-    careers_url: https://www.mossadams.com/careers
   - name: "Plante Moran"
-    careers_url: https://www.plantemoran.com/careers
+    careers_url: https://plantemoran.wd1.myworkdayjobs.com/pmexternalcareers
   - name: "CBIZ"
-    careers_url: https://www.cbiz.com/careers
+    careers_url: https://ebez.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Forvis Mazars"
-    careers_url: https://www.forvismazars.us/careers
+    careers_url: https://forvis.avature.net/campuscareers/SearchJobs
   - name: "Cherry Bekaert"
     careers_url: https://cbh.wd12.myworkdayjobs.com/CherryBekaert
   - name: "Eide Bailly"
     careers_url: https://www.eidebailly.com/careers
-  - name: "Marcum"
-    careers_url: https://www.marcumllp.com/careers
   - name: "EisnerAmper"
     careers_url: https://eisneramper.wd1.myworkdayjobs.com/EisnerAmper_External
   - name: "Withum"
-    careers_url: https://www.withum.com/careers
+    careers_url: https://withum.wd108.myworkdayjobs.com/Withum_Careers_Page
   - name: "Citrin Cooperman"
     careers_url: https://www.citrincooperman.com/careers
   - name: "Armanino"
@@ -99,9 +95,9 @@ seed_employers:
   - name: "Aprio"
     careers_url: https://www.aprio.com/careers
   - name: "Wipfli"
-    careers_url: https://www.wipfli.com/careers
+    careers_url: https://careers-wipfli.icims.com/jobs/search?ss=1
   - name: "Clifton Larson Allen"
-    careers_url: https://www.claconnect.com/careers
+    careers_url: https://cliftonlarsonallen.wd115.myworkdayjobs.com/CLA
   - name: "Weaver"
     careers_url: https://www.weaver.com/careers
   - name: "Whitley Penn"
@@ -127,7 +123,7 @@ seed_employers:
   - name: "American Express"
     careers_url: https://egug.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Fidelity Investments"
-    careers_url: https://fmr.wd1.myworkdayjobs.com/FidelityCareers
+    careers_url: https://fmr.wd1.myworkdayjobs.com/targeted
   - name: "Vanguard"
     careers_url: https://vanguard.wd5.myworkdayjobs.com/vanguard_external
   - name: "BlackRock"
@@ -151,7 +147,7 @@ seed_employers:
   - name: "Amazon"
     careers_url: https://www.amazon.jobs
   - name: "Microsoft"
-    careers_url: https://careers.microsoft.com
+    careers_url: https://microsoft.eightfold.ai/careers?domain=microsoft.com
   - name: "Ford Motor Company"
     careers_url: https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "General Motors"

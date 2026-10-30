@@ -12,6 +12,8 @@ const SHIPPED_SOURCES = {
     { name: 'vansh-newgrad', repo: 'vanshb03/New-Grad-2027', path: 'README.md', format: 'markdown-table', kind: 'newgrad' },
     { name: 'speedy-intern', repo: 'speedyapply/2027-SWE-College-Jobs', path: 'README.md', format: 'markdown-table', kind: 'internship' },
     { name: 'speedy-newgrad', repo: 'speedyapply/2027-SWE-College-Jobs', path: 'NEW_GRAD_USA.md', format: 'markdown-table', kind: 'newgrad' },
+    { name: 'speedy-ai-intern', repo: 'speedyapply/2027-AI-College-Jobs', path: 'README.md', format: 'markdown-table', kind: 'internship' },
+    { name: 'speedy-ai-newgrad', repo: 'speedyapply/2027-AI-College-Jobs', path: 'NEW_GRAD_USA.md', format: 'markdown-table', kind: 'newgrad' },
   ],
   alerts: [
     { name: 'Handshake saved search', how: 'Save a software search on Handshake and turn on email alerts.' },

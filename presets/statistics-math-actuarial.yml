@@ -130,7 +130,7 @@ seed_employers:
   - name: "FICO"
     careers_url: https://fico.wd1.myworkdayjobs.com/External
   - name: "Fidelity Investments"
-    careers_url: https://fmr.wd1.myworkdayjobs.com/FidelityCareers
+    careers_url: https://fmr.wd1.myworkdayjobs.com/targeted
   - name: "Freddie Mac"
     careers_url: https://freddiemac.wd5.myworkdayjobs.com/External
   - name: "Gallup"

@@ -57,3 +57,10 @@ test('M-014-S4 coverage note has a watch-only sentence with a percentage', () =>
     `no sentence with watch-only and a percentage in: ${note}`,
   );
 });
+
+// W-017: governmentjobs.com robots.txt disallows all bots, so no seed may point there.
+test('W-017 no policy-government seed points at governmentjobs.com', () => {
+  for (const e of loadPreset(ID).seed_employers) {
+    assert.ok(!/governmentjobs\.com/i.test(e.careers_url), `${e.name} points at governmentjobs.com`);
+  }
+});

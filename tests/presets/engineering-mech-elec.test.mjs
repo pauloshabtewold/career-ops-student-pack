@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadPreset } from '../../lib/presets.mjs';
 
 const ID = 'engineering-mech-elec';
-const PERMITTED = ['tracker05-me', 'wonofakind-2027', 'hiderrick-eng', 'litos-me', 'litos-ee', 'litos-aero', 'litos-che'];
+const PERMITTED = ['tracker05-me', 'wonofakind-2027', 'hiderrick-eng', 'litos-me', 'litos-ee', 'litos-aero', 'litos-che', 'meche-intern', 'meche-newgrad'];
 const LITOS = ['litos-me', 'litos-ee', 'litos-aero', 'litos-che'];
 const lists = () => loadPreset(ID).sources.github_lists ?? [];
 const isLitos = (g) => /^mehek-builds\//i.test(g.repo ?? '');
@@ -57,9 +57,10 @@ test('M-013-S3 source names are in the permitted set, the four Litos names are p
 });
 
 // M-013-S4
-test('M-013-S4 no github_lists source names MechEJobTracker or a root-level Litos CSV path', () => {
+// W-017: the earlier MechEJobTracker entry used a repo path that does not exist; the real repo is eyaghmour07/MechEJobTracker.
+test('M-013-S4 no github_lists source uses the wrong MechEJobTracker/MechEJobTracker repo or a root-level Litos CSV path', () => {
   for (const g of lists()) {
-    assert.ok(!/MechEJobTracker/i.test(`${g.name} ${g.repo}`), `source ${g.name} names MechEJobTracker`);
+    assert.notEqual(String(g.repo).toLowerCase(), 'mechejobtracker/mechejobtracker', `source ${g.name} uses the wrong MechEJobTracker repo`);
     if (isLitos(g)) assert.ok(String(g.path).includes('/'), `source ${g.name} uses root-level path ${g.path}`);
   }
 });
