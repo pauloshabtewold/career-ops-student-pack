@@ -11,7 +11,7 @@ Read this when the user asks to check their mail for application replies, or whe
 
 ## Steps
 
-1. Run these Gmail connector searches, each limited to the last 2 days:
+1. Run these Gmail connector searches, each limited to the last 2 days. Use the agent's Gmail read tools (Claude's Gmail connector, or Codex's Gmail app search and read tools); they are read-only:
    - mail from the assessment domains in the merged presets (`assessment_domains`);
    - mail from or about each company in data/applications.md;
    - job alert mail from LinkedIn and Handshake senders.
