@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
 
 const read = (rel) => readFileSync(join(PACK_ROOT, rel), 'utf8');
@@ -35,7 +34,14 @@ const exportedNames = (src) => {
   }
   return names;
 };
-const loadNs = (rel) => import(pathToFileURL(join(PACK_ROOT, rel)).href);
+const NAMESPACES = {
+  'scripts/check-safety-tag.mjs': () => import('../../scripts/check-safety-tag.mjs'),
+  'scripts/inbox.mjs': () => import('../../scripts/inbox.mjs'),
+  'scripts/first-run.mjs': () => import('../../scripts/first-run.mjs'),
+  'tools/parity-compare.mjs': () => import('../../tools/parity-compare.mjs'),
+  'scripts/lint-imports.mjs': () => import('../../scripts/lint-imports.mjs'),
+};
+const loadNs = (rel) => NAMESPACES[rel]();
 
 test('M-004-S1 tools/ and update.mjs import the moved helpers from lib, never from scripts/', () => {
   const files = [...mjsIn('tools'), 'update.mjs'];
