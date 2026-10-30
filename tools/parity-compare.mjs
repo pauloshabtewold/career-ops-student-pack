@@ -213,20 +213,24 @@ export function compareFailAudit(name, baselineText, packText, options) {
   return finish(name, s.counts, allowance);
 }
 
-// The pack prefilter drops a full-time new-grad title for a student with no new-grad track; the baseline prefilter has
-// no such rule. The allowance is keyed to that reason: pack-only lines carrying it, and baseline lines about a posting
-// the pack dropped for it (the baseline rejected the same posting under a different reason or not at all).
-const NEWGRAD_REASON = 'Title pre-filter: new-grad role and no new-grad track';
+// Two pack prefilter rules have no baseline counterpart, so pack-only lines carrying their reason are by design:
+// a full-time new-grad title for a student with no new-grad track, and a title the preset's early-career pattern does
+// not match. A baseline line about a posting the pack dropped for one of them is explained with it (the baseline
+// rejected the same posting under another reason or not at all). A baseline-only line whose reason names a
+// `rank.intern_only` company followed by full-time is that mirrored knob, which the pack applies at ranking.
+const PACK_ONLY_REASONS = ['Title pre-filter: new-grad role and no new-grad track', 'Title pre-filter: not an early-career title'];
 const verdictUrl = (row) => /^TRIAGE: \w+ \| (\S+) \|/.exec(row.slice(row.indexOf('\u0000') + 1))?.[1] ?? '';
 
-export function comparePrefilter(name, baselineText, packText) {
+export function comparePrefilter(name, baselineText, packText, { internOnly = [] } = {}) {
   const a = normalizeRows(baselineText);
   const b = normalizeRows(packText);
   const inA = new Set(a);
   const inB = new Set(b);
-  const dropped = b.filter((r) => r.includes(NEWGRAD_REASON));
+  const dropped = b.filter((r) => PACK_ONLY_REASONS.some((reason) => r.includes(reason)));
   const droppedUrls = new Set(dropped.map(verdictUrl).filter(Boolean));
-  const allowance = dropped.filter((r) => !inA.has(r)).length + a.filter((r) => !inB.has(r) && droppedUrls.has(verdictUrl(r))).length;
+  const mirrored = internOnly.map((c) => new RegExp(`Title pre-filter: ${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^|]*full-?time`, 'i'));
+  const baselineOnly = a.filter((r) => !inB.has(r));
+  const allowance = dropped.filter((r) => !inA.has(r)).length + baselineOnly.filter((r) => droppedUrls.has(verdictUrl(r)) || mirrored.some((re) => re.test(r))).length;
   return finish(name, { baseline_count: a.length, pack_count: b.length, ...diffCounts(a, b) }, allowance);
 }
 

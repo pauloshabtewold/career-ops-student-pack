@@ -436,3 +436,16 @@ test('prefilter baseline line for a posting the pack dropped as new-grad is expl
   assert.equal(r.explained, 2);
   assert.equal(r.verdict, 'fail');
 });
+
+test('prefilter pack-only early-career lines are explained, a baseline line naming an intern_only company is explained', () => {
+  const EC = 'Title pre-filter: not an early-career title';
+  const r = comparePrefilter('prefilter', tri(9, 'Title pre-filter: Amazon full-time'), [tri(2, EC), tri(3, EC)].join('\n'), { internOnly: ['Amazon'] });
+  assert.equal(r.added, 2);
+  assert.equal(r.missing, 1);
+  assert.equal(r.explained, 3);
+  assert.equal(r.verdict, 'explained');
+  const without = comparePrefilter('prefilter', tri(9, 'Title pre-filter: Amazon full-time'), tri(2, EC));
+  assert.equal(without.verdict, 'fail');
+  const other = comparePrefilter('prefilter', tri(9, 'Title pre-filter: Globex full-time'), tri(2, EC), { internOnly: ['Amazon'] });
+  assert.equal(other.verdict, 'fail');
+});

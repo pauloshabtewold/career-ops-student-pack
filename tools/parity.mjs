@@ -286,7 +286,7 @@ function judgeStage(env, stage, base, pack, carried) {
   if (fault) return stageError(stage.name, fault);
   if (stage.compare === 'cycle') return judgeCycle(env, stage.name, base.out, pack.out);
   if (stage.compare === 'rank') return compareRankQueue(stage.name, base.out, pack.out, { carried });
-  if (stage.compare === 'prefilter') return comparePrefilter(stage.name, base.out, pack.out);
+  if (stage.compare === 'prefilter') return comparePrefilter(stage.name, base.out, pack.out, { internOnly: env.internOnly });
   if (stage.compare === 'audit') return compareFailAudit(stage.name, base.out, pack.out, env.audit);
   return compareStage(stage.name, base.out, pack.out, { explained: stage.explain === 'merge-stats' ? mergeAllowance(pack.stdout) : 0 });
 }
@@ -362,6 +362,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   const { flags, paths, config } = parsed;
   const today = flags.today ?? createClock({}).today();
   const audit = auditOptions(config);
+  const internOnly = config.rank?.intern_only ?? [];
 
   mkdirSync(paths.scratch, { recursive: true });
   const state = { interrupted: null };
@@ -374,7 +375,7 @@ export async function runParity(argv, { stageRunner = defaultStageRunner, proc =
   let failure = null;
   try {
     const dirs = await setupScratch({ ...paths, untriage: flags.untriage ?? 0 });
-    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit };
+    const env = { ...dirs, source: paths.source, scratch: paths.scratch, today, stageRunner, audit, internOnly };
     if (state.interrupted === null) results = await runStages(env, state);
     if (state.interrupted === null && flags.withFeeds) results.push(await runFeedCompare(env));
     if (state.interrupted === null) text = formatReport(results, { date: today, upstream: upstreamVersion(paths.source), pack: packCommit(paths.packRoot), prefilterInput: dirs.prefilterInput });
