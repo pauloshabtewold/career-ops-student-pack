@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { dailyTriage } from '../../scripts/daily-triage.mjs';
-import { PLUS, args, jobUrl, line, makeRunner, makeTriageRoot, sentUrls, untriaged, verdict, BRIEF_MARKER, digestFile } from '../helpers/triage-harness.mjs';
+import { PLUS, args, jobUrl, line, makeRunner, makeTriageRoot, readLedger, sentUrls, untriaged, verdict, BRIEF_MARKER, TODAY, digestFile } from '../helpers/triage-harness.mjs';
 import { rowsOf, urlsOf } from '../helpers/script-harness.mjs';
 
 const countIs = (digest, word, n) => new RegExp(`${word}\\D{0,8}\\b${n}\\b|\\b${n}\\s+${word}`, 'i').test(digest);
@@ -109,6 +109,7 @@ test('legacy-M-002-S8 a non-zero claude exit leaves pipeline.md unchanged and wr
     const { runner } = makeRunner(r, { claude: fail });
     await dailyTriage({ ...args(r), runner });
     assert.equal(r.read('data/pipeline.md'), before);
+    assert.deepEqual(readLedger(r), [{ date: TODAY, source: 'scheduled', rows: '2', outcome: 'failed' }]);
     const digest = r.read(digestFile(r));
     assert.match(digest, /Authentication required/);
     assert.doesNotMatch(digest, /second line/);
@@ -178,15 +179,16 @@ test('legacy-M-002-S23 malformed TRIAGE lines are dropped, counted ignored and t
   }));
 
 // legacy-M-002-S25
+// M-002-S2
 // legacy-M-002-S18: with agent claude the call stays -p --tools '' --model sonnet|opus.
-test('legacy-M-002-S25 claude starts from the --claude path in the career-ops root with --tools "" and the posting text on stdin', () =>
+test('legacy-M-002-S25 M-002-S2 claude starts from the --claude path in the career-ops root with --tools "" and the posting text on stdin', () =>
   withRoot({ config: `${PLUS}spend_tier: premium\n`, pending: untriaged(2) }, async (r) => {
     const { runner, calls } = makeRunner(r, { fetch: (url) => (url === jobUrl(2) ? 'x'.repeat(9000) : `Posting body for ${url}`) });
     await dailyTriage({ ...args(r, { claude: '/opt/sample bin/claude' }), runner });
     const c = calls.claude[0];
     assert.equal(c.cmd, '/opt/sample bin/claude');
     assert.equal(c.opts.cwd, r.root);
-    assert.deepEqual(c.args, ['-p', '--tools', '', '--model', 'opus']);
+    assert.deepEqual(c.args, ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'opus']);
     assert.equal(c.opts.timeout, 15 * 60 * 1000);
     assert.match(c.opts.input, /Posting body for https:\/\/example\.com\/jobs\/1/);
     assert.ok(c.opts.input.includes(BRIEF_MARKER), 'prompt carries the triage rules from modes/_brief.md');
@@ -208,7 +210,7 @@ test('legacy-M-002-S25 standard spend tier uses sonnet and a missed fetch falls 
     const { runner, calls } = makeRunner(r, { fetch: miss });
     await dailyTriage({ ...args(r), runner });
     const c = calls.claude[0];
-    assert.deepEqual(c.args, ['-p', '--tools', '', '--model', 'sonnet']);
+    assert.deepEqual(c.args, ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'sonnet']);
     assert.match(c.opts.input, /Sample Labs/);
     assert.match(c.opts.input, /Backend Intern/);
   }));
@@ -224,6 +226,7 @@ test('legacy-M-002-S26 a claude child past the timeout leaves pipeline.md unchan
     await dailyTriage({ ...args(r), runner });
     assert.equal(calls.claude[0].opts.timeout, 15 * 60 * 1000);
     assert.equal(r.read('data/pipeline.md'), before);
+    assert.deepEqual(readLedger(r), [{ date: TODAY, source: 'scheduled', rows: '2', outcome: 'failed' }]);
     assert.match(r.read(digestFile(r)), /time.?out|timed out/i);
   }));
 

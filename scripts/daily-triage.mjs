@@ -123,7 +123,7 @@ function codexFailure(err) {
 }
 
 // The first `limit` Pending rows that have a title and no triage= note yet.
-function selectUntriagedRows(dataDir, limit) {
+export function selectUntriagedRows(dataDir, limit) {
   return sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending')
     .map(({ row }) => row)
     .filter((row) => !row.notes.has('triage') && row.title)
@@ -239,3 +239,11 @@ async function main() {
 }
 
 if (isMain(import.meta.url)) await runCli(main);
+
+export function plannedChunks({ config, dataDir, today }) {
+  throw new Error(`not implemented: ${config} ${dataDir} ${today}`);
+}
+
+export function triageChildTimeoutMs({ chunks, runLockHours }) {
+  throw new Error(`not implemented: ${chunks} ${runLockHours}`);
+}

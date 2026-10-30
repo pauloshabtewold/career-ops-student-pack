@@ -57,7 +57,8 @@ async function isolated(fn, { withCodex = false } = {}) {
 }
 
 // legacy-M-002-S4
-test('legacy-M-002-S4 agent codex makes one call: argv shape, prompt on stdin, verdicts from the -o file applied', () =>
+// M-002-S2
+test('legacy-M-002-S4 M-002-S2 agent codex makes one call: argv shape, prompt on stdin, verdicts from the -o file applied', () =>
   withRoot({ pending: untriaged(3) }, async (r) => {
     const out = ['Here is my review.', verdict('PASS', jobUrl(1), '4.2'), verdict('FAIL', jobUrl(2), '1.0', 'wrong field')].join('\n');
     const { runner, calls } = makeRunner(r, { codex: answer(out) });
@@ -73,6 +74,8 @@ test('legacy-M-002-S4 agent codex makes one call: argv shape, prompt on stdin, v
     assert.ok(call.tmp && call.out, '-C and -o are present');
     assert.equal(call.out, join(call.tmp, 'last.txt'));
     assert.equal(call.args.at(-1), '-');
+    assert.equal(call.args.includes('--setting-sources'), false);
+    assert.equal(call.args.includes('--strict-mcp-config'), false);
     assert.equal(call.opts.input.includes(BRIEF_MARKER), true, 'prompt on stdin');
     assert.deepEqual([...sentUrls(call.opts.input)].sort(), [jobUrl(1), jobUrl(2), jobUrl(3)]);
     assert.equal(call.args.join(' ').includes('https://example.com/jobs'), false, 'no posting text or url in argv');

@@ -36,8 +36,8 @@ async function report(s, shown) {
 
 const cli = (s, extra = []) => spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'first-run.mjs'), '--root', s.up.root, '--data-dir', s.data, '--today', TODAY, ...extra], { cwd: PACK_ROOT, encoding: 'utf8', timeout: 120000 });
 
-// M-002-S1
-test('M-002-S1 runs github-lists, scan, merge-post and prefilter in order and prints counts per source plus the untriaged rows', async () => {
+// legacy-M-002-S1
+test('legacy-M-002-S1 runs github-lists, scan, merge-post and prefilter in order and prints counts per source plus the untriaged rows', async () => {
   const s = setup([...rows(3, 'handshake'), ...rows(2, 'github-lists', 4)]);
   try {
     const { order, text } = await report(s);
@@ -54,8 +54,8 @@ test('M-002-S1 runs github-lists, scan, merge-post and prefilter in order and pr
   }
 });
 
-// M-002-S2
-test('M-002-S2 with 25 untriaged rows it prints exactly 20 and one line naming 5 more', async () => {
+// legacy-M-002-S2
+test('legacy-M-002-S2 with 25 untriaged rows it prints exactly 20 and one line naming 5 more', async () => {
   const s = setup(rows(25, 'handshake'));
   try {
     const { out } = await report(s);
@@ -68,8 +68,8 @@ test('M-002-S2 with 25 untriaged rows it prints exactly 20 and one line naming 5
   }
 });
 
-// M-002-S21
-test('M-002-S21 with exactly 20 untriaged rows it prints 20 and no remainder line', async () => {
+// legacy-M-002-S21
+test('legacy-M-002-S21 with exactly 20 untriaged rows it prints 20 and no remainder line', async () => {
   const s = setup(rows(20, 'handshake'));
   try {
     const { out } = await report(s);
@@ -80,8 +80,8 @@ test('M-002-S21 with exactly 20 untriaged rows it prints 20 and no remainder lin
   }
 });
 
-// M-002-S3
-test('M-002-S3 without config/student.yml it prints the INTERVIEW line, exits 1 and runs no upstream script', () => {
+// legacy-M-002-S3
+test('legacy-M-002-S3 without config/student.yml it prints the INTERVIEW line, exits 1 and runs no upstream script', () => {
   const s = setup([]);
   try {
     rmSync(join(s.up.root, 'config', 'student.yml'));
@@ -94,8 +94,8 @@ test('M-002-S3 without config/student.yml it prints the INTERVIEW line, exits 1 
   }
 });
 
-// M-002-S24
-test('M-002-S24 an empty staging feed and no Pending rows prints zero counts, no untriaged Pending rows, exit 0', () => {
+// legacy-M-002-S24
+test('legacy-M-002-S24 an empty staging feed and no Pending rows prints zero counts, no untriaged Pending rows, exit 0', () => {
   const s = setup([]);
   try {
     const r = cli(s);
