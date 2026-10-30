@@ -6,20 +6,6 @@ const ID = 'finance-economics';
 
 const SHIPPED_SOURCES = {
   github_lists: [
-    {
-      name: 'jobright-account-intern',
-      repo: 'jobright-ai/2026-Account-Internship',
-      path: 'README.md',
-      format: 'markdown-table',
-      kind: 'internship',
-    },
-    {
-      name: 'jobright-account-newgrad',
-      repo: 'jobright-ai/2026-Account-New-Grad',
-      path: 'README.md',
-      format: 'markdown-table',
-      kind: 'newgrad',
-    },
     { name: 'simplify-intern', repo: 'SimplifyJobs/Summer2027-Internships', path: '.github/scripts/listings.json', format: 'simplify-json', kind: 'internship' },
     { name: 'simplify-newgrad', repo: 'SimplifyJobs/New-Grad-Positions', path: '.github/scripts/listings.json', format: 'simplify-json', kind: 'newgrad' },
     { name: 'quant-intern', repo: 'quant-scraper/Quant-Internships-New-Grad-2027', path: 'README.md', format: 'markdown-table', kind: 'internship' },

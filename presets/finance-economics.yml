@@ -2,7 +2,7 @@ id: finance-economics
 name: "Finance, economics"
 coverage:
   level: semi-automated
-  note: "Semi-automated: only corporate finance has a community list; banks, asset managers and rotational programs come from the employer list below, and investment banking windows open far ahead."
+  note: "Semi-automated: community internship, new-grad and quant lists feed the queue; banks, asset managers and rotational programs come from the employer list below, and investment banking windows open far ahead."
 title_rules:
   include:
     - "analyst"
@@ -35,16 +35,6 @@ recruiting_calendar:
     - {name: Fall, start_month: 9}
 sources:
   github_lists:
-    - name: jobright-account-intern
-      repo: jobright-ai/2026-Account-Internship
-      path: README.md
-      format: markdown-table
-      kind: internship
-    - name: jobright-account-newgrad
-      repo: jobright-ai/2026-Account-New-Grad
-      path: README.md
-      format: markdown-table
-      kind: newgrad
     - name: simplify-intern
       repo: SimplifyJobs/Summer2027-Internships
       path: .github/scripts/listings.json
