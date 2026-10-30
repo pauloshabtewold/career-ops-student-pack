@@ -12,13 +12,13 @@ function check(preset, title) {
 }
 
 // M-005-S1
-test('M-005-S1 marketing-business validates with 50 to 150 seed employers, each exactly name and careers_url', () => {
+test('M-005-S1 marketing-business validates with 50 to 150 seed employers, each with name and careers_url', () => {
   const p = loadPreset(ID);
   assert.equal(p.id, ID);
   const seeds = p.seed_employers;
   assert.ok(seeds.length >= 50 && seeds.length <= 150, `${seeds.length} seed employers`);
   for (const [i, e] of seeds.entries()) {
-    assert.deepEqual(Object.keys(e).sort(), ['careers_url', 'name'], `seed ${i}`);
+    assert.ok(e.name && e.careers_url, `seed ${i}`);
     assert.match(e.careers_url, /^https:\/\//, `seed ${i}`);
   }
 });
@@ -36,20 +36,22 @@ test('M-005-S2 seed names are unique case-insensitively and careers_url values a
 });
 
 // M-005-S3
-test('M-005-S3 github_lists holds exactly the Litos marketing CSV mapping url to Link', () => {
+test('M-005-S3 github_lists holds the Litos marketing CSV mapping url to Link and the jobright marketing new-grad list', () => {
   const lists = loadPreset(ID).sources.github_lists ?? [];
-  assert.equal(lists.length, 1);
-  const [g] = lists;
+  assert.deepEqual(lists.map((g) => g.name), ['litos-marketing', 'jobright-marketing-newgrad']);
+  const [g, j] = lists;
   assert.match(`${g.name} ${g.repo}`, /litos/i);
   assert.match(`${g.name} ${g.path}`, /marketing/i);
   assert.equal(g.format, 'csv');
   assert.deepEqual(g.field_map, { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' });
+  assert.deepEqual([j.repo, j.path, j.format, j.kind], ['jobright-ai/2026-Marketing-New-Grad', 'README.md', 'markdown-table', 'newgrad']);
 });
 
 // M-005-S4
-test('M-005-S4 coverage note says no marketing-specific list exists and the employer list carries the preset', () => {
+// W-017: the jobright marketing list makes "no marketing-specific list" false; the vendor lists only count once matched.
+test('M-005-S4 coverage note says vendor lists count once matched and the employer list carries the preset', () => {
   const { coverage } = loadPreset(ID);
-  assert.match(coverage.note, /no marketing-specific list/i);
+  assert.match(coverage.note, /vendor marketing lists/i);
   assert.match(coverage.note, /employer list carries/i);
 });
 

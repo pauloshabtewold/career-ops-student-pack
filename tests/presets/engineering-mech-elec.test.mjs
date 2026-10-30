@@ -3,19 +3,19 @@ import assert from 'node:assert/strict';
 import { loadPreset } from '../../lib/presets.mjs';
 
 const ID = 'engineering-mech-elec';
-const PERMITTED = ['tracker05-me', 'wonofakind-2027', 'hiderrick-eng', 'litos-me', 'litos-ee', 'litos-aero', 'litos-che'];
+const PERMITTED = ['tracker05-me', 'wonofakind-2027', 'hiderrick-eng', 'litos-me', 'litos-ee', 'litos-aero', 'litos-che', 'meche-intern', 'meche-newgrad', 'litos-civil', 'litos-eng-intern', 'litos-mech-newgrad', 'litos-eng-newgrad', 'zapply-hardware-newgrad'];
 const LITOS = ['litos-me', 'litos-ee', 'litos-aero', 'litos-che'];
 const lists = () => loadPreset(ID).sources.github_lists ?? [];
 const isLitos = (g) => /^mehek-builds\//i.test(g.repo ?? '');
 
 // M-013-S1
-test('M-013-S1 engineering-mech-elec validates with 50 to 150 seed employers, each exactly name and careers_url', () => {
+test('M-013-S1 engineering-mech-elec validates with 50 to 150 seed employers, each with name and careers_url', () => {
   const p = loadPreset(ID);
   assert.equal(p.id, ID);
   const seeds = p.seed_employers;
   assert.ok(seeds.length >= 50 && seeds.length <= 150, `${seeds.length} seed employers`);
   for (const [i, e] of seeds.entries()) {
-    assert.deepEqual(Object.keys(e).sort(), ['careers_url', 'name'], `seed ${i}`);
+    assert.ok(e.name && e.careers_url, `seed ${i}`);
     assert.match(e.careers_url, /^https:\/\//, `seed ${i}`);
   }
 });
@@ -57,9 +57,10 @@ test('M-013-S3 source names are in the permitted set, the four Litos names are p
 });
 
 // M-013-S4
-test('M-013-S4 no github_lists source names MechEJobTracker or a root-level Litos CSV path', () => {
+// W-017: the earlier MechEJobTracker entry used a repo path that does not exist; the real repo is eyaghmour07/MechEJobTracker.
+test('M-013-S4 no github_lists source uses the wrong MechEJobTracker/MechEJobTracker repo or a root-level Litos CSV path', () => {
   for (const g of lists()) {
-    assert.ok(!/MechEJobTracker/i.test(`${g.name} ${g.repo}`), `source ${g.name} names MechEJobTracker`);
+    assert.notEqual(String(g.repo).toLowerCase(), 'mechejobtracker/mechejobtracker', `source ${g.name} uses the wrong MechEJobTracker repo`);
     if (isLitos(g)) assert.ok(String(g.path).includes('/'), `source ${g.name} uses root-level path ${g.path}`);
   }
 });

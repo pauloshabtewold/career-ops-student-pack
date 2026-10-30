@@ -3,7 +3,7 @@ id: consulting
 name: "Consulting (any major)"
 coverage:
   level: semi-automated
-  note: "Semi-automated for dates only: deadline trackers feed dates only and there is no postings feed for consulting, so the employer list and the alerts carry this preset. Strategy firms open applications in a narrow window."
+  note: "Semi-automated: deadline trackers feed dates only, and two vendor new-grad lists add postings that count once matched to an employer board, so the employer list and the alerts still carry this preset. Strategy firms open applications in a narrow window."
 title_rules:
   include:
     - "consult"
@@ -26,8 +26,19 @@ recruiting_calendar:
     - {name: Summer, start_month: 6}
     - {name: Fall, start_month: 8}
 sources:
-  # No postings-level list exists for consulting; deadline trackers appear under alerts and inform dates only.
-  github_lists: []
+  # Deadline trackers appear under alerts and inform dates only; the two lists below carry postings.
+  github_lists:
+    - name: jobright-consultant-newgrad
+      repo: jobright-ai/2026-Consultant-New-Grad
+      path: README.md
+      format: markdown-table
+      kind: newgrad
+    - name: litos-finance-consulting-newgrad
+      repo: mehek-builds/New-Grad-2027
+      path: csv/finance-consulting.csv
+      format: csv
+      kind: newgrad
+      field_map: {company: Company, title: Role, location: Location, date: Posted, url: Link}
   alerts:
     - name: "My Consulting Coach deadline finder"
       how: "A deadline tracker for consulting application windows; it gives dates, not postings."
@@ -119,13 +130,13 @@ seed_employers:
   - name: "McKinsey & Company"
     careers_url: https://www.mckinsey.com/careers
   - name: "Boston Consulting Group"
-    careers_url: https://careers.bcg.com
+    careers_url: https://bcg.eightfold.ai/careers?domain=bcg.com
   - name: "Bain & Company"
     careers_url: https://www.bain.com/careers
   - name: "Deloitte"
     careers_url: https://www.deloitte.com/us/en/careers
   - name: "PwC"
-    careers_url: https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers
+    careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
   - name: "KPMG"

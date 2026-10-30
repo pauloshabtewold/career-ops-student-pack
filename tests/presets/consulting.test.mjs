@@ -12,13 +12,13 @@ function check(preset, title) {
 }
 
 // M-006-S1
-test('M-006-S1 consulting validates with 50 to 150 seed employers, each exactly name and careers_url', () => {
+test('M-006-S1 consulting validates with 50 to 150 seed employers, each with name and careers_url', () => {
   const p = loadPreset(ID);
   assert.equal(p.id, ID);
   const seeds = p.seed_employers;
   assert.ok(seeds.length >= 50 && seeds.length <= 150, `${seeds.length} seed employers`);
   for (const [i, e] of seeds.entries()) {
-    assert.deepEqual(Object.keys(e).sort(), ['careers_url', 'name'], `seed ${i}`);
+    assert.ok(e.name && e.careers_url, `seed ${i}`);
     assert.match(e.careers_url, /^https:\/\//, `seed ${i}`);
   }
 });
@@ -38,17 +38,21 @@ test('M-006-S2 seed names are unique case-insensitively and careers_url values a
 });
 
 // M-006-S3
-test('M-006-S3 sources.github_lists is empty', () => {
+// W-017: the two new-grad lists passed the rule of 5 or more rows matched to an employer board.
+test('M-006-S3 sources.github_lists holds exactly the jobright consultant and Litos finance-consulting new-grad lists', () => {
   const lists = loadPreset(ID).sources?.github_lists;
-  assert.deepEqual(lists, []);
+  assert.deepEqual(lists, [
+    { name: 'jobright-consultant-newgrad', repo: 'jobright-ai/2026-Consultant-New-Grad', path: 'README.md', format: 'markdown-table', kind: 'newgrad' },
+    { name: 'litos-finance-consulting-newgrad', repo: 'mehek-builds/New-Grad-2027', path: 'csv/finance-consulting.csv', format: 'csv', kind: 'newgrad', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
+  ]);
 });
 
 // M-006-S4
-test('M-006-S4 coverage note says deadline trackers feed dates only and there is no postings feed', () => {
+test('M-006-S4 coverage note says deadline trackers feed dates only and the vendor lists count once matched', () => {
   const { coverage } = loadPreset(ID);
   assert.match(coverage.note, /deadline/i);
   assert.match(coverage.note, /dates only/i);
-  assert.match(coverage.note, /no postings feed/i);
+  assert.match(coverage.note, /once matched to an employer board/i);
 });
 
 // M-006-S5

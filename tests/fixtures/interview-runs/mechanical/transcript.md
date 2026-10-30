@@ -2,7 +2,7 @@
 
 Resume: tests/fixtures/resumes/mechanical.md | Persona: tests/fixtures/answers/mechanical.json
 
-Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, byo-employer-list (snapshot 1e38ac4)
+Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing, byo-employer-list (snapshot 1e38ac4)
 
 ## Phase 1: resume and identity
 
@@ -20,7 +20,7 @@ INTERVIEWER: Your resume says the B.S. in Mechanical Engineering is expected Dec
 
 STUDENT: Just the co-op track, graduating 2027-12.
 
-INTERVIEWER: Fields of study. The presets are software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations and byo-employer-list. Given mechanical engineering, I suggest engineering-mech-elec. Pick one or two.
+INTERVIEWER: Fields of study. The presets are software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing and byo-employer-list. Given mechanical engineering, I suggest engineering-mech-elec. Pick one or two.
 
 STUDENT: engineering-mech-elec.
 
