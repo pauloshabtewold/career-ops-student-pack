@@ -22,7 +22,7 @@ export function syntheticPostings(n) {
 export const fixturePrompt = (n) => buildPrompt({ brief: BRIEF, postings: syntheticPostings(n) });
 
 // The calls differ from daily-triage.mjs only in the usage readout flag (--output-format json, --json) and, for codex, a
-// placeholder folder for -C, because the measurement reads usage from stdout instead of the -o file.
+// placeholder folder for -C, because the measurement reads usage from stdout, not from the -o file.
 const show = (args) => args.map((a) => (a === '' ? "''" : a)).join(' ');
 export function measurementArgv() {
   const claude = ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'sonnet', '--output-format', 'json'];
