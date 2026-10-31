@@ -4,12 +4,15 @@
 // schedule step is covered through the exported functions with a scratch home folder and a recording runner.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { makePack, put } from './_pack-repo.mjs';
+import { gitExcludePath, install } from '../../install.mjs';
+import { defaultRunner } from '../../lib/upstream.mjs';
 import { removeLines, scheduleOwner, uninstall, withoutBlocks } from '../../uninstall.mjs';
-import { buildPlist, LABEL } from '../../scripts/schedule.mjs';
+import { REMOVE_ABSENT, TASK_NAME, buildPlist, LABEL, removeOutcome, removeScript } from '../../scripts/schedule.mjs';
 
 async function withPack(fn) {
   const p = makePack({});
@@ -90,7 +93,7 @@ test('W-015-U4 uninstall removes the macOS schedule only when it runs this caree
 
     const calls = [];
     const runner = (cmd, args) => {
-      calls.push(args);
+      if (cmd !== 'git') calls.push(args);
       return '';
     };
     const packRoot = mkdtempSync(join(tmpdir(), 'uninstall-pack-'));
@@ -137,3 +140,134 @@ for (const file of ['CLAUDE.local.md', 'AGENTS.override.md']) {
       assert.ok(!read(p.root, '.git/info/exclude').split(/\r?\n/).includes(other), `${other} was deleted, so its line goes`);
     }));
 }
+
+// W-024-A2-5
+test('W-024-A2-5 on Windows uninstall asks the task for its folder and removes only a task that runs this one', () => {
+  const root = 'C:\\Users\\Example\\career-ops';
+  const packRoot = mkdtempSync(join(tmpdir(), 'uninstall-pack-'));
+  const calls = [];
+  const asking = (out) => (cmd, args) => {
+    calls.push([cmd, ...args]);
+    if (cmd === 'powershell.exe') return out;
+    return 'ok';
+  };
+  try {
+    assert.equal(scheduleOwner({ root, platform: 'win32', runner: asking('') }), 'none');
+    assert.equal(scheduleOwner({ root, platform: 'win32', runner: asking('c:\\users\\example\\CAREER-OPS\\\r\n') }), 'this');
+    assert.equal(scheduleOwner({ root, platform: 'win32', runner: asking('C:\\Users\\Example\\other\r\n') }), 'other');
+    assert.equal(scheduleOwner({ root, platform: 'win32', runner: () => { throw new Error('no powershell'); } }), 'this');
+    assert.match(calls[0][4], /Get-ScheduledTask -TaskName 'career-ops-student-daily'/);
+    // PowerShell pipes stdout in the OEM code page, which would garble a root such as C:\\Users\\José.
+    assert.match(calls[0][4], /^\[Console\]::OutputEncoding = \[System\.Text\.Encoding\]::UTF8;/);
+
+    calls.length = 0;
+    const none = uninstall({ root, packRoot, platform: 'win32', runner: asking('') });
+    assert.ok(none.actions.includes('schedule: none installed'));
+    const other = uninstall({ root, packRoot, platform: 'win32', runner: asking('D:\\elsewhere') });
+    assert.ok(other.actions.some((a) => a.includes('different career-ops folder')));
+    assert.equal(calls.filter((c) => c[1] === undefined || String(c[1]).endsWith('schedule.mjs')).length, 0, 'no remove ran');
+    const mine = uninstall({ root, packRoot, platform: 'win32', runner: asking('C:\\Users\\Example\\career-ops') });
+    assert.ok(mine.actions.includes('schedule: removed'));
+    const missing = uninstall({ root, packRoot, platform: 'win32', runner: (cmd, args) => (cmd === 'powershell.exe' ? (() => { throw new Error('x'); })() : `${TASK_NAME} was not registered\n`) });
+    assert.ok(missing.actions.includes('schedule: none installed'), 'a remove that found no task does not claim removal');
+    const failing = uninstall({ root, packRoot, platform: 'win32', runner: (cmd) => {
+      if (cmd === 'powershell.exe') return root;
+      if (cmd === 'git') return '';
+      throw Object.assign(new Error('Command failed: node schedule.mjs remove'), { stderr: '', stdout: 'Unregister-ScheduledTask failed: Access is denied\n' });
+    } });
+    assert.ok(failing.problems.some((p) => p.includes('Access is denied')), failing.problems.join('\n'));
+  } finally {
+    rmSync(packRoot, { recursive: true, force: true });
+  }
+});
+
+// W-024-A2-5
+test('W-024-A2-5 the Windows remove script tells "not registered" from a real Unregister failure', () => {
+  assert.match(removeScript(), /Get-ScheduledTask -TaskName 'career-ops-student-daily' -ErrorAction SilentlyContinue/);
+  assert.match(removeScript(), /Unregister-ScheduledTask/);
+  assert.deepEqual(removeOutcome({ ok: true, out: `${REMOVE_ABSENT}\n` }), { line: `${TASK_NAME} was not registered`, code: 0 });
+  assert.deepEqual(removeOutcome({ ok: true, out: '' }), { line: `removed ${TASK_NAME}`, code: 0 });
+  assert.deepEqual(removeOutcome({ ok: false, out: 'Access is denied\nmore' }), { line: 'Unregister-ScheduledTask failed: Access is denied', code: 1 });
+});
+
+// W-024-A2-7
+const EXCLUDE_ENTRIES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', 'config/student.yml'];
+
+function gitFileRoot() {
+  const p = makePack({});
+  // Turn the scratch root's .git directory into a gitdir file, as a worktree or --separate-git-dir checkout has.
+  const real = mkdtempSync(join(tmpdir(), 'real-gitdir-'));
+  rmSync(real, { recursive: true });
+  renameSync(join(p.root, '.git'), real);
+  writeFileSync(join(p.root, '.git'), `gitdir: ${real}\n`);
+  const cleanup = p.cleanup;
+  p.cleanup = () => {
+    cleanup();
+    rmSync(real, { recursive: true, force: true });
+  };
+  p.gitdir = real;
+  return p;
+}
+
+test('W-024-A2-7 install and uninstall use the exclude file git names when .git is a file', () =>
+  (async () => {
+    const p = gitFileRoot();
+    try {
+      const inst = p.run('install.mjs', ['--yes', '--skip-npm']);
+      assert.equal(inst.code, 0, inst.stdout + inst.stderr);
+      const exclude = join(p.gitdir, 'info', 'exclude');
+      const have = readFileSync(exclude, 'utf8').split(/\r?\n/);
+      for (const e of EXCLUDE_ENTRIES) assert.ok(have.includes(e), `exclude lacks ${e}`);
+      const un = p.run('uninstall.mjs', ['--skip-schedule']);
+      assert.equal(un.code, 0, un.stdout + un.stderr);
+      const after = readFileSync(exclude, 'utf8').split(/\r?\n/);
+      for (const e of ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml']) assert.ok(!after.includes(e), `exclude still lists ${e}`);
+    } finally {
+      p.cleanup();
+    }
+  })());
+
+test('W-024-A2-7 install and uninstall skip the exclude step, with a line, when git cannot name the file', () =>
+  withPack((p) => {
+    const quiet = (cmd, args) => {
+      if (cmd === 'git' && args[0] === 'rev-parse') throw new Error('fatal: not a git repository');
+      return '';
+    };
+    const before = existsSync(join(p.root, '.git', 'info', 'exclude')) ? read(p.root, '.git/info/exclude') : null;
+    const res = install({ root: p.root, packRoot: p.pack, runner: quiet, nodeVersion: process.versions.node, skipNpm: true });
+    assert.ok(res.actions.some((a) => a.startsWith('.git/info/exclude: skipped')), res.actions.join('\n'));
+    assert.ok(existsSync(join(p.root, 'CLAUDE.local.md')), 'the other steps still ran');
+    assert.equal(existsSync(join(p.root, '.git', 'info', 'exclude')) ? read(p.root, '.git/info/exclude') : null, before);
+    const un = uninstall({ root: p.root, packRoot: p.pack, runner: quiet, skipSchedule: true });
+    assert.ok(un.actions.some((a) => a.startsWith('.git/info/exclude: skipped')), un.actions.join('\n'));
+    assert.deepEqual(un.problems, []);
+  }));
+
+// W-024-A2-8
+const DISMISS = '.update-dismissed';
+const dismissCase = (name, content, args, expectKept, expectLine) =>
+  test(`W-024-A2-8 ${name}`, () =>
+    withPack((p) => {
+      put(p.root, DISMISS, content);
+      const r = p.run('uninstall.mjs', ['--skip-schedule', ...args]);
+      assert.equal(r.code, 0, r.stdout + r.stderr);
+      assert.equal(existsSync(join(p.root, DISMISS)), expectKept, name);
+      if (expectLine) assert.match(r.stdout, expectLine);
+    }));
+dismissCase('uninstall removes a dismiss marker for a version outside the pack range', '{"version":"1.39.0","at":"2026-10-01T00:00:00.000Z"}\n', [], false, /\.update-dismissed: removed/);
+dismissCase('uninstall keeps a dismiss marker for a version inside the pack range', '{"version":"1.38.0","at":"2026-10-01T00:00:00.000Z"}\n', [], true);
+dismissCase('uninstall keeps an older bare-timestamp dismiss marker', '2026-10-01T00:00:00.000Z\n', [], true);
+dismissCase('uninstall keeps an unparsable dismiss marker', '{"version":', [], true);
+dismissCase('uninstall --dry-run says it would remove the marker and keeps it', '{"version":"1.39.0","at":"2026-10-01T00:00:00.000Z"}\n', ['--dry-run'], true, /would do: \.update-dismissed: would remove/);
+
+test('W-024-A2-7 a career-ops folder inside another repository does not write that repository\'s exclude file', () => {
+  const outer = mkdtempSync(join(tmpdir(), 'enclosing-repo-'));
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: outer });
+    mkdirSync(join(outer, 'career-ops'));
+    assert.equal(gitExcludePath(join(outer, 'career-ops'), defaultRunner), null);
+    assert.equal(realpathSync.native(gitExcludePath(outer, defaultRunner)), realpathSync.native(join(outer, '.git', 'info')) + sep + 'exclude');
+  } finally {
+    rmSync(outer, { recursive: true, force: true });
+  }
+});

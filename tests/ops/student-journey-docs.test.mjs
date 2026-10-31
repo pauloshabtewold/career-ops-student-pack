@@ -124,11 +124,12 @@ test('M-003-S6 interview.md keeps the Phase 4 and Phase 6 headings', () => {
 });
 
 // M-003-S7
-test('M-003-S7 CHANGELOG has an Unreleased section naming W-011 and W-012 and the reinstall line', () => {
+test('M-003-S7 CHANGELOG has an Unreleased section on top, and the v0.2.0 notes name W-011, W-012 and the reinstall line', () => {
   const log = readDoc('CHANGELOG.md');
-  const m = /^## Unreleased\s*\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(log);
-  assert.ok(m, 'Unreleased heading');
-  assert.ok(log.indexOf('## Unreleased') < log.indexOf('## v0.1.0'), 'Unreleased is newest');
+  assert.ok(/^## Unreleased\s*\n/m.test(log), 'Unreleased heading');
+  assert.ok(log.indexOf('## Unreleased') < log.indexOf('## v0.2.0'), 'Unreleased is newest');
+  const m = /^## v0\.2\.0\b.*\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(log);
+  assert.ok(m, 'v0.2.0 section');
   assert.match(m[1], /W-011/);
   assert.match(m[1], /W-012/);
   assert.match(m[1], /schedule\.mjs install/);
@@ -139,8 +140,9 @@ test('M-003-S8 README describes the second install run and drops the old sentenc
   const readme = readDoc('README.md');
   assert.ok(!readme.includes('Running it again changes nothing'));
   const install = readme.slice(readme.indexOf('## Install'), readme.indexOf('## Update'));
-  assert.match(install, /again|second|rerun|re-run/i);
-  assert.match(install, /npm/i);
+  const sentence = install.split('\n').find((l) => l.includes('Running it again is safe'));
+  assert.ok(sentence, 'Install section has the second-run sentence');
+  assert.match(sentence, /Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again/);
 });
 
 // M-003-S9

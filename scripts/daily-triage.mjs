@@ -128,9 +128,10 @@ function callClaude({ claudePath, model, prompt, packRoot, runner, platform }) {
   return withTempDir('daily-triage-claude-', (tmp) => runner(quoteIf(shell, claudePath), args, callOptions({ cwd: tmp, prompt, shell, agentPath: claudePath })));
 }
 
-// The prompt travels on stdin and the answer comes back through -o, so no posting text is ever in argv. The call runs in
-// an empty temp folder (-C and cwd) so a read-only sandbox still has nothing of the student's to read; the folder is
-// removed whether the call succeeds or not.
+// The prompt travels on stdin and the answer comes back through -o, so no posting text is ever in argv. The disabled
+// features leave no tool that reads a file (a live listing showed none; apply_patch and the MCP resource tools with no
+// servers remain), the read-only sandbox blocks writes, and the call runs in an empty temp folder (-C and cwd) so the
+// student's files are not in its working directory; the folder is removed whether the call succeeds or not.
 function callCodex({ codexPath, effort, prompt, runner, platform }) {
   return withTempDir('daily-triage-codex-', (tmp) => {
     const out = join(tmp, 'last.txt');

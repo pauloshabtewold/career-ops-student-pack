@@ -403,12 +403,13 @@ function writeModes({ answers, merged, packRoot, cfg, out, read }) {
 
 // Registry of GitHub lists: trial status, so the monthly discovery rules decide which stay.
 function writeSources({ answers, merged, cfg, paths, today, out, read }) {
-  const chosen = new Set(answers.sources_chosen ?? []);
+  // An absent sources_chosen keeps every list (answers files from before the field was honoured); [] keeps none.
+  const chosen = answers.sources_chosen === undefined ? null : new Set(answers.sources_chosen);
   const registryFile = join(paths.dataDir, 'student-github-sources.json');
   const prior = existsSync(registryFile) ? readJson(registryFile) : { version: 1, sources: [] };
   const have = new Set(prior.sources.map((s) => `${s.repo}/${s.path}`));
   const fresh = (merged?.sources.github_lists ?? [])
-    .filter((g) => !chosen.size || chosen.has('github-lists') || chosen.has(g.name))
+    .filter((g) => !chosen || chosen.has('github-lists') || chosen.has(g.name))
     .filter((g) => !have.has(`${g.repo}/${g.path}`))
     .map((g) => ({ name: g.name, repo: g.repo, branch: 'HEAD', path: g.path, format: g.format, kind: g.kind, field_map: g.field_map ?? {}, status: 'trial', added: today, last_push: null, last_unique: null, failed_parses: 0, notes: 'preset' }));
   out('data/student-github-sources.json', `${JSON.stringify({ version: 1, rules: { ...effectiveTitleRules(merged, cfg), early_career: merged?.early_career ?? '' }, sources: [...prior.sources, ...fresh] }, null, 2)}\n`);
@@ -462,6 +463,9 @@ export async function applyAnswers({ answers, root, packRoot, today, dryRun = fa
   if (employers < 10) notes.push(`target_employers has ${employers} entries; 10 to 20 give the daily scan more to read`);
   writeModes({ answers, merged, packRoot, cfg, out, read });
   writeSources({ answers, merged, cfg, paths, today, out, read });
+  if (Array.isArray(answers.sources_chosen) && !answers.sources_chosen.length && (merged?.sources.github_lists ?? []).length) {
+    notes.push('sources_chosen is empty, so no GitHub lists were added; list their names, or github-lists for all, to add them');
+  }
 
   if (!dryRun) {
     runCycle({ paths, config: cfg, merged, today, dryRun: false });

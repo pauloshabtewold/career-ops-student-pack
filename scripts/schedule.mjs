@@ -104,7 +104,22 @@ export function buildTaskScript({ nodePath, root, time, agent = 'claude', agentP
   ].join('\n');
 }
 
-const removeScript = () => `Unregister-ScheduledTask -TaskName ${psq(TASK_NAME)} -Confirm:$false\n`;
+// Prints REMOVE_ABSENT and exits 0 when no task is registered, so a missing task is not mistaken for a failed removal.
+export const REMOVE_ABSENT = 'TASK_NOT_REGISTERED';
+export const removeScript = () =>
+  [
+    `if (-not (Get-ScheduledTask -TaskName ${psq(TASK_NAME)} -ErrorAction SilentlyContinue)) { Write-Output '${REMOVE_ABSENT}'; exit 0 }`,
+    "$ErrorActionPreference = 'Stop'",
+    `Unregister-ScheduledTask -TaskName ${psq(TASK_NAME)} -Confirm:$false`,
+    '',
+  ].join('\n');
+
+// What winCommand prints and exits with for a finished remove script.
+export function removeOutcome(res) {
+  if (!res.ok) return { line: `Unregister-ScheduledTask failed: ${res.out.split('\n')[0]}`, code: 1 };
+  if (res.out.includes(REMOVE_ABSENT)) return { line: `${TASK_NAME} was not registered`, code: 0 };
+  return { line: `removed ${TASK_NAME}`, code: 0 };
+}
 const statusScript = () => `Get-ScheduledTask -TaskName ${psq(TASK_NAME)} | Select-Object -ExpandProperty State\n`;
 
 const plistPath = () => launchAgentPath();
@@ -178,8 +193,12 @@ function winCommand(command, { nodePath, root, time, dryRun, agent, agentPath, a
     return 0;
   }
   const res = runPowershell(script);
-  if (command === 'remove') console.log(res.ok ? `removed ${TASK_NAME}` : `${TASK_NAME} was not registered`);
-  else console.log(res.ok ? `${TASK_NAME}: ${res.out.trim()}` : `${TASK_NAME} is not registered`);
+  if (command === 'remove') {
+    const outcome = removeOutcome(res);
+    console.log(outcome.line);
+    return outcome.code;
+  }
+  console.log(res.ok ? `${TASK_NAME}: ${res.out.trim()}` : `${TASK_NAME} is not registered`);
   return 0;
 }
 

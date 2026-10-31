@@ -429,6 +429,13 @@ test('prefilter pack-only lines with the new-grad reason are explained, other pa
   assert.equal(bad.added - bad.explained, 1);
 });
 
+test('W-024-A38 prefilter pack-only senior title lines are explained', () => {
+  const r = comparePrefilter('prefilter', tri(1, 'senior'), [tri(1, 'senior'), tri(6, 'Title pre-filter: senior title')].join('\n'));
+  assert.equal(r.added, 1);
+  assert.equal(r.explained, 1);
+  assert.equal(r.verdict, 'explained');
+});
+
 test('prefilter baseline line for a posting the pack dropped as new-grad is explained, others stay residual', () => {
   const r = comparePrefilter('prefilter', [tri(1, 'level III+'), tri(5, 'PhD role')].join('\n'), tri(1, NG));
   assert.equal(r.added, 1);

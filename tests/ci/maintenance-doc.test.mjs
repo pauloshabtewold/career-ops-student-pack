@@ -50,6 +50,11 @@ test('M-005-S15 Safety tags section states the first v tag baseline', () => {
   mustContain(find('Safety tags'), ['first v tag'], 'Safety tags section');
 });
 
+// W-024-A63
+test('W-024-A63 Safety tags section states the CEILINGS-only rule, the unloaded head, the hash rule and that v tags are not gated', () => {
+  mustContain(find('Safety tags'), ['budget.mjs changed outside CEILINGS', 'CEILINGS holds more than plain entries', 'is never loaded', 'byte-identical', 'budgetSha256', 'SHA-256', '`v*` release tags', 'not gated'], 'Safety tags section');
+});
+
 // M-005-S16
 test('M-005-S16 maintenance.md links upstream/README.md', () => {
   assert.match(doc, /\]\([^)]*upstream\/README\.md[^)]*\)/);

@@ -47,7 +47,7 @@ With `automation: scheduled-discovery-plus-triage` and `agent: codex`, `node stu
 - the apps, plugins, browser, computer-use, shell, hooks, image generation, goals and image viewer features disabled
 - web search disabled
 
-A live run on macOS (codex-cli 0.166), asked to list every tool it could call and call none, showed no Gmail, browser, MCP server, web or shell tool. What is left is a JavaScript runner with no file, process or network access, apply_patch (blocked by the read-only sandbox) and the agent-collaboration tools. On Windows the same flags are passed but no live run has listed the tools yet, so treat the Windows triage as a preview.
+A live run on macOS (codex-cli 0.166), asked to list every tool it could call and call none, showed no Gmail, browser, MCP server, web or shell tool. What is left is a JavaScript runner with no file, process or network access, apply_patch (blocked by the read-only sandbox), the agent-collaboration tools, the three MCP resource tools (0 servers are configured, so they list nothing) and a clock tool. On Windows the same flags are passed but no live run has listed the tools yet, so treat the Windows triage as a preview.
 
 A codex too old to know one of the disabled feature names stops with "Unknown feature flag"; the digest then says to update codex or the pack, not to sign in.
 

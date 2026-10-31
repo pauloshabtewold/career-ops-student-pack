@@ -213,12 +213,12 @@ export function compareFailAudit(name, baselineText, packText, options) {
   return finish(name, s.counts, allowance);
 }
 
-// Two pack prefilter rules have no baseline counterpart, so pack-only lines carrying their reason are by design:
-// a full-time new-grad title for a student with no new-grad track, and a title the preset's early-career pattern does
-// not match. A baseline line about a posting the pack dropped for one of them is explained with it (the baseline
+// Three pack prefilter rules have no baseline counterpart, so pack-only lines carrying their reason are by design:
+// a full-time new-grad title for a student with no new-grad track, a title the preset's early-career pattern does
+// not match, and a vice president, chief, professor or general counsel title. A baseline line about a posting the pack dropped for one of them is explained with it (the baseline
 // rejected the same posting under another reason or not at all). A baseline-only line whose reason names a
 // `rank.intern_only` company followed by full-time is that mirrored knob, which the pack applies at ranking.
-const PACK_ONLY_REASONS = ['Title pre-filter: new-grad role and no new-grad track', 'Title pre-filter: not an early-career title'];
+const PACK_ONLY_REASONS = ['Title pre-filter: new-grad role and no new-grad track', 'Title pre-filter: not an early-career title', 'Title pre-filter: senior title'];
 const verdictUrl = (row) => /^TRIAGE: \w+ \| (\S+) \|/.exec(row.slice(row.indexOf('\u0000') + 1))?.[1] ?? '';
 
 export function comparePrefilter(name, baselineText, packText, { internOnly = [] } = {}) {

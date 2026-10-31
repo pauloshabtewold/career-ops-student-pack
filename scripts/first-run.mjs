@@ -3,7 +3,8 @@
 // verdict, so the student's session can triage them and show a real top 10. It uses the same ingest steps as the
 // daily run, makes no model call and opens no browser; the verdicts come from the session that runs it. It lists only
 // the rows left in the student's first-run triage budget (lib/triage-budget.mjs).
-// Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run]
+// --list-only skips the ingest steps and only prints the counts and the rows, for a further batch after the first run.
+// Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run] [--list-only]
 // Exit 0 after the report (a failed step is a line in it), 1 when the interview has not written config/student.yml.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -50,13 +51,23 @@ export function formatFirstRunReport(summary, shown, { budget = DEFAULT_FIRST_RU
 
 // Returns 1 only when config/student.yml is missing. A failed ingest step is a report line and the run goes on, so the
 // student always gets a list of rows to triage.
-export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT_SHOWN, runner = defaultRunner, out = (s) => console.log(s) }) {
+export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT_SHOWN, listOnly = false, runner = defaultRunner, out = (s) => console.log(s) }) {
   const config = await loadStudentConfig({ root });
   if (!config) {
     out('INTERVIEW: run student/interview/interview.md before anything else');
     return 1;
   }
   mkdirSync(dataDir, { recursive: true });
+  if (!listOnly) runIngest({ root, dataDir, packRoot, today, runner, out, config });
+  const file = join(dataDir, 'pipeline.md');
+  const budget = resolveTriageBudget(config).firstRun;
+  const used = readTriageUsage(dataDir, today).firstRun;
+  const report = formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), Math.min(shown, rowsLeft(budget, used)), { budget, used });
+  for (const line of report) out(line);
+  return 0;
+}
+
+function runIngest({ root, dataDir, packRoot, today, runner, out, config }) {
   // One line per step; a failed step is reported and the rest still run, as in the daily run.
   const step = (name, fn) => {
     try {
@@ -73,16 +84,10 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
     // A preset that cannot be read leaves the extra feeds out.
   }
   ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds });
-  const file = join(dataDir, 'pipeline.md');
-  const budget = resolveTriageBudget(config).firstRun;
-  const used = readTriageUsage(dataDir, today).firstRun;
-  const report = formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), Math.min(shown, rowsLeft(budget, used)), { budget, used });
-  for (const line of report) out(line);
-  return 0;
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { n: 'int' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { n: 'int', 'list-only': 'boolean' } });
   if (flags.n !== undefined && flags.n < 1) throw new UsageError('--n expects a whole number of 1 or more');
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   if (flags.dryRun) {
@@ -92,7 +97,7 @@ async function main() {
   }
   const config = await loadStudentConfig({ root: paths.root });
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
-  return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN });
+  return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN, listOnly: flags.listOnly });
 }
 
 if (isMain(import.meta.url)) await runCli(main);

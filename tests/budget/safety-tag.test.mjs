@@ -2,19 +2,28 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { checkSafetyDiff } from '../../lib/safety-diff.mjs';
 import * as checker from '../../scripts/check-safety-tag.mjs';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
 
-const entry = (value, tighten, unit = 'count') => `{ value: ${JSON.stringify(value)}, unit: '${unit}', tighten: '${tighten}', period: 'day' }`;
-const budgetSource = ({ connect = 20, nudgeMin = 5, extra = '' } = {}) => `export const CEILINGS = Object.freeze({
-  connect_per_day: ${entry(connect, 'down')},
-  nudge_min_days: ${entry(nudgeMin, 'up', 'days')},${extra}
-});
+// The fixture mirrors scripts/budget.mjs: entry helpers, a frozen CEILINGS block of one entry per line, then logic.
+// "logic" is plain code after the block, so a test can change code that the safety gate must not let through.
+const HELPERS = `const entry = (value, unit, tighten, period) => ({ value, unit, tighten, period });
+const down = (value, unit, period) => entry(value, unit, 'down', period);
+const up = (value, unit, period) => entry(value, unit, 'up', period);
 `;
+const wrapBudget = (body, logic = 'export const looser = true;') => `${HELPERS}export const CEILINGS = Object.freeze({
+${body}
+});
+${logic}
+`;
+const budgetSource = ({ connect = 20, nudgeMin = 5, extra = '', logic } = {}) =>
+  wrapBudget(`  // Fixture
+  connect_per_day: down(${connect}, 'count', 'day'),
+  nudge_min_days: up(${nudgeMin}, 'days', 'day'),${extra}`, logic);
 const sha = (text) => createHash('sha256').update(text).digest('hex');
 const compatJson = (budgetText, over = {}) =>
   `${JSON.stringify({ upstream: { min: '1.38.0', max: '1.38.0', tag_prefix: 'career-ops-v' }, budgetSha256: sha(budgetText), pipelineSections: ['Pending', 'Flagged', 'Skipped', 'Processed'], ...over }, null, 2)}\n`;
@@ -34,6 +43,8 @@ function put(root, rel, text) {
 function scratchRepo() {
   const root = mkdtempSync(join(tmpdir(), 'pack-safety-'));
   git(root, 'init', '-q');
+  // Windows runners default to autocrlf, which would store a CRLF fixture as LF; the real repo pins eol=lf instead.
+  git(root, 'config', 'core.autocrlf', 'false');
   cpSync(join(PACK_ROOT, 'lib'), join(root, 'lib'), { recursive: true });
   cpSync(join(PACK_ROOT, 'scripts', 'check-safety-tag.mjs'), join(root, 'scripts', 'check-safety-tag.mjs'));
   symlinkSync(join(PACK_ROOT, 'node_modules'), join(root, 'node_modules'));
@@ -131,7 +142,7 @@ test('M-002-S22 lowering a min ceiling fails and names it', () =>
 test('M-002-S22 removing a ceiling entry fails', () =>
   withRepo(async (root) => {
     const v = await verdict(root, () => {
-      const next = `export const CEILINGS = Object.freeze({\n  connect_per_day: ${entry(20, 'down')},\n});\n`;
+      const next = wrapBudget("  connect_per_day: down(20, 'count', 'day'),");
       put(root, 'scripts/budget.mjs', next);
       put(root, 'compat.json', compatJson(next));
     });
@@ -366,7 +377,7 @@ test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still 
     git(root, 'add', '-A');
     git(root, 'commit', '-q', '-m', 'guarded base');
     git(root, 'tag', '-f', 'base');
-    const next = guardedBudget({ connect: 20 }) + '// touched\n';
+    const next = guardedBudget({ extra: '\n  // touched' });
     put(root, 'scripts/budget.mjs', next);
     put(root, 'compat.json', compatJson(next));
     git(root, 'add', '-A');
@@ -383,4 +394,102 @@ test('M-001-S5 a ref whose budget.mjs ends with the v0.1.0 realpath guard still 
     assert.equal(res.ok, false);
     assert.match(text, /connect_per_day/);
     assert.match(text, /raised/);
+  }));
+
+// W-024-A63 the gate also fences everything in budget.mjs outside CEILINGS, and never runs a head it has not vetted.
+const markerEnv = (root) => {
+  const marker = join(root, 'head-ran.marker');
+  process.env.W024_MARKER = marker;
+  return marker;
+};
+const WRITE_MARKER = "process.getBuiltinModule('node:fs').writeFileSync(process.env.W024_MARKER, 'ran');";
+const withMarker = (fn) => (root) => fn(root, markerEnv(root)).finally(() => delete process.env.W024_MARKER);
+const pinned = (root, next) => {
+  put(root, 'scripts/budget.mjs', next);
+  put(root, 'compat.json', compatJson(next));
+};
+
+test('W-024-A63-1 a logic change outside CEILINGS with a new budgetSha256 fails and the head module never runs', () =>
+  withRepo(withMarker(async (root, marker) => {
+    const v = await verdict(root, () => pinned(root, budgetSource({ logic: `export const looser = false;\n${WRITE_MARKER}` })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /budget\.mjs changed outside CEILINGS/);
+    assert.equal(existsSync(marker), false, 'head budget.mjs was executed');
+  })));
+
+test('W-024-A63-2 a one-line edit to a function outside CEILINGS fails even when every ceiling is unchanged', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => pinned(root, budgetSource({ logic: 'export const looser = false;' })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /outside CEILINGS/);
+  }));
+
+test('W-024-A63-3 a CRLF-only rewrite of budget.mjs is not a change outside CEILINGS', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => pinned(root, budgetSource({ connect: 15 }).replace(/\n/g, '\r\n')));
+    assert.equal(v.ok, true, v.text);
+  }));
+
+test('W-024-A63-4 a pure tightening inside CEILINGS, with comment lines added, still passes', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => pinned(root, budgetSource({ connect: 10, nudgeMin: 6, extra: "\n  // Handshake\n  pages_per_search: down(4, 'count', 'search')," })));
+    assert.equal(v.ok, true, v.text);
+  }));
+
+test('W-024-A63-5 a non-literal entry inside CEILINGS fails and the head module never runs', () =>
+  withRepo(withMarker(async (root, marker) => {
+    const v = await verdict(root, () => pinned(root, budgetSource({ extra: `\n  sneaky: down((${WRITE_MARKER.slice(0, -1)}, 1), 'count', 'day'),` })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /CEILINGS holds more than plain entries/);
+    assert.equal(existsSync(marker), false, 'head budget.mjs was executed');
+  })));
+
+test('W-024-A63-6 a comment line that hides code behind a bare carriage return fails and the head module never runs', () =>
+  withRepo(withMarker(async (root, marker) => {
+    const v = await verdict(root, () => pinned(root, budgetSource({ extra: `\n  // note\r${WRITE_MARKER}` })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /CEILINGS holds more than plain entries/);
+    assert.equal(existsSync(marker), false, 'head budget.mjs was executed');
+  })));
+
+test('W-024-A63-7 a head whose CEILINGS block uses another factory than freeze fails and the head module never runs', () =>
+  withRepo(withMarker(async (root, marker) => {
+    const next = budgetSource({ logic: `export const looser = true;\n${WRITE_MARKER}` }).replace('Object.freeze({', 'Object.assign({');
+    const v = await verdict(root, () => pinned(root, next));
+    assert.equal(v.ok, false);
+    assert.equal(existsSync(marker), false, 'head budget.mjs was executed');
+  })));
+
+test('W-024-A63-8 a compat.json budgetSha256 that is not the hash of the head budget.mjs fails', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => {
+      const next = budgetSource({ connect: 15 });
+      put(root, 'scripts/budget.mjs', next);
+      put(root, 'compat.json', compatJson(next, { budgetSha256: 'a'.repeat(64) }));
+    });
+    assert.equal(v.ok, false);
+    assert.match(v.text, /compat\.json budgetSha256 does not match budget\.mjs/);
+  }));
+
+test('W-024-A63-9 a compat.json change with budget.mjs untouched must still pin the hash of the head budget.mjs', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => put(root, 'compat.json', compatJson(budgetSource(), { budgetSha256: 'b'.repeat(64) })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /does not match budget\.mjs/);
+  }));
+
+test('W-024-A63-10 a budget.mjs change with compat.json untouched leaves a stale pin and is refused', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => put(root, 'scripts/budget.mjs', budgetSource({ connect: 10 })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /does not match budget\.mjs/);
+  }));
+
+test('W-024-A63-11 a padded CEILINGS line longer than any real entry is refused without a slow match', () =>
+  withRepo(async (root) => {
+    const start = Date.now();
+    const v = await verdict(root, () => pinned(root, budgetSource({ extra: `\n  pad: down([${' '.repeat(60000)}], 'count', 'day'),` })));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /CEILINGS holds more than plain entries/);
+    assert.ok(Date.now() - start < 2000, 'the gate answered quickly');
   }));
