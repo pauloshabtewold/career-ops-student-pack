@@ -291,3 +291,81 @@ test('M-002-S11 syncChangelog inserts missing sections newest first after the in
   assert.ok(a > 0 && b > a);
   assert.ok(res.text.indexOf('- two') > a && res.text.indexOf('- two') < b);
 });
+
+// W-026: hand-written Unreleased lines move into the release being cut.
+const INTRO = '# Changelog\n\nOne section per pack release.\n';
+const V1 = '## v0.1.0 (2026-01-15)\n\n- one\n\n### v0.1.0 details\n\n- W-001: the first wave in detail\n';
+const RELEASES = [
+  { tag: 'v0.1.0', date: '2026-01-15', notes: '- one' },
+  { tag: 'v0.2.0', date: '2026-02-15', notes: '- two' },
+];
+
+test('W-026-S1 syncChangelog moves the Unreleased lines under the new section as Details and leaves an empty Unreleased on top', () => {
+  const text = `${INTRO}\n## Unreleased\n\n- W-002: detail line\n- W-003: another line\n\n${V1}`;
+  const res = syncChangelog({ text, releases: RELEASES });
+  assert.deepEqual(res.added, ['v0.2.0']);
+  assert.equal(
+    res.text,
+    `${INTRO}\n## Unreleased\n\n## v0.2.0 (2026-02-15)\n\n- two\n\n### Details\n\n- W-002: detail line\n- W-003: another line\n\n${V1}`,
+  );
+});
+
+test('W-026-S2 an empty Unreleased block adds no Details and stays on top once', () => {
+  const text = `${INTRO}\n## Unreleased\n\n${V1}`;
+  const res = syncChangelog({ text, releases: RELEASES });
+  assert.equal(res.text, `${INTRO}\n## Unreleased\n\n## v0.2.0 (2026-02-15)\n\n- two\n\n${V1}`);
+  assert.equal(res.text.split('## Unreleased').length - 1, 1);
+  assert.ok(!res.text.includes('### Details'));
+});
+
+test('W-026-S3 a missing Unreleased block still adds the section, with an empty Unreleased on top', () => {
+  const res = syncChangelog({ text: `${INTRO}\n${V1}`, releases: RELEASES });
+  assert.equal(res.text, `${INTRO}\n## Unreleased\n\n## v0.2.0 (2026-02-15)\n\n- two\n\n${V1}`);
+  const fresh = syncChangelog({ text: INTRO, releases: RELEASES.slice(0, 1) });
+  assert.equal(fresh.text, `${INTRO}\n## Unreleased\n\n## v0.1.0 (2026-01-15)\n\n- one\n`);
+  const bare = syncChangelog({ text: `${INTRO}\n## Unreleased`, releases: RELEASES.slice(0, 1) });
+  assert.equal(bare.text, fresh.text);
+});
+
+test('W-026-S3 a heading that only starts with Unreleased is not the Unreleased block', () => {
+  const text = `${INTRO}\n## Unreleasedfoo\n\n- kept\n`;
+  const res = syncChangelog({ text, releases: RELEASES.slice(0, 1) });
+  assert.equal(res.text, `${INTRO}\n## Unreleased\n\n## v0.1.0 (2026-01-15)\n\n- one\n\n## Unreleasedfoo\n\n- kept\n`);
+});
+
+test('W-026-S4 an older versioned details heading and an Unreleased block below it stay correct', () => {
+  // A changelog written before W-026 can hold Unreleased below the newest section; its lines still go to the new one.
+  const old = '## v0.1.1 (2026-01-20)\n\n- fix\n';
+  const text = `${INTRO}\n${old}\n## Unreleased\n\n- W-002: detail line\n\n${V1}`;
+  const res = syncChangelog({ text, releases: [...RELEASES.slice(0, 1), { tag: 'v0.1.1', date: '2026-01-20', notes: '- fix' }, RELEASES[1]] });
+  assert.equal(res.text, `${INTRO}\n## Unreleased\n\n## v0.2.0 (2026-02-15)\n\n- two\n\n### Details\n\n- W-002: detail line\n\n${old}\n${V1}`);
+  assert.ok(res.text.endsWith(V1));
+  assert.equal(res.text.split('### v0.1.0 details').length - 1, 1);
+});
+
+test('W-026-S5 a rerun for the same version is byte-identical and keeps lines written after the release under Unreleased', () => {
+  const first = syncChangelog({ text: `${INTRO}\n## Unreleased\n\n- W-002: detail line\n\n${V1}`, releases: RELEASES });
+  assert.deepEqual(syncChangelog({ text: first.text, releases: RELEASES }), { text: first.text, added: [] });
+  const later = first.text.replace('## Unreleased\n\n', '## Unreleased\n\n- W-004: next wave\n\n');
+  assert.deepEqual(syncChangelog({ text: later, releases: RELEASES }), { text: later, added: [] });
+});
+
+test('W-026-S6 a backfill of two tags gives the Unreleased lines to the newest only', () => {
+  const text = `${INTRO}\n## Unreleased\n\n- W-002: detail line\n`;
+  const res = syncChangelog({ text, releases: RELEASES });
+  assert.equal(
+    res.text,
+    `${INTRO}\n## Unreleased\n\n## v0.2.0 (2026-02-15)\n\n- two\n\n### Details\n\n- W-002: detail line\n\n## v0.1.0 (2026-01-15)\n\n- one\n`,
+  );
+});
+
+test('W-026-S7 the changelog command moves the Unreleased lines on disk', () =>
+  withRepo((root) => {
+    commit(root, 'Initial pack', { date: '2026-01-15T12:00:00Z' });
+    tag(root, 'v0.1.0');
+    put(root, 'CHANGELOG.md', `${INTRO}\n## Unreleased\n\n- W-002: detail line\n`);
+    const res = cli(root, 'changelog');
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(res.stdout.trim(), 'Update CHANGELOG.md for v0.1.0');
+    assert.equal(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), `${INTRO}\n## Unreleased\n\n## v0.1.0 (2026-01-15)\n\n- Initial pack\n\n### Details\n\n- W-002: detail line\n`);
+  }));
