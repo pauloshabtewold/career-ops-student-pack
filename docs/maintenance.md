@@ -15,7 +15,7 @@ For the maintainer. Placeholders: the pack lives at `<pack-url>`; upstream is ca
 
 - It skips the month when nothing has merged since the last `v<major>.<minor>.<patch>` tag.
 - It releases only when `ci.yml` succeeded on the target commit, which covers the macOS and Windows jobs. The target is the newest commit on main that is not a changelog sync commit.
-- It tags that commit, publishes notes from the first-parent commit subjects (a pull request merge is shown by its title), then commits the `CHANGELOG.md` section to main. CI does not run on that sync commit.
+- It tags that commit, publishes notes from the first-parent commit subjects (a pull request merge is shown by its title), then commits the `CHANGELOG.md` section to main. The lines a pull request wrote under `## Unreleased` move into that section as `### Details`, and an empty `## Unreleased` stays on top. CI does not run on that sync commit.
 - The first release is `v` plus the `package.json` version; each later release raises the minor of the highest `v` tag. `package.json` is never rewritten.
 - A plugin change needs a plugin manifest version bump in the same pull request. `scripts/check-plugin-versions.mjs` fails the pull request otherwise.
 

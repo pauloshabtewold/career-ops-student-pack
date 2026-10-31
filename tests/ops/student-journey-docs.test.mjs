@@ -124,10 +124,14 @@ test('M-003-S6 interview.md keeps the Phase 4 and Phase 6 headings', () => {
 });
 
 // M-003-S7
-test('M-003-S7 CHANGELOG has an Unreleased section on top, and the v0.2.0 notes name W-011, W-012 and the reinstall line', () => {
+test('M-003-S7 CHANGELOG has an Unreleased section on top, v0.2.2 holds the W-025 details, and the v0.2.0 notes name W-011, W-012 and the reinstall line', () => {
   const log = readDoc('CHANGELOG.md');
   assert.ok(/^## Unreleased\s*\n/m.test(log), 'Unreleased heading');
-  assert.ok(log.indexOf('## Unreleased') < log.indexOf('## v0.2.0'), 'Unreleased is newest');
+  assert.ok(log.indexOf('## Unreleased') < log.search(/^## v/m), 'Unreleased is above every release');
+  // W-026: the release workflow moves the Unreleased lines into the new section, so v0.2.2 holds the W-025 details.
+  const v022 = /^## v0\.2\.2\b.*\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(log);
+  assert.ok(v022, 'v0.2.2 section');
+  assert.match(v022[1], /^### Details\n\n- W-025: /m);
   const m = /^## v0\.2\.0\b.*\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(log);
   assert.ok(m, 'v0.2.0 section');
   assert.match(m[1], /W-011/);

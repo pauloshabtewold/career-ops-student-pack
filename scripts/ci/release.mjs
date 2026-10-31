@@ -2,7 +2,8 @@
 // Monthly release helper for release.yml.
 // Usage: release.mjs plan [--bump minor|patch|major] [--out <dir>]   prints release, version and target as key=value lines
 //        release.mjs gate --sha <sha> --runs <file>                  exit 0 only when ci.yml succeeded on the sha
-//        release.mjs changelog [--file CHANGELOG.md]                 adds a section per release tag the file lacks
+//        release.mjs changelog [--file CHANGELOG.md]                 adds a section per release tag the file lacks and
+//                                                                    moves the Unreleased lines into the newest one
 // Exit 0 ok, 1 refused (notes still fail pii-lint after withholding, CI not green), 2 usage.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -81,13 +82,25 @@ export function ciGreen({ runs, sha }) {
   return list.some((r) => r.head_sha === sha && r.status === 'completed' && r.conclusion === 'success');
 }
 
+const UNRELEASED = /^## Unreleased[ \t]*(?:\n|(?![\s\S]))([\s\S]*?)(?=^## |(?![\s\S]))/m;
+
 // Sections are derived from tags so a changelog push that failed after the tag was cut is backfilled on the next run.
+// Waves write detail lines under "## Unreleased" by hand; they describe the release being cut, so they move under the
+// newest added section as "### Details" and an empty Unreleased heading goes back on top for the next wave. A run
+// that adds nothing leaves the file alone, which keeps a rerun for the same tag idempotent.
 export function syncChangelog({ text, releases }) {
   const missing = releases.filter((r) => !new RegExp(`^## ${r.tag.replace(/\./g, '\\.')} `, 'm').test(text));
   if (!missing.length) return { text, added: [] };
-  const sections = [...missing].reverse().map((r) => `## ${r.tag} (${r.date})\n\n${r.notes}\n`).join('\n');
-  const at = text.search(/^## /m);
-  const next = at === -1 ? `${text.endsWith('\n') ? text : `${text}\n`}\n${sections}` : `${text.slice(0, at)}${sections}\n${text.slice(at)}`;
+  const unreleased = UNRELEASED.exec(text);
+  const details = unreleased ? unreleased[1].trim() : '';
+  const rest = unreleased ? `${text.slice(0, unreleased.index)}${text.slice(unreleased.index + unreleased[0].length)}` : text;
+  const sections = [...missing]
+    .reverse()
+    .map((r, i) => `## ${r.tag} (${r.date})\n\n${r.notes}\n${i === 0 && details ? `\n### Details\n\n${details}\n` : ''}`)
+    .join('\n');
+  const head = `## Unreleased\n\n${sections}`;
+  const at = rest.search(/^## /m);
+  const next = at === -1 ? `${rest.trimEnd()}\n\n${head}` : `${rest.slice(0, at)}${head}\n${rest.slice(at)}`;
   return { text: next, added: missing.map((r) => r.tag) };
 }
 

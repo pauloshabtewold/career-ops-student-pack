@@ -1,12 +1,16 @@
 # Changelog
 
-One section per pack release, newest first. The release workflow writes each section from the first-parent commit subjects since the previous release.
+One section per pack release, newest first. The release workflow writes each section from the first-parent commit subjects since the previous release, then moves the lines written by hand under Unreleased into that section as Details.
+
+## Unreleased
+
+- W-026: the release workflow moves the lines under `## Unreleased` into the new release section as `### Details` and leaves an empty `## Unreleased` on top; an empty or missing block adds no Details, and a rerun for a tag already in the file changes nothing. The W-025 lines now sit under v0.2.2, and the v0.2.1 and v0.2.0 detail headings read `### Details`
 
 ## v0.2.2 (2026-10-30)
 
 - W-025: re-measure triage token cost on the fenced prompt (#25)
 
-## Unreleased
+### Details
 
 - W-025: the triage cost estimate is measured again on the fenced prompt with the `ANOMALY:` rule (Claude Code 2.1.310, codex-cli 0.166). Claude is now 3,500 fixed input tokens per call, 1,726 input and 75 output per row (was 3,600, 1,548 and 104); codex is 10,100 fixed, 1,189 and 31 per row (was 11,300, 1,038 and 31). A 20-row day stays about $0.09 on Claude and $0.07 on codex; 250 rows is about $1.14 and $0.93. `docs/usage-cost.md` lists every measured run; the vendor prices were checked again and have not changed
 
@@ -14,7 +18,7 @@ One section per pack release, newest first. The release workflow writes each sec
 
 - W-024: fix the W-023 review leftovers (#24)
 
-### v0.2.1 details
+### Details
 
 - W-024: the W-023 review leftovers. Uninstall on Windows removes the daily task only when it runs this career-ops folder and says when none was registered (`schedule.mjs remove` exits 1 on a real Unregister failure), install and uninstall find `.git/info/exclude` through git so a worktree or `.git` file no longer crashes them (and skip the step when the folder is not the top of its own repository), and uninstall clears an upstream dismiss marker for a release outside the pack's range; the safety-tag gate refuses a `budget.mjs` change outside `CEILINGS`, a `CEILINGS` line that is not a plain entry and a `budgetSha256` that does not match, and never runs the tag's `budget.mjs` before those checks pass (`docs/maintenance.md`); the nursing preset drops pharmacy, physician, social work and staff program titles and narrows `clinical` to `clinical nurse`; the prefilter marks titles that start with vice president, VP, chief, professor or general counsel (after an optional Associate, Assistant, Deputy or Executive) as `senior title`, which parity explains; `sources_chosen: []` now keeps no GitHub lists (an absent field still keeps all, and apply-answers says so); `first-run.mjs --list-only` lists the rows for one more batch without rerunning the ingest; the codex triage comment and `docs/codex-spike.md` record a second live tool listing; tests cover the triage budget's effect on the scheduled timeout, the weekly calibration line, the price table and the legacy `--claude` plist
 
@@ -34,7 +38,7 @@ One section per pack release, newest first. The release workflow writes each sec
 - W-012: student pack gap fixes, first run to a real top 10 (#12)
 - W-011: audit issue reuse, single BYO coverage line, semver-only pickBase, parity node_modules link (#11)
 
-### v0.2.0 details
+### Details
 
 - W-022: new `usajobs` plugin 1.0.0, off by default, reads federal student and recent-graduate postings from the USAJOBS search API with the student's own free key and email from `.env` (`USAJOBS_API_KEY`, `USAJOBS_EMAIL`); presets gain `sources.usajobs`, policy-government turns it on, the daily and first runs add a `usajobs` step when the student enabled it, and the interview offers it after NYC Jobs and never requests a key for the student
 - W-022: `update.mjs` reads the installed macOS LaunchAgent or Windows scheduled task and says to run `node student/scripts/schedule.mjs install` again when a schedule from an older pack skips triage; `daily.mjs` run directly now always warns plus-triage students that triage needs `scheduled.mjs`, not only when it writes a log file
