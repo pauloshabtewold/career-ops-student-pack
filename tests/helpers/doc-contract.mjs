@@ -20,11 +20,89 @@ export const DOC_FILES = [
 
 export const readDoc = (rel) => readFileSync(join(PACK_ROOT, rel), 'utf8');
 
-function declares(source, flag) {
-  const quoted = new RegExp(`['"]${flag}['"]`);
-  const key = new RegExp(`(^|[\\s{,])${flag}\\s*:`, 'm');
-  const literal = source.includes(`--${flag}`);
-  return quoted.test(source) || key.test(source) || literal;
+// Returns the text of the {...} literal that starts at `open` (the index of its opening brace), or null if unbalanced.
+function braceBody(source, open) {
+  let depth = 0;
+  let quote = null;
+  for (let i = open; i < source.length; i++) {
+    const c = source[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
+    } else if (c === "'" || c === '"' || c === '`') quote = c;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return source.slice(open + 1, i);
+  }
+  return null;
+}
+
+// The object literal an expression stands for: the literal itself, or the `const NAME = { ... }` it names.
+function objectAt(source, from) {
+  const rest = source.slice(from);
+  const lead = /^\s*/.exec(rest)[0].length;
+  if (rest[lead] === '{') return braceBody(source, from + lead);
+  const name = /^([A-Za-z_$][\w$]*)/.exec(rest.slice(lead))?.[1];
+  const decl = name && new RegExp(`const\\s+${name}\\s*=\\s*\\{`).exec(source);
+  return decl ? braceBody(source, decl.index + decl[0].length - 1) : null;
+}
+
+// Keys at the top level of an object literal body.
+function topLevelKeys(body) {
+  const keys = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  const take = (seg) => {
+    const m = /^\s*(?:'([\w-]+)'|"([\w-]+)"|([A-Za-z_$][\w$]*))\s*:/.exec(seg);
+    if (m) keys.push(m[1] ?? m[2] ?? m[3]);
+  };
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
+    } else if (c === "'" || c === '"' || c === '`') quote = c;
+    else if ('{[('.includes(c)) depth++;
+    else if ('}])'.includes(c)) depth--;
+    else if (c === ',' && depth === 0) {
+      take(body.slice(start, i));
+      start = i + 1;
+    }
+  }
+  take(body.slice(start));
+  return keys;
+}
+
+// The flags a script's parseArgs calls accept: the keys of each `flags: {...}` spec plus COMMON_FLAGS unless the spec
+// says `common: false`. Returns null when the script has no parseArgs call to read.
+export function parsedFlags(source) {
+  const allowed = new Set();
+  let found = false;
+  for (const call of source.matchAll(/(?<!function\s)(?<![\w.])parseArgs\(/g)) {
+    // The spec is the call's second argument: skip the first by walking to the top-level comma.
+    let depth = 0;
+    let i = call.index + call[0].length;
+    for (; i < source.length; i++) {
+      const c = source[i];
+      if ('{[('.includes(c)) depth++;
+      else if ('}])'.includes(c)) depth--;
+      if (depth < 0 || (c === ',' && depth === 0)) break;
+    }
+    if (source[i] !== ',') continue;
+    const spec = objectAt(source, i + 1);
+    if (spec === null) continue;
+    found = true;
+    if (!/\bcommon\s*:\s*false\b/.test(spec)) Object.keys(COMMON_FLAGS).forEach((k) => allowed.add(k));
+    const at = /\bflags\s*:/.exec(spec);
+    const flags = at && objectAt(spec, at.index + at[0].length);
+    if (flags !== null && flags !== undefined) topLevelKeys(flags).forEach((k) => allowed.add(k));
+    else if (at) {
+      // flags: NAME, where NAME is a const object elsewhere in the script
+      const named = objectAt(source, source.indexOf(spec) + at.index + at[0].length);
+      if (named !== null) topLevelKeys(named).forEach((k) => allowed.add(k));
+    }
+  }
+  return found ? allowed : null;
 }
 
 // Returns problems as 'file:line: message'. `text` is the doc body, `name` its repo-relative path.
@@ -41,8 +119,10 @@ export function scanCommands(name, text, packRoot = PACK_ROOT) {
       }
       const source = readFileSync(file, 'utf8');
       const args = m[2].split(/\||;|&&/)[0];
+      const allowed = parsedFlags(source);
       for (const f of args.matchAll(/(?:^|\s)--([a-z][a-z0-9-]*)/g)) {
-        if (!(f[1] in COMMON_FLAGS) && !declares(source, f[1])) problems.push(`${at}: ${rel} does not declare --${f[1]}`);
+        if (allowed === null) problems.push(`${at}: ${rel} has no parseArgs flag spec to check --${f[1]} against`);
+        else if (!allowed.has(f[1])) problems.push(`${at}: ${rel} does not declare --${f[1]}`);
       }
     }
   });

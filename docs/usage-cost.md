@@ -18,7 +18,7 @@ node student/scripts/triage-budget.mjs set 150 --confirm
 
 `set` without `--confirm` writes nothing: it prints the estimate for the new value and the exact command to run again. Only the second command writes `triage_budget.daily` to config/student.yml. Add `--first-run` to change the first-run budget instead. You can also say it in a session ("raise my daily triage to 150 rows"); the session runs the same two commands and asks you before the second one. Nothing spends more than the budget you set, and nothing raises it for you.
 
-Rows already scored today, by the scheduled run or by a session, count against the daily budget. A chunk whose agent call failed or timed out also counts, because the call was sent; its rows stay untriaged and go out again on a later day. A failed scheduled chunk ends that day's scheduled triage, so a sign-in problem is not repeated on every rerun.
+Rows sent today, by the scheduled run or by a session, count against the daily budget; the pack's status and digest lines call them "rows sent today (counted against the budget)". A chunk whose agent call failed or timed out also counts, because the call was sent, and so does a chunk the agent answered with no verdict lines (a limit or login message); its rows stay untriaged and go out again on a later day. Only one triage runs at a time: a second one started while the first is working sends nothing and says so in the digest. A failed scheduled chunk ends that day's scheduled triage, so a sign-in problem is not repeated on every rerun.
 
 ## How the estimate is made
 
@@ -111,4 +111,4 @@ The scheduled `claude -p` call passes `--setting-sources project --strict-mcp-co
 
 ## Long budgets and the schedule timeout
 
-The scheduled run starts the triage as its own process with a timeout that grows with the chunks the budget allows: 25 minutes of worst case per chunk plus 10 minutes, never less than 60 minutes, and never more than the `run_lock_hours` limit minus 30 minutes. A budget of `all` on a 250-row catch-up is 13 chunks and a 335-minute timeout. Each chunk writes its ledger row and a digest line before the next call starts, so a stop in the middle keeps the counts so far.
+The scheduled run starts the triage as its own process with a timeout that grows with the chunks the budget allows: 25 minutes of worst case per chunk plus 10 minutes, never less than 60 minutes, and never more than the `run_lock_hours` limit minus 30 minutes. A budget of `all` on a 250-row catch-up is 13 chunks and a 335-minute timeout. The triage is also told when that timeout ends and does not start a chunk that could not finish before it, so it stops with a "stopped at chunk" line instead of being killed in the middle of a call. Each chunk writes its ledger row and a digest line before the next call starts, so a stop in the middle keeps the counts so far.

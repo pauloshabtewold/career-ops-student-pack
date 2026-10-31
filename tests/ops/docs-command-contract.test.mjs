@@ -47,3 +47,18 @@ test('M-003-S4 modes/apply-loop.md check-resume uses --pdf --html --variant', ()
   for (const f of ['--pdf', '--html', '--variant']) assert.ok(line.includes(f), f);
   assert.ok(!line.includes('--source'));
 });
+
+// W-023-A5-7
+test('W-023-A5-7 a flag that only appears as a word in the script, not in its parseArgs spec, fails', () => {
+  const problems = scanCommands('docs/example.md', 'node student/scripts/triage-budget.mjs log 7 --session\n');
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /--session/);
+});
+
+// W-023-A5-7
+test('W-023-A5-7 flags from a named spec, a multi-line spec and common: false are read from the source', () => {
+  assert.deepEqual(scanCommands('x.md', 'node student/scripts/triage-budget.mjs cost 60 --plan api --agent claude --spend-tier premium --rows 5'), []);
+  assert.deepEqual(scanCommands('x.md', 'node student/scripts/budget.mjs check apply.submit --company "X" --track newgrad --score 4 --batch 1'), []);
+  assert.equal(scanCommands('x.md', 'node student/interview/detect-field.mjs cv.md --root /x').length, 1, 'detect-field takes no common --root');
+  assert.deepEqual(scanCommands('x.md', 'node student/interview/detect-field.mjs - --json'), []);
+});

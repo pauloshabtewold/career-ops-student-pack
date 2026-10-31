@@ -16,6 +16,14 @@ import { runUpdate } from '../update.mjs';
 const MAX_LINES = 6;
 const OFFLINE_LINE = 'update check skipped (offline)';
 const UNREACHABLE_RE = /could not reach|unreachable|update check (skipped|failed)/i;
+const NETWORK_CODES = new Set(['ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNRESET', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH']);
+const NETWORK_RE = /unable to access|could not resolve host|could not read from remote|timed out|network is unreachable|connection (refused|reset|timed out)/i;
+
+// Only a failure to reach the remote reads as offline. Anything else (a malformed config/plugins.yml, a plugin copy
+// that cannot be written) means the safety check and plugin sync did not run while the network was fine.
+function isNetworkFailure(err) {
+  return NETWORK_CODES.has(err?.code) || NETWORK_RE.test(`${err?.message ?? ''} ${err?.stderr ?? ''}`);
+}
 
 // Every way of saying the remote could not be reached becomes the same single line.
 function collapseOffline(lines) {
@@ -44,8 +52,8 @@ export async function sessionStart({ root, packRoot, update = runUpdate, refresh
   const lines = [];
   try {
     lines.push(...collapseOffline((await update({ root, packRoot, safetyOnly: true })).lines));
-  } catch {
-    lines.push(OFFLINE_LINE);
+  } catch (err) {
+    lines.push(isNetworkFailure(err) ? OFFLINE_LINE : `pack update failed: ${oneLine(err?.message) || 'unknown error'}`);
   }
   // Runs after the update step because that step can replace AGENTS.student.md. An unwritable folder costs one line.
   try {

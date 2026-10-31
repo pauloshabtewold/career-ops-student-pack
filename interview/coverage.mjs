@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One honest coverage line per preset, read aloud in interview phase 3. Outside tech, coverage is only as good as
+// One honest coverage line per preset, read aloud in interview phase 2. Outside tech, coverage is only as good as
 // the preset's employer list, so the line says what is automated and what is not.
 // Usage: coverage.mjs <preset-id> [<preset-id>] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';

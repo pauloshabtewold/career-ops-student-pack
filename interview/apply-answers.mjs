@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util';
 import * as yaml from 'js-yaml';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
-import { deepMerge, validateConfig } from '../lib/config.mjs';
+import { ConfigError, deepMerge, validateConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
@@ -150,6 +150,13 @@ export function locationTerms(locations) {
   return [...new Set(terms)];
 }
 
+// A seed that names an upstream provider carries that provider's config (api, phenom, ibm); without it upstream's scan
+// cannot read the board, so every key after careers_url is written through.
+function companyLines({ name, careers_url, ...config }) {
+  const extra = Object.keys(config).length ? yaml.dump(config, { lineWidth: -1 }).trimEnd().split('\n').map((l) => `    ${l}`) : [];
+  return [`  - name: ${q(name)}`, `    careers_url: ${careers_url}`, ...extra, '    enabled: true'];
+}
+
 function portalLines(answers, merged, cfg, abbreviations) {
   const rules = effectiveTitleRules(merged, cfg);
   const skipped = new Set();
@@ -168,7 +175,7 @@ function portalLines(answers, merged, cfg, abbreviations) {
     rules,
     title: ['  positive:', ...positive.map((p) => `    - ${q(p)}`), '  negative:', ...negative.map((p) => `    - ${q(p)}`)],
     location: ['  allow:', ...locationTerms(answers.locations).map((l) => `    - ${q(l)}`)],
-    companies: unique.flatMap((e) => [`  - name: ${q(e.name)}`, `    careers_url: ${e.careers_url}`, '    enabled: true']),
+    companies: unique.flatMap(companyLines),
     notes: [...skipped].map((r) => `title rule ${r} cannot be written as an upstream title term, so it was skipped`),
   };
 }
@@ -215,7 +222,8 @@ export function buildConfig(answers) {
       us_citizen: answers.us_citizen ?? false,
       timezone: answers.timezone,
       locations: answers.locations,
-      switches: answers.switches ?? {},
+      // The interview's default is that the student presses submit; the defaults file must not fill a skipped answer.
+      switches: { submission: 'user', ...answers.switches },
       automation: answers.automation ?? 'manual',
       agent: answers.agent ?? 'claude',
       plan: answers.plan ?? 'unknown',
@@ -252,6 +260,41 @@ export function buildConfig(answers) {
   return cfg;
 }
 
+// A rerun rebuilds student.yml from the answers, which carry only what the interview asks. Everything the answers
+// cannot carry (hand-tuned rank, audit and judgment_keywords keys, the measured triage keys, a budget the student
+// raised with triage-budget.mjs) is the student's and is laid over the rebuilt file.
+function keepStudentKeys(cfg, existing) {
+  if (!existing) return cfg;
+  const { rank = {}, audit, judgment_keywords: judgment, triage_budget: budget = {} } = existing;
+  const { metros: _metros, marquee: _marquee, ...rankKept } = rank;
+  const budgetKept = Object.fromEntries(Object.entries(budget).filter(([k]) => cfg.triage_budget?.[k] === undefined));
+  const merged = deepMerge(cfg, {
+    rank: rankKept,
+    ...(audit ? { audit } : {}),
+    ...(judgment ? { judgment_keywords: judgment } : {}),
+    ...(Object.keys(budgetKept).length ? { triage_budget: budgetKept } : {}),
+  });
+  try {
+    validateConfig(merged);
+  } catch (err) {
+    if (err instanceof ConfigError) throw new AnswersError([`config/student.yml keeps a value the pack rejects (${err.message}); fix it or move the file aside, then apply again`]);
+    throw err;
+  }
+  return merged;
+}
+
+function readExistingConfig(file) {
+  if (!existsSync(file)) return null;
+  const text = readFileSync(file, 'utf8');
+  if (!text.trim()) return null;
+  try {
+    const doc = yaml.load(text);
+    return doc && typeof doc === 'object' && !Array.isArray(doc) ? doc : null;
+  } catch (err) {
+    throw new AnswersError([`config/student.yml cannot be parsed (${err.reason ?? err.name}${err.mark ? ` at line ${err.mark.line + 1}` : ''}); fix it or move it aside, then apply again`]);
+  }
+}
+
 function blacklistRows(existing, entries, today) {
   const header = '| Company | Reason | Added |\n|---|---|---|\n';
   const have = new Set(existing.split('\n').map((l) => l.split('|')[1]?.trim().toLowerCase()).filter(Boolean));
@@ -268,6 +311,10 @@ const asYaml = (c) => yaml.dump(c, { lineWidth: -1, quotingType: '"', noRefs: tr
 function resolveCvText(answers, root) {
   if (answers.cv_markdown !== undefined) return answers.cv_markdown;
   if (!answers.cv_path) return '';
+  // A PDF or Word file read as UTF-8 becomes binary noise that still passes the non-empty check.
+  if (!/\.(md|txt)$/i.test(answers.cv_path)) {
+    throw new AnswersError([`cv_path ${answers.cv_path} is not a .md or .txt file; for a PDF or Word resume read the text (node student/interview/resume-text.mjs for .docx) and give it as cv_markdown`]);
+  }
   try {
     return readFileSync(resolve(root, answers.cv_path), 'utf8');
   } catch (err) {
@@ -407,7 +454,7 @@ export async function applyAnswers({ answers, root, packRoot, today, dryRun = fa
   };
   const read = (rel) => (existsSync(join(paths.root, rel)) ? readFileSync(join(paths.root, rel), 'utf8') : '');
 
-  const cfg = buildConfig(answers);
+  const cfg = keepStudentKeys(buildConfig(answers), readExistingConfig(join(paths.root, 'config', 'student.yml')));
   const profileNotes = writeConfigAndProfile({ answers, cvText, cfg, paths, out });
   const abbreviations = readJson(join(packRoot, 'interview', 'field-keywords.json')).abbreviations ?? {};
   const notes = [...writePortals({ answers, merged, cfg, abbreviations, paths, out, read }), ...profileNotes];

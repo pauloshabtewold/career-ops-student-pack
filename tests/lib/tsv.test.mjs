@@ -62,3 +62,15 @@ test('readTsv on an empty file returns no rows', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('W-023-A1-5 appendTsv writes the header into an existing empty file', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pack-tsv-'));
+  try {
+    const file = join(dir, 'rows.tsv');
+    writeFileSync(file, '');
+    await appendTsv(file, HEADER, [{ a: '1', b: '2', c: '3', d: '4' }]);
+    assert.equal(readFileSync(file, 'utf8'), `${HEADER.join('\t')}\n1\t2\t3\t4\n`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

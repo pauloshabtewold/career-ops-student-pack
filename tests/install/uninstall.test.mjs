@@ -65,6 +65,9 @@ test('W-015-U3 uninstall --dry-run changes nothing and a second uninstall is a n
     assert.equal(dry.code, 0);
     assert.match(dry.stdout, /would do: CLAUDE\.local\.md/);
     assert.deepEqual({ claude: read(p.root, 'CLAUDE.local.md'), exclude: read(p.root, '.git/info/exclude') }, before);
+    // W-023-A5-1: a dry run must not call upstream's plugin removal either.
+    assert.ok(!p.upstreamCalls().some((c) => c.cli === 'plugins.mjs' && c.argv[0] === 'remove'), 'dry run calls no plugins.mjs remove');
+    assert.ok(existsSync(join(p.root, 'plugins.local', 'github-lists')), 'plugin copy is still there after a dry run');
     assert.equal(p.run('uninstall.mjs', ['--skip-schedule']).code, 0);
     const again = p.run('uninstall.mjs', ['--skip-schedule']);
     assert.equal(again.code, 0);
@@ -95,6 +98,9 @@ test('W-015-U4 uninstall removes the macOS schedule only when it runs this caree
       const other = uninstall({ root: '/Users/example/other', packRoot, runner, platform: 'darwin', home });
       assert.ok(other.actions.some((a) => a.includes('different career-ops folder')));
       assert.equal(calls.length, 0, 'a schedule for another folder is left alone');
+      const dry = uninstall({ root, packRoot, runner, platform: 'darwin', home, dryRun: true });
+      assert.ok(dry.actions.includes('schedule: would remove'), 'W-023-A5-1 a dry run names the schedule removal');
+      assert.equal(calls.length, 0, 'W-023-A5-1 a dry run runs no schedule removal');
       const mine = uninstall({ root, packRoot, runner, platform: 'darwin', home });
       assert.ok(mine.actions.includes('schedule: removed'));
       assert.deepEqual(calls[0].slice(1), ['remove', '--root', root]);
@@ -114,3 +120,20 @@ test('W-015-U5 line and block removal keep CRLF endings and unrelated text', () 
   assert.equal(withoutBlocks('<!-- student-pack:start -->x<!-- student-pack:end -->\n', [/<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/]), '');
   assert.equal(withoutBlocks('keep\n<!-- student-pack:start -->x<!-- student-pack:end -->\n', [/<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/]), 'keep\n');
 });
+
+// W-023-A2-2
+for (const file of ['CLAUDE.local.md', 'AGENTS.override.md']) {
+  test(`W-023-A2-2 uninstall keeps the ignore lines for ${file} while it keeps the file`, () =>
+    withPack((p) => {
+      assert.equal(p.run('install.mjs', ['--yes', '--skip-npm']).code, 0);
+      const mine = `${read(p.root, file)}\nMy private notes, synthetic.\n`;
+      writeFileSync(join(p.root, file), mine);
+      const r = p.run('uninstall.mjs', ['--skip-schedule']);
+      assert.equal(r.code, 0, r.stdout + r.stderr);
+      assert.ok(read(p.root, file).includes('My private notes, synthetic.'), `${file} is kept`);
+      assert.ok(read(p.root, '.git/info/exclude').split(/\r?\n/).includes(file), `exclude still lists ${file}`);
+      assert.ok(read(p.root, 'config/local-paths.txt').split(/\r?\n/).includes(file), `local-paths still lists ${file}`);
+      const other = file === 'CLAUDE.local.md' ? 'AGENTS.override.md' : 'CLAUDE.local.md';
+      assert.ok(!read(p.root, '.git/info/exclude').split(/\r?\n/).includes(other), `${other} was deleted, so its line goes`);
+    }));
+}

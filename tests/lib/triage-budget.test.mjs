@@ -127,6 +127,26 @@ test('M-001-S4 appendTriageUsage writes the header once and defaults the outcome
     assert.deepEqual(readTriageUsage(data, TODAY), { scheduled: 5, session: 3, firstRun: 0, today: 8, stoppedToday: false, skipped: 0 });
   }));
 
+// W-023-A1-5
+test('W-023-A1-5 a ledger without its header keeps its first data row instead of reading it as the header', () =>
+  withDir((dir) => {
+    writeFileSync(join(dir, 'triage-usage.tsv'), '2026-10-30\tscheduled\t20\tfailed\n');
+    const u = readTriageUsage(dir, TODAY);
+    assert.equal(u.scheduled, 20);
+    assert.equal(u.today, 20);
+    assert.equal(u.stoppedToday, true);
+    assert.equal(u.skipped, 0);
+  }));
+
+// W-023-A1-5
+test('W-023-A1-5 appending to an empty ledger file writes the header first, so the row counts', () =>
+  withDir(async (dir) => {
+    writeFileSync(join(dir, 'triage-usage.tsv'), '');
+    await appendTriageUsage(dir, { date: TODAY, source: 'scheduled', rows: 20 });
+    assert.equal(readFileSync(join(dir, 'triage-usage.tsv'), 'utf8'), `${HEADER}2026-10-30\tscheduled\t20\tok\n`);
+    assert.equal(readTriageUsage(dir, TODAY).today, 20);
+  }));
+
 // M-001-S13
 test('M-001-S13 malformed ledger rows are skipped from every count and reported; a valid row of 0 rows counts 0', () =>
   withDir((dir) => {

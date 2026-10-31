@@ -19,7 +19,8 @@ export function syntheticPostings(n) {
   });
 }
 
-export const fixturePrompt = (n) => buildPrompt({ brief: BRIEF, postings: syntheticPostings(n) });
+// A fixed 16-hex nonce keeps the prompt identical across runs and the same length as a real run's random fence.
+export const fixturePrompt = (n) => buildPrompt({ brief: BRIEF, postings: syntheticPostings(n), nonce: 'f1f1f1f1f1f1f1f1' });
 
 // The calls differ from daily-triage.mjs only in the usage readout flag (--output-format json, --json) and, for codex, a
 // placeholder folder for -C, because the measurement reads usage from stdout, not from the -o file.

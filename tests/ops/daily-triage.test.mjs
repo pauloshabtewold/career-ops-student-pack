@@ -181,13 +181,13 @@ test('legacy-M-002-S23 malformed TRIAGE lines are dropped, counted ignored and t
 // legacy-M-002-S25
 // M-002-S2
 // legacy-M-002-S18: with agent claude the call stays -p --tools '' --model sonnet|opus.
-test('legacy-M-002-S25 M-002-S2 claude starts from the --claude path in the career-ops root with --tools "" and the posting text on stdin', () =>
+test('legacy-M-002-S25 M-002-S2 claude starts from the --claude path in an empty temp folder with --tools "" and the posting text on stdin', () =>
   withRoot({ config: `${PLUS}spend_tier: premium\n`, pending: untriaged(2) }, async (r) => {
     const { runner, calls } = makeRunner(r, { fetch: (url) => (url === jobUrl(2) ? 'x'.repeat(9000) : `Posting body for ${url}`) });
     await dailyTriage({ ...args(r, { claude: '/opt/sample bin/claude' }), runner });
     const c = calls.claude[0];
     assert.equal(c.cmd, '/opt/sample bin/claude');
-    assert.equal(c.opts.cwd, r.root);
+    assert.notEqual(c.opts.cwd, r.root);
     assert.deepEqual(c.args, ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--model', 'opus']);
     assert.equal(c.opts.timeout, 15 * 60 * 1000);
     assert.match(c.opts.input, /Posting body for https:\/\/example\.com\/jobs\/1/);

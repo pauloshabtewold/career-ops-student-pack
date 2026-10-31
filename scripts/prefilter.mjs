@@ -18,6 +18,9 @@ const ABOVE_ENTRY = [
   [/\b(technical lead(er)?|tech lead|team lead|lead)\b/i, 'lead role'],
   [/\b(engineer|developer|analyst|scientist|level|grade)\s*(iii|iv|v|3|4|5)\b|\b(iii|iv)\b/i, 'level III+'],
 ];
+// Nursing programs name the student's school year "senior" ("Senior Nursing Student Extern"); that is not seniority.
+// Nursing words are required so "Senior Student Success Manager" in other fields stays above entry level.
+const SENIOR_STUDENT = /\bsenior(?=\s+(?:nursing\s+student|student\s+nurse|nurse\s+(?:extern|intern))\b)/gi;
 const PHD = /\bph\.?d\b/i;
 const MS_OK = /\b(ms|m\.s\.|master'?s?)\b/i;
 const LADDER = /\b(i|1)\s*(\/|-|or|to)\s*(ii|2)\b/i;
@@ -80,7 +83,7 @@ export function prefilter({ pipelineText, applicationsText = '', preset: merged,
     const ladder = LADDER.test(title);
     for (const [re, why] of ABOVE_ENTRY) {
       if (reason) break;
-      if (re.test(title) && !(why === 'level III+' && ladder)) reason = why;
+      if (re.test(title.replace(SENIOR_STUDENT, 'year')) && !(why === 'level III+' && ladder)) reason = why;
     }
     if (!reason && PHD.test(title) && !MS_OK.test(title)) reason = 'PhD role';
     if (!reason) reason = newGradMismatch(title, config, cycle);
