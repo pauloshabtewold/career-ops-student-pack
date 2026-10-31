@@ -13,11 +13,12 @@ import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { resolveAgentPath, signInHint } from '../lib/agent.mjs';
 import { createClock, zonedInstant } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { SCHEDULE_LABEL, SCHEDULE_TASK_NAME, launchAgentPath } from '../lib/schedule-check.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 
-export const LABEL = 'com.career-ops.student.daily';
-export const TASK_NAME = 'career-ops-student-daily';
+export const LABEL = SCHEDULE_LABEL;
+export const TASK_NAME = SCHEDULE_TASK_NAME;
 const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
 function parseTime(time) {
@@ -106,7 +107,7 @@ export function buildTaskScript({ nodePath, root, time, agent = 'claude', agentP
 const removeScript = () => `Unregister-ScheduledTask -TaskName ${psq(TASK_NAME)} -Confirm:$false\n`;
 const statusScript = () => `Get-ScheduledTask -TaskName ${psq(TASK_NAME)} | Select-Object -ExpandProperty State\n`;
 
-const plistPath = () => join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
+const plistPath = () => launchAgentPath();
 
 export function tryRun(cmd, args) {
   const r = runResult(cmd, args);

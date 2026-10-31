@@ -76,7 +76,7 @@ test('M-002-S11 knownLocations lists the two codex bundle paths on darwin and no
 // M-002-S4, M-002-S21
 test('M-002-S4 the exported constants match the Codex call contract', () => {
   assert.deepEqual([...AGENTS], ['claude', 'codex']);
-  assert.deepEqual([...CODEX_DISABLED_FEATURES], ['apps', 'plugins', 'browser_use', 'in_app_browser', 'computer_use', 'shell_tool', 'hooks']);
+  assert.deepEqual([...CODEX_DISABLED_FEATURES], ['apps', 'plugins', 'browser_use', 'in_app_browser', 'computer_use', 'shell_tool', 'hooks', 'image_generation', 'goals', 'view_image']);
   assert.deepEqual([...CODEX_EXTRA_FLAGS], ['--ignore-user-config', '-c', 'web_search=disabled']);
   assert.equal(AGENT_TIMEOUT_MS, 15 * 60 * 1000);
 });

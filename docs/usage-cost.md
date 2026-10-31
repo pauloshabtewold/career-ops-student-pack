@@ -29,6 +29,8 @@ The pack measured real calls on synthetic postings (5,400 characters each, examp
 | Claude Code 2.1.310, `sonnet` | `claude -p --tools '' --setting-sources project --strict-mcp-config --model sonnet` | 3,600 | 1,548 | 104 |
 | codex-cli 0.165.0-alpha, medium effort | `codex exec` with user config ignored and every tool feature disabled | 11,300 | 1,038 | 31 |
 
+A live check on 2026-10-30 ran the daily triage from a career-ops 1.38.0 install on 45 synthetic rows with the budget set to `all` (3 calls of 20, 20 and 5 rows). Claude Code measured 86,056 input tokens against an estimate of 80,460 (+7%) and 2,618 output against 4,680; codex measured 81,698 input against 80,610 (+1%) and 1,549 output against 1,395. The Claude figure holds only because the call excludes CLAUDE.md (next section); with career-ops' CLAUDE.md loaded, each call carried about 33,000 more input tokens.
+
 Rows go out in chunks of 20, one call per chunk, so the fixed part is paid once per chunk: tokens = chunks x fixed + rows x per-row. The dollar figure prices every input token at the model's base input rate with no cache discount, so it is an upper bound; real calls that hit a cache cost less. Premium spend tier prices the Claude counts at Opus rates and labels them "tokens measured at the standard tier", because only the standard tier was measured.
 
 Prices per million tokens (input, cache hit, output), taken from the vendors' pricing pages, accessed 2026-10-30:
@@ -105,9 +107,9 @@ node student/scripts/triage-budget.mjs calibrate 6 --rows 150 --window weekly
 
 That stores `measured_pct_per_100_rows` and `measured_window` in config/student.yml, and later estimate lines add "your own measurement". It stays on your computer.
 
-## The scheduled Claude call loads project settings only
+## The scheduled Claude call ignores your Claude settings
 
-The scheduled `claude -p` call passes `--setting-sources project --strict-mcp-config`. Your user-level hooks, plugins, MCP servers and settings do not load, so the fixed cost per call is about the measured 3,600 tokens for everyone, where a heavily customized setup would otherwise add tens of thousands, and no user hook runs unattended. The price: anything you keep only in user settings does not apply to the scheduled call, such as an `apiKeyHelper`, an `env` entry or a model override. If your sign-in or API key lives there, move it into the career-ops project settings (settings.json inside its .claude folder) or into the environment of the scheduled task, and run `claude` once in a terminal to confirm it signs in. Never commit a plaintext API key to that folder, because it may be a git repository. Prefer the scheduled task's own environment, or an `apiKeyHelper` that reads the key from your operating system's keychain. A failed call writes a digest note that names these two flags and points here.
+The scheduled `claude -p` call runs in an empty temp folder and passes `--setting-sources project --strict-mcp-config` and `--settings student/templates/triage-claude-settings.json`, which excludes every CLAUDE.md so career-ops' own rules (an 88 KB AGENTS.md) do not ride along on every call. Your user-level hooks, plugins, MCP servers and settings do not load, so the fixed cost per call is about the measured 3,600 tokens for everyone, where a heavily customized setup would otherwise add tens of thousands, and no user hook runs unattended. The price: anything you keep only in user settings does not apply to the scheduled call, such as an `apiKeyHelper`, an `env` entry or a model override. The career-ops project settings do not apply either, because the call does not run in that folder. A normal `claude` sign-in works, since it is not stored in settings. If you use an API key instead, put it in the environment of the scheduled task, and run `claude` once in a terminal to confirm it signs in. A failed call writes a digest note that names these two flags and points here.
 
 ## Long budgets and the schedule timeout
 

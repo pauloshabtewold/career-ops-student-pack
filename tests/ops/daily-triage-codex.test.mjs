@@ -14,7 +14,7 @@ import { PLUS, args, digestFile, flagValue, jobUrl, makeRunner, makeTriageRoot, 
 
 const CODEX = '/opt/sample/bin/codex';
 const CODEX_CFG = `${PLUS}agent: codex\n`;
-const FEATURES = ['apps', 'plugins', 'browser_use', 'in_app_browser', 'computer_use', 'shell_tool', 'hooks'];
+const FEATURES = ['apps', 'plugins', 'browser_use', 'in_app_browser', 'computer_use', 'shell_tool', 'hooks', 'image_generation', 'goals', 'view_image'];
 const codexArgs = (r, extra = {}) => args(r, { agent: 'codex', agentPath: CODEX, claude: null, ...extra });
 const withRoot = async (opts, fn) => {
   const r = makeTriageRoot({ config: CODEX_CFG, ...opts });
@@ -246,6 +246,17 @@ test('legacy-M-002-S19 codex exiting 2 reports its first stderr line and "update
     assert.match(digest, /update codex or the pack/);
     assert.doesNotMatch(digest, /sign in/i);
     assert.doesNotMatch(digest, /usage: codex exec/);
+  }));
+
+// W-022: a live codex-cli 0.166 exits 1, not 2, for a --disable name it does not know.
+test('W-022 codex exiting 1 with "Unknown feature flag" reports "update codex or the pack" without the sign-in hint', () =>
+  withRoot({ pending: untriaged(2) }, async (r) => {
+    const { runner } = makeRunner(r, { codex: failing({ status: 1, stderr: 'Error: Unknown feature flag: view_image' }) });
+    await dailyTriage({ ...codexArgs(r), runner });
+    const digest = r.read(digestFile(r));
+    assert.match(digest, /Unknown feature flag: view_image/);
+    assert.match(digest, /update codex or the pack/);
+    assert.doesNotMatch(digest, /sign in/i);
   }));
 
 // legacy-M-002-S20

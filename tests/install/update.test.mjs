@@ -184,6 +184,21 @@ test('M-005-S16 local commits in student/ block the fast-forward: one line, HEAD
     assert.ok(sysCalls(p).some((c) => c.argv[0] === 'check'), 'upstream step must still run');
   }));
 
+// W-022-UP2
+test('W-022-UP2 an uncommitted edit to a pack file the release changes gets its own line, HEAD unchanged, exit 1', () =>
+  withPack((p) => {
+    p.up.setOutput('update-system', checkJson('up-to-date', { remote: '1.38.0' }));
+    // The override header once sent students to edit AGENTS.student.md, a tracked pack file.
+    appendFileSync(p.file('AGENTS.student.md'), '\nMy own note.\n');
+    const before = p.head();
+    p.publish((o) => appendFileSync(join(o, 'AGENTS.student.md'), '\nRelease line.\n'), 'release', ['v0.2.0']);
+    const r = p.run('update.mjs');
+    assert.equal(r.code, 1, r.stdout + r.stderr);
+    assert.equal(p.head(), before);
+    assert.ok(r.lines.some((l) => l.startsWith('student/ has uncommitted edits to pack files')), r.lines.join('\n'));
+    assert.equal(r.lines.includes(LOCAL_COMMITS), false, r.lines.join('\n'));
+  }));
+
 // W-015-UP1
 test('W-015-UP1 an update with nothing new says the pack and upstream are up to date', () =>
   withPack((p) => {

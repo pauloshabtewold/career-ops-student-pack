@@ -167,9 +167,9 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   }
 
   const results = [];
-  // Only a schedule-installed job passes --log-file; one that still starts daily.mjs directly predates the triage wrapper.
-  const notes = logFile && !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
-    ? ['daily triage did not run: run node student/scripts/schedule.mjs install again to start it']
+  // scheduled.mjs passes --via-scheduled; without it this is a manual run or a schedule from before the triage wrapper, and neither triages.
+  const notes = !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
+    ? ['this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, run node student/scripts/schedule.mjs install again']
     : [];
   try {
     log(`START ${stamp()} student-daily ${today}`);

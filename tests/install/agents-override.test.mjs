@@ -187,7 +187,7 @@ test('M-001-S9 update.mjs refreshes the career-ops block after the upstream step
       updateDismiss: () => {},
       pluginsTrust: () => {},
     };
-    const res2 = await runUpdate({ root: p.root, packRoot: p.pack, upstream });
+    const res2 = await runUpdate({ root: p.root, packRoot: p.pack, upstream, schedule: { platform: 'linux' } });
     assert.equal(res2.code, 0, res2.lines.join('\n'));
     assert.equal(between(readOverride(p.root), U_START, U_END), UPSTREAM_V2);
     assert.ok(readOverride(p.root).startsWith(P_START));

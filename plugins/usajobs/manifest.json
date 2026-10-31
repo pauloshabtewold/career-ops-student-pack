@@ -1,0 +1,11 @@
+{
+  "id": "usajobs",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "Reads recent federal student and recent-graduate postings from the USAJOBS search API, using the student's own free API key and email from .env.",
+  "hooks": ["ingest"],
+  "jobPostings": true,
+  "humanInTheLoop": true,
+  "requiredEnv": ["USAJOBS_API_KEY", "USAJOBS_EMAIL"],
+  "allowedHosts": ["data.usajobs.gov"]
+}

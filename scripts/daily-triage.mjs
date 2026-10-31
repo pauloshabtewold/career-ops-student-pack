@@ -114,13 +114,16 @@ function fetchPosting({ root, row, runner }) {
 // No tools are granted (--tools ''), so posting text cannot make the model act. The prompt travels on stdin. The call runs
 // in an empty temp folder like the codex call, so the career-ops folder's CLAUDE.md (about 80 KB) is not loaded as project
 // memory into every chunk; the folder is removed whether the call succeeds or not.
-function callClaude({ claudePath, model, prompt, runner, platform }) {
+function callClaude({ claudePath, model, prompt, packRoot, runner, platform }) {
   // A .cmd shim on Windows needs a shell; the arguments are fixed literals and the prompt travels on stdin.
   // Through cmd.exe an empty argument vanishes, so it is passed as a quoted pair there.
   const shell = shellForm(claudePath, platform);
   // --setting-sources project --strict-mcp-config keep the student's user-level hooks, plugins and MCP servers out of an
-  // unattended call, so the fixed token cost per call is the same for every student.
-  const args = ['-p', '--tools', shell ? '""' : '', '--setting-sources', 'project', '--strict-mcp-config', '--model', model];
+  // unattended call, so the fixed token cost per call is the same for every student. The settings file excludes every
+  // CLAUDE.md: career-ops' own imports its 88 KB AGENTS.md, which a live run measured at about 33,000 tokens per call
+  // that the triage never reads. It is a file, not inline JSON, so cmd.exe has no quotes to mangle.
+  const settings = join(packRoot, 'templates', 'triage-claude-settings.json');
+  const args = ['-p', '--tools', shell ? '""' : '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', quoteIf(shell, settings), '--model', model];
   // cmd.exe splits an unquoted path at a space (C:\Users\First Last\AppData\Roaming\npm\claude.cmd), so the shell form quotes it.
   return withTempDir('daily-triage-claude-', (tmp) => runner(quoteIf(shell, claudePath), args, callOptions({ cwd: tmp, prompt, shell, agentPath: claudePath })));
 }
@@ -149,14 +152,16 @@ function callCodex({ codexPath, effort, prompt, runner, platform }) {
 const cannotStart = (err) => err.status === 127 || /No such file or directory/i.test(String(err.stderr ?? ''));
 const startFailure = (configured, err) => `${configured} could not start (${oneLine(err.stderr) || oneLine(err.message)}); check that node and ${configured} are still installed, then reinstall ${configured} or fix its install`;
 
-// One digest reason per way a codex call fails. Exit 2 is a usage error (a flag this codex does not know), which signing
-// in cannot fix.
+// One digest reason per way a codex call fails. Exit 2 is a usage error and an unknown --disable name exits 1 with
+// "Unknown feature flag" (codex-cli 0.166); signing in fixes neither.
 function codexFailure(err) {
   if (err.noAnswer) return 'codex wrote no answer';
   if (cannotStart(err)) return startFailure('codex', err);
   if (err.code === 'ETIMEDOUT') return 'codex timed out after 15 minutes';
-  const first = oneLine(String(err.stderr ?? '').split('\n').find((l) => l.trim()) ?? '') || oneLine(err.message) || 'failed';
-  return err.status === 2 ? `codex failed (${first}); update codex or the pack` : `codex failed (${first}); ${signInHint('codex')}`;
+  const stderr = String(err.stderr ?? '');
+  const first = oneLine(stderr.split('\n').find((l) => l.trim()) ?? '') || oneLine(err.message) || 'failed';
+  const usage = err.status === 2 || /unknown feature flag/i.test(stderr);
+  return usage ? `codex failed (${first}); update codex or the pack` : `codex failed (${first}); ${signInHint('codex')}`;
 }
 
 // The first `limit` Pending rows that have a title and no triage= note yet; Infinity selects all of them.
@@ -192,11 +197,11 @@ function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
 }
 
 // One call to the configured agent; the model follows spend_tier (premium opus or high effort, otherwise sonnet or medium).
-function callAgent({ configured, file, config, prompt, runner, platform }) {
+function callAgent({ configured, file, config, prompt, packRoot, runner, platform }) {
   const premium = config.spend_tier === 'premium';
   return configured === 'codex'
     ? callCodex({ codexPath: file, effort: premium ? 'high' : 'medium', prompt, runner, platform })
-    : callClaude({ claudePath: file, model: premium ? 'opus' : 'sonnet', prompt, runner, platform });
+    : callClaude({ claudePath: file, model: premium ? 'opus' : 'sonnet', prompt, packRoot, runner, platform });
 }
 
 // The one-line digest reason for a failed call.
@@ -204,7 +209,7 @@ function agentFailure(configured, err) {
   if (configured === 'codex') return codexFailure(err);
   if (cannotStart(err)) return startFailure('claude', err);
   const reason = oneLine(err.stderr) || (err.code === 'ETIMEDOUT' ? 'claude timed out after 15 minutes' : oneLine(err.message)) || 'claude failed';
-  return `${reason}; ${signInHint('claude')}; the scheduled call loads project settings only (--setting-sources project --strict-mcp-config): see docs/usage-cost.md`;
+  return `${reason}; ${signInHint('claude')}; the scheduled call ignores your Claude settings (--setting-sources project --strict-mcp-config in an empty folder): see docs/usage-cost.md`;
 }
 
 // Why today's run sends nothing, or null when it may send rows. A failed scheduled chunk ends the day's scheduled
@@ -247,7 +252,7 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
   const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: chunk.length, outcome });
   let output;
   try {
-    output = callAgent({ configured, file, config, prompt, root, runner, platform });
+    output = callAgent({ configured, file, config, prompt, root, packRoot, runner, platform });
   } catch (err) {
     // An empty answer spent the call but is not a sign-in or timeout failure, so it must not end the day's scheduled triage.
     const sent = err.code !== 'ENOENT' && !cannotStart(err);

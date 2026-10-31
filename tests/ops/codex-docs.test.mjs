@@ -49,10 +49,13 @@ test('M-003-S3 the template sets the doc limit and sandbox mode and disables eac
   assert.match(toml, /^approval_policy\s*=\s*"on-request"\s*$/m);
   assert.match(toml, /\[sandbox_workspace_write\]/);
   assert.match(toml, /network_access\s*=\s*true/);
-  for (const tool of ['send_email', 'send_draft', 'forward_emails', 'delete_emails', 'trash_emails', 'archive_emails', 'create_draft']) {
-    assert.ok(toml.includes(tool), `${tool} listed`);
-    assert.match(toml, new RegExp(`${tool}[\\s\\S]{0,80}?false`), `${tool} disabled`);
-  }
+  // W-022: the names a live Codex listing showed for every Gmail tool that is not read-only, keyed by the connector id.
+  const app = 'apps.connector_2128aebfecb84f64a069897515042a44.tools';
+  const write = ['send_email', 'send_draft', 'forward_emails', 'delete_emails', 'archive_emails', 'create_draft', 'update_draft', 'batch_modify_email', 'apply_labels_to_emails', 'bulk_label_matching_emails', 'create_label'];
+  for (const tool of write) assert.match(toml, new RegExp(`^\\[${app.replace(/\./g, '\\.')}\\.${tool}\\]\\nenabled = false$`, 'm'), `${tool} disabled`);
+  assert.equal((toml.match(/^\[apps\./gm) ?? []).length, write.length, 'no other app entries');
+  assert.doesNotMatch(toml, /\[apps\.gmail\./, 'Codex ignores an app keyed by its name');
+  for (const read of ['search_emails', 'read_email]', 'read_email_thread', 'batch_read_email']) assert.ok(!toml.includes(`.${read}`), `${read} stays on`);
   assert.match(toml, /\.codex\/config\.toml/);
   assert.match(toml, /trust/i);
 });
@@ -107,18 +110,22 @@ test('M-003-S8 docs/codex.md tells the student to restart Codex after node stude
 });
 
 // M-003-S9
-test('M-003-S9 the template and docs/codex.md mark Gmail app-tool keys unverified; codex triage is a preview', () => {
+// W-022: the keys and the triage lockdown were checked live on macOS; Windows and the browser stay a preview.
+test('M-003-S9 the template and docs/codex.md say the Gmail keys were checked live; only Windows and the browser stay a preview', () => {
   const toml = read('templates/codex-config.suggested.toml');
-  assert.match(toml, /^#[^\n]*(not checked|unverified)/im);
-  assert.match(toml, /second guard/i);
+  assert.doesNotMatch(toml, /unverified|not checked/i);
+  assert.match(toml, /live\s*(#\s*)?listing run/i);
+  assert.match(toml, /main guard/i);
   const doc = read('docs/codex.md');
-  assert.match(doc, /unverified/i);
-  assert.match(doc, /preview/i);
+  assert.doesNotMatch(doc, /unverified/i);
+  assert.match(doc, /Windows[^\n]*preview|preview[^\n]*Windows/i);
+  assert.doesNotMatch(doc, /Treat the triage as a preview/);
   assert.match(doc, /--ignore-user-config/);
   assert.match(doc, /agent: codex/);
   assert.match(doc, /schedule\.mjs install/);
   const needs = doc.slice(doc.search(/needs a real account/i));
-  assert.match(needs, /list its tools|lists? (its )?tools/i);
+  assert.match(needs, /Windows triage run that lists its tools/);
+  assert.doesNotMatch(needs, /write-tool keys/i);
   assert.match(needs, /Gmail/);
   assert.match(needs, /Task Scheduler/);
 });

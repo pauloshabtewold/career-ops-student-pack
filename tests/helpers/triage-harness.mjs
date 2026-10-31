@@ -1,13 +1,16 @@
 // Fixtures for the daily-triage tests: a scratch root with a config, a pipeline and a brief, and a fake runner that
 // answers fetch-jd.mjs and claude calls from the test and runs the pack's own scripts for real.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, join } from 'node:path';
 import { defaultRunner } from '../../lib/upstream.mjs';
 import { PACK_ROOT, TODAY, jobUrl, line, makeRoot, pipelineText } from './script-harness.mjs';
 
 export { PACK_ROOT, TODAY, jobUrl, line };
 export const BRIEF_MARKER = 'TRIAGE-RULES-MARKER-7Q';
 export const PLUS = 'automation: scheduled-discovery-plus-triage\n';
+// The settings file every claude triage call passes so no CLAUDE.md loads (W-022).
+export const CLAUDE_SETTINGS = join(PACK_ROOT, 'templates', 'triage-claude-settings.json');
+export const claudeArgs = (model) => ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', CLAUDE_SETTINGS, '--model', model];
 export const digestFile = (r) => `data/digest/student-${TODAY}.md`;
 
 export const verdict = (v, url, score = '4.0', reason = 'fits the role') => `TRIAGE: ${v} | ${url} | ${score}/5 | ${reason}`;

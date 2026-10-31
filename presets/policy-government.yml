@@ -2,7 +2,7 @@ id: policy-government
 name: "Policy, political science, government"
 coverage:
   level: semi-automated
-  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 52% of the seed list. State and city boards on governmentjobs.com are not scanned, because that site disallows bots. City of New York student and entry-level postings come from NYC Open Data when the nyc-jobs feed is enabled."
+  note: "Discovery by alert for federal roles: save a USAJOBS search with email alerts and the inbox step reads them, or enable the optional usajobs feed with your own free USAJOBS API key to read recent student and recent-graduate federal postings; think tanks, state and local jobs, and nonprofits stay manual or alert-only. Federal agencies and the employers with no readable board stay as watch-only seeds, about 52% of the seed list. State and city boards on governmentjobs.com are not scanned, because that site disallows bots. City of New York student and entry-level postings come from NYC Open Data when the nyc-jobs feed is enabled."
 title_rules:
   include:
     - "policy"
@@ -32,6 +32,7 @@ recruiting_calendar:
     - {name: Fall, start_month: 8}
 sources:
   nyc_jobs: true
+  usajobs: true
   github_lists:
     - name: litos-policy
       repo: mehek-builds/Hiring-Now
