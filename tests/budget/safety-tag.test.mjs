@@ -43,6 +43,8 @@ function put(root, rel, text) {
 function scratchRepo() {
   const root = mkdtempSync(join(tmpdir(), 'pack-safety-'));
   git(root, 'init', '-q');
+  // Windows runners default to autocrlf, which would store a CRLF fixture as LF; the real repo pins eol=lf instead.
+  git(root, 'config', 'core.autocrlf', 'false');
   cpSync(join(PACK_ROOT, 'lib'), join(root, 'lib'), { recursive: true });
   cpSync(join(PACK_ROOT, 'scripts', 'check-safety-tag.mjs'), join(root, 'scripts', 'check-safety-tag.mjs'));
   symlinkSync(join(PACK_ROOT, 'node_modules'), join(root, 'node_modules'));
