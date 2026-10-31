@@ -2,6 +2,10 @@
 
 One section per pack release, newest first. The release workflow writes each section from the first-parent commit subjects since the previous release.
 
+## v0.2.1 (2026-10-30)
+
+- W-024: fix the W-023 review leftovers (#24)
+
 ## Unreleased
 
 - W-024: the W-023 review leftovers. Uninstall on Windows removes the daily task only when it runs this career-ops folder and says when none was registered (`schedule.mjs remove` exits 1 on a real Unregister failure), install and uninstall find `.git/info/exclude` through git so a worktree or `.git` file no longer crashes them (and skip the step when the folder is not the top of its own repository), and uninstall clears an upstream dismiss marker for a release outside the pack's range; the safety-tag gate refuses a `budget.mjs` change outside `CEILINGS`, a `CEILINGS` line that is not a plain entry and a `budgetSha256` that does not match, and never runs the tag's `budget.mjs` before those checks pass (`docs/maintenance.md`); the nursing preset drops pharmacy, physician, social work and staff program titles and narrows `clinical` to `clinical nurse`; the prefilter marks titles that start with vice president, VP, chief, professor or general counsel (after an optional Associate, Assistant, Deputy or Executive) as `senior title`, which parity explains; `sources_chosen: []` now keeps no GitHub lists (an absent field still keeps all, and apply-answers says so); `first-run.mjs --list-only` lists the rows for one more batch without rerunning the ingest; the codex triage comment and `docs/codex-spike.md` record a second live tool listing; tests cover the triage budget's effect on the scheduled timeout, the weekly calibration line, the price table and the legacy `--claude` plist
