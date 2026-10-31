@@ -2,6 +2,22 @@
 
 One section per pack release, newest first. The release workflow writes each section from the first-parent commit subjects since the previous release.
 
+## v0.2.0 (2026-10-30)
+
+- W-022: live Codex/Claude triage checks, USAJOBS feed, old-schedule notice (#23)
+- W-023: review fixes for W-012 to W-021 (#22)
+- W-021: NYC Jobs feed for policy-government (NYC Open Data, keyless) (#20)
+- W-016: student-owned triage budget with estimated usage cost (#21)
+- W-020: nursing preset (76 readable hospital boards) (#19)
+- W-019: seeds can name an upstream provider (Phenom, Radancy, Jibe, IBM) (#18)
+- W-018: drop low-yield jobright lists (#17)
+- W-017: job sources per major (lists, seeds, policy robots cleanup) (#16)
+- W-015: student-eye walkthrough fixes (uninstall, schedule time zone, presets, interview, e2e tier) (#15)
+- W-014: refactor top-10 (timezone today, shared entry guard, lib seams) (#14)
+- W-013: Codex support (AGENTS.override.md, agent choice, Codex triage, docs) (#13)
+- W-012: student pack gap fixes, first run to a real top 10 (#12)
+- W-011: audit issue reuse, single BYO coverage line, semver-only pickBase, parity node_modules link (#11)
+
 ## Unreleased
 
 - W-022: new `usajobs` plugin 1.0.0, off by default, reads federal student and recent-graduate postings from the USAJOBS search API with the student's own free key and email from `.env` (`USAJOBS_API_KEY`, `USAJOBS_EMAIL`); presets gain `sources.usajobs`, policy-government turns it on, the daily and first runs add a `usajobs` step when the student enabled it, and the interview offers it after NYC Jobs and never requests a key for the student
