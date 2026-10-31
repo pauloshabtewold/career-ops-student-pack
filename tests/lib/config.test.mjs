@@ -26,7 +26,7 @@ test('M-001-S7 subset merges over defaults and result is frozen', async () => {
     assert.equal(cfg.daily_target, 20);
     assert.equal(cfg.switches.outreach, 'drafts');
     assert.equal(cfg.switches.handshake, 'on');
-    assert.equal(cfg.switches.submission, 'agent');
+    assert.equal(cfg.switches.submission, 'user');
     assert.equal(cfg.spend_tier, 'standard');
     assert.equal(cfg.score_floor, 3.5);
     assert.equal(cfg.linkedin_tier, 'free');
