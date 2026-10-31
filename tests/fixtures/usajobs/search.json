@@ -1,0 +1,16 @@
+{
+  "LanguageCode": "EN",
+  "SearchParameters": {"Keyword": "", "HiringPath": "student;graduates"},
+  "SearchResult": {
+    "SearchResultCount": 6,
+    "SearchResultCountAll": 6,
+    "SearchResultItems": [
+      {"MatchedObjectId": "900001", "MatchedObjectDescriptor": {"PositionID": "EX-26-0001", "PositionTitle": "Student Trainee (Policy Analyst)", "PositionURI": "https://www.usajobs.gov/job/900001", "OrganizationName": "Example Bureau of Data", "DepartmentName": "Department of Examples", "PositionLocationDisplay": "Washington, District of Columbia"}},
+      {"MatchedObjectId": "900002", "MatchedObjectDescriptor": {"PositionID": "EX-26-0002", "PositionTitle": "  Recent   Graduate Program Analyst ", "PositionURI": "https://www.usajobs.gov/job/900002", "OrganizationName": "", "DepartmentName": "Department of Examples", "PositionLocationDisplay": "Multiple Locations"}},
+      {"MatchedObjectId": "900001", "MatchedObjectDescriptor": {"PositionID": "EX-26-0001", "PositionTitle": "Student Trainee (Policy Analyst)", "PositionURI": "https://www.usajobs.gov/job/900001", "OrganizationName": "Example Bureau of Data", "PositionLocationDisplay": "Washington, District of Columbia"}},
+      {"MatchedObjectId": "900003", "MatchedObjectDescriptor": {"PositionID": "EX-26-0003", "PositionTitle": "", "PositionURI": "https://www.usajobs.gov/job/900003", "OrganizationName": "Example Agency"}},
+      {"MatchedObjectId": "900004", "MatchedObjectDescriptor": {"PositionID": "EX-26-0004", "PositionTitle": "Wrong host", "PositionURI": "https://example.com/job/900004", "OrganizationName": "Example Agency"}},
+      {"MatchedObjectId": "900005", "MatchedObjectDescriptor": {"PositionID": "EX-26-0005", "PositionTitle": "Plain http link", "PositionURI": "http://www.usajobs.gov/job/900005", "OrganizationName": "Example Agency"}}
+    ]
+  }
+}

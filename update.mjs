@@ -11,6 +11,7 @@ import { refreshOverride } from './lib/agents-override.mjs';
 import { parseArgs, runCli, isMain } from './lib/args.mjs';
 import { verifyAndRestore } from './lib/integrity.mjs';
 import { resolvePaths } from './lib/paths.mjs';
+import { scheduleNotice } from './lib/schedule-check.mjs';
 import { checkSafetyDiff } from './lib/safety-diff.mjs';
 import { inRange } from './lib/semver.mjs';
 import { oneLine } from './lib/text.mjs';
@@ -137,7 +138,7 @@ function updateUpstream({ up, packRoot, dryRun, say }) {
   else if (status) say(`upstream: up to date (${up.version()})`);
 }
 
-export async function runUpdate({ root, packRoot, offline = false, dryRun = false, safetyOnly = false, runner = defaultRunner, upstream }) {
+export async function runUpdate({ root, packRoot, offline = false, dryRun = false, safetyOnly = false, runner = defaultRunner, upstream, schedule = {} }) {
   const lines = [];
   const say = (l) => lines.push(l);
   const up = upstream ?? createUpstream({ root, runner });
@@ -159,6 +160,11 @@ export async function runUpdate({ root, packRoot, offline = false, dryRun = fals
     } catch (err) {
       say(`AGENTS.override.md not refreshed (${oneLine(err.message) || 'write failed'})`);
     }
+  }
+
+  if (!safetyOnly) {
+    const notice = await scheduleNotice({ root, ...schedule });
+    if (notice) say(notice);
   }
 
   const last = verifyAndRestore({ packRoot, runner });

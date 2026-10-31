@@ -4,6 +4,8 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-022: new `usajobs` plugin 1.0.0, off by default, reads federal student and recent-graduate postings from the USAJOBS search API with the student's own free key and email from `.env` (`USAJOBS_API_KEY`, `USAJOBS_EMAIL`); presets gain `sources.usajobs`, policy-government turns it on, the daily and first runs add a `usajobs` step when the student enabled it, and the interview offers it after NYC Jobs and never requests a key for the student
+- W-022: `update.mjs` reads the installed macOS LaunchAgent or Windows scheduled task and says to run `node student/scripts/schedule.mjs install` again when a schedule from an older pack skips triage; `daily.mjs` run directly now always warns plus-triage students that triage needs `scheduled.mjs`, not only when it writes a log file
 - W-022: the claude triage call also passes `--settings student/templates/triage-claude-settings.json`, which excludes CLAUDE.md, so career-ops' 88 KB AGENTS.md no longer adds about 33,000 input tokens to every call; a live 45-row run came within 7% of the estimate on input
 - W-022: the codex triage call also disables image generation, goals and the image viewer, which a live tool listing still showed; an "Unknown feature flag" exit now says to update codex or the pack instead of to sign in
 - W-022: `templates/codex-config.suggested.toml` keys the Gmail tools by the connector id and turns off all 11 that change mail; a live run showed only the 10 read tools; `docs/codex.md` describes the trust step as checked live, and the Codex triage is no longer a preview on macOS (Windows and the browser stay a preview)
