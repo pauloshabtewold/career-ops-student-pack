@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Installs the pack into a plain career-ops checkout. Run as `node student/install.mjs` from the career-ops folder.
-// Writes only inside the career-ops root: local-paths.txt and .git/info/exclude entries, the CLAUDE.local.md import
+// Writes only inside the career-ops root (the one exception is git's own info/exclude file, which for a worktree or a
+// --separate-git-dir checkout sits outside it): local-paths.txt and exclude entries, the CLAUDE.local.md import
 // block, the generated AGENTS.override.md that Codex reads, and full copies of the pack plugins in plugins.local/. It
 // never enables a plugin (consent belongs to the interview) and never touches a Claude Code settings file or a Codex
 // config file. It also installs the dependencies the pack needs:
 // `npm ci --omit=dev` in the pack folder and, when career-ops has no node_modules yet, `npm install` there;
 // --skip-npm leaves those out for tests and offline repairs.
 // Usage: install.mjs [--root R] [--dry-run] [--yes] [--skip-npm]
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs, runCli, isMain } from './lib/args.mjs';
 import { refreshOverride } from './lib/agents-override.mjs';
@@ -21,6 +22,25 @@ export class InstallError extends Error {}
 // .codex/config.toml is listed so a student's own copy of the suggested Codex config stays out of upstream's commits.
 export const LOCAL_PATHS = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml'];
 export const EXCLUDES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', 'config/student.yml'];
+// The exclude file git itself uses for root, or null when git cannot say (not a repository, no git). It is not
+// root/.git/info/exclude when .git is a file, as in a worktree, a submodule or a --separate-git-dir checkout.
+export function gitExcludePath(root, runner) {
+  try {
+    const [top, path] = String(runner('git', ['rev-parse', '--show-toplevel', '--git-path', 'info/exclude'], { cwd: root })).trim().split(/\r?\n/);
+    // A career-ops folder with no repository of its own would otherwise resolve to an enclosing repository's exclude file.
+    if (!top || !path || !samePath(top, root)) return null;
+    return resolve(root, path);
+  } catch {
+    return null;
+  }
+}
+
+const samePath = (a, b) => {
+  const real = (p) => realpathSync.native(resolve(p));
+  const [x, y] = [real(a), real(b)];
+  return process.platform === 'win32' ? x.toLowerCase() === y.toLowerCase() : x === y;
+};
+
 export const BLOCK_RE = /<!-- student-pack:start -->[\s\S]*?<!-- student-pack:end -->/;
 const BLOCK = '<!-- student-pack:start -->@student/AGENTS.student.md<!-- student-pack:end -->';
 const NPM_TIMEOUT_MS = 10 * 60 * 1000;
@@ -99,8 +119,8 @@ export function install({ root, packRoot, dryRun = false, runner = defaultRunner
     if (rel.startsWith('..') || resolve(file) !== file) throw new InstallError(`refusing to write outside ${root}`);
     return file;
   };
-  const edit = (file, update, label) => {
-    const target = inside(file);
+  const edit = (file, update, label, { anywhere = false } = {}) => {
+    const target = anywhere ? file : inside(file);
     const before = existsSync(target) ? readFileSync(target, 'utf8') : '';
     const after = update(before);
     if (after === before) return;
@@ -111,7 +131,9 @@ export function install({ root, packRoot, dryRun = false, runner = defaultRunner
     }
   };
   edit(join(root, 'config', 'local-paths.txt'), (t) => addLines(t, LOCAL_PATHS), 'config/local-paths.txt: added pack paths');
-  edit(join(root, '.git', 'info', 'exclude'), (t) => addLines(t, EXCLUDES), '.git/info/exclude: added pack entries');
+  const exclude = gitExcludePath(root, runner);
+  if (exclude) edit(exclude, (t) => addLines(t, EXCLUDES), '.git/info/exclude: added pack entries', { anywhere: true });
+  else actions.push('.git/info/exclude: skipped, git could not name the file; add the pack entries to your git exclude by hand if you want them');
   edit(join(root, 'CLAUDE.local.md'), withBlock, 'CLAUDE.local.md: wrote the pack import block');
   const override = refreshOverride({ root, packRoot, dryRun });
   if (override.status === 'created' || override.status === 'updated') actions.push('AGENTS.override.md: wrote the pack block and the career-ops AGENTS.md copy');

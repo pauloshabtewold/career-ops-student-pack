@@ -130,6 +130,13 @@ test('M-001-S5 a calibration of 4 percent per 100 rows over a 5-hour window adds
   assert.match(text, /your own measurement: about 8% of your 5-hour window/);
 });
 
+// W-024-A5-11
+test('W-024-A5-11 a calibration of 4 percent per 100 rows over a weekly window adds a 200-row line of about 8% of the weekly limit', () => {
+  const text = formatCostLine({ agent: 'claude', plan: 'claude-pro', rows: 200, calibration: { pctPer100Rows: 4, window: 'weekly' } });
+  assert.match(text, /your own measurement: about 8% of your weekly limit/);
+  assert.doesNotMatch(text, /5-hour window/);
+});
+
 // M-001-S5
 test('M-001-S5 without a calibration the line has no own-measurement part', () => {
   assert.doesNotMatch(formatCostLine({ agent: 'claude', plan: 'claude-pro', rows: 200 }), /your own measurement/);

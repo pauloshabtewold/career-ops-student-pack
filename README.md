@@ -102,7 +102,7 @@ From the career-ops folder:
 node student/uninstall.mjs
 ```
 
-It removes the daily schedule (only if it runs this career-ops folder), the pack plugins through upstream's `plugins.mjs remove`, the pack blocks in `CLAUDE.local.md` and `AGENTS.override.md` (deleting each file only if nothing else is in it), and the pack lines in `config/local-paths.txt` and `.git/info/exclude`. Your data folder, `cv.md`, `profile.yml`, `portals.yml` and `config/student.yml` stay. Add `--dry-run` to see the list first. Then delete the `student` folder: `rm -rf student` on macOS, `Remove-Item -Recurse -Force student` in PowerShell.
+It removes the daily schedule (only if it runs this career-ops folder), the pack plugins through upstream's `plugins.mjs remove`, the pack blocks in `CLAUDE.local.md` and `AGENTS.override.md` (deleting each file only if nothing else is in it), the pack lines in `config/local-paths.txt` and git's `info/exclude` (found through git, so it also works when `.git` is a file), and upstream's `.update-dismissed` marker when it dismissed a release this pack does not support. Your data folder, `cv.md`, `profile.yml`, `portals.yml` and `config/student.yml` stay. Add `--dry-run` to see the list first. Then delete the `student` folder: `rm -rf student` on macOS, `Remove-Item -Recurse -Force student` in PowerShell.
 
 ## Switching things off
 

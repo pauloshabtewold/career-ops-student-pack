@@ -44,6 +44,7 @@ Only shell and apply_patch. No MCP, web, browser or Gmail call happened in any r
 | Triage argv in an empty folder, asked to list its tools and call none | no Gmail, browser, MCP server, web or shell tool; MCP resource listing returned 0 servers |
 | `functions.exec` in that call | a JavaScript runner without `require`, `process` or `fetch` |
 | Image generation, goals and image viewer before they were disabled | listed; gone once disabled |
+| Second listing on 2026-10-30, same argv plus `--disable` for `multi_agent`, `unified_exec`, `sleep_tool`, `tool_suggest`, `skill_search` and `code_mode_host` | tools still reported: `functions.exec`, `functions.wait`, `request_user_input`, the collaboration agent tools (`spawn_agent`, `send_message`, `wait_agent` and others), `apply_patch`, the three MCP resource tools and a clock tool; those six flags change nothing, so they are not passed |
 | An unknown `--disable` name | exit 1 with "Unknown feature flag" |
 | Daily triage of 45 synthetic rows, budget `all` | 3 calls of 20, 20 and 5 rows, 3 ledger rows, cost line in the digest, 31 s |
 | Measured tokens against the estimate for those 45 rows | input +1%, output +11% |

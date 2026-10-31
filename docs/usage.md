@@ -25,6 +25,8 @@ It makes no model call. It prints one line per step (`first-run: github-lists ok
 - `First-run triage budget: 60 rows (N scored so far, batches of 20)`, the rows the first run may score (60 by default, any whole number or `all`). First-run rows count across every date, so rerunning the interview does not hand out a fresh 60.
 - Up to 20 of those rows as `url | company | title`, never more than the rows left in the first-run budget. When more exist, the last line is `... and N more untriaged Pending rows`; with none it says `no untriaged Pending rows`; with the budget used it lists none and says the daily triage scores the rest. Add `--n 10` to show fewer or more.
 
+To list the rows again without bringing in new postings (for one more batch), add `--list-only`: `node student/scripts/first-run.mjs --list-only` skips the ingest steps and prints only the counts and the rows.
+
 Claude then scores the listed rows in your session, applies the verdicts with `node student/scripts/apply-triage.mjs <file>` and records the count with `node student/scripts/triage-budget.mjs log <n> --first-run`. To raise the first-run budget, see the triage budget below (`set <n|all> --first-run`). `node student/scripts/rank-queue.mjs --n 10` shows your top 10 (`--n N` shows a different number). If the top list is empty, the likely causes are an empty feed that day, a field with thin coverage or titles that do not fit your graduation cycle; run the first run again tomorrow or add target employers.
 
 You can say "stop outreach" or "stop handshake" at any time. Both are on by default and either one turns the matching feature off in config/student.yml.

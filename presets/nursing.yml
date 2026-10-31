@@ -13,7 +13,7 @@ title_rules:
     - "residency"
     - "graduate nurse"
     - "patient care tech"
-    - "clinical"
+    - "clinical nurse"
   exclude:
     - "nurse practitioner"
     - "\\bcrna\\b"
@@ -24,6 +24,12 @@ title_rules:
     - "recruit"
     - "sales representative"
     - "driver"
+    - "pharmac"
+    - "\\bpgy"
+    - "(resident|attending|staff) physician"
+    - "physician (assistant|associate|fellow|resident|scientist)"
+    - "social work"
+    - "program (specialist|coordinator|manager)"
 early_career: "\\b(residency|resident|new ?grad(uate)?|graduate (registered )?nurse|graduate rn|extern(ship)?|intern(ship)?|student nurse|nurse tech(nician)?|patient care tech(nician)?|transition to practice|early[- ]career|entry[- ]level)\\b"
 recruiting_calendar:
   rollover_month: 7

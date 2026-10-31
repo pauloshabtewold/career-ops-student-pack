@@ -18,11 +18,10 @@ function leaves(value, pick, out = []) {
   return out;
 }
 const sourceUrls = () => [...new Set(leaves([PLANS, PRICES], (v) => typeof v === 'string' && /^https?:\/\//.test(v)))];
-const measuredNumbers = () => [...new Set(leaves(MEASURED, (v) => typeof v === 'number' && Number.isFinite(v)))];
-
-function missingFromDoc(text, { ids, urls }) {
-  return { ids: ids.filter((id) => !text.includes(id)), urls: urls.filter((u) => !text.includes(u)) };
-}
+const cells = (line) => line.split('|').slice(1, -1).map((c) => c.trim());
+const tableRow = (doc, needle) => doc.split('\n').find((l) => l.startsWith('|') && cells(l)[0].includes(needle));
+const grouped = (n) => n.toLocaleString('en-US');
+const dollars = (n) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
 
 const triageBudgetCommands = (doc) =>
   readDoc(doc).split('\n').map((line, i) => ({ line, at: `${doc}:${i + 1}` }))
@@ -35,7 +34,8 @@ test('M-004-S1 docs/usage-cost.md lists every plan id, every source url and the 
   const doc = readDoc('docs/usage-cost.md');
   const urls = sourceUrls();
   assert.ok(urls.length > 0, 'lib/usage-cost.mjs carries source urls');
-  assert.deepEqual(missingFromDoc(doc, { ids: [...PLAN_IDS], urls }), { ids: [], urls: [] });
+  assert.deepEqual([...PLAN_IDS].filter((id) => !doc.includes(id)), [], 'plan ids missing from the doc');
+  assert.deepEqual(urls.filter((u) => !doc.includes(u)), [], 'source urls missing from the doc');
   assert.ok(PLAN_IDS.includes('claude-pro') && PLAN_IDS.includes('chatgpt-plus'));
   assert.match(doc, /not published/);
   assert.match(doc, /accessed 2026-10-30/);
@@ -44,11 +44,18 @@ test('M-004-S1 docs/usage-cost.md lists every plan id, every source url and the 
 // M-004-S1 normal
 test('M-004-S1 docs/usage-cost.md states the measured constants, the method, the word estimate, /usage and /status', () => {
   const doc = readDoc('docs/usage-cost.md');
-  const nums = measuredNumbers();
-  assert.ok(nums.length > 0, 'MEASURED carries numeric constants');
-  for (const n of nums) {
-    const shown = [String(n), n.toLocaleString('en-US')];
-    assert.ok(shown.some((s) => doc.includes(s)), `measured constant ${n} shown`);
+  for (const agent of ['claude', 'codex']) {
+    const m = MEASURED[agent];
+    const row = tableRow(doc, m.client);
+    assert.ok(row, `measured table has a row for ${m.client}`);
+    const [, , fixed, perRow, output] = cells(row);
+    assert.deepEqual([fixed, perRow, output], [grouped(m.fixedInput), grouped(m.inputPerRow), grouped(m.outputPerRow)], `${agent} measured constants on the ${m.client} row`);
+  }
+  for (const [id, p] of Object.entries(PRICES)) {
+    const row = tableRow(doc, p.label);
+    assert.ok(row, `price table has a row for ${id} (${p.label})`);
+    const [, input, cacheHit, output] = cells(row);
+    assert.deepEqual([input, cacheHit, output], [dollars(p.input), dollars(p.cacheHit), dollars(p.output)], `${id} prices on the ${p.label} row`);
   }
   assert.ok(doc.includes('scripts/ci/usage-fixture.mjs'));
   assert.match(doc, /synthetic/i);
@@ -136,13 +143,4 @@ test('M-004-S4 every set example with --confirm follows the same example without
     }
   }
   assert.ok(confirmed > 0, 'a writing set example with --confirm is shown');
-});
-
-// M-004-S5 error
-test('M-004-S5 the drift check names exactly the missing plan id and source url of a synthetic page', () => {
-  const ids = ['plan-a', 'plan-b', 'plan-c'];
-  const urls = ['https://example.test/one', 'https://example.test/two'];
-  const page = 'plan-a plan-c https://example.test/one accessed 2026-10-30';
-  assert.deepEqual(missingFromDoc(page, { ids, urls }), { ids: ['plan-b'], urls: ['https://example.test/two'] });
-  assert.deepEqual(missingFromDoc(`${page} plan-b https://example.test/two`, { ids, urls }), { ids: [], urls: [] });
 });

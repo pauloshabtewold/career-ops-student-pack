@@ -15,6 +15,10 @@ import { INTERN_TITLE, NEWGRAD_TITLE } from '../lib/title-patterns.mjs';
 
 const ABOVE_ENTRY = [
   [/\b(senior|sr\.?|staff|principal|distinguished|director|manager|head of)\b/i, 'above entry level'],
+  // These follow "Associate" in senior titles that the early-career pattern would otherwise accept. Anchored to the start so
+  // "Legal Intern, Office of the General Counsel" stays an internship; a reason of their own lets the parity harness tell
+  // this pack-only rule apart from the shared one above.
+  [/^\W*(?:(?:associate|assistant|deputy|executive)\s+)?(vice president|vp|chief|professor|general counsel)\b/i, 'senior title'],
   [/\b(technical lead(er)?|tech lead|team lead|lead)\b/i, 'lead role'],
   [/\b(engineer|developer|analyst|scientist|level|grade)\s*(iii|iv|v|3|4|5)\b|\b(iii|iv)\b/i, 'level III+'],
 ];

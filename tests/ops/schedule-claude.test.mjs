@@ -56,12 +56,14 @@ test('M-002-S11 install --dry-run prints a job that starts student/scripts/sched
 
 // M-002-S27
 test('M-002-S27 buildPlist writes --agent claude --agent-path with the absolute claude path and omits them without claude', () => {
-  const xml = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30', claude: '/opt/sample bin/claude' });
+  const xml = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30', agent: 'claude', agentPath: '/opt/sample bin/claude' });
   assert.match(xml, /<string>[^<]*student[\\/]scripts[\\/]scheduled\.mjs<\/string>/);
   assert.match(xml, /<string>--agent<\/string>\s*<string>claude<\/string>\s*<string>--agent-path<\/string>\s*<string>\/opt\/sample bin\/claude<\/string>/);
   assert.doesNotMatch(xml, /--claude/);
+  // The legacy claude parameter (an older caller) must produce the same job as agentPath.
   const legacy = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30', claude: '/opt/sample bin/claude' });
-  assert.match(legacy, /<string>--agent-path<\/string>\s*<string>\/opt\/sample bin\/claude<\/string>/);
+  assert.equal(legacy, xml);
+  assert.match(legacy, /<string>--agent<\/string>\s*<string>claude<\/string>\s*<string>--agent-path<\/string>\s*<string>\/opt\/sample bin\/claude<\/string>/);
   assert.match(xml, new RegExp(`<key>WorkingDirectory</key>\\s*<string>${esc(ROOT)}</string>`));
   const none = buildPlist({ nodePath: NODE, root: ROOT, time: '07:30' });
   assert.doesNotMatch(none, /--claude|--agent/);

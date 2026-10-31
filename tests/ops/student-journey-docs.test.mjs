@@ -139,8 +139,9 @@ test('M-003-S8 README describes the second install run and drops the old sentenc
   const readme = readDoc('README.md');
   assert.ok(!readme.includes('Running it again changes nothing'));
   const install = readme.slice(readme.indexOf('## Install'), readme.indexOf('## Update'));
-  assert.match(install, /again|second|rerun|re-run/i);
-  assert.match(install, /npm/i);
+  const sentence = install.split('\n').find((l) => l.includes('Running it again is safe'));
+  assert.ok(sentence, 'Install section has the second-run sentence');
+  assert.match(sentence, /Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again/);
 });
 
 // M-003-S9
