@@ -2,7 +2,8 @@
 // Entry point the installed schedule starts. It runs the zero-token daily run first and then, only for
 // scheduled-discovery-plus-triage, the model triage, each as its own child process so one cannot stop the other.
 // daily.mjs gets 60 minutes. The triage child gets a timeout that scales with the chunks the student's triage budget
-// allows today and stays under run_lock_hours (triageChildTimeoutMs in daily-triage.mjs).
+// allows today and stays under run_lock_hours (triageChildTimeoutMs in daily-triage.mjs); it also gets that timeout as
+// --deadline so it ends cleanly before the kill.
 // Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH]
 // Exit 0 always: a scheduler that sees a failure retries, and both steps already report their own problems.
 import { mkdirSync } from 'node:fs';
@@ -39,7 +40,10 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
   // A schedule installed before the agent flags existed passes only --claude; it keeps working until reinstalled.
   if (config?.automation === 'scheduled-discovery-plus-triage') {
     const agentFlags = agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : [];
-    child('daily-triage.mjs', agentFlags, triageTimeout({ config, dataDir, today }));
+    // The deadline is when this wrapper's timeout kills the child. daily-triage stops starting chunks it could not finish
+    // by then, because a kill mid-call would lose that chunk's ledger row while the agent kept spending.
+    const timeout = triageTimeout({ config, dataDir, today });
+    child('daily-triage.mjs', [...agentFlags, '--deadline', String(Date.now() + timeout)], timeout);
   }
   return 0;
 }

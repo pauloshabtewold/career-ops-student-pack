@@ -45,7 +45,7 @@ test('M-002-S1 the digest has a progress line per chunk, then the summary with b
     const c1 = at(/daily triage chunk 1 of 2: triaged 20, passed 20, ignored 0/);
     const c2 = at(/daily triage chunk 2 of 2: triaged 5, passed 5, ignored 0/);
     const sum = at(/^- daily triage: triaged 25, passed 25, ignored 0/);
-    const cost = at(/^- daily triage cost: 25 rows scored today of a budget of 50; estimate:/);
+    const cost = at(/^- daily triage cost: 25 rows sent today \(counted against the budget of 50\); estimate:/);
     assert.ok(c1 >= 0 && c2 > c1 && sum > c2 && cost > sum, lines.join('\n'));
   }));
 
@@ -71,7 +71,7 @@ test('M-002-S5 with the default budget and 20 rows already in today\'s ledger no
     assert.equal(calls.fetch.length, 0);
     assert.equal(calls.claude.length, 0);
     assert.equal(r.read('data/pipeline.md'), before);
-    assert.match(r.read(digestFile(r)), /daily triage: budget of 20 rows already used today \(20 scored\); the next run is tomorrow/);
+    assert.match(r.read(digestFile(r)), /daily triage: budget of 20 rows already used today \(20 sent\); the next run is tomorrow/);
   }));
 
 // M-002-S5
@@ -102,7 +102,7 @@ test('M-002-S6 a daily budget of "all" with 45 untriaged rows sends 3 calls of 2
     assert.deepEqual(sizes(calls), [20, 20, 5]);
     assert.equal(triagedCount(r), 45);
     assert.match(r.read(digestFile(r)), /daily triage chunk 3 of 3: triaged 5/);
-    assert.match(r.read(digestFile(r)), /a budget of all; estimate:/);
+    assert.match(r.read(digestFile(r)), /the budget of all\); estimate:/);
   }));
 
 // M-002-S8
@@ -216,7 +216,7 @@ test('M-002-S16 a daily budget of "all" with 0 untriaged rows makes no fetch and
     assert.equal(calls.claude.length, 0);
     const digest = r.read(digestFile(r));
     assert.match(digest, /daily triage: triaged 0, passed 0, ignored 0/);
-    assert.match(digest, /daily triage cost: 0 rows scored today of a budget of all; estimate:/);
+    assert.match(digest, /daily triage cost: 0 rows sent today \(counted against the budget of all\); estimate:/);
   }));
 
 // M-002-S16

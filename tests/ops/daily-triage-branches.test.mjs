@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { dailyTriage } from '../../scripts/daily-triage.mjs';
 import { PACK_ROOT, TODAY, script } from '../helpers/script-harness.mjs';
-import { PLUS, args, jobUrl, makeRunner, makeTriageRoot, untriaged, verdict, digestFile } from '../helpers/triage-harness.mjs';
+import { PLUS, args, jobUrl, makeRunner, makeTriageRoot, readLedger, untriaged, verdict, digestFile } from '../helpers/triage-harness.mjs';
 
 function runCli(r, env) {
   const argv = [script('daily-triage'), '--root', r.root, '--data-dir', r.data, '--today', TODAY];
@@ -48,6 +48,11 @@ test('a failing apply-triage child exits normally with a digest note and leaves 
     const digest = r.read(digestFile(r));
     assert.match(digest, /could not apply its verdicts: pipeline locked/);
     assert.doesNotMatch(digest, /second line/);
+    // W-023-A5-5: the failed apply is a failed ledger row, which ends the day's scheduled triage.
+    assert.deepEqual(readLedger(r), [{ date: TODAY, source: 'scheduled', rows: '2', outcome: 'failed' }]);
+    const again = makeRunner(r, { claude: () => verdict('PASS', jobUrl(1), '4.2') });
+    await dailyTriage({ ...args(r), runner: again.runner });
+    assert.equal(again.calls.claude.length, 0, 'a same-day rerun makes no agent call');
   } finally {
     r.cleanup();
   }
