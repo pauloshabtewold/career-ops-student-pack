@@ -22,14 +22,23 @@ Rows sent today, by the scheduled run or by a session, count against the daily b
 
 ## How the estimate is made
 
-The pack measured real calls on synthetic postings (5,400 characters each, example.com addresses, no personal data) on 2026-10-30. `scripts/ci/usage-fixture.mjs` rebuilds the exact prompts with the same `buildPrompt` the triage uses, and `--print-argv` prints the flags of each call. Each agent was run at 1, 5 and 20 rows; the per-row figures come from the 5-row and 20-row difference divided by 15, and the fixed figure is the 5-row run minus five rows.
+The pack measured real calls on synthetic postings (5,400 characters each, example.com addresses, no personal data) on 2026-10-30, with the current prompt (posting fences and the `ANOMALY:` rule). `scripts/ci/usage-fixture.mjs` rebuilds the exact prompts with the same `buildPrompt` the triage uses, and `--print-argv` prints the flags of each call. Each agent was run at 1, 5 and 20 rows, every point at least twice, from an empty folder as the triage runs it; the per-row figures come from the 5-row and 20-row difference divided by 15, and the fixed figure is the 5-row run minus five rows, rounded to the nearest hundred. Input changed by less than 1% between runs. Claude's output changed by up to about a third (the model writes longer or shorter reasons), so its 5-row and 20-row output figures are the mean of four runs each.
 
 | Agent | Call | Fixed input per call | Input per row | Output per row |
 | --- | --- | --- | --- | --- |
-| Claude Code 2.1.310, `sonnet` | `claude -p --tools '' --setting-sources project --strict-mcp-config --model sonnet` | 3,600 | 1,548 | 104 |
-| codex-cli 0.165.0-alpha, medium effort | `codex exec` with user config ignored and every tool feature disabled | 11,300 | 1,038 | 31 |
+| Claude Code 2.1.310, `sonnet` | `claude -p --tools '' --setting-sources project --strict-mcp-config --settings <pack>/templates/triage-claude-settings.json --model sonnet` | 3,500 | 1,726 | 75 |
+| codex-cli 0.166.0-alpha, medium effort | `codex exec` with user config ignored and every tool feature disabled | 10,100 | 1,189 | 31 |
 
-A live check on 2026-10-30 ran the daily triage from a career-ops 1.38.0 install on 45 synthetic rows with the budget set to `all` (3 calls of 20, 20 and 5 rows). Claude Code measured 86,056 input tokens against an estimate of 80,460 (+7%) and 2,618 output against 4,680; codex measured 81,698 input against 80,610 (+1%) and 1,549 output against 1,395. The Claude figure holds only because the call excludes CLAUDE.md (next section); with career-ops' CLAUDE.md loaded, each call carried about 33,000 more input tokens.
+Measured totals (input, then output):
+
+| Agent | 1 row | 5 rows | 20 rows |
+| --- | --- | --- | --- |
+| Claude Code | 5,174 to 5,179; 85 to 91 | 12,130 to 12,136; 376 to 471 (mean 407) | 38,019 to 38,028; 1,261 to 1,701 (mean 1,526) |
+| codex | 11,258 to 11,260; 37 to 40 | 16,048 to 16,052; 212 to 225 | 33,888 to 33,890; 670 to 683 |
+
+Compared with the first measurement (Claude Code 3,600 fixed, 1,548 and 104 per row; codex-cli 0.165 11,300 fixed, 1,038 and 31 per row), the fenced prompt adds about 150 to 180 input tokens per row. Codex's fixed part is about 1,200 tokens smaller, with codex-cli 0.166 and the call now also disabling image generation, goals and the image viewer.
+
+A live check on 2026-10-30, before the fenced prompt and with the first constants, ran the daily triage from a career-ops 1.38.0 install on 45 synthetic rows with the budget set to `all` (3 calls of 20, 20 and 5 rows). Claude Code measured 86,056 input tokens against an estimate of 80,460 (+7%) and 2,618 output against 4,680; codex measured 81,698 input against 80,610 (+1%) and 1,549 output against 1,395. The current constants put that run at 88,170 Claude and 83,805 codex input tokens. The Claude figure holds only because the call excludes CLAUDE.md (next section); with career-ops' CLAUDE.md loaded, each call carried about 33,000 more input tokens.
 
 Rows go out in chunks of 20, one call per chunk, so the fixed part is paid once per chunk: tokens = chunks x fixed + rows x per-row. The dollar figure prices every input token at the model's base input rate with no cache discount, so it is an upper bound; real calls that hit a cache cost less. Premium spend tier prices the Claude counts at Opus rates and labels them "tokens measured at the standard tier", because only the standard tier was measured.
 
@@ -49,12 +58,12 @@ From `estimateUsage` in `lib/usage-cost.mjs`, standard tier, base rates. Each is
 
 | Agent | Rows | Calls | Input tokens | Output tokens | API-equivalent |
 | --- | --- | --- | --- | --- | --- |
-| claude | 20 | 1 | 34,560 | 2,080 | $0.09 |
-| claude | 100 | 5 | 172,800 | 10,400 | $0.45 |
-| claude | 250 | 13 | 433,800 | 26,000 | $1.13 |
-| codex | 20 | 1 | 32,060 | 620 | $0.07 |
-| codex | 100 | 5 | 160,300 | 3,100 | $0.35 |
-| codex | 250 | 13 | 406,400 | 7,750 | $0.89 |
+| claude | 20 | 1 | 38,020 | 1,500 | $0.09 |
+| claude | 100 | 5 | 190,100 | 7,500 | $0.46 |
+| claude | 250 | 13 | 477,000 | 18,750 | $1.14 |
+| codex | 20 | 1 | 33,880 | 620 | $0.07 |
+| codex | 100 | 5 | 169,400 | 3,100 | $0.37 |
+| codex | 250 | 13 | 428,550 | 7,750 | $0.93 |
 
 A field with 150 to 250 live postings is 8 to 13 calls on a first catch-up.
 
@@ -109,7 +118,7 @@ That stores `measured_pct_per_100_rows` and `measured_window` in config/student.
 
 ## The scheduled Claude call ignores your Claude settings
 
-The scheduled `claude -p` call runs in an empty temp folder and passes `--setting-sources project --strict-mcp-config` and `--settings student/templates/triage-claude-settings.json`, which excludes every CLAUDE.md so career-ops' own rules (an 88 KB AGENTS.md) do not ride along on every call. Your user-level hooks, plugins, MCP servers and settings do not load, so the fixed cost per call is about the measured 3,600 tokens for everyone, where a heavily customized setup would otherwise add tens of thousands, and no user hook runs unattended. The price: anything you keep only in user settings does not apply to the scheduled call, such as an `apiKeyHelper`, an `env` entry or a model override. The career-ops project settings do not apply either, because the call does not run in that folder. A normal `claude` sign-in works, since it is not stored in settings. If you use an API key instead, put it in the environment of the scheduled task, and run `claude` once in a terminal to confirm it signs in. A failed call writes a digest note that names these two flags and points here.
+The scheduled `claude -p` call runs in an empty temp folder and passes `--setting-sources project --strict-mcp-config` and `--settings student/templates/triage-claude-settings.json`, which excludes every CLAUDE.md so career-ops' own rules (an 88 KB AGENTS.md) do not ride along on every call. Your user-level hooks, plugins, MCP servers and settings do not load, so the fixed cost per call is about the measured 3,500 tokens for everyone, where a heavily customized setup would otherwise add tens of thousands, and no user hook runs unattended. The price: anything you keep only in user settings does not apply to the scheduled call, such as an `apiKeyHelper`, an `env` entry or a model override. The career-ops project settings do not apply either, because the call does not run in that folder. A normal `claude` sign-in works, since it is not stored in settings. If you use an API key instead, put it in the environment of the scheduled task, and run `claude` once in a terminal to confirm it signs in. A failed call writes a digest note that names these two flags and points here.
 
 ## Long budgets and the schedule timeout
 
