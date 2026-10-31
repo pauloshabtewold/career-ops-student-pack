@@ -2,6 +2,10 @@
 
 One section per pack release, newest first. The release workflow writes each section from the first-parent commit subjects since the previous release.
 
+## v0.2.2 (2026-10-30)
+
+- W-025: re-measure triage token cost on the fenced prompt (#25)
+
 ## Unreleased
 
 - W-025: the triage cost estimate is measured again on the fenced prompt with the `ANOMALY:` rule (Claude Code 2.1.310, codex-cli 0.166). Claude is now 3,500 fixed input tokens per call, 1,726 input and 75 output per row (was 3,600, 1,548 and 104); codex is 10,100 fixed, 1,189 and 31 per row (was 11,300, 1,038 and 31). A 20-row day stays about $0.09 on Claude and $0.07 on codex; 250 rows is about $1.14 and $0.93. `docs/usage-cost.md` lists every measured run; the vendor prices were checked again and have not changed
