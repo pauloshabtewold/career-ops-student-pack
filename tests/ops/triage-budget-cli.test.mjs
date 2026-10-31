@@ -35,7 +35,7 @@ test('M-002-S3 set 150 without --confirm leaves config/student.yml byte-identica
     assert.match(res.stdout, /nothing written/);
     assert.match(res.stdout, /triage-budget\.mjs set 150 --confirm/);
     // W-023-A5-2: the premium config prices 150 rows at the Opus rate.
-    assert.match(res.stdout, /150 rows in 8 calls; 261,000 input and 15,600 output tokens; about \$1\.36 API-equivalent at Claude Opus 5\.5/);
+    assert.match(res.stdout, /150 rows in 8 calls; 286,900 input and 11,250 output tokens; about \$1\.37 API-equivalent at Claude Opus 5\.5/);
   }));
 
 // M-002-S3
@@ -204,10 +204,10 @@ test('W-023-A4-5 cost --spend-tier premium prices at the Opus rate with no confi
     rmSync(r.file('config/student.yml'));
     const premium = cli(r, ['cost', '150', '--plan', 'api', '--agent', 'claude', '--spend-tier', 'premium']);
     assert.equal(premium.code, 0, out(premium));
-    assert.match(premium.stdout, /about \$1\.36 API-equivalent at Claude Opus 5\.5/);
+    assert.match(premium.stdout, /about \$1\.37 API-equivalent at Claude Opus 5\.5/);
     assert.match(premium.stdout, /tokens measured at the standard tier/);
     const standard = cli(r, ['cost', '150', '--plan', 'api', '--agent', 'claude', '--spend-tier', 'standard']);
-    assert.match(standard.stdout, /about \$0\.68 API-equivalent at Claude Sonnet 5\.5/);
+    assert.match(standard.stdout, /about \$0\.69 API-equivalent at Claude Sonnet 5\.5/);
   } finally {
     r.cleanup();
   }

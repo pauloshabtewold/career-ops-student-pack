@@ -8,22 +8,22 @@ const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6,
 const line = (plan, extra = {}) => formatCostLine({ agent: plan.startsWith('chatgpt') ? 'codex' : 'claude', plan, rows: 20, ...extra });
 
 // M-001-S2
-test('M-001-S2 estimateUsage gives claude 20 rows as 1 call with 34560 input and 2080 output tokens', () => {
+test('M-001-S2 estimateUsage gives claude 20 rows as 1 call with 38020 input and 1500 output tokens', () => {
   const e = estimateUsage({ agent: 'claude', rows: 20 });
   assert.equal(e.calls, 1);
-  assert.equal(e.inputTokens, 34560);
-  assert.equal(e.outputTokens, 2080);
+  assert.equal(e.inputTokens, 38020);
+  assert.equal(e.outputTokens, 1500);
   assert.equal(e.model, 'sonnet');
-  near(e.usd, 0.08992);
+  near(e.usd, 0.09104);
 });
 
 // M-001-S2
-test('M-001-S2 estimateUsage gives codex 250 rows as 13 calls with 406400 input and 7750 output tokens', () => {
+test('M-001-S2 estimateUsage gives codex 250 rows as 13 calls with 428550 input and 7750 output tokens', () => {
   const e = estimateUsage({ agent: 'codex', rows: 250 });
   assert.equal(e.calls, 13);
-  assert.equal(e.inputTokens, 406400);
+  assert.equal(e.inputTokens, 428550);
   assert.equal(e.outputTokens, 7750);
-  near(e.usd, 0.8903);
+  near(e.usd, 0.9346);
 });
 
 // M-001-S15
@@ -36,8 +36,8 @@ test('M-001-S15 estimateUsage boundaries: 0 rows is 0 calls and 0 tokens, 20 row
     assert.equal(estimateUsage({ agent, rows: 20 }).calls, 1);
     assert.equal(estimateUsage({ agent, rows: 21 }).calls, 2);
   }
-  assert.equal(estimateUsage({ agent: 'claude', rows: 21 }).inputTokens, 2 * 3600 + 21 * 1548);
-  assert.equal(estimateUsage({ agent: 'claude', rows: 21 }).outputTokens, 21 * 104);
+  assert.equal(estimateUsage({ agent: 'claude', rows: 21 }).inputTokens, 2 * 3500 + 21 * 1726);
+  assert.equal(estimateUsage({ agent: 'claude', rows: 21 }).outputTokens, 21 * 75);
 });
 
 // M-001-S8
@@ -50,11 +50,11 @@ test('M-001-S8 estimateUsage rejects a negative or non-integer row count and nam
 // W-023-A5-2
 test('W-023-A5-2 formatCostLine prints the exact tokens and dollars, and the premium tier changes the dollars and adds the label', () => {
   const api = formatCostLine({ agent: 'claude', plan: 'api', rows: 20 });
-  assert.ok(api.includes('20 rows in 1 call; 34,560 input and 2,080 output tokens; about $0.09 API-equivalent at Claude Sonnet 5.5 base rates'), api);
+  assert.ok(api.includes('20 rows in 1 call; 38,020 input and 1,500 output tokens; about $0.09 API-equivalent at Claude Sonnet 5.5 base rates'), api);
   const premium = formatCostLine({ agent: 'claude', plan: 'api', rows: 150, spendTier: 'premium' });
-  assert.ok(premium.includes('150 rows in 8 calls; 261,000 input and 15,600 output tokens; about $1.36 API-equivalent at Claude Opus 5.5 base rates'), premium);
+  assert.ok(premium.includes('150 rows in 8 calls; 286,900 input and 11,250 output tokens; about $1.37 API-equivalent at Claude Opus 5.5 base rates'), premium);
   assert.ok(premium.endsWith('tokens measured at the standard tier'), premium);
-  assert.ok(formatCostLine({ agent: 'claude', plan: 'api', rows: 150 }).includes('about $0.68 API-equivalent at Claude Sonnet 5.5 base rates'));
+  assert.ok(formatCostLine({ agent: 'claude', plan: 'api', rows: 150 }).includes('about $0.69 API-equivalent at Claude Sonnet 5.5 base rates'));
 });
 
 // M-001-S2
@@ -147,10 +147,10 @@ test('M-001-S5 without a calibration the line has no own-measurement part', () =
 test('M-001-S12 premium prices the sonnet-measured claude counts at opus rates', () => {
   const e = estimateUsage({ agent: 'claude', rows: 20, spendTier: 'premium' });
   assert.equal(e.calls, 1);
-  assert.equal(e.inputTokens, 34560);
-  assert.equal(e.outputTokens, 2080);
+  assert.equal(e.inputTokens, 38020);
+  assert.equal(e.outputTokens, 1500);
   assert.equal(e.model, 'opus');
-  near(e.usd, 0.17984);
+  near(e.usd, 0.18208);
 });
 
 // M-001-S12
