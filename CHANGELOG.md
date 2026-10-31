@@ -2,6 +2,22 @@
 
 One section per pack release, newest first. The release workflow writes each section from the first-parent commit subjects since the previous release.
 
+## v0.2.0 (2026-10-30)
+
+- W-022: live Codex/Claude triage checks, USAJOBS feed, old-schedule notice (#23)
+- W-023: review fixes for W-012 to W-021 (#22)
+- W-021: NYC Jobs feed for policy-government (NYC Open Data, keyless) (#20)
+- W-016: student-owned triage budget with estimated usage cost (#21)
+- W-020: nursing preset (76 readable hospital boards) (#19)
+- W-019: seeds can name an upstream provider (Phenom, Radancy, Jibe, IBM) (#18)
+- W-018: drop low-yield jobright lists (#17)
+- W-017: job sources per major (lists, seeds, policy robots cleanup) (#16)
+- W-015: student-eye walkthrough fixes (uninstall, schedule time zone, presets, interview, e2e tier) (#15)
+- W-014: refactor top-10 (timezone today, shared entry guard, lib seams) (#14)
+- W-013: Codex support (AGENTS.override.md, agent choice, Codex triage, docs) (#13)
+- W-012: student pack gap fixes, first run to a real top 10 (#12)
+- W-011: audit issue reuse, single BYO coverage line, semver-only pickBase, parity node_modules link (#11)
+
 ## Unreleased
 
 - W-024: the W-023 review leftovers. Uninstall on Windows removes the daily task only when it runs this career-ops folder and says when none was registered (`schedule.mjs remove` exits 1 on a real Unregister failure), install and uninstall find `.git/info/exclude` through git so a worktree or `.git` file no longer crashes them (and skip the step when the folder is not the top of its own repository), and uninstall clears an upstream dismiss marker for a release outside the pack's range; the safety-tag gate refuses a `budget.mjs` change outside `CEILINGS`, a `CEILINGS` line that is not a plain entry and a `budgetSha256` that does not match, and never runs the tag's `budget.mjs` before those checks pass (`docs/maintenance.md`); the nursing preset drops pharmacy, physician, social work and staff program titles and narrows `clinical` to `clinical nurse`; the prefilter marks titles that start with vice president, VP, chief, professor or general counsel (after an optional Associate, Assistant, Deputy or Executive) as `senior title`, which parity explains; `sources_chosen: []` now keeps no GitHub lists (an absent field still keeps all, and apply-answers says so); `first-run.mjs --list-only` lists the rows for one more batch without rerunning the ingest; the codex triage comment and `docs/codex-spike.md` record a second live tool listing; tests cover the triage budget's effect on the scheduled timeout, the weekly calibration line, the price table and the legacy `--claude` plist
