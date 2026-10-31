@@ -88,7 +88,8 @@ test('M-002-S27 install --dry-run with claude on PATH shows its resolved absolut
     assert.ok(d.out.stdout.includes('--agent'), d.out.stdout);
     assert.ok(d.out.stdout.includes('--agent-path'), d.out.stdout);
     assert.ok(d.out.stdout.includes(join(d.bin, 'claude')), 'resolved path shown');
-    assert.doesNotMatch(d.out.stdout + d.out.stderr, /skip triage/i);
+    assert.doesNotMatch(d.out.stdout + d.out.stderr, /skip(ped)?[^\n]*triage|triage[^\n]*skip/i);
+    assert.doesNotMatch(d.out.stdout + d.out.stderr, /warning:/);
   } finally {
     d.cleanup();
   }

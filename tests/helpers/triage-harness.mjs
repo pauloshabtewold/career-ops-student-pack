@@ -32,7 +32,8 @@ export const flagValue = (argv, flag) => (argv.includes(flag) ? unquote(argv[arg
 // handlers: { claude(args, opts) -> stdout string or throws, fetch(url) -> text or throws,
 //             codex(args, opts, out) -> stdout string or throws; it writes the -o file at `out` itself }
 // A codex call is recorded with its -o path (out), the temp folder (tmp) and whether tmp existed during the call.
-export function makeRunner(r, { claude = () => '', fetch = (url) => `Posting text for ${url}`, codex = (args, opts, out) => (writeFileSync(out, 'Reviewed.\n'), '') } = {}) {
+// By default claude answers PASS for every url it was sent, so a run that does not care about the answer still has valid chunks.
+export function makeRunner(r, { claude = (_args, opts) => [...sentUrls(opts.input)].map((u) => verdict('PASS', u)).join('\n'), fetch = (url) => `Posting text for ${url}`, codex = (args, opts, out) => (writeFileSync(out, 'Reviewed.\n'), '') } = {}) {
   const calls = { claude: [], codex: [], fetch: [], other: [] };
   const runner = (cmd, args, opts = {}) => {
     if (cmd === process.execPath && basename(args[0]) === 'fetch-jd.mjs') {

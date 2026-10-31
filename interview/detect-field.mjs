@@ -3,7 +3,7 @@
 // Each preset in interview/field-keywords.json is scored by how many of its keywords appear in the resume text
 // (whole words, any letter case). Fewer than MIN_SCORE matches is not evidence of a field, so the pick falls back to
 // byo-employer-list, which works for any field because the student supplies the employers.
-// Usage: detect-field.mjs <resume text file> [--json]
+// Usage: detect-field.mjs <resume text file | -> [--json]   (- reads the resume text from stdin)
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,10 +42,10 @@ export function detectField(cvText, keywords = loadKeywords()) {
 
 async function main() {
   const { command, positionals, flags } = parseArgs(process.argv.slice(2), { common: false, flags: { json: 'boolean' } });
-  if (!command || positionals.length) throw new UsageError('usage: detect-field.mjs <resume text file> [--json]');
+  if (!command || positionals.length) throw new UsageError('usage: detect-field.mjs <resume text file | -> [--json]');
   let text;
   try {
-    text = readFileSync(resolve(command), 'utf8');
+    text = readFileSync(command === '-' ? 0 : resolve(command), 'utf8');
   } catch (err) {
     throw new UsageError(`cannot read ${command}: ${err.code ?? err.message}`);
   }

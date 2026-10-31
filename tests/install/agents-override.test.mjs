@@ -268,9 +268,12 @@ const DAMAGED_CASES = {
   'duplicated career-ops pair': `${PAIR(P_START, P_END)}\n\n${PAIR(U_START, U_END)}\n${PAIR(U_START, U_END)}\n`,
   'reversed career-ops markers': `${PAIR(P_START, P_END)}\n\n${U_END}\nx\n${U_START}\n`,
   'unpaired career-ops start': `${PAIR(P_START, P_END)}\n\n${U_START}\nx\n`,
+  'career-ops block inside pack block': `${P_START}\nx\n${PAIR(U_START, U_END)}\ny\n${P_END}\n`,
+  'career-ops block before pack block': `${PAIR(U_START, U_END)}\n\n${PAIR(P_START, P_END)}\n`,
+  'pack block inside career-ops block': `${U_START}\nx\n${PAIR(P_START, P_END)}\ny\n${U_END}\n`,
 };
 
-// M-001-S16
+// M-001-S16, W-023-A5-6
 for (const [name, existing] of Object.entries(DAMAGED_CASES)) {
   test(`M-001-S16 buildOverride reports damaged and keeps the text for ${name}`, () => {
     const out = buildOverride({ packText: 'Pack.\n', upstreamText: UPSTREAM_V1, existing });
@@ -355,4 +358,13 @@ test('M-001-S1 refreshOverride creates the file with an empty line, and dryRun w
     rmSync(root, { recursive: true, force: true });
     rmSync(packRoot, { recursive: true, force: true });
   }
+});
+
+// W-023-A2-4
+test('W-023-A2-4 the generated header points students at text outside the markers, not at a tracked pack file', () => {
+  const out = buildOverride({ packText: 'Pack rules.\n', upstreamText: UPSTREAM_V1 });
+  assert.doesNotMatch(out.text, /Edit student\/AGENTS\.student\.md/);
+  assert.match(out.text, /outside the markers/);
+  const kept = buildOverride({ packText: 'Pack rules.\n', upstreamText: UPSTREAM_V1, existing: `${out.text}\nMy note.\n` });
+  assert.ok(kept.text.includes('My note.'), 'text outside the markers survives a refresh');
 });

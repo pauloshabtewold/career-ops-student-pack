@@ -51,7 +51,7 @@ A live run on macOS (codex-cli 0.166), asked to list every tool it could call an
 
 A codex too old to know one of the disabled feature names stops with "Unknown feature flag"; the digest then says to update codex or the pack, not to sign in.
 
-The call runs once per 20 rows of your daily triage budget. The digest carries the same lines as with Claude: a progress line per chunk, `daily triage: triaged N, passed N, ignored N`, a cost line with the rows scored today and an estimate, or a note saying why triage was skipped (agent not found, signed out, timed out). A skipped triage changes nothing and the rows wait for a later day. For what the estimate means on ChatGPT Plus and Pro, and how to read your own share with `/status`, see [usage-cost.md](usage-cost.md).
+The call runs once per 20 rows of your daily triage budget. The digest carries the same lines as with Claude: a progress line per chunk, `daily triage: triaged N, passed N, ignored N`, a cost line with the rows sent today and an estimate, or a note saying why triage was skipped (agent not found, signed out, timed out). A skipped triage changes nothing and the rows wait for a later day. For what the estimate means on ChatGPT Plus and Pro, and how to read your own share with `/status`, see [usage-cost.md](usage-cost.md).
 
 ## What stays Claude-only
 

@@ -167,3 +167,85 @@ test('M-003-S9 docs/usage.md names every count label first-run.mjs prints on the
     rmSync(up.root, { recursive: true, force: true });
   }
 });
+
+// W-023-A4-2, A4-3
+test('W-023-A4-2 interview step 4 runs detect-field on the resume text, not on a cv.md that may not exist yet', () => {
+  const p1 = phase(readDoc('interview/interview.md'), 1);
+  const step4 = p1.split('\n').find((l) => /^4\. /.test(l));
+  assert.ok(step4, 'step 4 present');
+  assert.doesNotMatch(step4, /detect-field\.mjs cv\.md/);
+  assert.match(step4, /resume text/);
+  assert.match(step4, /resume-text\.mjs/);
+  assert.match(step4, /stdin/);
+});
+
+// W-023-A4-3
+test('W-023-A4-3 interview step 1 allows cv_path only for .md or .txt', () => {
+  const step1 = phase(readDoc('interview/interview.md'), 1).split('\n').find((l) => /^1\. /.test(l));
+  assert.match(step1, /`cv_path` only for a `\.md` or `\.txt` file/);
+});
+
+// W-023-A4-4
+test('W-023-A4-4 the rerun wording says student-owned keys are kept, in the interview, usage and Phase 5', () => {
+  const interview = readDoc('interview/interview.md');
+  assert.doesNotMatch(interview, /rewrites only the blocks the pack owns/);
+  assert.match(interview.split('\n')[2], /judgment_keywords/);
+  assert.match(readDoc('docs/usage.md'), /Running the interview again rebuilds the keys of config\/student\.yml that it asks about/);
+  assert.match(phase(interview, 5), /On a re-run, read config\/student\.yml first and offer each current value as the default/);
+});
+
+// W-023-A4-5
+test('W-023-A4-5 Phase 5 step 7 passes the chosen spend tier to triage-budget.mjs cost', () => {
+  const step7 = phase(readDoc('interview/interview.md'), 5).split('\n').find((l) => /^7\. /.test(l));
+  assert.match(step7, /triage-budget\.mjs cost <n\|all> --plan <plan> --agent <agent> --spend-tier <standard\|premium>/);
+});
+
+// W-023-A4-6
+test('W-023-A4-6 apply-loop stops for the student to sign in instead of signing in for them', () => {
+  const doc = readDoc('modes/apply-loop.md');
+  assert.doesNotMatch(doc, /Sign in only through/);
+  assert.match(doc, /If the site needs a sign-in, stop and ask the student to sign in themselves \(Google or LinkedIn SSO only, never a password\)/);
+});
+
+// W-023-A4-7
+test('W-023-A4-7 the daily-run switches table lets a session triage on request under any automation', () => {
+  const row = readDoc('modes/daily-run.md').split('\n').find((l) => l.startsWith('| Triage on request |'));
+  assert.ok(row, 'on-request row present');
+  assert.match(row, /any `automation` value/);
+  assert.match(row, /triage-budget\.mjs status/);
+  assert.match(row, /triage-budget\.mjs log/);
+});
+
+// W-023-A4-11
+test('W-023-A4-11 the changelog says schedule.mjs passes --agent to scheduled.mjs and W-016 replaced triage_daily', () => {
+  const log = readDoc('CHANGELOG.md');
+  assert.doesNotMatch(log, /`schedule\.mjs` takes `--agent`/);
+  assert.match(log, /`schedule\.mjs install` passes `--agent` and `--agent-path` to `scheduled\.mjs`, which still honours the older `--claude`/);
+  assert.doesNotMatch(log, /the new `triage_daily` ceiling/);
+  assert.match(log, /`triage_daily` ceiling that W-016 replaced/);
+});
+
+// W-023-A4-12
+test('W-023-A4-12 architecture and coverage.mjs name phase 2 and the attach-point table lists AGENTS.override.md', () => {
+  const arch = readDoc('docs/architecture.md');
+  assert.doesNotMatch(arch, /four places/);
+  assert.match(arch, /five places only/);
+  assert.match(arch, /\| `AGENTS\.override\.md` \|/);
+  assert.match(arch, /Interview phase 2 states the coverage line/);
+  assert.match(readDoc('interview/coverage.mjs'), /read aloud in interview phase 2/);
+});
+
+// W-023-A4-13
+test('W-023-A4-13 usage.md triage wording covers both agents and partial runs', () => {
+  const usage = readDoc('docs/usage.md');
+  assert.match(usage, /If the agent is missing, signed out or too slow, the digest says why; rows already applied by earlier chunks stay\./);
+  assert.doesNotMatch(usage, /If claude is missing/);
+  assert.match(usage, /\(`--n N` shows a different number\)/);
+});
+
+// W-023-A4-14
+test('W-023-A4-14 the defaults file does not promise an automation flip nothing performs', () => {
+  const defaults = readDoc('templates/student.defaults.yml');
+  assert.doesNotMatch(defaults, /Becomes scheduled-discovery after the first successful run/);
+  assert.match(defaults, /Set by the interview's Phase 5 answer; manual unless the student chose a schedule\./);
+});

@@ -86,6 +86,7 @@ export function uninstall({ root, packRoot, dryRun = false, skipSchedule = false
   }
 
   // Only the two files the pack itself creates are deleted when emptied; upstream's own files are always kept.
+  const gone = new Set();
   const edit = (rel, update, { deleteEmpty = false } = {}) => {
     const file = join(root, rel);
     if (!existsSync(file)) return;
@@ -94,6 +95,7 @@ export function uninstall({ root, packRoot, dryRun = false, skipSchedule = false
     if (after === before) return;
     if (deleteEmpty && !after.trim()) {
       actions.push(`${rel}: deleted, nothing else was in it`);
+      gone.add(rel);
       if (!dryRun) rmSync(file);
       return;
     }
@@ -102,9 +104,9 @@ export function uninstall({ root, packRoot, dryRun = false, skipSchedule = false
   };
   edit('CLAUDE.local.md', (t) => withoutBlocks(t, [BLOCK_RE]), { deleteEmpty: true });
   edit('AGENTS.override.md', (t) => withoutBlocks(t, OVERRIDE_BLOCKS), { deleteEmpty: true });
-  // A student's own config/student.yml or .codex/config.toml outlives the pack, so its line stays while the file does.
-  const packOwned = new Set(['student/', 'CLAUDE.local.md', 'AGENTS.override.md']);
-  const removable = (list) => list.filter((p) => packOwned.has(p) || !existsSync(join(root, p)));
+  // A file that outlives the pack (the student's config/student.yml or .codex/config.toml, or a CLAUDE.local.md or
+  // AGENTS.override.md that held their own text) keeps its ignore line, so it never shows up as something to commit.
+  const removable = (list) => list.filter((p) => p === 'student/' || gone.has(p) || !existsSync(join(root, p)));
   edit(join('config', 'local-paths.txt'), (t) => removeLines(t, removable(LOCAL_PATHS)));
   edit(join('.git', 'info', 'exclude'), (t) => removeLines(t, removable(EXCLUDES)));
   return { actions, problems };

@@ -50,20 +50,31 @@ export function mapRows(rows) {
   return jobs;
 }
 
+// Upstream clears its fetch timer once headers arrive, so a body that stalls is bounded here against the same budget.
+async function textWithin(res, ms) {
+  let timer;
+  const cutoff = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`response body not complete within ${ms} ms`)), ms);
+  });
+  try {
+    return await Promise.race([res.text(), cutoff]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default {
   async ingest(ctx) {
     const today = ctx.today ?? new Date().toISOString().slice(0, 10);
     const budget = ctx.budgetMs ?? HOST_BUDGET_MS;
+    const deadline = Date.now() + budget;
     try {
       const res = await ctx.fetch(queryUrl(today), {
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-        signal: AbortSignal.timeout(budget),
+        timeoutMs: Math.max(500, budget),
       });
-      if (!res.ok) {
-        ctx.log?.(`nyc-jobs: HTTP ${res.status}; no rows this run`);
-        return [];
-      }
-      const rows = JSON.parse(await res.text());
+      // Upstream ctx.fetch throws on any non-2xx, so a response that reaches this line is a 2xx.
+      const rows = JSON.parse(await textWithin(res, Math.max(500, deadline - Date.now())));
       if (!Array.isArray(rows)) {
         ctx.log?.('nyc-jobs: unexpected response shape; no rows this run');
         return [];

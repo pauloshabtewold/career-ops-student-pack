@@ -47,6 +47,16 @@ test('M-001-S8 estimateUsage rejects a negative or non-integer row count and nam
   assert.throws(() => estimateUsage({ agent: 'codex', rows: -7 }), /-7/);
 });
 
+// W-023-A5-2
+test('W-023-A5-2 formatCostLine prints the exact tokens and dollars, and the premium tier changes the dollars and adds the label', () => {
+  const api = formatCostLine({ agent: 'claude', plan: 'api', rows: 20 });
+  assert.ok(api.includes('20 rows in 1 call; 34,560 input and 2,080 output tokens; about $0.09 API-equivalent at Claude Sonnet 5.5 base rates'), api);
+  const premium = formatCostLine({ agent: 'claude', plan: 'api', rows: 150, spendTier: 'premium' });
+  assert.ok(premium.includes('150 rows in 8 calls; 261,000 input and 15,600 output tokens; about $1.36 API-equivalent at Claude Opus 5.5 base rates'), premium);
+  assert.ok(premium.endsWith('tokens measured at the standard tier'), premium);
+  assert.ok(formatCostLine({ agent: 'claude', plan: 'api', rows: 150 }).includes('about $0.68 API-equivalent at Claude Sonnet 5.5 base rates'));
+});
+
 // M-001-S2
 test('M-001-S2 formatCostLine for every plan id starts with "estimate:" and contains the word estimate', () => {
   for (const plan of PLAN_IDS) {

@@ -79,13 +79,19 @@ test('M-003-S3 daily-run.md step 2 reads status, stops at the rows left and logs
 
 test('M-003-S3 AGENTS.student.md routes a raise through set then --confirm and keeps budget.mjs caps lower-only', () => {
   assert.match(agents, /the user can only lower caps/);
-  assert.match(agents, /triage budget/i);
-  assert.match(agents, /node student\/scripts\/triage-budget\.mjs set <n\|all>/);
-  assert.match(agents, /--first-run/);
-  assert.match(agents, /--confirm/);
-  assert.match(agents, /student says yes/);
   assert.match(agents, /never edit `?triage_budget`? by hand/i);
   assert.match(agents, /triage-budget\.mjs status/);
+  // W-023-A5-8: one sentence carries the whole consent order: set with the estimate shown, then --confirm only after a yes.
+  const sentence = agents.split(/\.\s/).find((s) => s.includes('set <n|all>'));
+  assert.ok(sentence, 'one sentence holds set <n|all>');
+  assert.match(sentence, /set <n\|all>`[^]*show the printed estimate[^]*run it again with `--confirm` only after the student says yes$/);
+  assert.ok(sentence.indexOf('estimate') < sentence.indexOf('--confirm'), 'the estimate comes before --confirm');
+  assert.doesNotMatch(sentence, /--confirm[^]*estimate/);
+});
+
+test('W-023-A5-8 the consent pin rejects a sentence that confirms before the student says yes', () => {
+  const bad = 'run `triage-budget.mjs set <n|all> --confirm` right away, then tell the student the estimate and ask if the student says yes to more';
+  assert.doesNotMatch(bad, /set <n\|all>`[^]*show the printed estimate[^]*run it again with `--confirm` only after the student says yes$/);
 });
 
 test('M-003-S3 touched files carry no em dash or curly quote', () => {

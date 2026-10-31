@@ -53,7 +53,7 @@ test('W-021-S3 rows map to title, url, company and location; duplicates and bad 
 
 test('W-021-S4 HTTP errors, bad JSON, a wrong shape and a thrown fetch each log and return no rows', async () => {
   const cases = [
-    [[[(u) => u.startsWith(ENDPOINT), () => H.text('boom', 503)]], /HTTP 503/],
+    [[[(u) => u.startsWith(ENDPOINT), () => { throw Object.assign(new Error('HTTP 503: boom'), { status: 503 }); }]], /HTTP 503/],
     [[[(u) => u.startsWith(ENDPOINT), () => H.text('<html>')]], /nyc-jobs:/],
     [[[(u) => u.startsWith(ENDPOINT), () => H.text('{"error":true}')]], /unexpected response shape/],
     [[[(u) => u.startsWith(ENDPOINT), () => { throw new Error('socket hang up'); }]], /socket hang up/],
@@ -66,10 +66,23 @@ test('W-021-S4 HTTP errors, bad JSON, a wrong shape and a thrown fetch each log 
   }
 });
 
-test('W-021-S5 the request carries an abort signal bound to the host time budget', async () => {
-  const { stub, ctx } = ctxWith([ok], { budgetMs: 50 });
+test('W-021-S5 / W-023-A5-4 the request passes a timeoutMs bounded by the host budget, and a timed-out fetch logs and returns no rows', async () => {
+  const { stub, ctx, logs } = ctxWith([ok], { budgetMs: 800 });
   await plugin.ingest(ctx);
-  assert.ok(stub.calls[0].init.signal instanceof AbortSignal);
+  const { timeoutMs } = stub.calls[0].init;
+  assert.ok(Number.isInteger(timeoutMs) && timeoutMs >= 500 && timeoutMs <= 800, `timeoutMs ${timeoutMs}`);
+  const slow = ctxWith([[(u) => u.startsWith(ENDPOINT), () => { throw new Error('This operation was aborted'); }]], { budgetMs: 800 });
+  assert.deepEqual(await plugin.ingest(slow.ctx), []);
+  assert.match(slow.logs.join('\n'), /nyc-jobs: This operation was aborted; no rows this run/);
+});
+
+test('W-023-A3-3 a response body that never completes is cut off at the budget and logs', async () => {
+  const stalled = { ok: true, status: 200, text: () => new Promise(() => {}) };
+  const { ctx, logs } = ctxWith([[(u) => u.startsWith(ENDPOINT), () => stalled]], { budgetMs: 500 });
+  const started = Date.now();
+  assert.deepEqual(await plugin.ingest(ctx), []);
+  assert.ok(Date.now() - started < 3000);
+  assert.match(logs.join('\n'), /nyc-jobs: response body not complete/);
 });
 
 test('W-021-S6 the plugin writes nothing under dataRoot', async () => {
@@ -107,6 +120,9 @@ test('W-021-S9 the feed joins the ingest steps only for a preset that asks for i
     assert.deepEqual(presetFeedPlugins({ root: s.dir, presets: ['policy-government'] }), []);
     writeFileSync(join(s.dir, 'config', 'plugins.yml'), 'plugins:\n  nyc-jobs:\n    enabled: true\n');
     assert.deepEqual(presetFeedPlugins({ root: s.dir, presets: ['policy-government'] }), ['nyc-jobs']);
+    writeFileSync(join(s.dir, 'config', 'plugins.yml'), 'plugins:\n  nyc-jobs:\n    enabled: false\n');
+    assert.deepEqual(presetFeedPlugins({ root: s.dir, presets: ['policy-government'] }), [], 'W-023-A5-3 listed but disabled stays off');
+    writeFileSync(join(s.dir, 'config', 'plugins.yml'), 'plugins:\n  nyc-jobs:\n    enabled: true\n');
     assert.deepEqual(presetFeedPlugins({ root: s.dir, presets: ['software-cs'] }), []);
     assert.deepEqual(presetFeedPlugins({ root: s.dir, presets: [] }), []);
   } finally {

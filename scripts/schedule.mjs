@@ -3,9 +3,10 @@
 // student/scripts/scheduled.mjs, which runs the zero-token daily run and, for scheduled-discovery-plus-triage, the model
 // triage. Only the personalization interview offers this; nothing installs on its own.
 // Usage: schedule.mjs install|remove|status [--time HH:MM] [--dry-run] [--root R]
+// A real install takes only the pack's own root: --root is for --dry-run, remove and status (assertOwnRoot).
 // --time and the config time are read in the config time zone (timezone in config/student.yml).
 // --dry-run prints the artifact and never starts launchctl or powershell, so tests can run it safely.
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, posix, win32 } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
@@ -182,10 +183,31 @@ function winCommand(command, { nodePath, root, time, dryRun, agent, agentPath, a
   return 0;
 }
 
+// A real install writes a job that runs <root>/student/scripts/scheduled.mjs every day, so it only takes a root whose
+// student/ folder is this very pack. Without that, an injected `--root <dir>` could schedule any scheduled.mjs found under
+// <dir>. --dry-run writes nothing and may name any root, which keeps the tests on scratch roots.
+export function assertOwnRoot(root, packRoot) {
+  const entry = (base) => {
+    try {
+      // native realpath resolves 8.3 short names; win32 paths compare case-insensitively (c:\ vs C:\)
+      const real = realpathSync.native(join(base, 'scripts', 'scheduled.mjs'));
+      return process.platform === 'win32' ? real.toLowerCase() : real;
+    } catch {
+      return null;
+    }
+  };
+  const own = entry(packRoot);
+  if (!own || entry(join(root, 'student')) !== own) {
+    throw new UsageError(`--root ${root} is not the folder this pack is installed in; run install without --root (or add --dry-run to preview)`);
+  }
+}
+
 async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status'], flags: { time: 'string' } });
   const paths = resolvePaths({ root: flags.root });
-  const config = await loadStudentConfig({ root: paths.root });
+  if (command === 'install' && !flags.dryRun) assertOwnRoot(paths.root, paths.packRoot);
+  // remove must work when config/student.yml is broken: a student who cannot fix it still needs the schedule gone.
+  const config = command === 'remove' ? null : await loadStudentConfig({ root: paths.root });
   const t = machineTime(flags.time ?? config?.schedule?.time ?? '06:00', { timezone: config?.timezone });
   if (t.note && command === 'install') console.log(t.note);
   const agent = config?.agent ?? 'claude';

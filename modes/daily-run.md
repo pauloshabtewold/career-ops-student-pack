@@ -6,7 +6,8 @@
 
 | Step | Runs when |
 | --- | --- |
-| Triage of new rows | `automation` is `scheduled-discovery-plus-triage`; `daily-triage.mjs` does it, and a session does it only when the digest says the scheduled triage was skipped |
+| Triage of new rows | `automation` is `scheduled-discovery-plus-triage`; `daily-triage.mjs` does it, and a session also does it when the digest says the scheduled triage was skipped |
+| Triage on request | the student asks for triage in a session, under any `automation` value; at most the rows left from `node student/scripts/triage-budget.mjs status`, logged with `triage-budget.mjs log` |
 | Weekly fail audit | `automation` is `scheduled-discovery-plus-triage` and today is a Sunday |
 | Digest additions | always, after the steps above |
 

@@ -160,7 +160,7 @@ export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTi
         await sleep(limits.resolver_pause_ms);
         let res;
         try {
-          res = await fetch(current, { headers: { 'User-Agent': 'career-ops-student-pack' }, redirect: 'manual' });
+          res = await fetch(current, { headers: { 'User-Agent': 'career-ops-student-pack' }, redirect: 'manual', timeoutMs: Math.max(500, deadline - Date.now()) });
         } catch {
           return NO_DATA;
         }

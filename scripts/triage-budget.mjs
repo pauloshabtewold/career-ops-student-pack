@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The student's model-usage triage budget: show it, price it, change it, and record session triage against it.
 // Usage: triage-budget.mjs status
-//        triage-budget.mjs cost <n|all> [--plan P] [--agent claude|codex]
+//        triage-budget.mjs cost <n|all> [--plan P] [--agent claude|codex] [--spend-tier standard|premium]
 //        triage-budget.mjs set <n|all> [--first-run] [--confirm]     (writes only with --confirm)
 //        triage-budget.mjs log <n> [--first-run]
 //        triage-budget.mjs calibrate <percent> --rows <n> --window 5-hour|weekly
@@ -22,6 +22,7 @@ import { selectUntriagedRows } from './daily-triage.mjs';
 
 const COMMANDS = ['status', 'cost', 'set', 'log', 'calibrate'];
 const WINDOWS = ['5-hour', 'weekly'];
+const SPEND_TIERS = ['standard', 'premium'];
 const MISSING = 'config/student.yml is missing: run the personalization interview first';
 const EXAMPLE_ROWS = [100, 250];
 
@@ -48,14 +49,14 @@ function untriagedCount(dataDir) {
   return existsSync(join(dataDir, 'pipeline.md')) ? selectUntriagedRows(dataDir, Infinity).length : null;
 }
 
-// The estimate line for `rows` rows, using --agent and --plan or the student's config.
+// The estimate line for `rows` rows, using --agent, --plan and --spend-tier or the student's config.
 function costLine(ctx, rows) {
   const { config, flags } = ctx;
   return formatCostLine({
     agent: flags.agent ?? config?.agent ?? 'claude',
     plan: flags.plan ?? config?.plan ?? 'unknown',
     rows,
-    spendTier: config?.spend_tier ?? 'standard',
+    spendTier: flags.spendTier ?? config?.spend_tier ?? 'standard',
     calibration: resolveTriageBudget(config ?? {}).calibration,
   });
 }
@@ -75,9 +76,9 @@ function status({ config, paths, today, out, ...ctx }) {
   out(`Daily triage budget: ${show(budget.daily)}`);
   out(`First-run triage budget: ${show(budget.firstRun)}`);
   out(`Plan: ${config.plan}`);
-  out(`Rows scored today (${today}): ${usage.today} (scheduled ${usage.scheduled}, session ${usage.session})`);
+  out(`Rows sent today (${today}, counted against the budget): ${usage.today} (scheduled ${usage.scheduled}, session ${usage.session})`);
   out(`Rows left today: ${unlimited(rowsLeft(budget.daily, usage.today))}`);
-  out(`First-run rows scored: ${usage.firstRun}; left: ${unlimited(rowsLeft(budget.firstRun, usage.firstRun))}`);
+  out(`First-run rows sent: ${usage.firstRun}; left: ${unlimited(rowsLeft(budget.firstRun, usage.firstRun))}`);
   if (usage.stoppedToday) out('Daily triage stopped earlier today after a failure; the next scheduled run is tomorrow');
   if (usage.skipped) out(`${usage.skipped} unreadable row(s) in data/triage-usage.tsv were skipped`);
   const rows = budget.daily === ALL ? (untriagedCount(paths.dataDir) ?? 0) : budget.daily;
@@ -152,9 +153,10 @@ const HANDLERS = { status, cost, set, log, calibrate };
 async function main() {
   const { command, positionals, flags } = parseArgs(process.argv.slice(2), {
     commands: COMMANDS,
-    flags: { confirm: 'boolean', 'first-run': 'boolean', plan: 'string', agent: 'string', rows: 'int', window: 'string' },
+    flags: { confirm: 'boolean', 'first-run': 'boolean', plan: 'string', agent: 'string', 'spend-tier': 'string', rows: 'int', window: 'string' },
   });
   if (flags.agent && !AGENTS.includes(flags.agent)) throw new UsageError(`--agent expects ${AGENTS.join(' or ')}, got "${flags.agent}"`);
+  if (flags.spendTier && !SPEND_TIERS.includes(flags.spendTier)) throw new UsageError(`--spend-tier expects ${SPEND_TIERS.join(' or ')}, got "${flags.spendTier}"`);
   if (flags.plan && !PLAN_IDS.includes(flags.plan)) throw new UsageError(`--plan expects one of ${PLAN_IDS.join(', ')}, got "${flags.plan}"`);
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   let config = null;

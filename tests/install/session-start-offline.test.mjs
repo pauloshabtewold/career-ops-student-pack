@@ -11,7 +11,7 @@ import { refreshOverride } from '../../lib/agents-override.mjs';
 import { defaultRunner } from '../../lib/upstream.mjs';
 import { sessionStart } from '../../scripts/session-start.mjs';
 import { runUpdate } from '../../update.mjs';
-import { makePack, checkJson } from './_pack-repo.mjs';
+import { makePack, checkJson, put } from './_pack-repo.mjs';
 
 const TRIGGER = 'INTERVIEW: run student/interview/interview.md before anything else';
 const OFFLINE = 'update check skipped (offline)';
@@ -53,16 +53,40 @@ test('M-001-S10 several unreachable-remote lines from the update step collapse i
   }));
 
 // M-001-S11
-test('M-001-S11 an update step that throws prints one offline line and still resolves', async () =>
+test('M-001-S11 an update step that throws a network failure prints one offline line and still resolves', async () =>
   withPack(async (p) => {
     const update = async () => {
-      throw new Error('boom');
+      throw Object.assign(new Error('fatal: unable to access the pack remote'), { code: 'ETIMEDOUT' });
     };
     const out = await sessionStart({ root: p.root, packRoot: p.pack, update, refresh: quiet });
     assert.equal(count(out, OFFLINE), 1, out.join('\n'));
     assert.ok(!out.some((l) => /update check failed/i.test(l)), out.join('\n'));
     assert.ok(out.length <= 6, out.join('\n'));
     assert.equal(out.at(-1), TRIGGER);
+  }));
+
+// W-023-A2-9
+test('W-023-A2-9 an update step that throws something other than a network failure prints the reason, not offline', async () =>
+  withPack(async (p) => {
+    const update = async () => {
+      throw new Error('bad indentation in config/plugins.yml');
+    };
+    const out = await sessionStart({ root: p.root, packRoot: p.pack, update, refresh: quiet });
+    assert.equal(count(out, OFFLINE), 0, out.join('\n'));
+    assert.equal(out.filter((l) => l === 'pack update failed: bad indentation in config/plugins.yml').length, 1, out.join('\n'));
+    assert.ok(out.length <= 6, out.join('\n'));
+    assert.equal(out.at(-1), TRIGGER);
+  }));
+
+// W-023-A2-9
+test('W-023-A2-9 a malformed config/plugins.yml reads as a failed update, not offline', () =>
+  withPack((p) => {
+    put(p.root, 'config/plugins.yml', 'plugins:\n  github-lists: [unclosed\n');
+    const r = p.run(SCRIPT);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.equal(count(r.lines, OFFLINE), 0, r.lines.join('\n'));
+    assert.ok(r.lines.some((l) => l.startsWith('pack update failed: ')), r.lines.join('\n'));
+    assert.equal(r.lines.at(-1), TRIGGER);
   }));
 
 // M-001-S12

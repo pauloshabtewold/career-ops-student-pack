@@ -21,17 +21,21 @@ export function rawUrl(source) {
   return `https://raw.githubusercontent.com/${source.repo}/${source.branch || 'HEAD'}/${source.path}`;
 }
 
-// 429 and 5xx back off 3000 ms times the attempt number; three attempts, then the source counts as failed.
-export async function fetchListText(ctx, url, sleep) {
+// 429 and 5xx back off 3000 ms times the attempt number; three attempts, then the source counts as failed. Upstream
+// ctx.fetch throws on any non-2xx with err.status set, so a 4xx other than 429 is final and ends the loop at once.
+// timeoutMs keeps one request from running past the host budget; upstream reads no other abort option.
+const isFinalStatus = (status) => status >= 400 && status < 500 && status !== 429;
+export async function fetchListText(ctx, url, sleep, deadline = Infinity) {
   let lastError = new Error('no attempt made');
   for (let attempt = 1; attempt <= LIMITS.max_attempts; attempt++) {
     try {
-      const res = await ctx.fetch(url, { headers: { 'User-Agent': 'career-ops-student-pack' } });
+      const res = await ctx.fetch(url, { headers: { 'User-Agent': 'career-ops-student-pack' }, timeoutMs: Math.max(500, deadline - Date.now()) });
       if (res.ok) return await res.text();
       lastError = new Error(`HTTP ${res.status}`);
-      if (res.status !== 429 && res.status < 500) break;
+      if (isFinalStatus(res.status)) break;
     } catch (err) {
       lastError = err;
+      if (isFinalStatus(err?.status)) break;
     }
     if (attempt < LIMITS.max_attempts) await sleep(LIMITS.backoff_ms_per_attempt * attempt);
   }
@@ -40,12 +44,14 @@ export async function fetchListText(ctx, url, sleep) {
 
 async function fetchSource(ctx, source, stat, env) {
   try {
-    const text = await fetchListText(ctx, rawUrl(source), env.sleep);
+    const text = await fetchListText(ctx, rawUrl(source), env.sleep, env.deadline);
     const hash = createHash('sha256').update(text).digest('hex');
     const parsed = parseSource(text, { format: source.format, kind: source.kind, field_map: source.field_map, today: env.today });
     return { hash, parsed };
   } catch (err) {
     stat.failed = 1;
+    // last_attempt moves a broken source behind the lists that were read, without touching failed_parses retirement.
+    source.last_attempt = env.today;
     source.failed_parses = Number(source.failed_parses ?? 0) + 1;
     ctx.log?.(`github-lists: ${source.name} failed: ${err.message}`);
     return null;
@@ -123,8 +129,11 @@ export default {
     const stats = [];
 
     const sources = (registry.sources ?? []).filter((s) => s.status === 'active' || s.status === 'trial');
-    // Least recently read first; a source never read, or read the same day, keeps its registry position.
-    const order = [...sources].sort((x, y) => String(x.last_ingest ?? '').localeCompare(String(y.last_ingest ?? '')));
+    // Least recently read first; a source never read, or read the same day, keeps its registry position. A source whose
+    // last touch was a failed attempt sorts behind every source read that same day.
+    const lastTouched = (x) => [x.last_ingest, x.last_attempt].map((d) => String(d ?? '')).sort().at(-1);
+    const failedLast = (x) => (x.last_attempt && String(x.last_attempt) >= String(x.last_ingest ?? '') ? 1 : 0);
+    const order = [...sources].sort((x, y) => lastTouched(x).localeCompare(lastTouched(y)) || failedLast(x) - failedLast(y));
     for (const [i, source] of order.entries()) {
       if (Date.now() > deadline) {
         ctx.log?.(`github-lists: time budget reached; ${order.length - i} source(s) wait for the next run`);

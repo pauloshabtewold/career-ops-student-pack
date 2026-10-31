@@ -1,6 +1,6 @@
 {
   "id": "nyc-jobs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "apiVersion": 1,
   "description": "Reads recent student and entry-level City of New York postings from the NYC Open Data Jobs NYC Postings dataset, which needs no key.",
   "hooks": ["ingest"],

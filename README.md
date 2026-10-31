@@ -81,14 +81,14 @@ Applying, the Handshake pass and LinkedIn outreach run in a browser you sign in 
 node student/update.mjs
 ```
 
-This updates the pack and career-ops together and keeps career-ops inside the version range the pack supports. If you committed your own changes inside the student folder, the pack update is skipped and the script says so.
+This updates the pack and career-ops together and keeps career-ops inside the version range the pack supports. If you committed your own changes inside the student folder, or edited a pack file there without committing, the pack update is skipped and the script says which. Keep your own agent notes outside the marked blocks of AGENTS.override.md, which the pack keeps on every rebuild.
 
 ## Daily use
 
 - **Interview.** The first Claude Code or Codex session starts the personalization interview on its own; it writes config/student.yml. Running it again rewrites only the blocks the pack marked in your files and never overwrites the files `cv.md` and `profile.yml` in your career-ops folder.
 - **First run.** `node student/scripts/first-run.mjs` brings in the first postings and lists up to 20 that still need a verdict, within your first-run triage budget (60 rows unless you raise it). The interview runs it for you, scores those rows in the session and shows your top 10 with `node student/scripts/rank-queue.mjs --n 10`.
 - **Schedule.** `node student/scripts/schedule.mjs install` sets up the optional daily run on macOS or Windows; `remove` undoes it. The time is read in the time zone from your interview, and install prints the matching time on the computer's clock when the two differ. The job starts `scheduled.mjs`, which runs the daily run and, only if you chose scheduled discovery plus triage, a model triage of up to your daily triage budget (20 rows unless you raise it).
-- **Daily run.** `node student/scripts/daily.mjs` pulls job lists, scans, filters and applies the free title filter without any model call, then writes a digest in the digest folder under data. Add `--dry-run` to see the steps without running them.
+- **Daily run.** `node student/scripts/daily.mjs` pulls job lists (plus the NYC Jobs and USAJOBS feeds, if you enabled them), scans, filters and applies the free title filter without any model call, then writes a digest in the digest folder under data. Add `--dry-run` to see the steps without running them.
 - **Inbox.** `node student/scripts/inbox.mjs` reads pasted or connector-provided mail and updates the tracker.
 - **Pilot report.** `node student/scripts/pilot-report.mjs` prints weekly counts and nothing else.
 

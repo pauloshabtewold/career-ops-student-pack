@@ -148,3 +148,17 @@ test('M-006-S13 scanText finds no blocked token under presets/ or tests/fixtures
     }
   }
 });
+
+test('W-023-A3-7 unknown top-level, sources and title_rules keys are rejected, naming the key', () => {
+  const base = () => structuredClone(loadPreset('policy-government'));
+  const cases = [
+    [(p) => { p.sourcez = {}; }, /sourcez/],
+    [(p) => { p.sources.nyc_job = true; }, /sources\.nyc_job/],
+    [(p) => { p.title_rules.exlude = ['x']; }, /title_rules\.exlude/],
+  ];
+  for (const [mutate, pattern] of cases) {
+    const p = base();
+    mutate(p);
+    assert.throws(() => validatePreset(p, 'policy-government'), pattern);
+  }
+});

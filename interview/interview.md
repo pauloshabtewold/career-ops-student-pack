@@ -1,6 +1,6 @@
 # Personalization interview
 
-Run this when the student says "set me up", "personalize", or when `node student/scripts/session-start.mjs` reports that onboarding is not complete. It runs once, in this chat, and can be re-run any time; re-running rewrites only the blocks the pack owns.
+Run this when the student says "set me up", "personalize", or when `node student/scripts/session-start.mjs` reports that onboarding is not complete. It runs once, in this chat, and can be re-run any time. A re-run rebuilds the keys of config/student.yml that the interview asks and rewrites only the marked blocks in the other files; keys the interview never asks (the `rank`, `audit` and `judgment_keywords` settings and the measured triage figures) stay as they are.
 
 ## Principles
 
@@ -13,10 +13,10 @@ Run this when the student says "set me up", "personalize", or when `node student
 
 ## Phase 1: resume and identity
 
-1. If `cv.md` does not exist, ask the student to paste the resume or give a file path. A relative path starts in the career-ops folder. Read the file by type: `.md` and `.txt` directly, a PDF with your own file tool, a `.docx` with `node student/interview/resume-text.mjs <file>` and keep the text it prints. Keep the text as `cv_markdown`, or the path as `cv_path`. An empty resume is refused later by `apply-answers.mjs`, so do not go on without one.
+1. If `cv.md` does not exist, ask the student to paste the resume or give a file path. A relative path starts in the career-ops folder. Read the file by type: `.md` and `.txt` directly, a PDF with your own file tool, a `.docx` with `node student/interview/resume-text.mjs <file>` and keep the text it prints. Keep the text as `cv_markdown`; give a path as `cv_path` only for a `.md` or `.txt` file, because `apply-answers.mjs` refuses any other type. An empty resume is refused later by `apply-answers.mjs`, so do not go on without one.
 2. From the resume, propose name, email, phone, city, LinkedIn and GitHub. Confirm each in one message.
 3. Ask for work authorization in the student's words (for example "F-1 with OPT" or "US citizen") and whether they will need sponsorship. Record both.
-4. Run `node student/interview/detect-field.mjs cv.md`. It prints the two best-fitting field presets with a score and the resume lines that matched. Show both with their evidence and ask the student to confirm or choose another; a pick below 2 matches is `byo-employer-list`.
+4. Run `node student/interview/detect-field.mjs` on the resume text: `cv.md`, the `.md` or `.txt` path, or `-` with the text piped in on stdin (for example the `resume-text.mjs` output, or a temp file outside the repo). Do not write `cv.md` yet. It prints the two best-fitting field presets with a score and the resume lines that matched. Show both with their evidence and ask the student to confirm or choose another; a pick below 2 matches is `byo-employer-list`.
 
 ## Phase 2: what they are looking for
 
@@ -67,13 +67,15 @@ Below the limits table, say this once: the pack's ceilings (daily applications, 
 
 ## Phase 5: schedule and spend
 
+On a re-run, read config/student.yml first and offer each current value as the default, so a rerun does not reset a budget or a switch the student changed since.
+
 1. Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`. The last one adds a daily model triage of up to the student's daily triage budget (default 20 rows) and needs the chosen agent (Claude Code or Codex) signed in on this computer.
 2. Local time for the daily run and the time zone.
 3. Model tier: `standard` or `premium`. There is no economy tier.
 4. Daily target for applications (default 10; the ceiling still applies).
 5. How mail will be read for the inbox pass: `connector`, `paste` or `gmail-plugin`.
 6. Agent: record `agent` as `codex` when this interview runs in Codex and `claude` when it runs in Claude Code. Do not ask; the daily triage uses it. The agent key is `claude` or `codex`.
-7. Plan and triage budget. Ask which plan the student uses: `claude-pro`, `claude-max`, `claude-ultra`, `chatgpt-plus`, `chatgpt-pro`, `api` or `unknown`, and record it as `plan`. Then ask the daily triage budget and the first-run triage budget: a whole number of rows or "all", offering the defaults 20 and 60. For each value above its default, run `node student/scripts/triage-budget.mjs cost <n|all> --plan <plan> --agent <agent>` (agent is `claude` or `codex`), show the printed cost line, which is an estimate, and ask which number the student picks. Record the pick as `triage_budget.daily` and `triage_budget.first_run` in the answers file. A student who keeps the defaults leaves `triage_budget` out.
+7. Plan and triage budget. Ask which plan the student uses: `claude-pro`, `claude-max`, `claude-ultra`, `chatgpt-plus`, `chatgpt-pro`, `api` or `unknown`, and record it as `plan`. Then ask the daily triage budget and the first-run triage budget: a whole number of rows or "all", offering the defaults 20 and 60. For each value above its default, run `node student/scripts/triage-budget.mjs cost <n|all> --plan <plan> --agent <agent> --spend-tier <standard|premium>` (agent is `claude` or `codex`; the tier is the one chosen in step 3), show the printed cost line, which is an estimate, and ask which number the student picks. Record the pick as `triage_budget.daily` and `triage_budget.first_run` in the answers file. A student who keeps the defaults leaves `triage_budget` out.
 
 ## Phase 6: write, check, enable
 

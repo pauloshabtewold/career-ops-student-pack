@@ -11,8 +11,8 @@ locations: []
 switches:
   outreach: "on"
   handshake: "on"
-  submission: agent
-# Becomes scheduled-discovery after the first successful run (set by the interview).
+  submission: user
+# Set by the interview's Phase 5 answer; manual unless the student chose a schedule.
 automation: manual
 # The agent that runs the daily triage (claude or codex); the interview records the one it runs in.
 agent: claude

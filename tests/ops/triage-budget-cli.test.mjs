@@ -34,6 +34,8 @@ test('M-002-S3 set 150 without --confirm leaves config/student.yml byte-identica
     assert.match(res.stdout, /estimate/);
     assert.match(res.stdout, /nothing written/);
     assert.match(res.stdout, /triage-budget\.mjs set 150 --confirm/);
+    // W-023-A5-2: the premium config prices 150 rows at the Opus rate.
+    assert.match(res.stdout, /150 rows in 8 calls; 261,000 input and 15,600 output tokens; about \$1\.36 API-equivalent at Claude Opus 5\.5/);
   }));
 
 // M-002-S3
@@ -72,7 +74,7 @@ test('M-002-S3 set 150 --first-run without --confirm writes nothing', () =>
   }));
 
 // M-002-S4
-test('M-002-S4 status prints the daily and first-run budgets, rows scored today by source, rows left and the cost line', () =>
+test('M-002-S4 status prints the daily and first-run budgets, rows sent today by source, rows left and the cost line', () =>
   withRoot(CONFIG, (r) => {
     writeLedger(r, [rowOf('scheduled', 5), rowOf('session', 3), rowOf('first-run', 10, '2026-10-20')]);
     const res = cli(r, ['status']);
@@ -193,4 +195,39 @@ test('M-002-S14 log 7 --today 2026-11-02 dates the ledger row and the digest fil
     const next = cli(r, ['status'], { today: '2026-11-03' });
     assert.equal(next.code, 0, out(next));
     assert.doesNotMatch(next.stdout, /session\D{0,12}\b7\b/);
+  }));
+
+// W-023-A4-5
+test('W-023-A4-5 cost --spend-tier premium prices at the Opus rate with no config, and standard at the Sonnet rate', () => {
+  const r = makeRoot({ config: '' });
+  try {
+    rmSync(r.file('config/student.yml'));
+    const premium = cli(r, ['cost', '150', '--plan', 'api', '--agent', 'claude', '--spend-tier', 'premium']);
+    assert.equal(premium.code, 0, out(premium));
+    assert.match(premium.stdout, /about \$1\.36 API-equivalent at Claude Opus 5\.5/);
+    assert.match(premium.stdout, /tokens measured at the standard tier/);
+    const standard = cli(r, ['cost', '150', '--plan', 'api', '--agent', 'claude', '--spend-tier', 'standard']);
+    assert.match(standard.stdout, /about \$0\.68 API-equivalent at Claude Sonnet 5\.5/);
+  } finally {
+    r.cleanup();
+  }
+});
+
+// W-023-A4-5
+test('W-023-A4-5 --spend-tier overrides the config tier and a value other than standard or premium exits 2 naming it', () =>
+  withRoot(CONFIG, (r) => {
+    const std = cli(r, ['cost', '150', '--plan', 'api', '--spend-tier', 'standard']);
+    assert.match(std.stdout, /Claude Sonnet 5\.5/);
+    const bad = cli(r, ['cost', '150', '--spend-tier', 'gold']);
+    assert.equal(bad.code, 2, out(bad));
+    assert.match(out(bad), /gold/);
+  }));
+
+// W-023-A1-7
+test('W-023-A1-7 status labels the ledger count as rows sent today, counted against the budget', () =>
+  withRoot(CONFIG, (r) => {
+    writeLedger(r, [{ date: '2026-10-27', source: 'scheduled', rows: '20', outcome: 'failed' }]);
+    const res = cli(r, ['status']);
+    assert.match(res.stdout, /Rows sent today \(2026-10-27, counted against the budget\): 20/);
+    assert.doesNotMatch(res.stdout, /scored/);
   }));

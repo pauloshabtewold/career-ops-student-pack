@@ -19,7 +19,7 @@ Read this when the user says "apply" or "start applying". The numbers below are 
 1. `node student/scripts/budget.mjs check apply.submit --company "<company>" --track <internship|newgrad> --score <score> --batch <n>`. Exit 3 ends submitting for the day. Exit 5 means the company already has an application on the other track: ask the user.
 2. Read the posting. If the description is only available in the browser, check `apply.jd_browser` first (10 per session).
 3. Before any upload run `node student/scripts/check-resume.mjs --pdf <file> --html <file> --variant <name>`; `--html` is the HTML or markdown source the PDF was rendered from. Exit 1 means the resume does not match the track: fix it, do not upload.
-4. Fill the form. Sign in only through "Continue with Google" or "Continue with LinkedIn" on a site the user approved in this chat. Never use a password.
+4. Fill the form. If the site needs a sign-in, stop and ask the student to sign in themselves (Google or LinkedIn SSO only, never a password), then continue once they say they are in.
 5. Employer policies (for example "2 per cycle") come from the preset and from what a form reveals. When a form reveals one, record it with `node student/scripts/budget.mjs log apply.policy --company "<company>"` and the numbers, then stop at the cap and tell the user.
 
 ## Fact gate

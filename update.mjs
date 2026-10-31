@@ -18,6 +18,7 @@ import { oneLine } from './lib/text.mjs';
 import { createUpstream, defaultRunner } from './lib/upstream.mjs';
 
 const LOCAL_COMMITS = 'student/ has local commits; pack update skipped (fork-and-edit, see README)';
+const DIRTY_TREE = 'student/ has uncommitted edits to pack files; pack update skipped (run git status in student/ and move those edits out, see README)';
 // A blocked network must fail in seconds, not hang on a credential prompt: 20 s covers a slow first fetch and
 // GIT_TERMINAL_PROMPT=0 makes git give up rather than ask for a password nobody is there to type.
 const FETCH_OPTS = { timeout: 20000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } };
@@ -84,7 +85,14 @@ function fastForward({ runner, packRoot, dryRun, say }, tag, label) {
     say(`pack: updated to ${tag}`);
     return true;
   } catch {
-    say(LOCAL_COMMITS);
+    // An uncommitted edit to a file the release changes also stops --ff-only; it needs a different fix than a commit.
+    let dirty = false;
+    try {
+      dirty = String(git(runner, packRoot, ['status', '--porcelain', '--untracked-files=no'])).trim() !== '';
+    } catch {
+      dirty = false;
+    }
+    say(dirty ? DIRTY_TREE : LOCAL_COMMITS);
     return false;
   }
 }
