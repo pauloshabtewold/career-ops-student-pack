@@ -59,3 +59,17 @@ test('M-001-S26 us_citizen false fails a clearance-required title exactly as whe
   assert.equal(reasonOf(falsy), 'excluded title');
   assert.deepEqual(falsy, absent);
 });
+
+// W-023-A3-4: in nursing "Senior" names the student's school year, not seniority.
+test('W-023-A3-4 Senior Nursing Student and Senior Nurse Intern titles pass the real nursing preset; Senior Nurse Manager and Senior Software Engineer still fail', async () => {
+  const { loadMerged } = await import('../../lib/presets.mjs');
+  const nursing = loadMerged(['nursing']);
+  const runNursing = (title) =>
+    prefilter({ pipelineText: pipelineText({ pending: [line(jobUrl(1), 'Example Health', title)] }), applicationsText: '', config: { dealbreakers: [], tracks: INTERN_TRACKS }, preset: nursing, cycle: CYCLE });
+  assert.deepEqual(runNursing('Senior Nursing Student Extern'), []);
+  assert.deepEqual(runNursing('Senior Nurse Intern - Summer 2027'), []);
+  assert.equal(reasonOf(runNursing('Senior Nurse Manager')), 'above entry level');
+  assert.equal(reasonOf(runNursing('Senior Software Engineer')), 'above entry level');
+  assert.equal(reasonOf(runNursing('Senior Student Success Manager')), 'above entry level');
+  assert.equal(reasonOf(runNursing('Senior Student Affairs Officer')), 'above entry level');
+});

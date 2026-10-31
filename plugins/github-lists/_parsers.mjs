@@ -93,8 +93,10 @@ function buildRows(tables, kind, today) {
       if (CONTINUATION.has(company)) company = prevCompany;
       else prevCompany = company;
       const cellLink = row[linkCol];
-      // Lock and closed markers mean the posting takes no applications.
-      if (/\u{1F512}|closed/iu.test(cellLink) || /\u{1F512}/u.test(row[col.title])) continue;
+      // Lock and closed markers mean the posting takes no applications. Without a link column the link cell is the title,
+      // where "closed" is ordinary text ("Closed-Loop Controls"), so only the lock emoji counts there.
+      const closedMark = col.link === undefined ? /\u{1F512}/u : /\u{1F512}|closed/iu;
+      if (closedMark.test(cellLink) || /\u{1F512}/u.test(row[col.title])) continue;
       const url = firstLink(cellLink);
       if (!url || !company) continue;
       rows.push({

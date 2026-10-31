@@ -155,3 +155,16 @@ test('W-017 markdown-table with no link column takes the url from the title cell
     { company: 'Example Advisory', title: 'Consulting Analyst, New Grad', location: 'Austin, TX, United States', date: 'Oct 30', url: 'https://jobright.ai/jobs/info/abc123?utm_source=1103', kind: 'newgrad' },
   ]);
 });
+
+test('W-023-A3-6 with no link column a title containing "closed" survives; a lock emoji or a Closed cell still drops the row', () => {
+  const text = [
+    '| Company | Job Title | Location | Date Posted |',
+    '| --- | --- | --- | --- |',
+    '| Example Advisory | [Closed-Loop Controls Engineer Intern](https://jobright.ai/jobs/info/a1) | Austin, TX | Oct 30 |',
+    '| Sample Labs | [Enclosed Systems Intern](https://jobright.ai/jobs/info/a2) | Denver, CO | Oct 30 |',
+    '| Third Co | \u{1F512} [Locked Intern](https://jobright.ai/jobs/info/a3) | Denver, CO | Oct 30 |',
+    '| Fourth Co | [Platform Intern](https://jobright.ai/jobs/info/a4) | Denver, CO | Oct 30 |',
+  ].join('\n');
+  const { rows } = parseSource(text, { format: 'markdown-table', kind: 'internship' });
+  assert.deepEqual(rows.map((r) => r.title), ['Closed-Loop Controls Engineer Intern', 'Enclosed Systems Intern', 'Platform Intern']);
+});
