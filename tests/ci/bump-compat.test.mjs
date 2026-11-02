@@ -54,3 +54,25 @@ test('M-009-S4 exits 1 without writing when the version is below upstream.max', 
   assert.equal(r.code, 1);
   assert.equal(r.after, r.before);
 });
+
+// W-028: the README install blocks check out the tested release tag, which tracks upstream.max.
+test('W-028 a bump rewrites the release tag in a README.md next to compat.json', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bump-compat-'));
+  try {
+    const f = join(dir, 'compat.json');
+    writeFileSync(f, `${JSON.stringify(COMPAT, null, 2)}\n`);
+    writeFileSync(join(dir, 'README.md'), 'git checkout -B main career-ops-v1.38.0\nmac\ngit checkout -B main career-ops-v1.38.0\n');
+    const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'ci', 'bump-compat.mjs'), '1.40.2', '--file', f], { cwd: dir, encoding: 'utf8', timeout: 30000 });
+    assert.equal(out.status, 0);
+    assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), 'git checkout -B main career-ops-v1.40.2\nmac\ngit checkout -B main career-ops-v1.40.2\n');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('W-028 both README install blocks check out the release tag compat.json supports as max', () => {
+  const compat = JSON.parse(readFileSync(join(PACK_ROOT, 'compat.json'), 'utf8'));
+  const readme = readFileSync(join(PACK_ROOT, 'README.md'), 'utf8');
+  const lines = readme.split('\n').filter((l) => l.startsWith('git checkout -B main '));
+  assert.deepEqual(lines, Array(2).fill(`git checkout -B main ${compat.upstream.tag_prefix}${compat.upstream.max}`));
+});

@@ -27,13 +27,13 @@ Supported: macOS and Windows 11, Claude Code or Codex, US job markets.
 
 - macOS or Windows 11 with [Claude Code](https://claude.com/claude-code) or Codex (Windows and the browser steps are a preview; see [docs/codex.md](docs/codex.md)), signed in
 - Node 22.13 or newer, and git
-- A clone of career-ops at version 1.38.0 or newer (the pack refuses to install on an older one)
+- A clone of career-ops at a release the pack supports; the install block below checks out career-ops-v1.38.0, the release it was tested with (the pack refuses to install on an older one)
 
 ## Install
 
 Do these steps once, in order. Each block is typed in a terminal: Terminal on macOS, PowerShell on Windows 11.
 
-**1. Run the block for your system.** Each block does everything up to the install script, so use one only. The steps are: install Node and git, clone career-ops, install its packages, clone this pack into a folder named `student`, then run the pack installer.
+**1. Run the block for your system.** Each block does everything up to the install script, so use one only. The steps are: install Node and git, clone career-ops and move it to the release this pack was tested with, install its packages, clone this pack into a folder named `student`, then run the pack installer.
 
 For the pack clone, open the page you were sent for this pack, press the green Code button, choose HTTPS and copy the address. Paste it where `<pack-address>` is.
 
@@ -43,6 +43,7 @@ macOS (Terminal; needs [Homebrew](https://brew.sh), so install it first if `brew
 brew install node git
 git clone https://github.com/career-ops-hq/career-ops.git
 cd career-ops
+git checkout -B main career-ops-v1.38.0
 npm install
 git clone <pack-address> student
 node student/install.mjs
@@ -55,6 +56,7 @@ winget install OpenJS.NodeJS.LTS
 winget install Git.Git
 git clone https://github.com/career-ops-hq/career-ops.git
 cd career-ops
+git checkout -B main career-ops-v1.38.0
 npm install
 git clone <pack-address> student
 node student/install.mjs
