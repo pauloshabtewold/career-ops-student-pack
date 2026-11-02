@@ -4,6 +4,8 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-028: a review-app test's fake runner no longer writes a stray `-p` file into the working directory when a call has no `-o` flag.
+
 ## v0.4.0 (2026-11-02)
 
 - W-028: friend install fixes, preset audit #27-#33, watch_only seeds (#35)

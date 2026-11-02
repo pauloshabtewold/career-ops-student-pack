@@ -129,8 +129,9 @@ test('W-027-R11 the claude call grants no tools and the codex call is read-only 
   const calls = [];
   const runner = (cmd, argv, opts) => {
     calls.push({ cmd, argv, opts });
-    const out = argv[argv.indexOf('-o') + 1];
-    if (out) writeFileSync(out, 'VERDICT: CLEAN');
+    // Only the codex call has -o; without the guard indexOf is -1 and argv[0] ('-p') became a stray file in the cwd.
+    const at = argv.indexOf('-o');
+    if (at >= 0) writeFileSync(argv[at + 1], 'VERDICT: CLEAN');
     return 'VERDICT: CLEAN';
   };
   callReviewer({ agent: 'claude', agentPath: '/bin/claude', prompt: 'P', packRoot: PACK_ROOT, runner, platform: 'linux' });
