@@ -72,22 +72,26 @@ search_terms:
   - "IT rotational program"
 seed_employers:
   - name: "Accenture"
-    careers_url: https://www.accenture.com/us-en/careers
+    careers_url: https://accenture.wd103.myworkdayjobs.com/AccentureCareers
   - name: "Deloitte"
-    careers_url: https://www.deloitte.com/us/en/careers
+    careers_url: https://apply.deloitte.com/careers/SearchJobs
+    watch_only: true
   - name: "PwC"
     careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
+    watch_only: true
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
+    watch_only: true
   - name: "IBM"
     careers_url: https://www.ibm.com/careers
     provider: ibm
   - name: "Oracle"
-    careers_url: https://www.oracle.com/careers
+    careers_url: https://eeho.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/jobsearch
   - name: "SAP"
     careers_url: https://jobs.sap.com
+    watch_only: true
   - name: "Salesforce"
     careers_url: https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
   - name: "ServiceNow"
@@ -104,10 +108,13 @@ seed_employers:
     careers_url: https://hpe.wd5.myworkdayjobs.com/Jobsathpe
   - name: "Capgemini"
     careers_url: https://www.capgemini.com/us-en/careers
+    watch_only: true
   - name: "Cognizant"
     careers_url: https://careers.cognizant.com
+    watch_only: true
   - name: "Infosys"
     careers_url: https://www.infosys.com/careers
+    watch_only: true
   - name: "Booz Allen Hamilton"
     careers_url: https://bah.wd1.myworkdayjobs.com/BAH_Jobs
   - name: "Leidos"
@@ -134,6 +141,7 @@ seed_employers:
     careers_url: https://citi.wd5.myworkdayjobs.com/2
   - name: "UnitedHealth Group"
     careers_url: https://careers.unitedhealthgroup.com
+    watch_only: true
   - name: "CVS Health"
     careers_url: https://cvshealth.wd1.myworkdayjobs.com/CVS_Health_Careers
   - name: "Target"
@@ -166,6 +174,7 @@ seed_employers:
     careers_url: https://adobe.wd5.myworkdayjobs.com/external_experienced
   - name: "Intuit"
     careers_url: https://jobs.intuit.com
+    watch_only: true
   - name: "Autodesk"
     careers_url: https://autodesk.wd1.myworkdayjobs.com/Ext
   - name: "Chubb"
@@ -174,6 +183,7 @@ seed_employers:
     careers_url: https://mmc.wd1.myworkdayjobs.com/MMC
   - name: "Aon"
     careers_url: https://www.aon.com/careers
+    watch_only: true
   - name: "General Motors"
     careers_url: https://generalmotors.wd5.myworkdayjobs.com/Careers_GM
   - name: "Lockheed Martin"

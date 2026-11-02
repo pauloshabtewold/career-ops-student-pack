@@ -64,7 +64,7 @@ jobs:
           git switch -c "canary/upstream-$VERSION"
           git commit -am "Support career-ops $VERSION"
           git push origin "canary/upstream-$VERSION"
-          gh pr create --repo ${{github.repository}} --title "Support career-ops $VERSION" --body "The canary passed against career-ops $VERSION on macOS and Windows. This raises compat.json upstream.max."
+          gh pr create --repo ${{github.repository}} --title "Support career-ops $VERSION" --body "The canary passed against career-ops $VERSION on macOS and Windows. This raises compat.json upstream.max and the release tag in the README install blocks."
 
   report:
     needs: [resolve, test]

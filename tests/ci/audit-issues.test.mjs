@@ -115,3 +115,20 @@ test('W-011-S1 with several open issues for one preset the newest is reused', ()
   assert.equal(p.action, 'comment');
   assert.equal(p.number, 12);
 });
+
+// W-028: watch-only seeds are expected to have no provider, so they are counted, not listed; other statuses still flag.
+test('W-028 auditIssues counts watch-only no-provider seeds instead of listing them', () => {
+  const current = {
+    'preset-one': { boards: [b('Board A', 'no-provider', 0), b('Board B', 'no-provider', 0), b('Board C', 'error', 0)] },
+    'preset-two': { boards: [b('Board D', 'no-provider', 0), b('Board E', 'ok', 5)] },
+  };
+  const watchOnly = { 'preset-one': ['Board A', 'Board C'], 'preset-two': ['Board D'] };
+  const issues = auditIssues({ current, watchOnly });
+  assert.equal(issues.length, 1);
+  const [one] = issues;
+  assert.equal(one.title, auditTitle('preset-one', 2));
+  assert.ok(!one.body.includes('- Board A'));
+  assert.ok(one.body.includes('- Board B'));
+  assert.ok(one.body.includes('- Board C'), 'an erroring watch-only seed is still flagged');
+  assert.ok(one.body.includes('1 watch-only seed with no provider not listed.'));
+});

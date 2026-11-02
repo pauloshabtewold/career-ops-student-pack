@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Raises compat.json upstream.max after the canary passed against a newer upstream release.
-// Only upstream.max changes; budgetSha256 and every other field are written back as read.
+// Only upstream.max changes; budgetSha256 and every other field are written back as read. The README install blocks
+// check out the tested release tag, so a README.md next to the compat file gets the same new tag (W-028).
 // Usage: bump-compat.mjs <version> [--file <compat.json>]    exit 0 bumped, 1 not newer, 2 usage
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
@@ -16,6 +17,11 @@ export function bumpCompat(version, file = DEFAULT_FILE) {
   if (compare(version, current) <= 0) return { bumped: false, from: current, to: version };
   obj.upstream.max = version;
   writeFileSync(file, `${JSON.stringify(obj, null, 2)}\n`);
+  const readme = join(dirname(file), 'README.md');
+  if (existsSync(readme)) {
+    const tag = (v) => `${obj.upstream.tag_prefix}${v}`;
+    writeFileSync(readme, readFileSync(readme, 'utf8').replaceAll(tag(current), tag(version)));
+  }
   return { bumped: true, from: current, to: version };
 }
 

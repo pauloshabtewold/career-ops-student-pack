@@ -70,8 +70,8 @@ test('M-006-S9 a policy without source_url fails validation naming the preset an
 });
 
 // M-006-S12
-test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config', () => {
-  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm']);
+test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config or watch_only', () => {
+  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm', 'watch_only']);
   for (const id of ids()) {
     const raw = yaml.load(readFileSync(join(dir, `${id}.yml`), 'utf8'));
     (raw.seed_employers ?? []).forEach((e, i) => {
@@ -79,7 +79,7 @@ test('M-006-S12 every seed_employers entry carries name and careers_url, plus on
       const at = `${id} seed_employers[${i}] (${e.name ?? 'unnamed'})`;
       assert.ok(keys.includes('name') && keys.includes('careers_url'), at);
       for (const k of keys) assert.ok(allowed.has(k), `${at} key ${k}`);
-      if (!e.provider) assert.deepEqual(keys.sort(), ['careers_url', 'name'], at);
+      if (!e.provider) assert.deepEqual(keys.filter((k) => k !== 'watch_only').sort(), ['careers_url', 'name'], at);
     });
   }
 });
@@ -160,5 +160,13 @@ test('W-023-A3-7 unknown top-level, sources and title_rules keys are rejected, n
     const p = base();
     mutate(p);
     assert.throws(() => validatePreset(p, 'policy-government'), pattern);
+  }
+});
+
+// W-028: watch_only marks a hand-checked seed; it is true or absent and never sits next to a provider.
+test('W-028 watch_only is accepted as true alone and rejected with any other value or beside a provider', () => {
+  assert.doesNotThrow(() => validatePreset(withSeed({ watch_only: true }), 'software-cs'));
+  for (const extra of [{ watch_only: false }, { watch_only: 'yes' }, { watch_only: true, provider: 'phenom' }, { watch_only: true, api: 'https://x.example.com' }]) {
+    assert.throws(() => validatePreset(withSeed(extra), 'software-cs'), /seed_employers\[0\]/, JSON.stringify(extra));
   }
 });

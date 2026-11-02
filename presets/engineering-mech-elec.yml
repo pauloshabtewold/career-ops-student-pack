@@ -142,10 +142,12 @@ seed_employers:
     careers_url: https://gdit.wd5.myworkdayjobs.com/External_Career_Site
   - name: "L3Harris"
     careers_url: https://careers.l3harris.com
+    watch_only: true
   - name: "BAE Systems"
-    careers_url: https://www.baesystems.com/en-us/careers
+    careers_url: https://baesystems.taleo.net/careersection/2/jobsearch.ftl
   - name: "Huntington Ingalls Industries"
     careers_url: https://www.hii.com/careers
+    watch_only: true
   - name: "Textron"
     careers_url: https://textron.taleo.net/careersection/textron/jobsearch.ftl
   - name: "Leidos"
@@ -176,22 +178,35 @@ seed_employers:
     careers_url: https://generalmotors.wd5.myworkdayjobs.com/Careers_GM
   - name: "Tesla"
     careers_url: https://www.tesla.com/careers
+    watch_only: true
   - name: "Lucid Motors"
     careers_url: https://job-boards.greenhouse.io/lucidmotors
   - name: "Stellantis"
-    careers_url: https://www.stellantis.com/en/careers
+    careers_url: https://stellantis.wd3.myworkdayjobs.com/External_Career_Site_ID01
   - name: "Toyota North America"
-    careers_url: https://www.toyota.com/usa/careers
+    careers_url: https://careers.toyota.com
+    provider: phenom
+    phenom:
+      lang: en_us
+      country: us
+      urlPrefix: us/en
   - name: "Honda"
     careers_url: https://careers.honda.com/us/en
+    provider: phenom
+    phenom:
+      lang: en_us
+      country: us
+      urlPrefix: us/en
   - name: "Cummins"
-    careers_url: https://www.cummins.com/careers
+    careers_url: https://fa-espx-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Caterpillar"
     careers_url: https://cat.wd5.myworkdayjobs.com/CaterpillarCareers
   - name: "Deere & Company"
-    careers_url: https://www.deere.com/en/careers
+    careers_url: https://jobs.deere.com
+    watch_only: true
   - name: "Paccar"
     careers_url: https://www.paccar.com/careers
+    watch_only: true
   - name: "Eaton"
     careers_url: https://eaton.eightfold.ai/careers?domain=eaton.com
   - name: "Emerson"
@@ -200,6 +215,7 @@ seed_employers:
     careers_url: https://rockwellautomation.wd1.myworkdayjobs.com/External_Rockwell_Automation
   - name: "Parker Hannifin"
     careers_url: https://www.parker.com/careers
+    watch_only: true
   - name: "Johnson Controls"
     careers_url: https://jci.wd5.myworkdayjobs.com/JCI
   - name: "Carrier"
@@ -215,24 +231,28 @@ seed_employers:
     careers_url: https://dupont.wd5.myworkdayjobs.com/Jobs
   - name: "LyondellBasell"
     careers_url: https://www.lyondellbasell.com/careers
+    watch_only: true
   - name: "ExxonMobil"
     careers_url: https://corporate.exxonmobil.com/careers
+    watch_only: true
   - name: "Chevron"
     careers_url: https://chevron.wd5.myworkdayjobs.com/jobs
   - name: "ConocoPhillips"
     careers_url: https://conocophillips.wd1.myworkdayjobs.com/External
   - name: "Schlumberger"
-    careers_url: https://careers.slb.com
+    careers_url: https://slb.eightfold.ai/careers?domain=slb.com
   - name: "Baker Hughes"
     careers_url: https://bakerhughes.wd5.myworkdayjobs.com/BakerHughes
   - name: "NextEra Energy"
     careers_url: https://www.nexteraenergy.com/careers
+    watch_only: true
   - name: "Duke Energy"
     careers_url: https://dukeenergy.wd1.myworkdayjobs.com/search
   - name: "Southern Company"
-    careers_url: https://www.southerncompany.com/careers
+    careers_url: https://emje.fa.us6.oraclecloud.com/hcmUI/CandidateExperience/en/sites/SouthernCompanyJobs
   - name: "Dominion Energy"
-    careers_url: https://www.dominionenergy.com/careers
+    careers_url: https://careers.dominionenergy.com
+    watch_only: true
   - name: "First Solar"
     careers_url: https://fa-esbv-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Intel"
@@ -259,8 +279,9 @@ seed_employers:
     careers_url: https://careers.smartrecruiters.com/microchip
   - name: "Skyworks"
     careers_url: https://www.skyworksinc.com/careers
+    watch_only: true
   - name: "Western Digital"
-    careers_url: https://jobs.westerndigital.com
+    careers_url: https://careers.smartrecruiters.com/westerndigital
   - name: "Medtronic"
     careers_url: https://medtronic.wd1.myworkdayjobs.com/MedtronicCareers
   - name: "Abbott"
@@ -272,7 +293,8 @@ seed_employers:
   - name: "Amazon"
     careers_url: https://www.amazon.jobs
   - name: "Corning"
-    careers_url: https://www.corning.com/careers
+    careers_url: https://corningjobs.corning.com
+    watch_only: true
   - name: "Saronic"
     careers_url: https://jobs.ashbyhq.com/saronic
   - name: "Skydio"

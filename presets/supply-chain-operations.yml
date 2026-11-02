@@ -180,18 +180,22 @@ seed_employers:
     careers_url: https://www.amazon.jobs
   - name: "Walmart"
     careers_url: https://careers.walmart.com
+    watch_only: true
   - name: "Costco"
     careers_url: https://www.costco.com/jobs.html
+    watch_only: true
   - name: "Kroger"
     careers_url: https://eluq.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001
   - name: "Tesla"
     careers_url: https://www.tesla.com/careers
+    watch_only: true
   - name: "Ford Motor Company"
     careers_url: https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Deere & Company"
-    careers_url: https://www.deere.com/en/careers
+    careers_url: https://jobs.deere.com
+    watch_only: true
   - name: "Cummins"
-    careers_url: https://www.cummins.com/careers
+    careers_url: https://fa-espx-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "Honeywell"
     careers_url: https://ibqbjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/Honeywell
   - name: "Lockheed Martin"
@@ -200,12 +204,14 @@ seed_employers:
     careers_url: https://hdpc.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/US
   - name: "FedEx"
     careers_url: https://careers.fedex.com
+    watch_only: true
   - name: "Apple"
     careers_url: https://jobs.apple.com
+    watch_only: true
   - name: "Whirlpool"
-    careers_url: https://careers.whirlpool.com
+    careers_url: https://whirlpool.eightfold.ai/careers?domain=whirlpool.com
   - name: "Tyson Foods"
-    careers_url: https://careers.tyson.com
+    careers_url: https://tysonfoods.wd5.myworkdayjobs.com/TSN
 assessment_domains:
     - "Excel and SQL for planning data"
     - "Case questions on inventory and capacity"

@@ -65,12 +65,12 @@ export function syncPlugins({ root, packRoot, upstream, dryRun, say }) {
       rmSync(dest, { recursive: true, force: true });
       cpSync(join(src, id), dest, { recursive: true });
     }
-    say(`plugin ${id}: copied`);
+    say(`plugin ${id}: ${dryRun ? 'would copy' : 'copied'}`);
     if (!enabled.has(id)) continue;
     // A moved pin silently stops a plugin, so trust is restored only when the consent surface is unchanged.
     if (before === after) {
       if (!dryRun) upstream.pluginsTrust(id);
-      say(`plugin ${id}: trusted again`);
+      say(`plugin ${id}: ${dryRun ? 'would trust again' : 'trusted again'}`);
     } else say(`re-enable ${id}: its permissions changed`);
   }
 }

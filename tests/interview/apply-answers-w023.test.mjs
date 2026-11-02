@@ -52,6 +52,8 @@ test('W-023-A3-2 an accounting setup writes Crowe with provider phenom and its c
     const crowe = yaml.load(r.read('portals.yml')).tracked_companies.find((e) => e.name === 'Crowe');
     assert.equal(crowe.provider, 'phenom');
     assert.deepEqual(crowe.phenom, { lang: 'en_us', country: 'us' });
+    // W-028: watch_only is pack metadata and is never written to portals.yml.
+    assert.ok(yaml.load(r.read('portals.yml')).tracked_companies.every((e) => !('watch_only' in e)));
   } finally {
     r.cleanup();
   }

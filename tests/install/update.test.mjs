@@ -208,3 +208,17 @@ test('W-015-UP1 an update with nothing new says the pack and upstream are up to 
     assert.ok(r.lines.some((l) => /^pack: up to date/.test(l)), r.stdout);
     assert.ok(r.lines.includes('upstream: up to date (1.38.0)'), r.stdout);
   }));
+
+// W-028: a dry run copies and trusts nothing, so its plugin lines say what would happen.
+test('W-028 update --dry-run says would copy and would trust again, and trusts nothing', () =>
+  withPack((p) => {
+    p.up.setOutput('update-system', checkJson('up-to-date', { remote: '1.38.0' }));
+    p.seedPlugin('github-lists', (m) => ({ ...m, version: '0.9.0' }));
+    const r = p.run('update.mjs', ['--dry-run']);
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.ok(r.lines.includes('plugin github-lists: would copy'), r.lines.join('\n'));
+    assert.ok(r.lines.includes('plugin github-lists: would trust again'), r.lines.join('\n'));
+    assert.ok(!r.lines.some((l) => / copied$| trusted again$/.test(l) && !l.includes('would')), r.lines.join('\n'));
+    assert.equal(JSON.parse(readFileSync(join(p.root, 'plugins.local', 'github-lists', 'manifest.json'), 'utf8')).version, '0.9.0');
+    assert.deepEqual(upstreamCalls(p, 'plugins.mjs').filter((c) => c.argv[0] === 'trust'), []);
+  }));
