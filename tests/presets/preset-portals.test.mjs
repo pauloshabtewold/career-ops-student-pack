@@ -65,4 +65,6 @@ test('W-019 presetPortals passes a seed provider and its config through to porta
   assert.equal(ibm.enabled, true);
   // A watch-only seed carries no provider key at all.
   assert.equal('provider' in doc.tracked_companies.find((e) => e.name === 'Eide Bailly'), false);
+  // W-028: watch_only is pack metadata and never reaches portals.yml.
+  assert.ok(doc.tracked_companies.every((e) => !('watch_only' in e)));
 });

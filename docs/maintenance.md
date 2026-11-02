@@ -68,7 +68,7 @@ No-provider seeds stay because many employers, such as federal agencies and firm
 
 The same employer can appear in several presets, so a URL fix must be applied to every preset that lists it (grep by name); `tests/presets/seed-consistency.test.mjs` fails and names the employer and preset files when two presets disagree.
 
-The monthly issues are expected to list the no-provider manual-watch seeds that each preset's allowance already covers. Act on `error`, `empty`, halved postings and no-provider shares above the allowance.
+A seed with no readable board, or one the pack's robots and crawl-delay rules keep it off, carries `watch_only: true` and nothing else besides `name` and `careers_url`. Students still get it to check by hand; the monthly issue counts these seeds in one line instead of listing them, and still lists one that turns `error` or `empty`. A no-provider seed without `watch_only` is listed every month until it gets a readable board, the flag or is removed. Act on every listed board: `error`, `empty`, halved postings and unmarked no-provider seeds.
 
 A preset not reviewed for 60 days is shown to students as unmaintained by the interview's coverage line. `mark-unmaintained.yml` makes that durable each Wednesday: when a preset's `last_reviewed` is more than 60 days old, or its open audit issue has had no maintainer comment for 60 days, it sets that preset's owner to `""` through a Mark presets unmaintained pull request. Only comments from the repository owner, members and collaborators count as a maintainer comment. After a review, restore the role and `last_reviewed` in `presets/OWNERS.yml`. Pull requests opened by the workflow token start no CI, so rerun CI from the pull request.
 

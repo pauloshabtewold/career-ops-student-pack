@@ -162,3 +162,11 @@ test('W-023-A3-7 unknown top-level, sources and title_rules keys are rejected, n
     assert.throws(() => validatePreset(p, 'policy-government'), pattern);
   }
 });
+
+// W-028: watch_only marks a hand-checked seed; it is true or absent and never sits next to a provider.
+test('W-028 watch_only is accepted as true alone and rejected with any other value or beside a provider', () => {
+  assert.doesNotThrow(() => validatePreset(withSeed({ watch_only: true }), 'software-cs'));
+  for (const extra of [{ watch_only: false }, { watch_only: 'yes' }, { watch_only: true, provider: 'phenom' }, { watch_only: true, api: 'https://x.example.com' }]) {
+    assert.throws(() => validatePreset(withSeed(extra), 'software-cs'), /seed_employers\[0\]/, JSON.stringify(extra));
+  }
+});

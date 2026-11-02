@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../../lib/args.mjs';
+import { loadPreset } from '../../lib/presets.mjs';
 
 const FLAGGED = ['no-provider', 'error', 'empty'];
 
@@ -24,10 +25,15 @@ const boardsOf = (out) => {
   return list.map((b) => ({ name: b.name, status: b.status ?? b.verdict, postings: b.postings ?? b.count }));
 };
 
-export function auditIssues({ current, previous = {} }) {
+// watchOnly maps preset id -> names of seeds marked watch_only. Their no-provider rows are expected every month, so they
+// are counted in one line instead of listed; any other status on them (error, empty, halved) is still flagged.
+export function auditIssues({ current, previous = {}, watchOnly = {} }) {
   const issues = [];
   for (const [preset, out] of Object.entries(current)) {
-    const boards = boardsOf(out);
+    const watched = new Set(watchOnly[preset] ?? []);
+    const all = boardsOf(out);
+    const boards = all.filter((b) => !(b.status === 'no-provider' && watched.has(b.name)));
+    const skipped = all.length - boards.length;
     const before = new Map(boardsOf(previous[preset]).filter((b) => Number.isFinite(b.postings)).map((b) => [b.name, b.postings]));
     const groups = new Map(FLAGGED.map((s) => [s, boards.filter((b) => b.status === s).map((b) => b.name)]));
     const halved = boards
@@ -46,6 +52,7 @@ export function auditIssues({ current, previous = {} }) {
         ...section('Status error', groups.get('error')),
         ...section('Status empty', groups.get('empty')),
         ...section('Posting count halved or worse', halved),
+        ...(skipped ? [`${skipped} watch-only seed${skipped === 1 ? '' : 's'} with no provider not listed.`, ''] : []),
       ].join('\n'),
     });
   }
@@ -84,7 +91,9 @@ async function main() {
   const { flags } = parseArgs(process.argv.slice(2), { common: false, flags: { current: 'string', previous: 'string', open: 'string', repo: 'string' } });
   if (!flags.current) throw new UsageError('--current <dir> is required');
   if (Boolean(flags.open) !== Boolean(flags.repo)) throw new UsageError('--open and --repo go together');
-  const issues = auditIssues({ current: loadDir(flags.current), previous: loadDir(flags.previous) });
+  const current = loadDir(flags.current);
+  const watchOnly = Object.fromEntries(Object.keys(current).map((id) => [id, loadPreset(id).seed_employers.filter((e) => e.watch_only).map((e) => e.name)]));
+  const issues = auditIssues({ current, previous: loadDir(flags.previous), watchOnly });
   if (!flags.repo) {
     console.log(JSON.stringify(issues, null, 2));
     return 0;

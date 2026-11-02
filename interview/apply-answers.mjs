@@ -152,7 +152,8 @@ export function locationTerms(locations) {
 
 // A seed that names an upstream provider carries that provider's config (api, phenom, ibm); without it upstream's scan
 // cannot read the board, so every key after careers_url is written through.
-function companyLines({ name, careers_url, ...config }) {
+// watch_only is pack metadata for the audit, not an upstream key, so it is not written.
+function companyLines({ name, careers_url, watch_only: _w, ...config }) {
   const extra = Object.keys(config).length ? yaml.dump(config, { lineWidth: -1 }).trimEnd().split('\n').map((l) => `    ${l}`) : [];
   return [`  - name: ${q(name)}`, `    careers_url: ${careers_url}`, ...extra, '    enabled: true'];
 }
