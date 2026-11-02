@@ -50,13 +50,16 @@ search_terms:
   - "advisory intern"
 seed_employers:
   - name: "Deloitte"
-    careers_url: https://www.deloitte.com/us/en/careers
+    careers_url: https://apply.deloitte.com/careers/SearchJobs
+    watch_only: true
   - name: "PwC"
     careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
+    watch_only: true
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
+    watch_only: true
   - name: "Grant Thornton"
     careers_url: https://ehzq.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1
   - name: "BDO USA"
@@ -67,6 +70,7 @@ seed_employers:
     careers_url: https://bakertilly.wd5.myworkdayjobs.com/BTCareers
   - name: "CohnReznick"
     careers_url: https://www.cohnreznick.com/careers
+    watch_only: true
   - name: "Crowe"
     careers_url: https://careers.crowe.com
     provider: phenom
@@ -83,22 +87,25 @@ seed_employers:
     careers_url: https://cbh.wd12.myworkdayjobs.com/CherryBekaert
   - name: "Eide Bailly"
     careers_url: https://www.eidebailly.com/careers
+    watch_only: true
   - name: "EisnerAmper"
     careers_url: https://eisneramper.wd1.myworkdayjobs.com/EisnerAmper_External
   - name: "Withum"
     careers_url: https://withum.wd108.myworkdayjobs.com/Withum_Careers_Page
   - name: "Citrin Cooperman"
-    careers_url: https://www.citrincooperman.com/careers
+    careers_url: https://www.citrincooperman.com/Join-Us
+    watch_only: true
   - name: "Armanino"
-    careers_url: https://www.armanino.com/careers
+    careers_url: https://armaninollp.wd1.myworkdayjobs.com/Armanino
   - name: "Aprio"
-    careers_url: https://www.aprio.com/careers
+    careers_url: https://jobs.lever.co/Aprio
   - name: "Wipfli"
     careers_url: https://careers-wipfli.icims.com/jobs/search?ss=1
   - name: "Clifton Larson Allen"
     careers_url: https://cliftonlarsonallen.wd115.myworkdayjobs.com/CLA
   - name: "Weaver"
     careers_url: https://www.weaver.com/careers
+    watch_only: true
   - name: "Whitley Penn"
     careers_url: https://recruiting.ultipro.com/WHI1006WPL/JobBoard/bf9b8b62-5ece-4a4f-aa1f-97eba460105c
   - name: "Sikich"
@@ -115,6 +122,7 @@ seed_employers:
     careers_url: https://citi.wd5.myworkdayjobs.com/2
   - name: "Goldman Sachs"
     careers_url: https://www.goldmansachs.com/careers
+    watch_only: true
   - name: "Morgan Stanley"
     careers_url: https://ms.wd5.myworkdayjobs.com/External
   - name: "Capital One"

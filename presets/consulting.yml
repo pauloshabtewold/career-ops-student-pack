@@ -129,30 +129,39 @@ seed_employers:
     careers_url: https://job-boards.greenhouse.io/mintel
   - name: "McKinsey & Company"
     careers_url: https://www.mckinsey.com/careers
+    watch_only: true
   - name: "Boston Consulting Group"
     careers_url: https://bcg.eightfold.ai/careers?domain=bcg.com
   - name: "Bain & Company"
     careers_url: https://www.bain.com/careers
+    watch_only: true
   - name: "Deloitte"
-    careers_url: https://www.deloitte.com/us/en/careers
+    careers_url: https://apply.deloitte.com/careers/SearchJobs
+    watch_only: true
   - name: "PwC"
     careers_url: https://pwc.wd3.myworkdayjobs.com/US_Entry_Level_Careers
   - name: "EY"
     careers_url: https://www.ey.com/en_us/careers
+    watch_only: true
   - name: "KPMG"
     careers_url: https://www.kpmgcareers.com
+    watch_only: true
   - name: "Accenture"
-    careers_url: https://www.accenture.com/us-en/careers
+    careers_url: https://accenture.wd103.myworkdayjobs.com/AccentureCareers
   - name: "Kearney"
-    careers_url: https://www.kearney.com/careers
+    careers_url: https://www.kearney.com/careers/opportunities
+    watch_only: true
   - name: "L.E.K. Consulting"
     careers_url: https://www.lek.com/careers
+    watch_only: true
   - name: "Simon-Kucher"
     careers_url: https://www.simon-kucher.com/en/careers
+    watch_only: true
   - name: "FTI Consulting"
-    careers_url: https://www.fticonsulting.com/careers
+    careers_url: https://fticonsulting.wd108.myworkdayjobs.com/FTIConsultingCareers
   - name: "Alvarez & Marsal"
-    careers_url: https://www.alvarezandmarsal.com/careers
+    careers_url: https://careers.alvarezandmarsal.com
+    watch_only: true
 assessment_domains:
   - "Case interviews"
   - "Mental math and market sizing"

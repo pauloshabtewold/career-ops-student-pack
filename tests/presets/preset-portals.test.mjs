@@ -18,7 +18,8 @@ function check(id, text) {
   assert.ok(Array.isArray(doc.tracked_companies), id);
   assert.equal(doc.tracked_companies.length, seeds.length, id);
   doc.tracked_companies.forEach((e, i) => {
-    assert.deepEqual(e, { ...seeds[i], enabled: true }, `${id} entry ${i}`);
+    const { watch_only: _w, ...seed } = seeds[i];
+    assert.deepEqual(e, { ...seed, enabled: true }, `${id} entry ${i}`);
   });
 }
 

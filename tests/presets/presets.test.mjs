@@ -70,8 +70,8 @@ test('M-006-S9 a policy without source_url fails validation naming the preset an
 });
 
 // M-006-S12
-test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config', () => {
-  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm']);
+test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config or watch_only', () => {
+  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm', 'watch_only']);
   for (const id of ids()) {
     const raw = yaml.load(readFileSync(join(dir, `${id}.yml`), 'utf8'));
     (raw.seed_employers ?? []).forEach((e, i) => {
@@ -79,7 +79,7 @@ test('M-006-S12 every seed_employers entry carries name and careers_url, plus on
       const at = `${id} seed_employers[${i}] (${e.name ?? 'unnamed'})`;
       assert.ok(keys.includes('name') && keys.includes('careers_url'), at);
       for (const k of keys) assert.ok(allowed.has(k), `${at} key ${k}`);
-      if (!e.provider) assert.deepEqual(keys.sort(), ['careers_url', 'name'], at);
+      if (!e.provider) assert.deepEqual(keys.filter((k) => k !== 'watch_only').sort(), ['careers_url', 'name'], at);
     });
   }
 });

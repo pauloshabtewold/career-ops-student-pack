@@ -84,6 +84,7 @@ search_terms:
 seed_employers:
   - name: "Goldman Sachs"
     careers_url: https://www.goldmansachs.com/careers
+    watch_only: true
   - name: "Morgan Stanley"
     careers_url: https://ms.wd5.myworkdayjobs.com/External
   - name: "JPMorgan Chase"
@@ -121,7 +122,7 @@ seed_employers:
   - name: "Northern Trust"
     careers_url: https://ntrs.wd1.myworkdayjobs.com/northerntrust
   - name: "BNY"
-    careers_url: https://www.bny.com/corporate/global/en/about-us/careers
+    careers_url: https://eofe.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/BNY-Careers
   - name: "Capital One"
     careers_url: https://capitalone.wd12.myworkdayjobs.com/Capital_One
   - name: "American Express"
@@ -143,17 +144,20 @@ seed_employers:
   - name: "BlackStone"
     careers_url: https://blackstone.wd1.myworkdayjobs.com/Blackstone_Careers
   - name: "KKR"
-    careers_url: https://www.kkr.com/careers
+    careers_url: https://job-boards.greenhouse.io/stage
   - name: "Apollo Global Management"
     careers_url: https://athene.wd5.myworkdayjobs.com/Apollo_Careers
   - name: "Carlyle"
     careers_url: https://carlyle.wd1.myworkdayjobs.com/carlyle
   - name: "Citadel"
     careers_url: https://www.citadel.com/careers
+    watch_only: true
   - name: "Two Sigma"
     careers_url: https://careers.twosigma.com
+    watch_only: true
   - name: "Jane Street"
     careers_url: https://www.janestreet.com/join-jane-street
+    watch_only: true
   - name: "Point72"
     careers_url: https://job-boards.greenhouse.io/point72
   - name: "S&P Global"
