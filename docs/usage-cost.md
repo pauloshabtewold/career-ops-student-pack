@@ -67,6 +67,21 @@ From `estimateUsage` in `lib/usage-cost.mjs`, standard tier, base rates. Each is
 
 A field with 150 to 250 live postings is 8 to 13 calls on a first catch-up.
 
+## What one review costs
+
+The optional reviewer (`reviewer: on`, off by default; see `modes/review.md`) makes one no-tools call for each 4.0+ application. The call carries `cv.md`, the posting, the resume and cover letter drafts and a short note of the student's chat answers, so it is larger than one triage row but is paid once per application, not once per 20 rows. Nothing else is read or sent.
+
+Measured on 2026-11-02 for Claude Code (`claude -p --tools '' --setting-sources project --strict-mcp-config`, `sonnet`, from an empty folder, three runs of `scripts/ci/review-fixture.mjs`, which builds a synthetic application with a 4,000 character CV, a 5,400 character posting, a 2,800 character resume, a 1,800 character cover letter and a 400 character answers note, all example.com data). Codex was not installed on the measuring machine, so its figures are computed, not measured.
+
+| Agent | Basis | Input tokens | Output tokens | API-equivalent per application |
+| --- | --- | --- | --- | --- |
+| Claude Code, `sonnet` | measured, 3 runs | 8,651 to 8,655 | 390 to 919 (mean 639) | $0.02 |
+| codex, medium effort | computed | about 13,650 | about 640 (Claude's mean) | $0.03 |
+
+The computed codex input is the measured fixed cost of a codex call (10,100) plus the Claude prompt body (8,652 minus Claude's fixed 3,500, which is 5,152) scaled by codex's measured per-row input over Claude's (1,189 / 1,726 = 0.69), about 3,550. Dollars use the same base input rate with no cache discount and the same price table as above (Claude Sonnet 5.5 $2 in, $10 out; gpt-6.1-sol $2 in, $10 out per million tokens): Claude is 8,652 x $2 + 639 x $10 per million, about $0.024; codex is 13,650 x $2 + 640 x $10, about $0.034. The three Claude runs' own reported cost, which includes the cache discount, was $0.007 to $0.041. Real tailored drafts and a longer CV make the input larger; a prompt twice this size adds about $0.01. On the premium spend tier the Claude figure is priced at Opus rates, about $0.05, with tokens measured at the standard tier. These are estimates; on a subscription plan they size usage, not a bill.
+
+Ten reviewed applications a day is therefore about $0.24 on Claude and $0.34 on codex at API rates. The reviewer is opt-in: with `reviewer: off` it sends nothing, and the triage budget above is separate and unchanged.
+
 ## Your plan
 
 Set `plan` in config/student.yml (the interview asks) to one of the ids below. It only chooses which plan line the pack prints; it limits nothing. Where a vendor publishes no number the pack says "not published" and does not invent one.

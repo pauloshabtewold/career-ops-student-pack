@@ -14,7 +14,7 @@ test('package.json basics', () => {
   assert.equal(pkg.type, 'module');
   assert.equal(pkg.license, 'MIT');
   assert.equal(pkg.engines.node, '^22.13.0 || >=23.4.0');
-  assert.deepEqual(pkg.dependencies, { 'js-yaml': '5.5.0' });
+  assert.deepEqual(pkg.dependencies, { 'js-yaml': '5.5.0', unpdf: '1.9.1' });
   assert.equal(pkg.devDependencies?.['js-yaml'], undefined);
   for (const k of ['repository', 'homepage', 'author']) assert.ok(!(k in pkg), k);
 });

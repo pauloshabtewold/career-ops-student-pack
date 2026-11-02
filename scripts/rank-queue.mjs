@@ -7,17 +7,21 @@
 // easy_apply_hosts, contacts_format, metro_match and hold_on_pending_connect tune scoring and contact parsing (docs/usage.md).
 // Pending rows may carry a hold=YYYY-MM-DD note (held until that date; free text after the date is allowed) or a reserved-slot
 // note (free text after the key is allowed; the company's other Pending rows are blocked, not held).
+// A closes=YYYY-MM-DD note (on the row, or in the notes column of data/student-rows.tsv where the usajobs and nyc-jobs feeds
+// write it) is a posting deadline: a row closing today through 7 days out wins ties on score and says so in why; a row whose
+// date has passed is skipped and counted as closed.
 // Usage: rank-queue.mjs [--n N] [--json] [--root R] [--data-dir D] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs, runCli, isMain } from '../lib/args.mjs';
-import { ISO_DATE, createClock } from '../lib/clock.mjs';
+import { ISO_DATE, createClock, isRealDate } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
 import { companyKey } from '../lib/company-key.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { parseTsv } from '../lib/tsv.mjs';
+import { urlKey } from '../lib/url-key.mjs';
 import { CEILINGS, effectiveLimits } from './budget.mjs';
 
 // Used only when config.rank.weights is empty; a configured map replaces it, so unlisted factors weigh nothing.
@@ -27,6 +31,10 @@ const DAY_MS = 86400000;
 // A hold value is a leading date, then end of value or whitespace and free text; '2026-11-05x' is not a date.
 const HOLD_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
 // The bare key or the key followed by free text; a longer key such as reserved-slots is a different note.
+// A closes value is a leading date, then end of value or whitespace and free text.
+const CLOSES_DATE = /^(\d{4}-\d{2}-\d{2})(?:\s|$)/;
+// Rows closing within this many days (today included) win ties on score.
+const CLOSING_SOON_DAYS = 7;
 const RESERVED_SLOT = /^reserved-slot(?:$|[\s(])/;
 // Used only when config.rank.easy_apply_hosts is unset; these ATS hosts count as quick to apply to, which the effort factor rewards.
 const DEFAULT_EASY_HOSTS = ['greenhouse', 'ashby', 'lever'];
@@ -122,6 +130,24 @@ function postingAge(notes, today) {
   return ISO_DATE.test(date ?? '') ? daysBetween(date, today) : null;
 }
 
+// Close dates from the notes column of data/student-rows.tsv, keyed by canonical url.
+function sidecarCloses(text) {
+  const out = new Map();
+  for (const r of parseTsv(text).rows) {
+    const date = /(?:^|;\s*)closes=(\d{4}-\d{2}-\d{2})/.exec(r.notes ?? '')?.[1];
+    const key = urlKey(r.url);
+    if (date && key) out.set(key, date);
+  }
+  return out;
+}
+
+// The posting's close date: the row's own closes= note first, else the feed sidecar; null when absent or not a real date.
+function closeDate(row, fromSidecar) {
+  const own = CLOSES_DATE.exec(row.notes.get('closes') ?? '')?.[1];
+  const date = own ?? fromSidecar.get(urlKey(row.url));
+  return date && isRealDate(date) ? date : null;
+}
+
 function connectionCounts(csvText, keyOf) {
   const counts = new Map();
   const lines = csvText.split(/\r?\n/);
@@ -214,7 +240,7 @@ function isHeld(state, age, today, holdOnConnect = true) {
   return holdOnConnect && Boolean(state.connectOn && !state.warm && !state.referred && daysBetween(state.connectOn, today) < 5 && !(age !== null && age > 14));
 }
 
-function scoreRow({ row, triage, key, age, state }, { weights, marquee, metroTests, connections, appliedBefore, easyHosts }) {
+function scoreRow({ row, triage, key, age, state, closesIn }, { weights, marquee, metroTests, connections, appliedBefore, easyHosts }) {
   const why = [];
   const fresh = age === null ? 0.4 : age <= 3 ? 1 : age <= 7 ? 0.8 : age <= 14 ? 0.55 : 0.3;
   const referral = state.referred ? 1 : 0;
@@ -222,10 +248,11 @@ function scoreRow({ row, triage, key, age, state }, { weights, marquee, metroTes
   if (state.referred) why.push('referral ready');
   if (warm) why.push('warm contact');
   if (age !== null && age <= 3) why.push('fresh');
+  if (closesIn !== null) why.push(closesIn === 0 ? 'closes today' : `closes in ${closesIn} day${closesIn === 1 ? '' : 's'}`);
   const inMetro = metroTests.some((test) => test(row.location)) ? 1 : 0;
   const score =
     weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral + weights.effort * effortFactor(row, easyHosts);
-  return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), key, applied: appliedBefore.has(key) };
+  return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), closesIn, key, applied: appliedBefore.has(key) };
 }
 
 // remainder(key) is the room a company cap leaves (Infinity without one); company_caps can only lower the per-day limit, never raise it.
@@ -271,7 +298,7 @@ function blockRules({ config, pending, keyOf, history, submitted }) {
   };
 }
 
-export function rankQueue({ doc, config, today, actionRows = [], contactsText = '', connectionsText = '', applicationsText = '', n }) {
+export function rankQueue({ doc, config, today, actionRows = [], contactsText = '', connectionsText = '', applicationsText = '', sidecarText = '', n }) {
   const { values: limits } = effectiveLimits(config);
   const pending = sectionRows(doc, 'Pending');
   const floor = Math.max(CEILINGS.score_floor.value, limits.score_floor);
@@ -289,6 +316,7 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
     appliedBefore: new Set([...applicationsText.matchAll(/^\|\s*\d+\s*\|[^|]*\|\s*([^|]+?)\s*\|/gm)].map((m) => keyOf(m[1]))),
   };
   const { state: contacts, missing: contactsMissing } = contactState(contactsText, keyOf, { format: config.rank?.contacts_format, today });
+  const closes = sidecarCloses(sidecarText);
   const holdOnConnect = config.rank?.hold_on_pending_connect !== false;
   const rules = blockRules({ config, pending, keyOf, history, submitted: submitCounts(actionRows, keyOf) });
 
@@ -298,9 +326,18 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
   const scored = [];
   let held = 0;
   let blocked = 0;
+  let closed = 0;
   for (const { row } of pending) {
     const triage = Number(row.notes.get('triage'));
     if (!Number.isFinite(triage) || triage < floor) continue;
+    // A passed close date ends the row before any other rule, so a closed posting is never reported as held or blocked.
+    const closeOn = closeDate(row, closes);
+    const left = closeOn ? daysBetween(today, closeOn) : null;
+    if (left !== null && left < 0) {
+      closed++;
+      continue;
+    }
+    const closesIn = left !== null && left <= CLOSING_SOON_DAYS ? left : null;
     const key = keyOf(row.company);
     if (isBlocked(row, key, rules)) {
       blocked++;
@@ -315,12 +352,12 @@ export function rankQueue({ doc, config, today, actionRows = [], contactsText = 
     const age = postingAge(row.notes, today);
     const state = contacts.get(key) ?? {};
     if (isHeld(state, age, today, holdOnConnect)) held++;
-    else scored.push(scoreRow({ row, triage, key, age, state }, scoring));
+    else scored.push(scoreRow({ row, triage, key, age, state, closesIn }, scoring));
   }
-  // url as the last key keeps the list identical between runs on the same files.
-  scored.sort((a, b) => b.score - a.score || b.triage - a.triage || a.url.localeCompare(b.url));
+  // Equal scores: the sooner closing date (within 7 days) first, then triage. url as the last key keeps the list identical between runs on the same files.
+  scored.sort((a, b) => b.score - a.score || (a.closesIn ?? Infinity) - (b.closesIn ?? Infinity) || b.triage - a.triage || a.url.localeCompare(b.url));
   const picks = pickTop(scored, submitCounts(actionRows, keyOf, today), limits.per_company_per_day, n, rules.remainder);
-  return { picks, eligible: scored.length, held, blocked, contactsMissing };
+  return { picks, eligible: scored.length, held, blocked, closed, contactsMissing };
 }
 
 async function main() {
@@ -338,6 +375,7 @@ async function main() {
     contactsText: read('contacts.tsv'),
     connectionsText: read('Connections.csv'),
     applicationsText: read('applications.md'),
+    sidecarText: read('student-rows.tsv'),
     n: flags.n ?? config.daily_target,
   });
   if (res.contactsMissing.length) {
@@ -346,7 +384,8 @@ async function main() {
   if (flags.json) console.log(JSON.stringify(res.picks, null, 2));
   else {
     const blocked = res.blocked > 0 ? `, ${res.blocked} blocked by caps, track or reserved-slot rules` : '';
-    console.log(`Top ${res.picks.length} of ${res.eligible} eligible (${res.held} waiting on referral timing)${blocked}`);
+    const closed = res.closed > 0 ? `, ${res.closed} closed` : '';
+    console.log(`Top ${res.picks.length} of ${res.eligible} eligible (${res.held} waiting on referral timing)${blocked}${closed}`);
     res.picks.forEach((r, i) => console.log(`${String(i + 1).padStart(2)}. ${r.score}  ${r.triage.toFixed(1)}  ${r.company} | ${r.title}${r.why ? `  [${r.why}]` : ''}\n    ${r.url}`));
   }
   return 0;

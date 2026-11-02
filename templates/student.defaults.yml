@@ -20,6 +20,10 @@ spend_tier: standard
 daily_target: 10
 score_floor: 3.5
 linkedin_tier: free
+# "on" has a fresh-context reviewer check each 4.0+ application's drafts before the batch is shown (modes/review.md). Off by default; it spends model usage.
+reviewer: "off"
+# Days a company research note in data/research/ counts as fresh (scripts/research-cache.mjs).
+research_cache_days: 30
 limits: {}
 # Model-usage triage budget, owned by the student: daily rows (default 20) and first-run rows (default 60), each a whole
 # number or "all". Change it with node student/scripts/triage-budget.mjs set, which shows the cost first.
