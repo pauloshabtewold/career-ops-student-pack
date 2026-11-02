@@ -4,6 +4,12 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.3.0 (2026-10-30)
+
+- W-026: release moves the Unreleased lines into the new CHANGELOG section (#26)
+
+### Details
+
 - W-026: the release workflow moves the lines under `## Unreleased` into the new release section as `### Details` and leaves an empty `## Unreleased` on top; an empty or missing block adds no Details, and a rerun for a tag already in the file changes nothing. The W-025 lines now sit under v0.2.2, and the v0.2.1 and v0.2.0 detail headings read `### Details`
 
 ## v0.2.2 (2026-10-30)
