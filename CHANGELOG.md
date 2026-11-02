@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.4.0 (2026-11-02)
+
+- W-028: friend install fixes, preset audit #27-#33, watch_only seeds (#35)
+- W-027: ATS text-layer check, posting guard, feed health, deadline tie-break, opt-in reviewer, research cache (#34)
+
+### Details
+
 - W-027: `check-resume.mjs` reads the resume PDF's text layer (new dependency `unpdf` 1.9.1, pure JS on macOS and Windows) and fails an image-only PDF, an email or phone from the source that is not text in the PDF, en or em dashes in date ranges, and words run together with no spaces (a text layer that reads "SoftwareEngineeringIntern"), with a hint to re-render with real spaces
 - W-027: the daily triage cleans each fetched posting before the model reads it: hidden HTML, zero-width, bidi, Unicode tag and other invisible characters are removed and Cyrillic or Greek look-alikes inside Latin words are folded; a posting with a line that reads as an instruction to an AI is held as `ANOMALY:` with that line quoted, MARGINAL at most whatever the model says, and the triage digest gives the counts. New `scripts/posting-guard.mjs` does the same for a posting in a session (exit 1 when it flags a line). The triage prompt is unchanged, so the measured cost stands
 - W-027: the daily digest has a Feed health section that flags a feed with no new rows after recent runs that had some, new rows with an empty or null company, and titles with raw HTML entities or tags; it uses no tokens and no network, keeps `data/feed-health.tsv`, and never fails the run
