@@ -47,6 +47,7 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 |---|---|
 | `interview/interview.md` | `session-start` prints `INTERVIEW:`, or the user asks to redo their setup; its last phase runs `node student/scripts/first-run.mjs` and shows the first top 10 |
 | `modes/apply-loop.md` | the user says "apply" or "start applying" |
+| `modes/review.md` | `reviewer` is `on` in config/student.yml and a 4.0+ application's drafts are ready to show |
 | `modes/outreach.md` | the first session of the day, or the user asks for outreach |
 | `modes/handshake.md` | the user asks for the Handshake pass and the switch is on |
 | `modes/inbox.md` | the user asks to check the inbox or answers the digest |

@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-027: `check-resume.mjs` reads the resume PDF's text layer (new dependency `unpdf` 1.9.1, pure JS on macOS and Windows) and fails an image-only PDF, an email or phone from the source that is not text in the PDF, en or em dashes in date ranges, and words run together with no spaces (a text layer that reads "SoftwareEngineeringIntern"), with a hint to re-render with real spaces
+- W-027: the daily triage cleans each fetched posting before the model reads it: hidden HTML, zero-width, bidi, Unicode tag and other invisible characters are removed and Cyrillic or Greek look-alikes inside Latin words are folded; a posting with a line that reads as an instruction to an AI is held as `ANOMALY:` with that line quoted, MARGINAL at most whatever the model says, and the triage digest gives the counts. New `scripts/posting-guard.mjs` does the same for a posting in a session (exit 1 when it flags a line). The triage prompt is unchanged, so the measured cost stands
+- W-027: the daily digest has a Feed health section that flags a feed with no new rows after recent runs that had some, new rows with an empty or null company, and titles with raw HTML entities or tags; it uses no tokens and no network, keeps `data/feed-health.tsv`, and never fails the run
+- W-027: `rank-queue.mjs` reads a `closes=YYYY-MM-DD` deadline: a row closing within 7 days wins ties on score and shows "closes in N days", and a row past its date is skipped and counted as closed. The usajobs and nyc-jobs feeds (both 1.1.0) record the close date from `ApplicationCloseDate` and `post_until`; re-pin them with `node plugins.mjs trust` after the update
+- W-027: new opt-in `reviewer` key (default off) and `modes/review.md`: for 4.0+ applications a fresh-context reviewer with no tools checks the drafts against `cv.md`, the posting and the student's chat answers and returns exact edits plus a grounding audit; `scripts/review-app.mjs` builds the prompt and runs the call, and the fact gate still rules. `docs/usage-cost.md` prices one review at about $0.02 on Claude (measured) and $0.03 on codex (computed)
+- W-027: new `scripts/research-cache.mjs` and `research_cache_days` key (default 30) keep company research notes in `data/research/` with their fetched date and refuse a stale one; the apply loop checks the cache first and re-verifies any claim it reuses
+
 ## v0.3.0 (2026-10-30)
 
 - W-026: release moves the Unreleased lines into the new CHANGELOG section (#26)

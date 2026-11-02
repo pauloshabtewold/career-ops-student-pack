@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 
 const SKIP_DIRS = new Set(['node_modules', '.git']);
-const ALLOWED_BARE = new Set(['js-yaml']);
+const ALLOWED_BARE = new Set(['js-yaml', 'unpdf']);
 
 const STATIC_RE = /(?:^|[;\n])[ \t]*(?:import|export)\s+(?:[^'";]*?\sfrom\s*)?(['"])([^'"\n]+)\1/g;
 const SIDE_EFFECT_RE = /(?:^|[;\n])[ \t]*import\s*(['"])([^'"\n]+)\1/g;

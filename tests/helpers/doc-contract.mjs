@@ -14,6 +14,7 @@ export const DOC_FILES = [
   'modes/daily-run.md',
   'modes/handshake.md',
   'modes/inbox.md',
+  'modes/review.md',
   'modes/outreach.md',
   'interview/interview.md',
 ];

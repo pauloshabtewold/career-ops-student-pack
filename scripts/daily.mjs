@@ -11,6 +11,7 @@ import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { ISO_DATE, createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, acquireLock, releaseLock } from '../lib/dir-lock.mjs';
+import { feedHealth } from '../lib/feed-health.mjs';
 import { ingestStepNames, ingestSteps, presetFeedPlugins, stepRunners } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -105,6 +106,15 @@ function runSteps({ root, dataDir, packRoot, today, config, limits, runner, resu
   ingestSteps({ root, dataDir, packRoot, today, runner, step, sweep: isSunday(today), feeds: feedsFor(root, config) });
 }
 
+// A health check that throws becomes one digest line; it never fails the run.
+function healthLines({ dataDir, today, results }) {
+  try {
+    return feedHealth({ dataDir, today, results });
+  } catch (err) {
+    return [`- not checked (${oneLine(err.message)})`];
+  }
+}
+
 // Writes the digest and returns the number of failed steps.
 function writeDigest({ dataDir, today, results, notes }) {
   const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
@@ -119,6 +129,9 @@ function writeDigest({ dataDir, today, results, notes }) {
     ...(failed.length ? failed.map((r) => `- ${r.name}`) : ['- none']),
     '',
     ...(notes.length ? ['## Notes', ...notes.map((n) => `- ${n}`), ''] : []),
+    '## Feed health',
+    ...healthLines({ dataDir, today, results }),
+    '',
     '## Pipeline',
     `- Pending rows: ${pending}`,
     '',

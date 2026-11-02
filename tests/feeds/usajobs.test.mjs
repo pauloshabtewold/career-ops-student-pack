@@ -23,7 +23,7 @@ const ok = [(u) => u.startsWith(ENDPOINT), () => H.text(FIXTURE)];
 test('W-022-U1 manifest declares the ingest hook, both env vars and only the USAJOBS host', () => {
   const m = JSON.parse(readFileSync(new URL('../../plugins/usajobs/manifest.json', import.meta.url), 'utf8'));
   assert.equal(m.id, 'usajobs');
-  assert.equal(m.version, '1.0.0');
+  assert.match(m.version, /^[1-9]\d*\.\d+\.\d+$/);
   assert.equal(m.apiVersion, 1);
   assert.deepEqual(m.hooks, ['ingest']);
   assert.equal(m.jobPostings, true);

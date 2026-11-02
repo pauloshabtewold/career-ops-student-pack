@@ -221,7 +221,25 @@ function checkRanking({ dir, set, today, tags }) {
   return { fails, taggedInTop: taggedInTop.length, newgrad: newgradRows.length };
 }
 
-const pdf = (pages) => `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [${Array.from({ length: pages }, (_, i) => `${i + 3} 0 R`).join(' ')}] /Count ${pages} >>\nendobj\n${Array.from({ length: pages }, (_, i) => `${i + 3} 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n`).join('')}%%EOF\n`;
+// A minimal PDF whose pages each carry one Helvetica text line, because check-resume (W-027) fails a PDF with no text
+// layer. Self-contained: a copied pack in the goal-check tests has no tests/helpers. The xref offsets are real.
+function pdf(pages) {
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${Array.from({ length: pages }, (_, i) => `${4 + i * 2} 0 R`).join(' ')}] /Count ${pages} >>`, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+  for (let i = 0; i < pages; i++) {
+    const stream = `BT /F1 12 Tf 72 720 Td (Synthetic resume page ${i + 1}) Tj ET`;
+    objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`);
+    objs.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+  }
+  let out = '%PDF-1.4\n';
+  const offsets = objs.map((body, i) => {
+    const at = out.length;
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+    return at;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
+  return `${out}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+}
 
 function checkResumeGuard({ dir, set }) {
   const variant = readJson(join(FIXTURES, 'answers', `${set}.json`)).resume_variants[0];

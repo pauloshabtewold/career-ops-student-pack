@@ -21,6 +21,7 @@ import { LockTimeoutError, acquireLock } from '../lib/dir-lock.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
+import { EMPTY_REMOVED, addRemoved, guardPosting, removedSummary, removedTotal } from '../lib/posting-guard.mjs';
 import { oneLine } from '../lib/text.mjs';
 import { CHUNK_ROWS, appendDigestLines, appendTriageUsage, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
 import { VERDICT_RE } from '../lib/triage-verdict.mjs';
@@ -100,15 +101,35 @@ export function buildPrompt({ brief, postings, nonce = randomBytes(8).toString('
   ].join('\n');
 }
 
-// A failed fetch returns an empty string and the posting is judged on title and company alone. The text is cut to
-// JD_CHARS to bound the prompt.
+// A failed fetch gives empty text and the posting is judged on title and company alone. The text goes through the
+// posting guard (lib/posting-guard.mjs) first and is then cut to JD_CHARS to bound the prompt, so a hidden or disguised
+// line past the cut still counts as a flag.
 function fetchPosting({ root, row, runner }) {
   try {
-    const text = runner(process.execPath, [join(root, 'fetch-jd.mjs'), row.url], { cwd: root, timeout: FETCH_TIMEOUT_MS });
-    return String(text).slice(0, JD_CHARS);
+    const raw = runner(process.execPath, [join(root, 'fetch-jd.mjs'), row.url], { cwd: root, timeout: FETCH_TIMEOUT_MS });
+    const { text, removed, flagged } = guardPosting(String(raw));
+    return { text: text.slice(0, JD_CHARS), removed, flagged };
   } catch {
-    return '';
+    return { text: '', removed: { ...EMPTY_REMOVED }, flagged: [] };
   }
+}
+
+// A posting the guard flagged never keeps a plain verdict: a PASS or MARGINAL line gets an `ANOMALY:` reason quoting the
+// flagged line(s), which apply-triage already holds for a person (PASS becomes ANOMALY, counted MARGINAL). The score and
+// verdict word are the model's; FAIL stays FAIL. Returns the lines and how many were PASS before.
+const GUARD_REASON_CHARS = 160;
+export function holdFlagged(lines, flagsByUrl) {
+  let passed = 0;
+  const out = lines.map((line) => {
+    const m = VERDICT_RE.exec(line);
+    const flags = m && flagsByUrl.get(m[2]);
+    if (!flags?.length || m[1] === 'FAIL' || m[1] === 'SKIP' || m[1] === 'EXPIRED' || m[1] === 'BROWSER') return line;
+    if (m[1] === 'PASS') passed++;
+    const quoted = flags.map((f) => `"${f}"`).join(' / ').replace(/\|/g, '/');
+    const reason = oneLine(`ANOMALY: posting text addresses the reader: ${quoted}`, GUARD_REASON_CHARS);
+    return `TRIAGE: ${m[1]} | ${m[2]} | ${m[3]} | ${reason}`;
+  });
+  return { lines: out, passed };
 }
 
 // No tools are granted (--tools ''), so posting text cannot make the model act. The prompt travels on stdin. The call runs
@@ -248,7 +269,10 @@ export function triageChildTimeoutMs({ chunks, runLockHours }) {
 // One chunk: fetch, one agent call, apply. A call that started has spent tokens whether it worked or not, so its rows go
 // in the ledger as sent (a spawn error or an agent that could not start spent none). Returns the counts, or a failure { kind, reason }.
 async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform }) {
-  const postings = chunk.map((row) => ({ url: row.url, company: row.company, title: row.title, text: fetchPosting({ root, row, runner }) }));
+  const fetched = chunk.map((row) => ({ row, ...fetchPosting({ root, row, runner }) }));
+  const postings = fetched.map(({ row, text }) => ({ url: row.url, company: row.company, title: row.title, text }));
+  const guard = { removed: fetched.reduce((acc, f) => addRemoved(acc, f.removed), {}), flagged: fetched.filter((f) => f.flagged.length).length };
+  const flagsByUrl = new Map(fetched.filter((f) => f.flagged.length).map((f) => [f.row.url, f.flagged]));
   const prompt = buildPrompt({ brief: readIf(join(root, 'modes', '_brief.md')), postings });
   const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: chunk.length, outcome });
   let output;
@@ -260,15 +284,18 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
     if (sent) await record(err.noAnswer ? 'ok' : 'failed');
     return { failure: { kind: 'call', reason: agentFailure(configured, err) }, sent };
   }
-  const { lines, passed, ignored } = filterVerdicts(output, new Set(chunk.map((r) => r.url)));
+  const kept = filterVerdicts(output, new Set(chunk.map((r) => r.url)));
+  const { lines, ignored } = kept;
+  const held = holdFlagged(lines, flagsByUrl);
+  const passed = kept.passed - held.passed;
   // A refusal, limit or login message arrives as prose with exit 0; counting it as a good chunk would send every later chunk too.
   if (!lines.length) {
     await record('failed');
     return { failure: { kind: 'call', reason: `${configured} answered with no verdict lines (${oneLine(output) || 'empty answer'})` }, sent: true };
   }
-  const reason = runApplyTriage({ lines, root, dataDir, packRoot, runner });
+  const reason = runApplyTriage({ lines: held.lines, root, dataDir, packRoot, runner });
   await record(reason ? 'failed' : 'ok');
-  return reason ? { failure: { kind: 'apply', reason }, sent: true } : { triaged: lines.length, passed, ignored, sent: true };
+  return reason ? { failure: { kind: 'apply', reason }, sent: true } : { triaged: lines.length, passed, ignored, guard, sent: true };
 }
 
 // Chunks run one after another; the digest gets a progress line after each so a parent kill keeps the counts so far.
@@ -288,7 +315,9 @@ async function runChunks({ chunks, note, deadline, now, ...ctx }) {
       break;
     }
     for (const k of ['triaged', 'passed', 'ignored']) run[k] += result[k];
-    note([`daily triage chunk ${i + 1} of ${chunks.length}: triaged ${result.triaged}, passed ${result.passed}, ignored ${result.ignored}`]);
+    const cleaned = removedTotal(result.guard.removed);
+    const guardLine = cleaned || result.guard.flagged ? [`daily triage posting guard: changed ${cleaned}${cleaned ? ` (${removedSummary(result.guard.removed)})` : ''}, flagged ${result.guard.flagged} posting(s)`] : [];
+    note([`daily triage chunk ${i + 1} of ${chunks.length}: triaged ${result.triaged}, passed ${result.passed}, ignored ${result.ignored}`, ...guardLine]);
   }
   return run;
 }
