@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { PACK_ROOT } from '../helpers/budget-harness.mjs';
+import { compare } from '../../lib/semver.mjs';
 
 const sha = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
 
@@ -21,7 +22,10 @@ const compat = (dir, ...args) => spawnSync(process.execPath, [join(dir, 'scripts
 // M-002-S21
 test('M-002-S21 shipped compat.json carries the contract and the budget.mjs hash', () => {
   const c = JSON.parse(readFileSync(join(PACK_ROOT, 'compat.json'), 'utf8'));
-  assert.deepEqual(c.upstream, { min: '1.38.0', max: '1.38.0', tag_prefix: 'career-ops-v' });
+  // The canary raises max; min only moves by hand, so only min is pinned and max must stay a release at or above it.
+  assert.deepEqual({ ...c.upstream, max: undefined }, { min: '1.38.0', max: undefined, tag_prefix: 'career-ops-v' });
+  assert.match(c.upstream.max, /^\d+\.\d+\.\d+$/);
+  assert.ok(compare(c.upstream.max, c.upstream.min) >= 0, `max ${c.upstream.max} below min ${c.upstream.min}`);
   assert.deepEqual(c.pipelineSections, ['Pending', 'Flagged', 'Skipped', 'Processed']);
   assert.deepEqual(c.lockProtocol, { suffix: '.lock', owner: 'owner.json', recover: '.lock.recover' });
   assert.deepEqual([...c.cliContracts['audit-portals']].sort(), ['--baseline', '--file', '--json', '--summary']);

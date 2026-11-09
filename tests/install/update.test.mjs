@@ -9,6 +9,10 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { makePack, checkJson, put } from './_pack-repo.mjs';
 
+// Versions are derived from compat.json so a canary bump of upstream.max does not turn the fixture into an in-range release.
+const COMPAT = JSON.parse(readFileSync(new URL('../../compat.json', import.meta.url), 'utf8')).upstream;
+const ABOVE_MAX = ((v) => `${v[0]}.${v[1] + 1}.0`)(COMPAT.max.split('.').map(Number));
+
 async function withPack(fn) {
   const p = makePack();
   try {
@@ -37,11 +41,11 @@ test('M-005-S4 an in-range release is applied with apply --confirm', () =>
 // M-005-S5
 test('M-005-S5 an out-of-range release is dismissed, never applied, never forced', () =>
   withPack((p) => {
-    p.up.setOutput('update-system', checkJson('update-available', { remote: '1.39.0' }));
+    p.up.setOutput('update-system', checkJson('update-available', { remote: ABOVE_MAX }));
     const r = p.run('update.mjs');
     assert.equal(r.code, 0, r.stdout + r.stderr);
     const calls = sysCalls(p);
-    assert.ok(calls.some((c) => c.argv[0] === 'dismiss' && c.argv[1] === '--version' && c.argv[2] === '1.39.0'), JSON.stringify(calls));
+    assert.ok(calls.some((c) => c.argv[0] === 'dismiss' && c.argv[1] === '--version' && c.argv[2] === ABOVE_MAX), JSON.stringify(calls));
     assert.ok(!hasArg(calls, 'apply'), 'apply was called');
     for (const c of p.upstreamCalls()) assert.ok(!c.argv.includes('--force'), `--force passed to ${c.cli}`);
   }));
@@ -61,7 +65,7 @@ test('M-005-S5 a release below the minimum is also dismissed and not applied', (
 for (const status of ['offline', 'up-to-date', 'dismissed']) {
   test(`M-005-S6 check reporting ${status} makes no apply or dismiss call`, () =>
     withPack((p) => {
-      p.up.setOutput('update-system', checkJson(status, status === 'offline' ? {} : { remote: '1.39.0' }));
+      p.up.setOutput('update-system', checkJson(status, status === 'offline' ? {} : { remote: ABOVE_MAX }));
       const r = p.run('update.mjs');
       assert.equal(r.code, 0, r.stdout + r.stderr);
       const calls = sysCalls(p);
