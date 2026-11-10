@@ -11,7 +11,7 @@ const PROFILE = `${HEAD}${BLOCK}\n${TAIL}`;
 
 // M-003-S12-cdel
 for (const legacy of ['leave-blank', 'ask-each-time']) {
-  test(`M-003-S12-cdel an answers file with eeo ${legacy} still applies and show lists all six eeo items in needs_confirmation`, () => {
+  test(`${legacy === 'leave-blank' ? 'M-003-S12-cdel' : 'extra check:'} an answers file with eeo ${legacy} still applies and show lists all six eeo items in needs_confirmation`, () => {
     const r = scratch();
     try {
       const base = finalAnswers();
@@ -71,8 +71,8 @@ test('M-003-S14-cdel profile-answers set with an unknown key exits 2 naming the 
   }
 });
 
-// M-003-S14-cdel
-test('M-003-S14-cdel profile-answers set with a start_date that is neither YYYY-MM nor immediately exits 2 naming the key and leaves profile.yml byte-identical', () => {
+// extra check
+test('extra check: profile-answers set with a start_date that is neither YYYY-MM nor immediately exits 2 naming the key and leaves profile.yml byte-identical', () => {
   const r = scratch();
   try {
     r.write('config/profile.yml', PROFILE);

@@ -133,8 +133,8 @@ test('M-003-S16-cdel the Daily schedule row is met when Part D runs schedule.mjs
   assert.equal(row[2], 'met', row.join(' | '));
 });
 
-// M-003-S16-cdel
-test('M-003-S16-cdel the Daily schedule row is not met when Part D runs rank-queue.mjs before schedule.mjs install', () => {
+// extra check
+test('extra check: the Daily schedule row is not met when Part D runs rank-queue.mjs before schedule.mjs install', () => {
   const s = setup({ pack: packWithPartD('rank-queue.mjs --n 10', 'schedule.mjs install') });
   const r = run(s);
   const row = scheduleRow(r);

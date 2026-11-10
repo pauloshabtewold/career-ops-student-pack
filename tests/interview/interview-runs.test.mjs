@@ -188,7 +188,7 @@ test('M-008-S6 pii-lint scanText finds nothing in any interview-runs fixture fil
 
 // M-003-S7-cdel
 for (const k of SETS) {
-  test(`M-003-S7-cdel ${k} transcript shows Parts A to D in order, ${k === 'nursing' ? 6 : 5} STUDENT turns and every application_profile value in Part C`, () => {
+  test(`${k === SETS[0] ? 'M-003-S7-cdel' : 'extra check:'} ${k} transcript shows Parts A to D in order, ${k === 'nursing' ? 6 : 5} STUDENT turns and every application_profile value in Part C`, () => {
     const text = transcriptOf(k);
     const parts = text.split('\n').map((l) => /^## Part ([A-Z])\b/.exec(l)).filter(Boolean).map((m) => m[1]);
     assert.deepEqual(parts, ['A', 'B', 'C', 'D']);

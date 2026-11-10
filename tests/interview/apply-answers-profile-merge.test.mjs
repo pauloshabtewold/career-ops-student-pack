@@ -49,8 +49,8 @@ test('M-003-S17-cdel mergeProfileAnswers replaces a flow-style application_answe
   assert.equal(doc.other, 1);
 });
 
-// M-003-S17-cdel
-test('M-003-S17-cdel mergeProfileAnswers replaces a block with deeper lines and keeps the column-0 comment and every byte outside', () => {
+// extra check
+test('extra check: mergeProfileAnswers replaces a block with deeper lines and keeps the column-0 comment and every byte outside', () => {
   const text = 'name: a\napplication_answers:\n  work_authorization: old\n  eeo:\n    gender: decline\n    veteran: no\n# keep this comment\nother: 1\n';
   const out = mergeProfileAnswers(text, { start_date: '2027-06', eeo: { pronouns: 'fake-pron-d' } });
   assert.ok(out.startsWith('name: a\n'));
@@ -60,8 +60,8 @@ test('M-003-S17-cdel mergeProfileAnswers replaces a block with deeper lines and 
   assert.equal(doc.other, 1);
 });
 
-// M-003-S17-cdel
-test('M-003-S17-cdel mergeProfileAnswers appends the block when absent and replaces a legacy eeo string only when the patch has eeo items', () => {
+// extra check
+test('extra check: mergeProfileAnswers appends the block when absent and replaces a legacy eeo string only when the patch has eeo items', () => {
   const absent = 'name: a\n';
   const appended = mergeProfileAnswers(absent, { start_date: 'immediately' });
   assert.ok(appended.startsWith(absent));
@@ -72,11 +72,12 @@ test('M-003-S17-cdel mergeProfileAnswers appends the block when absent and repla
 });
 
 // M-003-S18-cdel
+let s18 = 0;
 for (const [label, text] of [
   ['does not parse', 'candidate: [unclosed\napplication_answers:\n  start_date: immediately\n'],
   ['holds two application_answers keys', 'application_answers:\n  start_date: immediately\ncandidate:\n  full_name: X\napplication_answers:\n  relocation: no\n'],
 ]) {
-  test(`M-003-S18-cdel final apply exits 1 and leaves profile.yml byte-identical when it ${label}`, () => {
+  test(`${s18++ === 0 ? 'M-003-S18-cdel' : 'extra check:'} final apply exits 1 and leaves profile.yml byte-identical when it ${label}`, () => {
     const r = scratch();
     try {
       r.write('config/profile.yml', text);
@@ -92,8 +93,8 @@ for (const [label, text] of [
   });
 }
 
-// M-003-S18-cdel
-test('M-003-S18-cdel mergeProfileAnswers throws ProfileParseError for text that does not parse or holds two application_answers keys', () => {
+// extra check
+test('extra check: mergeProfileAnswers throws ProfileParseError for text that does not parse or holds two application_answers keys', () => {
   assert.throws(() => mergeProfileAnswers('candidate: [unclosed\n', { start_date: 'immediately' }), ProfileParseError);
   assert.throws(() => mergeProfileAnswers('application_answers:\n  a: 1\napplication_answers:\n  b: 2\n', { start_date: 'immediately' }), ProfileParseError);
 });

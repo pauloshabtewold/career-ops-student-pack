@@ -72,11 +72,12 @@ test('M-003-S10-cdel an apply-answers rerun leaves the research_companies block 
 });
 
 // M-003-S19-cdel
+let s19 = 0;
 for (const [label, over, reason] of [
   ['automation is manual', { automation: 'manual' }, /automation/i],
   ['the mail path is paste', { automation: 'scheduled-discovery-plus-triage', mailbox_backend: 'paste' }, /paste|mail/i],
 ]) {
-  test(`M-003-S19-cdel final apply with inbox_schedule on writes mailbox.schedule off and prints the reason when ${label}`, () => {
+  test(`${s19++ === 0 ? 'M-003-S19-cdel' : 'extra check:'} final apply with inbox_schedule on writes mailbox.schedule off and prints the reason when ${label}`, () => {
     const r = scratch();
     try {
       const res = apply(r, finalAnswers({ inbox_schedule: 'on', ...over }));
@@ -91,8 +92,8 @@ for (const [label, over, reason] of [
   });
 }
 
-// M-003-S19-cdel
-test('M-003-S19-cdel final apply with inbox_schedule on keeps it on when automation is scheduled and the mail path is connector', () => {
+// extra check
+test('extra check: final apply with inbox_schedule on keeps it on when automation is scheduled and the mail path is connector', () => {
   const r = scratch();
   try {
     const res = apply(r, finalAnswers({ inbox_schedule: 'on', automation: 'scheduled-discovery-plus-triage', mailbox_backend: 'connector' }));
