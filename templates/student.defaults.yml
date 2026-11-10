@@ -33,6 +33,8 @@ plan: unknown
 resume_variants: []
 mailbox:
   backend: connector
+  # The interview's Part D turns this on after the Gmail check; on runs the inbox pass after the daily run.
+  schedule: "off"
 schedule:
   time: "06:00"
 rank:

@@ -2,18 +2,21 @@
 // Opt-in daily schedule: a launchd agent on macOS or a Task Scheduler task on Windows that runs
 // student/scripts/scheduled.mjs, which runs the zero-token daily run and, for scheduled-discovery-plus-triage, the model
 // triage. Only the personalization interview offers this; nothing installs on its own.
-// Usage: schedule.mjs install|remove|status [--time HH:MM] [--dry-run] [--root R]
+// Usage: schedule.mjs install|remove|status|verify [--time HH:MM] [--replace] [--dry-run] [--root R]
+// verify proves the installed job starts this folder's scheduled.mjs and that every enabled step passes its check.
+// install refuses to replace a job that starts another folder's scheduled.mjs unless --replace is given: the job label
+// is shared by every pack folder on the computer, so a silent replace would stop another folder's daily run.
 // A real install takes only the pack's own root: --root is for --dry-run, remove and status (assertOwnRoot).
 // --time and the config time are read in the config time zone (timezone in config/student.yml).
 // --dry-run prints the artifact and never starts launchctl or powershell, so tests can run it safely.
-import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, posix, win32 } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { resolveAgentPath, signInHint } from '../lib/agent.mjs';
 import { createClock, zonedInstant } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { SCHEDULE_LABEL, SCHEDULE_TASK_NAME, launchAgentPath } from '../lib/schedule-check.mjs';
+import { SCHEDULE_LABEL, SCHEDULE_TASK_NAME, installedScheduleArgs, launchAgentPath, plistArguments } from '../lib/schedule-check.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 
@@ -124,6 +127,48 @@ const statusScript = () => `Get-ScheduledTask -TaskName ${psq(TASK_NAME)} | Sele
 
 const plistPath = () => launchAgentPath();
 
+const SCHEDULED_ENTRY = /[\\/]student[\\/]scripts[\\/]scheduled\.mjs$/;
+
+// The installed job's arguments as a list, or null when nothing is installed. On Windows the task keeps the script and
+// flags as one quoted string, which is split back into words here.
+export function readJob({ platform = process.platform, home, runner } = {}) {
+  if (platform === 'darwin') {
+    const file = launchAgentPath(home);
+    return existsSync(file) ? plistArguments(readFileSync(file, 'utf8')) : null;
+  }
+  const text = installedScheduleArgs({ platform, home, runner });
+  return text ? [...text.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2]) : null;
+}
+
+const scheduledPathOf = (args) => args?.find((a) => SCHEDULED_ENTRY.test(a)) ?? null;
+const sameFile = (a, b, platform) => (platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+
+// The folder whose scheduled.mjs the installed job starts when it is not `root`, else null.
+export function foreignOwner({ args, root, platform }) {
+  const scheduled = scheduledPathOf(args);
+  if (!scheduled) return null;
+  const slashes = (p) => p.replace(/\\/g, '/');
+  const own = `${slashes(root).replace(/\/+$/, '')}/student/scripts/scheduled.mjs`;
+  return sameFile(slashes(scheduled), own, platform) ? null : scheduled.replace(SCHEDULED_ENTRY, '');
+}
+
+// Says whether the installed job is this folder's and every enabled step passes. readJob() gives { args } or null and
+// runCheck(agentFlags) gives scheduled.mjs --check's { lines, code }, both injected so tests run on any OS. The check
+// uses the agent the installed job was given, since that is the one a scheduled run would start.
+export function verifySchedule({ platform, root, time, label, readJob: read, runCheck }) {
+  const fail = (step, fix) => ({ code: 1, lines: [`schedule check failed: ${step}: ${fix}`] });
+  const args = read()?.args;
+  if (!scheduledPathOf(args)) return fail('schedule', 'no schedule is installed; run node student/scripts/schedule.mjs install');
+  const other = foreignOwner({ args, root, platform });
+  if (other) return fail('schedule', `the installed job starts ${other}, not this folder; run node student/scripts/schedule.mjs install --replace`);
+  const flag = (name) => args[args.indexOf(name) + 1];
+  const agentFlags = args.includes('--agent-path') ? ['--agent', flag('--agent'), '--agent-path', flag('--agent-path')] : args.includes('--claude') ? ['--claude', flag('--claude')] : [];
+  const { lines, code } = runCheck(agentFlags);
+  const failed = lines.map((l) => /^check (.+?): failed \((.*)\)$/.exec(l)).filter(Boolean).map((m) => `schedule check failed: ${m[1]}: ${m[2]}`);
+  if (code !== 0 && !failed.length) failed.push('schedule check failed: daily run: scheduled.mjs --check did not finish; run it by hand to see why');
+  return failed.length ? { code: 1, lines: [...lines, ...failed] } : { code: 0, lines: [...lines, `schedule verified: ${label} at ${time}`] };
+}
+
 export function tryRun(cmd, args) {
   const r = runResult(cmd, args);
   return { ok: !r.error, out: r.error ? String(r.error.stderr || r.error.message) : r.stdout };
@@ -221,8 +266,21 @@ export function assertOwnRoot(root, packRoot) {
   }
 }
 
+function verify({ platform, paths, time }) {
+  const runCheck = (agentFlags) => {
+    const res = runResult(process.execPath, [join(paths.packRoot, 'scripts', 'scheduled.mjs'), '--check', '--root', paths.root, ...agentFlags], { cwd: paths.root, timeout: 30 * 60 * 1000 });
+    return { code: res.code, lines: res.stdout.split('\n').map((l) => l.trim()).filter(Boolean) };
+  };
+  const result = verifySchedule({ platform, root: paths.root, time, label: platform === 'win32' ? TASK_NAME : LABEL, readJob: () => {
+    const args = readJob({ platform });
+    return args ? { args } : null;
+  }, runCheck });
+  for (const line of result.lines) console.log(line);
+  return result.code;
+}
+
 async function main() {
-  const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status'], flags: { time: 'string' } });
+  const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status', 'verify'], flags: { time: 'string', replace: 'boolean' } });
   const paths = resolvePaths({ root: flags.root });
   if (command === 'install' && !flags.dryRun) assertOwnRoot(paths.root, paths.packRoot);
   // remove must work when config/student.yml is broken: a student who cannot fix it still needs the schedule gone.
@@ -234,16 +292,15 @@ async function main() {
   const ctx = { nodePath: process.execPath, root: paths.root, time: t.time, dryRun: Boolean(flags.dryRun), agent, agentPath, automation: config?.automation ?? 'manual' };
   const platform = process.platform === 'win32' ? 'win32' : process.platform === 'darwin' || ctx.dryRun ? 'darwin' : null;
   if (!platform) throw new UsageError('schedule.mjs supports macOS and Windows 11 only');
+  if (command === 'verify') return verify({ platform, paths, time: t.time });
+  if (command === 'install' && !flags.dryRun) {
+    const other = foreignOwner({ args: readJob({ platform }), root: paths.root, platform });
+    if (other && !flags.replace) {
+      console.log(`schedule owned by ${other}; run schedule.mjs remove there or pass --replace`);
+      return 1;
+    }
+  }
   return platform === 'win32' ? winCommand(command, ctx) : macCommand(command, ctx);
-}
-
-// Stubs for the M-002 tests; the implementation replaces them.
-export function foreignOwner({ args, root, platform }) {
-  return null;
-}
-
-export function verifySchedule({ platform, root, time, label, readJob: read, runCheck }) {
-  return { code: 0, lines: [] };
 }
 
 if (isMain(import.meta.url)) await runCli(main);
