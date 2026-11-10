@@ -112,11 +112,11 @@ export function checkPrereqs({ root, runner = defaultRunner, nodeVersion }) {
 
 // Throws InstallError for an unsupported Node, a missing git or a failed npm step. With dryRun it returns the planned
 // actions and changes nothing.
-export function install({ root, packRoot, dryRun = false, runner = defaultRunner, nodeVersion, platform = process.platform, skipNpm = false }) {
+export function install({ root, packRoot, dryRun = false, runner = defaultRunner, nodeVersion, platform = process.platform, skipNpm = false, skipMinCheck = false }) {
   const pkgFile = checkPrereqs({ root, runner, nodeVersion });
   const compat = JSON.parse(readFileSync(join(packRoot, 'compat.json'), 'utf8'));
   const version = JSON.parse(readFileSync(pkgFile, 'utf8')).version;
-  if (compare(version, compat.upstream.min) < 0) {
+  if (!skipMinCheck && compare(version, compat.upstream.min) < 0) {
     throw new InstallError(`career-ops ${version} is older than ${compat.upstream.min}: run "node update-system.mjs apply --confirm" in the career-ops folder, then run this again`);
   }
 

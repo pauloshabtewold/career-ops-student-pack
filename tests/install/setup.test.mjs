@@ -17,14 +17,21 @@ const TAG = 'career-ops-v1.39.0';
 const CODEX = 'templates/codex-config.suggested.toml';
 const CLAUDE = 'templates/claude-settings.suggested.json';
 
-// opts.status is what `git status` prints, opts.noTag makes the tag lookup fail, opts.fail(cmd, args) throws a step error.
-function fakeRunner({ status = '', noTag = false, fail = () => false } = {}) {
+// opts.status is what `git status` prints, opts.localLog what `git log origin/main..main` prints, opts.noTag makes the tag lookup fail, opts.fail(cmd, args) throws a step error.
+// opts.head and opts.tagCommit are the shas `rev-parse HEAD` and `rev-parse <tag>^{commit}` print; the default pair differs.
+function fakeRunner({ status = '', localLog = '', noTag = false, head = 'aaa111', tagCommit = 'bbb222', fail = () => false } = {}) {
   const calls = [];
   const runner = (cmd, args, opts = {}) => {
     calls.push({ cmd, args, opts });
     if (fail(cmd, args)) throw Object.assign(new Error(`Command failed: ${cmd} ${args.join(' ')}`), { status: 1, stderr: `${cmd} ERR! sample failure\nsecond line` });
     if (cmd === 'git' && args[0] === 'status') return status;
-    if (cmd === 'git' && args[0] === 'rev-parse' && args[1] === '--verify' && noTag) throw new Error('no tag');
+    if (cmd === 'git' && args[0] === 'log') return localLog;
+    if (cmd === 'git' && args[0] === 'rev-parse' && args[1] === 'HEAD') return `${head}\n`;
+    if (cmd === 'git' && args[0] === 'rev-parse' && args[1] === '--verify') {
+      // with noTag the tag is missing until a fetch has run
+      if (noTag && !calls.some((c) => c.cmd === 'git' && c.args[0] === 'fetch')) throw new Error('no tag');
+      return `${tagCommit}\n`;
+    }
     return '';
   };
   return { runner, calls };
@@ -90,13 +97,22 @@ test('setup refuses a synced root and points at <home>/career-ops', () =>
     });
   }));
 
-test('pin is skipped when career-ops is already at the max version', () =>
+test('pin is skipped when HEAD is the tag commit', () =>
+  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+    const { runner, calls } = fakeRunner({ head: 'ccc333', tagCommit: 'ccc333' });
+    const lines = run(p, { runner });
+    assert.ok(lines.includes(`skipped: career-ops is already at ${TAG}`), lines.join('\n'));
+    assert.equal(has(calls, 'git', 'checkout'), false);
+    assert.equal(has(calls, 'git', 'fetch'), false);
+  }));
+
+test('pin runs when the version equals max but HEAD is a different commit than the tag', () =>
   withPack({ upstreamVersion: '1.39.0' }, (p) => {
     const { runner, calls } = fakeRunner();
     const lines = run(p, { runner });
-    assert.ok(lines.some((l) => l.startsWith('skipped: career-ops is already at 1.39.0')));
-    assert.equal(has(calls, 'git', 'checkout'), false);
-    assert.equal(has(calls, 'git', 'fetch'), false);
+    assert.equal(lines.some((l) => l.startsWith('skipped: career-ops is already')), false);
+    assert.ok(has(calls, 'git', 'checkout', '-B', 'main', TAG));
+    assert.ok(calls.some((c) => c.cmd === 'npm' && c.args[0] === 'install'));
   }));
 
 test('pin checks out the compat max tag and runs npm install when career-ops is older', () =>
@@ -107,7 +123,7 @@ test('pin checks out the compat max tag and runs npm install when career-ops is 
     assert.ok(names.includes(`git checkout -B main ${TAG}`), names.join('\n'));
     assert.equal(has(calls, 'git', 'fetch'), false, 'tag exists locally, so no fetch');
     const co = names.indexOf(`git checkout -B main ${TAG}`);
-    const npm = calls.findIndex((c, i) => i > co && c.cmd === 'npm' && c.args[0] === 'install' && c.opts.cwd === realpathSync(p.root));
+    const npm = calls.findIndex((c, i) => i > co && c.cmd === 'npm' && c.args[0] === 'install' && c.opts.cwd === realpathSync.native(p.root));
     assert.ok(npm > co, 'npm install in root after the checkout');
   }));
 
@@ -176,7 +192,7 @@ test('playwright failure is a warning, not fatal; success and --skip-playwright 
     const failing = fakeRunner({ fail: (cmd) => cmd === 'npx' });
     const lines = run(p, { runner: failing.runner });
     const warn = lines.find((l) => l.startsWith('warning: playwright'));
-    assert.equal(warn, `warning: playwright chromium install failed (npx ERR! sample failure); run "npx playwright install chromium" in ${realpathSync(p.root)} later`);
+    assert.equal(warn, `warning: playwright chromium install failed (npx ERR! sample failure); run "npx playwright install chromium" in ${realpathSync.native(p.root)} later`);
     assert.ok(lines.some((l) => l.startsWith('SETUP OK:')));
     const call = failing.calls.find((c) => c.cmd === 'npx');
     assert.deepEqual(call.args, ['playwright', 'install', 'chromium']);
@@ -203,7 +219,7 @@ test('a missing generated file fails verification', () =>
 
 test('the final lines are exact and a dry run prints neither', () =>
   withPack({ upstreamVersion: '1.39.0' }, (p) => {
-    const root = realpathSync(p.root);
+    const root = realpathSync.native(p.root);
     const lines = run(p);
     assert.deepEqual(lines.slice(-2), [
       `SETUP OK: ${root}`,
@@ -256,4 +272,46 @@ test('a real git checkout -B main <tag> keeps an untracked student folder', () =
     git('checkout', '-B', 'main', TAG);
     assert.equal(readFileSync(join(dir, 'student', 'mine.txt'), 'utf8'), 'keep me\n');
     assert.match(readFileSync(join(dir, 'package.json'), 'utf8'), /1\.39\.0/);
+  }));
+
+test('a dirty tree message says to show the student and never offers a discard command', () =>
+  withPack({}, (p) => {
+    const e = err(() => run(p, { runner: fakeRunner({ status: ' M package.json' }).runner }));
+    assert.match(e.message, /show the student the changed files; never discard them/);
+    assert.doesNotMatch(e.message, /git checkout \./);
+  }));
+
+test('local main commits that are not in origin/main are refused before the checkout', () =>
+  withPack({}, (p) => {
+    const { runner, calls } = fakeRunner({ localLog: 'abc1234 my change' });
+    const e = err(() => run(p, { runner }));
+    assert.ok(e instanceof InstallError);
+    assert.match(e.message, /local main has commits.*show the student/);
+    assert.equal(has(calls, 'git', 'checkout'), false);
+    assert.ok(has(calls, 'git', 'log', '--oneline', 'origin/main..main'));
+  }));
+
+test('a kept codex config missing Gmail entries gets a warning naming them and is not rewritten', () =>
+  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+    const dest = join(p.root, '.codex', 'config.toml');
+    const want = readFileSync(join(p.pack, CODEX), 'utf8');
+    const trimmed = want.replace(/\[apps\.connector_[^\]]*\.tools\.send_email\]\r?\nenabled = false\r?\n/, '').replace(/(\.tools\.delete_emails\]\r?\n)enabled = false/, '$1enabled = true');
+    assert.notEqual(trimmed, want);
+    mkdirSync(join(p.root, '.codex'), { recursive: true });
+    writeFileSync(dest, trimmed);
+    const lines = run(p);
+    assert.equal(readFileSync(dest, 'utf8'), trimmed);
+    const warn = lines.find((l) => l.startsWith('warning: .codex/config.toml is missing the Gmail block for'));
+    assert.ok(warn, lines.join('\n'));
+    assert.ok(warn.includes('send_email') && warn.includes('delete_emails') && !warn.includes('archive_emails'), warn);
+    writeFileSync(dest, `${want}# mine\n`);
+    assert.equal(run(p).some((l) => l.startsWith('warning: .codex')), false);
+  }));
+
+test('dry run on a checkout older than the compat minimum prints the plan instead of throwing', () =>
+  withPack({ upstreamVersion: '1.0.0' }, (p) => {
+    const lines = run(p, { dryRun: true });
+    assert.ok(lines.some((l) => l.startsWith('would do: git checkout -B main')));
+    const e = err(() => run(p));
+    assert.ok(e instanceof InstallError);
   }));

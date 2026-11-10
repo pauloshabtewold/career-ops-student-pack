@@ -54,46 +54,70 @@ function failure(err) {
   return oneLine(err.stderr || err.message) || 'failed';
 }
 
-function pinCareerOps({ root, packRoot, pkgFile, dryRun, runner, platform, lines }) {
+function pinCareerOps({ root, packRoot, dryRun, runner, platform, lines }) {
   const { upstream } = JSON.parse(readFileSync(join(packRoot, 'compat.json'), 'utf8'));
   const tag = `${upstream.tag_prefix}${upstream.max}`;
-  const version = JSON.parse(readFileSync(pkgFile, 'utf8')).version;
-  if (version === upstream.max) {
-    lines.push(`skipped: career-ops is already at ${upstream.max}`);
+  const git = (args, opts = {}) => runner('git', args, { cwd: root, ...opts });
+  const tagCommit = () => {
+    try {
+      return String(git(['rev-parse', '--verify', '--quiet', `${tag}^{commit}`])).trim();
+    } catch {
+      return '';
+    }
+  };
+  // A fresh clone of upstream main can report the max version while sitting many commits past its tag, so the version
+  // alone does not prove the tested code is checked out.
+  let want = tagCommit();
+  const fetchLabel = `git fetch --tags origin (tag ${tag} is missing locally)`;
+  if (!want) {
+    if (dryRun) lines.push(`would do: ${fetchLabel}`);
+    else {
+      try {
+        git(['fetch', '--tags', 'origin'], { timeout: NPM_TIMEOUT_MS });
+      } catch (err) {
+        throw new InstallError(`${fetchLabel} failed (${failure(err)}); check your internet connection and run this again`);
+      }
+      lines.push(`done: ${fetchLabel}`);
+      want = tagCommit();
+    }
+  }
+  let head = '';
+  try {
+    head = String(git(['rev-parse', 'HEAD'])).trim();
+  } catch {
+    // an unborn HEAD never equals the tag, so the pin below runs
+  }
+  if (want && head === want) {
+    lines.push(`skipped: career-ops is already at ${tag}`);
     return;
   }
-  const git = (args, opts = {}) => runner('git', args, { cwd: root, ...opts });
   let dirty;
   try {
     dirty = String(git(['status', '--porcelain', '--untracked-files=no'])).trim();
   } catch (err) {
     throw new InstallError(`git status failed in ${root} (${failure(err)}); fix the folder, then run this again`);
   }
-  if (dirty) throw new InstallError(`career-ops has changed tracked files (${oneLine(dirty)}); commit or undo those changes (or run "git checkout ." in ${root}), then run this again`);
-  let haveTag = true;
+  if (dirty) throw new InstallError(`career-ops has changed tracked files (${oneLine(dirty)}): stop and show the student the changed files; never discard them`);
+  let local = '';
   try {
-    git(['rev-parse', '--verify', '--quiet', `refs/tags/${tag}`]);
+    local = String(git(['log', '--oneline', 'origin/main..main'])).trim();
   } catch {
-    haveTag = false;
+    // no local main or no origin/main yet: nothing of the student's to lose
   }
-  const steps = [];
-  if (!haveTag) steps.push(['fetch', `git fetch --tags origin (tag ${tag} is missing locally)`, ['fetch', '--tags', 'origin']]);
-  steps.push(['checkout', `git checkout -B main ${tag}`, ['checkout', '-B', 'main', tag]]);
-  for (const [, label, args] of steps) {
-    if (dryRun) {
-      lines.push(`would do: ${label}`);
-      continue;
-    }
+  if (local) throw new InstallError(`local main has commits that are not in origin/main (${oneLine(local)}): stop and show the student those commits; never discard them`);
+  const label = `git checkout -B main ${tag}`;
+  if (dryRun) lines.push(`would do: ${label}`);
+  else {
     try {
-      git(args, { timeout: NPM_TIMEOUT_MS });
+      git(['checkout', '-B', 'main', tag], { timeout: NPM_TIMEOUT_MS });
     } catch (err) {
       throw new InstallError(`${label} failed (${failure(err)}); check your internet connection and run this again`);
     }
     lines.push(`done: ${label}`);
   }
-  const label = `npm install in ${root} (dependencies of career-ops ${upstream.max})`;
+  const npmLabel = `npm install in ${root} (dependencies of career-ops ${upstream.max})`;
   if (dryRun) {
-    lines.push(`would do: ${label}`);
+    lines.push(`would do: ${npmLabel}`);
     return;
   }
   try {
@@ -101,10 +125,24 @@ function pinCareerOps({ root, packRoot, pkgFile, dryRun, runner, platform, lines
   } catch (err) {
     throw new InstallError(`npm install failed in ${root} (${failure(err)}); run "npm install" there by hand, then run this again`);
   }
-  lines.push(`done: ${label}`);
+  lines.push(`done: ${npmLabel}`);
 }
 
 const eolless = (t) => t.replace(/\r\n/g, '\n');
+
+// Tool names whose [apps.connector_...tools.<name>] section sets enabled = false in the template but not in text.
+function missingGmailBlock(text, template) {
+  const disabled = (t) => {
+    const out = new Map();
+    for (const part of t.split(/^(?=\[)/m)) {
+      const m = /^\[(apps\.connector_[^\]]*\.tools\.([A-Za-z0-9_-]+))\]/.exec(part);
+      if (m && /^\s*enabled\s*=\s*false\b/m.test(part)) out.set(m[1], m[2]);
+    }
+    return out;
+  };
+  const have = disabled(text);
+  return [...disabled(template)].filter(([key]) => !have.has(key)).map(([, name]) => name);
+}
 
 function codexConfig({ root, packRoot, dryRun, lines }) {
   const dest = join(root, '.codex', 'config.toml');
@@ -118,6 +156,8 @@ function codexConfig({ root, packRoot, dryRun, lines }) {
   } else if (eolless(readFileSync(dest, 'utf8')) === eolless(want)) {
     lines.push('skipped: .codex/config.toml already matches the suggested Codex config');
   } else {
+    const missing = missingGmailBlock(readFileSync(dest, 'utf8'), want);
+    if (missing.length) lines.push(`warning: .codex/config.toml is missing the Gmail block for ${missing.join(', ')}; copy those entries from student/${CODEX_TEMPLATE}`);
     lines.push(`skipped: .codex/config.toml kept as you have it; it differs from student/${CODEX_TEMPLATE}, so compare the two files and keep the Gmail send/delete/archive block (the [apps.connector_...] enabled = false entries)`);
   }
 }
@@ -194,10 +234,10 @@ export function setup({
     throw new InstallError(`${real} is inside ${provider}, which breaks git and node_modules: clone career-ops into ${join(home, 'career-ops')} instead, then run this again`);
   }
   lines.push('done: folder is not inside a cloud-synced location');
-  const pkgFile = checkPrereqs({ root: real, runner, nodeVersion });
+  checkPrereqs({ root: real, runner, nodeVersion });
   lines.push('done: Node, git and the career-ops checkout are fine');
-  pinCareerOps({ root: real, packRoot, pkgFile, dryRun, runner, platform, lines });
-  const res = install({ root: real, packRoot, dryRun, runner, nodeVersion, platform });
+  pinCareerOps({ root: real, packRoot, dryRun, runner, platform, lines });
+  const res = install({ root: real, packRoot, dryRun, runner, nodeVersion, platform, skipMinCheck: dryRun });
   for (const a of res.actions) lines.push(`${dryRun ? 'would do' : 'done'}: ${a}`);
   codexConfig({ root: real, packRoot, dryRun, lines });
   claudeSettings({ root: real, packRoot, dryRun, lines });
