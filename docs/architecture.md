@@ -6,7 +6,7 @@ Why the pack is built the way it is. Usage is in [usage.md](usage.md); release a
 
 The pack (cloned into a folder named student inside career-ops) and career-ops are independent git checkouts. career-ops updates through its own `update-system.mjs`; the pack updates through its own update script. Neither writes a file the other owns. Anything in the pack that writes into career-ops' system layer is a bug.
 
-The pack attaches through five places only:
+The pack attaches through six places only:
 
 | Hook | Effect |
 | --- | --- |

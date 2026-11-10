@@ -237,7 +237,7 @@ test('W-023-A4-11 the changelog says schedule.mjs passes --agent to scheduled.mj
 test('W-023-A4-12 architecture and coverage.mjs name phase 2 and the attach-point table lists AGENTS.override.md', () => {
   const arch = readDoc('docs/architecture.md');
   assert.doesNotMatch(arch, /four places/);
-  assert.match(arch, /five places only/);
+  assert.match(arch, /six places only/);
   assert.match(arch, /\| `AGENTS\.override\.md` \|/);
   assert.match(arch, /Part B builds and shows the raw queue first, then prints the coverage line/);
   assert.match(readDoc('interview/coverage.mjs'), /read aloud in interview phase 2/);
