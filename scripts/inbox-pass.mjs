@@ -210,9 +210,12 @@ const lastPassMs = (dataDir) => {
   return Number.isFinite(n) ? n : null;
 };
 
-function summaryLine({ counts, notRead }) {
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+function summaryLine({ counts, notRead, dropped = 0 }) {
   const base = `inbox pass: read ${counts.messages} messages, alerts staged ${counts.alerts} (employer ${counts.employer}, handshake ${counts.handshake}, need a link ${counts.needUrl}), status updates ${counts.applied}, proposals ${counts.proposed}, suspicious ${counts.suspicious}`;
-  return notRead > 0 ? `${base}, ${notRead} not read (cap ${MESSAGE_CAP})` : base;
+  const withRead = notRead > 0 ? `${base}, ${notRead} not read (cap ${MESSAGE_CAP})` : base;
+  return dropped > 0 ? `${withRead}, dropped ${dropped} messages with invalid ids` : withRead;
 }
 
 // Returns { ok, reason } so --check and the digest share one verdict. `config` may be null for --check.
@@ -249,7 +252,10 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   if (!answer) return fail('answer was not a JSON array');
   mkdirSync(paths.dataDir, { recursive: true });
   const file = join(paths.dataDir, `inbox-${today}.json`);
-  const messages = answer.messages.slice(0, MESSAGE_CAP).map((m) => ({ ...m, snippet: String(m?.snippet ?? '').slice(0, SNIPPET_CHARS) }));
+  // A message id reaches the digest, so only a plain token is kept; the bad text is counted, never printed.
+  const valid = answer.messages.filter((m) => typeof m?.id === 'string' && SAFE_ID.test(m.id));
+  const dropped = answer.messages.length - valid.length;
+  const messages = valid.slice(0, MESSAGE_CAP).map((m) => ({ ...m, snippet: String(m?.snippet ?? '').slice(0, SNIPPET_CHARS) }));
   writeFileSync(file, `${JSON.stringify(messages)}\n`);
   const lines = [];
   try {
@@ -261,7 +267,7 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
     }
     writeFileSync(join(paths.dataDir, LAST_PASS), `${now()}\n`);
     // Proposals and warnings name a message id, a company and a fixed phrase, never message text, so they are safe to keep.
-    digest([summaryLine({ counts: result.counts, notRead: answer.notRead }), ...lines.filter((l) => l.startsWith('- ')).map((l) => l.slice(2))]);
+    digest([summaryLine({ counts: result.counts, notRead: answer.notRead, dropped }), ...lines.filter((l) => l.startsWith('- ')).map((l) => l.slice(2))]);
   } finally {
     rmSync(file, { force: true });
   }
