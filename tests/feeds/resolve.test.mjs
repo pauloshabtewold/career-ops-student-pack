@@ -153,7 +153,6 @@ test('M-002-S16-cdel findAtEmployer returns the posting URL for a strict title m
   assert.equal((await find(findRow(), [ashby])).res.url, 'https://jobs.ashbyhq.com/examplerobotics/a1');
 });
 
-// M-002-S16-cdel
 test('extra check: findAtEmployer returns a null url for no match or for two matches', async () => {
   const none = await find(findRow({ title: 'Quantum Intern' }), [greenhouse, lever, ashby]);
   assert.equal(none.res.url, null);
@@ -162,7 +161,6 @@ test('extra check: findAtEmployer returns a null url for no match or for two mat
   assert.equal((await find(findRow({ company: 'Nowhere Co' }), [])).res.url, null);
 });
 
-// M-002-S16-cdel
 test('extra check: findAtEmployer never requests a linkedin.com URL', async () => {
   const { stub } = await find(findRow({ url: 'https://www.linkedin.com/jobs/view/3900001234', company: 'LinkedIn Example' }), [greenhouse, lever, ashby]);
   assert.ok(!stub.urls().some((u) => /linkedin\.com/i.test(u)), stub.urls().join('\n'));

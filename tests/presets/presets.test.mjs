@@ -224,7 +224,6 @@ test('M-001-S16-cdel software-cs ships the zapplyjobs Internships-2027 and New-G
   assert.deepEqual({ repo: newgrad.repo, path: newgrad.path, format: newgrad.format, kind: newgrad.kind }, { repo: 'zapplyjobs/New-Grad-Software-Engineering-Jobs-2027', path: 'README.md', format: 'markdown-table', kind: 'newgrad' });
 });
 
-// M-001-S16-cdel
 test('extra check: a preset alert accepts an optional site and search next to name and how, and any other key is unknown', () => {
   const withAlert = (alert) => {
     const p = structuredClone(loadPreset('byo-employer-list'));
@@ -244,7 +243,6 @@ test('extra check: a preset alert accepts an optional site and search next to na
   assert.throws(() => validatePreset(withAlert({ ...base, site: 'linkedin', search: 5 }), 'byo-employer-list'), /search/);
 });
 
-// M-001-S16-cdel
 test('extra check: software-cs Handshake and LinkedIn alerts carry a site and a search', () => {
   const alerts = loadPreset('software-cs').sources.alerts;
   for (const site of ['handshake', 'linkedin']) {
@@ -254,14 +252,12 @@ test('extra check: software-cs Handshake and LinkedIn alerts carry a site and a 
   }
 });
 
-// M-001-S16-cdel
 test('extra check: engineering-mech-elec carries a Handshake alert with search engineering intern and a LinkedIn alert with search electrical engineering intern', () => {
   const alerts = loadPreset('engineering-mech-elec').sources.alerts;
   assert.equal(alerts.find((a) => a.site === 'handshake')?.search, 'engineering intern');
   assert.equal(alerts.find((a) => a.site === 'linkedin')?.search, 'electrical engineering intern');
 });
 
-// M-001-S16-cdel
 test('extra check: the other field presets carry Handshake and LinkedIn alerts with a search, policy-government adds usajobs, tip-only entries keep no site', () => {
   const FIELD = ['accounting', 'consulting', 'cybersecurity', 'finance-economics', 'marketing-business', 'mis-business-analytics', 'nursing', 'policy-government', 'statistics-math-actuarial', 'supply-chain-operations'];
   for (const id of FIELD) {

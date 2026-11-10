@@ -47,7 +47,6 @@ test('M-001-S4-cdel a Greenhouse board that robots allows and audit rates ok is 
   }
 });
 
-// M-001-S4-cdel
 test('extra check: Greenhouse, Lever and Ashby boards pass with ok or small, each after a robots check of its API host', async () => {
   const s = H.scratch();
   try {
@@ -93,7 +92,6 @@ test('M-001-S5-cdel a GitHub list with 5 unique eligible rows is added as a tria
   }
 });
 
-// M-001-S5-cdel
 test('extra check: rows already in data/student-rows.tsv are not counted as new', async () => {
   const five = H.uniqueRows(5, 'Software', 'known');
   const s = H.scratch({ rows: [five[0][1], five[1][1]] });
@@ -155,7 +153,6 @@ test('M-001-S7-cdel candidates matching a preset seed, a target employer or a po
   }
 });
 
-// M-001-S7-cdel
 test('extra check: a second run skips what the first run added and writes portals.yml unchanged', async () => {
   const s = H.scratch();
   try {
@@ -184,7 +181,6 @@ test('M-001-S8-cdel a Workday or unknown host is skipped as no supported public 
   }
 });
 
-// M-001-S8-cdel
 test('extra check: a robots-disallowed board and audit empty, error and no-provider boards are skipped naming the reason', async () => {
   const s = H.scratch();
   try {
@@ -226,7 +222,6 @@ test('M-001-S9-cdel boards past the 20-board cap are skipped as cap reached', as
   }
 });
 
-// M-001-S9-cdel
 test('extra check: lists past the 15-list cap are skipped as cap reached', async () => {
   const s = H.scratch();
   try {
@@ -241,7 +236,6 @@ test('extra check: lists past the 15-list cap are skipped as cap reached', async
   }
 });
 
-// M-001-S9-cdel
 test('extra check: candidates after the 5-minute deadline are skipped as time limit reached', async () => {
   const s = H.scratch();
   try {
@@ -257,7 +251,6 @@ test('extra check: candidates after the 5-minute deadline are skipped as time li
   }
 });
 
-// M-001-S9-cdel
 test('extra check: no request goes to linkedin.com and a LinkedIn board is skipped as no supported public board', async () => {
   const s = H.scratch();
   try {

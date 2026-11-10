@@ -69,7 +69,6 @@ test('M-002-S6-cdel buildClaudeArgs is dontAsk with no tools, the Gmail read all
   assert.ok(CLAUDE_GMAIL_WRITE_TOOLS.some((t) => /send|draft/.test(t)));
 });
 
-// M-002-S6-cdel
 test('extra check: the claude call inboxPass makes carries those flags, the prompt on stdin and an empty working folder', () =>
   withRoot({}, async (r) => {
     const { calls } = await pass(r);
@@ -84,7 +83,6 @@ test('extra check: the claude call inboxPass makes carries those flags, the prom
     assert.notEqual(call.opts.cwd, r.root);
   }));
 
-// M-002-S6-cdel
 test('extra check: the codex call keeps apps enabled and disables the 11 Gmail write tools', () =>
   withRoot({ config: 'agent: codex\nmailbox:\n  backend: connector\n  schedule: on\n' }, async (r) => {
     assert.deepEqual([...CODEX_GMAIL_WRITE_TOOLS].sort(), ['apply_labels_to_emails', 'archive_emails', 'batch_modify_email', 'bulk_label_matching_emails', 'create_draft', 'create_label', 'delete_emails', 'forward_emails', 'send_draft', 'send_email', 'update_draft']);
@@ -116,7 +114,6 @@ test('M-002-S7-cdel a Gmail write tool call discards the output, stages nothing 
     assert.ok(lines[0].includes(WRITE_TOOL) && /unexpected tool/.test(lines[0]) && /output discarded/.test(lines[0]), lines[0]);
   }));
 
-// M-002-S7-cdel
 test('extra check: a Bash call discards the output and names Bash', () =>
   withRoot({}, async (r) => {
     const { calls } = await pass(r, { handlers: { claude: () => claudeStream({ tools: [SEARCH, 'Bash'], answer: answerText([handshakeAlert()]) }) } });
@@ -125,7 +122,6 @@ test('extra check: a Bash call discards the output and names Bash', () =>
     assert.match(skipLines(r).join('\n'), /unexpected tool Bash/);
   }));
 
-// M-002-S7-cdel
 test('extra check: auditEvents returns the first tool outside the Gmail read set and reads tool calls, not the init tool list', () => {
   assert.equal(auditEvents('claude', claudeStream({ tools: [SEARCH] })), null);
   assert.equal(auditEvents('claude', claudeStream({ tools: [SEARCH, WRITE_TOOL, 'Bash'] })), WRITE_TOOL);
@@ -156,14 +152,12 @@ for (const [name, opts, re] of FAILURES) {
     }));
 }
 
-// M-002-S8-cdel
 test('extra check: a codex agent that rejects an argument says update codex', () =>
   withRoot({ config: 'agent: codex\nmailbox:\n  backend: connector\n  schedule: on\n' }, async (r) => {
     await pass(r, { agent: 'codex', agentPath: CODEX, handlers: { codex: failing({ status: 2, stderr: "error: unexpected argument '--bogus' found" }) } });
     assert.match(skipLines(r).join('\n'), /codex rejected a flag \(--bogus\); update codex/);
   }));
 
-// M-002-S8-cdel
 test('extra check: the CLI exits 0 when the agent is missing and still writes the digest line', () =>
   withRoot({}, (r) => {
     const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'inbox-pass.mjs'), '--agent', 'claude', '--agent-path', join(r.root, 'no-such-bin', 'claude'), '--root', r.root, '--data-dir', r.data, '--today', TODAY], { encoding: 'utf8', timeout: 60000 });
@@ -192,7 +186,6 @@ test('M-002-S9-cdel --check prints ok and exits 0 when the run called a Gmail se
     assert.match(out.stdout, /^inbox pass check: ok \(claude, Gmail read tools only\)$/m);
   }));
 
-// M-002-S9-cdel
 test('extra check: --check prints failed with the reason and exits 1 for a write tool, a Bash call or no search', posix, async () => {
   for (const mode of ['write', 'bash', 'none']) {
     await withRoot({}, (r) => {
@@ -221,7 +214,6 @@ test('M-002-S17-cdel the win32 .cmd claude argv passes --tools as a quoted empty
   assert.ok(plain.includes(CLAUDE_GMAIL_READ_TOOLS[0]) && !plain.includes(`"${CLAUDE_GMAIL_READ_TOOLS[0]}"`));
 });
 
-// M-002-S17-cdel
 test('extra check: the win32 .cmd codex argv quotes every -c value and stays under 8191 characters', () => {
   const tmp = 'C:\\Users\\Sample Student\\AppData\\Local\\Temp\\inbox-pass-1';
   const out = `${tmp}\\last.txt`;
@@ -233,7 +225,6 @@ test('extra check: the win32 .cmd codex argv quotes every -c value and stays und
   assert.ok(['"C:\\Users\\Sample Student\\AppData\\Roaming\\npm\\codex.cmd"', ...args].join(' ').length < 8191);
 });
 
-// M-002-S17-cdel
 test('extra check: inboxPass on win32 with a .cmd agent path quotes the command and passes --tools as a quoted pair', () =>
   withRoot({}, async (r) => {
     const cmd = 'C:\\Users\\Sample Student\\AppData\\Roaming\\npm\\claude.cmd';
@@ -263,14 +254,12 @@ test('M-002-S18-cdel the prompt lists assessment and company-reply searches befo
     for (const l of prompt.split('\n').filter((x) => /from:/.test(x))) assert.match(l, /after:\d+/, l);
   }));
 
-// M-002-S18-cdel
 test('extra check: with no earlier pass the cutoff is two days before now', () =>
   withRoot({}, async (r) => {
     const { calls } = await pass(r);
     assert.ok(String(first(calls).opts.input).includes(`after:${(NOW - 2 * 86400 * 1000) / 1000}`));
   }));
 
-// M-002-S18-cdel
 test('extra check: not_read 7 adds "7 not read (cap 40)" to the digest line and not_read 0 adds nothing', () =>
   withRoot({}, async (r) => {
     await pass(r, { handlers: { claude: answerWith(answerText([plainMail('p-1')], 7)) } });
@@ -278,7 +267,6 @@ test('extra check: not_read 7 adds "7 not read (cap 40)" to the digest line and 
     assert.ok(line.endsWith(', 7 not read (cap 40)'), line);
   }));
 
-// M-002-S18-cdel
 test('extra check: a bare array answer is accepted as not_read 0', () =>
   withRoot({}, async (r) => {
     await pass(r, { handlers: { claude: answerWith(JSON.stringify([handshakeAlert('a-1')])) } });
@@ -303,7 +291,6 @@ test('M-002-S19-cdel --check with no config/student.yml uses the --agent flag an
   }
 });
 
-// M-002-S19-cdel
 test('extra check: --check with no config and no --agent is a usage error', () => {
   const root = mkdtempSync(join(tmpdir(), 'inbox-noconfig-'));
   try {
@@ -315,7 +302,6 @@ test('extra check: --check with no config and no --agent is a usage error', () =
   }
 });
 
-// M-002-S19-cdel
 test('extra check: a normal run with no config/student.yml prints "inbox pass: off (no config yet)" and exits 0', () => {
   const root = mkdtempSync(join(tmpdir(), 'inbox-noconfig-'));
   try {

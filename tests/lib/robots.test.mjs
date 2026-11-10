@@ -30,7 +30,6 @@ test('M-001-S1-cdel the career-ops-student-pack group wins over the star group a
   assert.equal(allowed(res, '/elsewhere'), true);
 });
 
-// M-001-S1-cdel
 test('extra check: star matches any run of characters and a trailing dollar anchors the end of the path', () => {
   const res = ok(BOTH_GROUPS);
   assert.equal(allowed(res, '/data/list.json'), false);
@@ -39,12 +38,10 @@ test('extra check: star matches any run of characters and a trailing dollar anch
   assert.equal(allowed(res, '/tmp/y'), true);
 });
 
-// M-001-S1-cdel
 test('extra check: Allow wins a tie against Disallow of the same length', () => {
   assert.equal(allowed(ok(BOTH_GROUPS), '/same'), true);
 });
 
-// M-001-S1-cdel
 test('extra check: the star group applies when no group names the agent, and the longest rule still wins', () => {
   const res = ok('User-agent: *\nDisallow: /private\nAllow: /private/ok\nDisallow: /*.pdf$\n');
   assert.equal(allowed(res, '/private/x'), false);
@@ -54,7 +51,6 @@ test('extra check: the star group applies when no group names the agent, and the
   assert.equal(allowed(res, '/open'), true);
 });
 
-// M-001-S1-cdel
 test('extra check: a group for some other agent does not apply', () => {
   const res = ok('User-agent: otherbot\nDisallow: /\n');
   assert.equal(allowed(res, '/anything'), true);
@@ -68,7 +64,6 @@ test('M-001-S2-cdel a 404 or a 401 answer means the host has no rules', () => {
   }
 });
 
-// M-001-S2-cdel
 test('extra check: a 503 answer disallows every path with the reason robots.txt unreachable', () => {
   for (const path of ['/', '/jobs', '/v1/boards/x/jobs']) {
     const v = robotsVerdict({ status: 503, text: '' }, path);
@@ -77,7 +72,6 @@ test('extra check: a 503 answer disallows every path with the reason robots.txt 
   }
 });
 
-// M-001-S2-cdel
 test('extra check: a fetch that throws disallows every path, and a 404 host through the checker is open', async () => {
   const boom = createRobotsChecker({ fetch: async () => { throw new Error('socket hang up'); } });
   const down = await boom.check('https://boards-api.example.com/v1/boards/x/jobs');
@@ -87,7 +81,6 @@ test('extra check: a fetch that throws disallows every path, and a 404 host thro
   assert.equal((await none.check('https://api.example.org/v0/postings/x')).allowed, true);
 });
 
-// M-001-S2-cdel
 test('extra check: the checker fetches robots.txt once per host, applies its rules and never fetches linkedin.com', async () => {
   const urls = [];
   const fetch = async (url) => {
@@ -114,7 +107,6 @@ test('M-001-S3-cdel a Crawl-delay of 6 skips the source with the cap reason whil
   assert.equal(five.crawlDelay, 5);
 });
 
-// M-001-S3-cdel
 test('extra check: the star group delay counts when no agent group exists and the cap is a parameter', () => {
   const res = ok('User-agent: *\nCrawl-delay: 6\n');
   assert.equal(robotsVerdict(res, '/jobs').reason, 'crawl-delay 6 s above the 5 s cap');

@@ -71,7 +71,6 @@ test('extra check: mergeProfileAnswers appends the block when absent and replace
   assert.deepEqual(yaml.load(mergeProfileAnswers(legacy, { eeo: { gender: 'decline' } })).application_answers.eeo, { gender: 'decline' });
 });
 
-// M-003-S18-cdel
 let s18 = 0;
 for (const [label, text] of [
   ['does not parse', 'candidate: [unclosed\napplication_answers:\n  start_date: immediately\n'],

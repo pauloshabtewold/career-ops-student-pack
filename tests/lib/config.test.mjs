@@ -101,7 +101,6 @@ test('M-002-S15-cdel mailbox.schedule accepts on and off', async () => {
   }
 });
 
-// M-002-S15-cdel
 test('extra check: any other mailbox.schedule value throws ConfigError naming mailbox.schedule', async () => {
   for (const value of ['maybe', 'true', '"yes"', 'daily']) {
     const root = rootWith(`mailbox:\n  schedule: ${value}\n`);
@@ -113,7 +112,6 @@ test('extra check: any other mailbox.schedule value throws ConfigError naming ma
   }
 });
 
-// M-002-S15-cdel
 test('extra check: the shipped defaults hold mailbox.schedule off', async () => {
   const defaults = readFileSync(fileURLToPath(new URL('../../templates/student.defaults.yml', import.meta.url)), 'utf8');
   assert.match(defaults, /^mailbox:\n(?:[ \t]+.*\n)*?[ \t]+schedule: "off"/m);

@@ -186,7 +186,6 @@ test('M-008-S6 pii-lint scanText finds nothing in any interview-runs fixture fil
   }
 });
 
-// M-003-S7-cdel
 for (const k of SETS) {
   test(`${k === SETS[0] ? 'M-003-S7-cdel' : 'extra check:'} ${k} transcript shows Parts A to D in order, ${k === 'nursing' ? 6 : 5} STUDENT turns and every application_profile value in Part C`, () => {
     const text = transcriptOf(k);

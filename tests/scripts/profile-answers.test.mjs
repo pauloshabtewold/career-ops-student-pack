@@ -9,7 +9,6 @@ const BLOCK = ['application_answers:', '  work_authorization: US citizen', '  re
 const TAIL = 'target_roles:\n  primary:\n    - Old role\n';
 const PROFILE = `${HEAD}${BLOCK}\n${TAIL}`;
 
-// M-003-S12-cdel
 for (const legacy of ['leave-blank', 'ask-each-time']) {
   test(`${legacy === 'leave-blank' ? 'M-003-S12-cdel' : 'extra check:'} an answers file with eeo ${legacy} still applies and show lists all six eeo items in needs_confirmation`, () => {
     const r = scratch();

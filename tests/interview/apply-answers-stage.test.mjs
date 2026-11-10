@@ -71,7 +71,6 @@ test('M-003-S10-cdel an apply-answers rerun leaves the research_companies block 
   }
 });
 
-// M-003-S19-cdel
 let s19 = 0;
 for (const [label, over, reason] of [
   ['automation is manual', { automation: 'manual' }, /automation/i],

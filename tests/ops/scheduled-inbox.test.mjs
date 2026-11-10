@@ -35,7 +35,6 @@ test('M-002-S10-cdel mailbox.schedule on runs daily.mjs, then inbox-pass.mjs, th
   assert.deepEqual(names(calls), ['daily.mjs', 'inbox-pass.mjs', 'daily-triage.mjs']);
 });
 
-// M-002-S10-cdel
 test('extra check: the inbox pass starts with node in the career-ops folder, the agent flags and a --deadline', async () => {
   const { r, calls } = await run(`automation: scheduled-discovery-plus-triage\n${MAILBOX_ON}`, { extra: { agent: 'codex', agentPath: '/opt/sample/bin/codex' } });
   const inbox = calls.find((c) => basename(c.args[0]) === 'inbox-pass.mjs');
@@ -50,7 +49,6 @@ test('extra check: the inbox pass starts with node in the career-ops folder, the
   assert.ok(inbox.opts.timeout > 0 && inbox.opts.timeout <= 15 * 60 * 1000, 'a child timeout of at most 15 minutes');
 });
 
-// M-002-S10-cdel
 test('extra check: mailbox.schedule on with scheduled-discovery runs daily.mjs then inbox-pass.mjs and no triage', async () => {
   const { calls } = await run(`automation: scheduled-discovery\n${MAILBOX_ON}`);
   assert.deepEqual(names(calls), ['daily.mjs', 'inbox-pass.mjs']);
@@ -81,7 +79,6 @@ test('M-002-S12-cdel an inbox-pass child that throws prints a stopped line, dail
   assert.match(text, /scheduled: inbox-pass\.mjs stopped/);
 });
 
-// M-002-S12-cdel
 test('extra check: an inbox-pass child that times out is handled the same way', async () => {
   const timeout = () => Object.assign(new Error('spawnSync node ETIMEDOUT'), { code: 'ETIMEDOUT' });
   const { calls, text } = await run(`automation: scheduled-discovery-plus-triage\n${MAILBOX_ON}`, { fail: 'inbox-pass.mjs', failWith: timeout });
