@@ -2,132 +2,157 @@
 
 Resume: tests/fixtures/resumes/finance.md | Persona: tests/fixtures/answers/finance.json
 Preset set: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing, byo-employer-list (snapshot 1e38ac4)
-Run date: 2026-10-29. Commands ran against the pack snapshot. Plugin enable, doctor and sign-ins were not performed in a fixture run.
 
-## Phase 1: resume and identity
+Run date: 2026-10-29. Invented person, school and employers; test data only. Script: interview/interview.md, Parts A to D. Commands ran against the pack snapshot; sign-ins, plugin enables and the live agent runs are recorded as a fixture would show them.
+
+## Part A: sign-ins
+
+INTERVIEWER: I read cv.md first, so I will only ask about what it does not cover. Before anything else, here are the sign-ins, in one batch. Reply "all recommended" or "ok" to accept every default, or change only some, for example "3: skip".
+
+1. Gmail connector. Does: lets the daily inbox pass read job-alert emails and company replies with read-only tools, so they reach your queue and tracker without a session. (recommended) connect it: it is the only way replies arrive unattended. Other: skip, and paste mail by hand later.
+2. LinkedIn in the browser. Does: needed for outreach and LinkedIn pages. (recommended) sign in while outreach is on: the risks and the switches come in Part D. Other: skip, and outreach stays off.
+3. Handshake in the browser. Does: needed for the Handshake pass and its saved-search alerts. (recommended) sign in: campus-only postings are on no public list. Other: skip.
+4. Simplify and Indeed. Does: free accounts whose alert emails add postings; you create them yourself. (recommended) skip for now: LinkedIn and Handshake alerts cover most postings, and you can add these any time.
+5. GitHub. Does: the pack reads public job lists. (recommended) nothing to do: no account is needed.
+
+In Claude Code, connect Gmail in your claude.ai connector settings and confirm it with /mcp. Do all the sign-ins yourself in the browser; I never ask for a password. Tell me when you are done and I will check them all in one go.
+
+STUDENT: All recommended. Gmail is connected, and I signed in to LinkedIn and Handshake. I skipped Simplify and Indeed.
+
+INTERVIEWER: Checking all of them now. A Gmail search for newer_than:2d ran in this chat with the read tools. `node student/scripts/inbox-pass.mjs --check --agent claude` printed: inbox pass check: ok (claude, Gmail read tools only). The LinkedIn and Handshake pages show a signed-in session. Recorded signins: gmail ok, linkedin ok, handshake ok, simplify skipped, indeed skipped.
+
+## Part B: your job queue
+
+INTERVIEWER: Next is your job queue: every posting open to you now or later, with no grades and no top picks. First, a batch about you. Reply "all recommended" or "ok" to accept every default, or change only some, for example "7: 2". From cv.md I propose these target roles: Investment banking analyst and Corporate finance rotational analyst.
+
+1. Resume. personal, no default. Does: every later step reads it. cv.md is already here, so I will use it.
+2. Field or major. Does: picks the job lists and employer boards to read. (recommended) the field detected from your resume, because it matches your own words; say another major to override.
+3. Tracks and graduation month. personal, no default. Does: internship, co-op or new grad, each with its graduation month, so postings match your cycle.
+4. Locations in order of preference. personal, no default. Does: filters postings to places you would work.
+5. US citizen. personal, no default. Does: citizens keep postings that ask for clearance or citizenship; for everyone else the filters drop them.
+6. Target roles. Does: short phrases that shape the title filters. (recommended) proposed from your resume, because each one is grounded in it.
+7. Years of experience. Does: drops roles above your level. (recommended) 0, the right value for most students.
+8. Time zone. Does: sets when the daily run fires. (recommended) this computer's time zone, because that is where it runs.
+9. GitHub job lists. Does: reads public internship and new-grad lists (the `github-lists` plugin; show its capability card). (recommended) on: they are the widest free source of postings.
+
+STUDENT: 1: use cv.md. 2: finance and economics, as detected. 3: internship track, graduation 2028-05. 4: New York, NY; Charlotte, NC. 5: No, I am on an F-1 visa. 6: keep your proposal. 7: 0. 8: America/New_York. 9: yes. All the rest as recommended.
+
+INTERVIEWER: Detected field: finance and economics; I used the finance-economics preset. I ran `node student/interview/apply-answers.mjs data/interview-answers.json --stage queue`: it wrote config/student.yml, portals.yml, data/student-github-sources.json and data/student-cycle.json. Then I searched the web for finance and economics job lists and employer boards (4 web searches), wrote data/research-candidates.json and ran `node student/scripts/research-sources.mjs`:
+
+research: added 2 boards, 2 GitHub lists
+added: Example Capital Partners (board, greenhouse, 8 postings)
+added: Sample Asset Management (board, lever, 5 postings)
+added: example-finance-interns (GitHub list, 9 matching rows)
+added: example-quant-newgrad (GitHub list, 7 matching rows)
+skipped: Example Bank Holdings: no supported public board, check by hand
+skipped: example-lists/fin-archive: 0 matching rows, needs 5
+cost: 24 requests, 37.1 s, 4 web searches in this chat; no model call in this script
+
+I showed the GitHub-lists capability card and enabled it with --confirm, as you agreed. Now the alerts, from `node student/scripts/alert-plan.mjs`. Reply "all recommended" or "ok" to accept the recommended items, "do it for me" to have me open the pages, or "4: skip" to change only item 4.
+
+1. LinkedIn job alert (recommended): LinkedIn emails you new postings that match your search every day.
+   why: alert emails cover every field, including employers with no readable board
+   open: https://www.linkedin.com/jobs/search/?keywords=Investment%20banking%20analyst%20intern&location=New%20York%2C%20NY&f_E=1
+   then press: Set alert
+2. Handshake saved search (recommended): Handshake emails you new postings from employers recruiting at your school.
+   why: it holds campus-only postings that no public list carries
+   open: https://app.joinhandshake.com/job-search?query=Investment%20banking%20analyst%20intern
+   then press: Save search, then turn on email alerts
+3. Simplify saved search (optional): Simplify emails you new postings and tracks the ones you apply to.
+   why: strongest for software, data and business; needs a free account you create yourself
+   open: https://simplify.jobs/jobs?query=Investment%20banking%20analyst%20intern
+   then press: Save search, then turn on email alerts
+4. Indeed email alert (optional): Indeed emails you new postings from a very wide set of employers.
+   why: wide coverage but more noise, so add it only if the first alerts leave gaps
+   open: https://www.indeed.com/jobs?q=Investment%20banking%20analyst%20intern&l=New%20York%2C%20NY
+   then press: Get new jobs by email
+
+STUDENT: Do it for me. I will press the buttons for 1 and 2 and skip 3 and 4.
+
+INTERVIEWER: I opened the LinkedIn and Handshake pages and both alerts show as saved. I ran the inbox step in this chat: inbox: alerts staged 3 (employer 1, handshake 0, need a link 2). Now the queue. `node student/scripts/first-run.mjs --queue` ran in the foreground (about 10 minutes) and printed:
+
+queue: 156 postings waiting
+source github-lists: 139
+source scan: 17
+newest:
+Example Capital Partners | Investment Banking Summer Analyst | New York, NY
+Sample Asset Management | Corporate Finance Intern | Charlotte, NC
+Placeholder Securities | Rotational Analyst Intern | New York, NY
+Example Trading Co | Finance Intern | New York, NY
+Sample Insurance Group | Financial Analyst Intern | Charlotte, NC
+Example Credit Union | Treasury Intern | Charlotte, NC
+Placeholder Advisors | Investment Analyst Intern | New York, NY
+Sample Markets LLC | Summer Analyst | New York, NY
+Example Wealth Co | Finance Rotational Intern | New York, NY
+Placeholder Equity | Analyst Intern | New York, NY
+Upcoming and check by hand:
+- Example Bank Holdings https://careers.example.com/bank (upcoming)
+- Banks post analyst programs on their own sites; check them in the fall. (upcoming)
+
+That is the raw queue, with no grades or top picks. Coverage, from `node interview/coverage.mjs finance-economics --today 2026-10-29`, exactly as returned: "Finance, economics [semi-automated]: Semi-automated: community internship, new-grad and quant lists feed the queue; banks, asset managers and rotational programs come from the employer list below, and investment banking windows open far ahead."
+
+## Part C: application profile
+
+INTERVIEWER: Now the answers forms ask for again and again. Reply "all recommended" or "ok" to accept every default, or change only some, for example "4: immediately". Items marked personal, no default need an answer. The six EEO items have no recommended value, so "all recommended" does not cover them; answer each with a value or "decline" (stored as decline, shown as "decline to self-identify").
+
+1. Identity. personal, no default. Does: fills your details on forms. From your resume I have name Morgan Fixture, email morgan.fixture@example.edu, phone 415-555-0142; correct any, or say skip for city, LinkedIn and GitHub.
+2. Work authorization. personal, no default. Does: answers "are you authorized to work" in the student's words, for example "F-1 with OPT" or "US citizen".
+3. Needs sponsorship. personal, no default. Does: answers the sponsorship question: yes or no.
+4. Start date. Does: answers "when can you start". (recommended) the month after graduation as `YYYY-MM`, because it matches your track. Other: `immediately`.
+5. Relocation. Does: answers "willing to relocate". (recommended) `within-locations`, because it keeps you to the places you named. Other: `yes`, `no`.
+6. How did you hear about us. Does: fills that box. (recommended) "Online job search", because it is true for every posting the pack finds.
+7. Resume variants. Does: names one resume per track with a page limit. (recommended) one page per track, because that is what recruiters read. The files themselves stay under the student's control.
+8. Priority companies, blacklist, dealbreakers and target employers. Does: ranks, hides or adds employers (dealbreakers are phrases such as "unpaid" or "on-site only outside my metros"). (recommended) none now, because Part B already added employers for your field; add them any time.
+9. Gender. personal, no default. Does: fills the gender question on forms.
+10. Race or ethnicity. personal, no default. Does: fills that question.
+11. Hispanic or Latino. personal, no default. Does: fills that question.
+12. Veteran status. personal, no default. Does: fills that question.
+13. Disability status. personal, no default. Does: fills that question.
+14. Pronouns. personal, no default. Does: fills that question.
 
-INTERVIEWER: Hi, let's set you up. I found your resume in cv.md and read it, so I will not ask for anything already in it. Here is what I took from it: name Morgan Fixture, email morgan.fixture@example.edu, phone 415-555-0142. The resume lists no city, LinkedIn or GitHub, so I left those empty. Is all of that correct? Reply "yes", correct a line, or say "skip" for anything you want left blank.
+STUDENT: 1: correct, skip the rest. 2: F-1 student, needs sponsorship. 3: Yes, I will need sponsorship. 4: 2027-06. 5: yes. 6: Campus recruiting event. 7: finance-main, one page. 8: priority Example Capital Partners; blacklist Example Staffing Group; dealbreakers unpaid; target employers: Example finance Target 1 (https://careers.example.com/finance/1), Example finance Target 2 (https://careers.example.com/finance/2). 9: decline. 10: decline. 11: decline. 12: decline. 13: decline. 14: she/her.
 
-STUDENT: Yes, that is correct. Skip city, LinkedIn and GitHub.
+INTERVIEWER: Recorded in the answers file: name Morgan Fixture, work authorization "F-1 student, needs sponsorship", needs sponsorship yes, resume variant finance-main (1 page), start date 2027-06, relocation yes, how did you hear "Campus recruiting event", gender decline to self-identify, race or ethnicity decline to self-identify, hispanic or latino decline to self-identify, veteran status decline to self-identify, disability status decline to self-identify, pronouns she/her. Because you need sponsorship I showed the h1b-sponsor capability card and enabled it with --confirm, as you agreed.
 
-INTERVIEWER: Thanks. In your own words, what is your work authorization (for example "F-1 with OPT" or "US citizen"), and will you need sponsorship?
+## Part D: schedule and switches
 
-STUDENT: F-1 student, needs sponsorship. Yes, I will need sponsorship.
+INTERVIEWER: Before the switches, a disclaimer I read once, word for word: This pack is not affiliated with or endorsed by LinkedIn, Handshake, career-ops or any employer. You are responsible for following the terms of every site you use it with. LinkedIn and Handshake automation can lead to limits or restrictions on your accounts; both are on by default and each can be switched off at any time ("stop outreach", "stop handshake"). The software comes with no warranty of any kind (MIT license).
 
-INTERVIEWER: Recorded: work authorization "F-1 student, needs sponsorship", sponsorship needed: yes.
+INTERVIEWER: Two disclosures before I ask. First: LinkedIn outreach. LinkedIn's terms restrict automated activity, and the status of an assistant that drafts and sends messages in the student's own signed-in browser is ambiguous. It can put the account at risk. Outreach is therefore capped by hard limits, never runs unattended, and can be set to `on`, `drafts` (drafts only, the student sends) or `off`. At any time the student can say "stop outreach" and it ends for good until they say otherwise.
 
-## Phase 2: what they are looking for
+INTERVIEWER: Second: Handshake. Handshake's terms are ambiguous about automated browsing in the same way. The Handshake pass is on by default and can be turned off; "stop handshake" ends it at once.
 
-INTERVIEWER: Which tracks are you after (internship, co-op, new grad), and what is the graduation month and year for each? Your resume says expected May 2028, so my default is an internship track with graduation 2028-05.
+INTERVIEWER: Now the last batch. Reply "all recommended" or "ok" to accept every default, or change only some, for example "5: 9am". These defaults never loosen a safety limit: nothing is submitted without your yes, Gmail stays read-only and the budget caps stay.
 
-STUDENT: Internship only, graduating May 2028.
+1. Automation. Does: what runs by itself each day. (recommended) `scheduled-discovery-plus-triage`, because it finds and scores postings while you are away; it needs the chosen agent signed in on this computer. Other: `manual`, `scheduled-discovery`.
+2. Time. Does: when the daily run starts, in your time zone. (recommended) 06:00, because the queue is ready before your day starts.
+3. Inbox pass. Does: runs after the daily run with Gmail read tools only, stages alert jobs and reads company replies; each run costs about 15,000 tokens on a typical day and at most about 60,000 (docs/usage-cost.md, "The inbox pass"). (recommended) on, because the Part A check passed, automation is not `manual` and the mail path is `connector`.
+4. Model tier. Does: the model quality for triage. (recommended) `standard`, because it is the lowest tier that judges postings well. Other: `premium`. There is no economy tier.
+5. Plan. Does: only sets the wording of the cost estimates. (recommended) `unknown`; or name your plan: `claude-pro`, `claude-max`, `claude-ultra`, `chatgpt-plus`, `chatgpt-pro` or `api`.
+6. Triage budget. Does: caps the rows scored by the model: daily and on the first run. (recommended) 20 a day and 60 on the first run, because they keep a normal plan well inside its limits. Other: any whole number or "all". For each value above its default, run `node student/scripts/triage-budget.mjs cost <n|all> --plan <plan> --agent <agent> --spend-tier <standard|premium>` and show the printed cost line, an estimate, before accepting it. Record `triage_budget.daily` and `triage_budget.first_run` only when they differ from the defaults.
+7. Daily target. Does: applications you aim to prepare a day. (recommended) 10; the ceiling still applies.
+8. Mail path. Does: how mail is read. (recommended) `connector`, because only it runs unattended. Other: `paste`, `gmail-plugin`.
+9. Outreach. Does: one daily round drafts and sends at most the capped connection requests and messages, and every send needs your "send all" or "send 1,3". (recommended) `on`, because the caps and your approval keep it safe. Other: `drafts` (the cautious option: drafts only, you send), `off`.
+10. Handshake pass. Does: reads your Handshake saved searches. (recommended) `on`. Other: `off`.
+11. Who presses submit. Does: decides who submits applications. (recommended) `user`, because nothing is submitted without your yes. Other: `agent`.
+12. LinkedIn account tier. Does: sets the connection-request limit. (recommended) `free`. Other: `premium`.
 
-INTERVIEWER: Recorded: internship, 2028-05. Next, fields of study. The pack has thirteen presets: software-cs, mis-business-analytics, finance-economics, accounting, engineering-mech-elec, policy-government, consulting, cybersecurity, marketing-business, statistics-math-actuarial, supply-chain-operations, nursing and byo-employer-list. With a B.A. in Economics and a DCF project, my suggestion is finance-economics. Pick one or two.
+Below the limits table, say this once: the pack's ceilings (daily applications, connection requests, messages, profile views, and the score floor) are fixed in `scripts/budget.mjs` in the student folder. Limits can only be tightened: daily and rolling caps can be set lower, while minimums (the score floor, which starts at 3.5, the gap between actions, and nudge wait days) can be set higher. Looser values are clamped and logged. The triage budget is not one of these limits: it is the student's own, and Part D sets it. A student with an unusual reason to evaluate lower-scoring jobs can read them in the pipeline file, but the pack will not apply to them.
 
-STUDENT: finance-economics.
+STUDENT: 1: scheduled-discovery. 2: 06:30. 7: 8. 10: off. 11: agent. 12: skip. Raise the score floor to 4. Everything else as recommended.
 
-INTERVIEWER: I ran `node scripts/preset-portals.mjs finance-economics`. It seeds 95 tracked employers, starting with Goldman Sachs, Morgan Stanley, JPMorgan Chase, Bank of America and Citi, and running through asset managers, private equity, trading firms, insurers, the Big Four and corporate finance programs. Here is the coverage line from `node interview/coverage.mjs finance-economics`, word for word: "Finance, economics [semi-automated]: Semi-automated: only corporate finance has a community list; banks, asset managers and rotational programs come from the employer list below, and investment banking windows open far ahead."
+INTERVIEWER: Confirmed: automation scheduled-discovery at 06:30 America/New_York, inbox pass on, standard tier, daily target 8, mail path connector, Outreach on, Handshake off, submission agent, score floor 4, no limit overrides. I recorded the agent as claude without asking. I wrote data/interview-answers.json with inbox_schedule on and ran `node student/interview/apply-answers.mjs data/interview-answers.json`: it wrote config/student.yml, config/profile.yml, portals.yml, the three modes files, data/student-github-sources.json and data/blacklist.md, and printed no problems. `node doctor.mjs --json` reported nothing red.
 
-STUDENT: Understood.
+INTERVIEWER: I ran `node student/scripts/schedule.mjs install`: installed com.career-ops.student.daily at 06:30. Then `node student/scripts/schedule.mjs verify`:
+check daily run: ok
+check inbox pass: ok
+check triage: off
+schedule verified: com.career-ops.student.daily at 06:30
 
-INTERVIEWER: What role names should I target? Keep each to a short phrase. Based on your finance club analyst work and the DCF model, I would suggest "Investment banking analyst" and "Corporate finance rotational analyst".
+INTERVIEWER: First rows: `node student/scripts/first-run.mjs --list-only` listed 20 untriaged rows within your first-run budget. I scored them in this chat, applied the verdicts with `node student/scripts/apply-triage.mjs` and ran `node student/scripts/triage-budget.mjs log 20 --first-run`. Here is your top 10 from `node student/scripts/rank-queue.mjs --n 10`; the first three:
+1. 4.5 Example Capital Partners | Investment Banking Summer Analyst | New York, NY
+2. 4.3 Sample Asset Management | Corporate Finance Intern | Charlotte, NC
+3. 4.2 Placeholder Securities | Rotational Analyst Intern | New York, NY
+The rest of the top 10 follows in the same form. Nothing was submitted.
 
-STUDENT: Investment banking analyst, and Corporate finance rotational analyst.
-
-INTERVIEWER: Recorded both. Which locations, in order of preference? And how many years of work experience do you have, if any?
-
-STUDENT: New York, NY first, then Charlotte, NC. Zero years of experience.
-
-INTERVIEWER: Recorded: New York, NY, then Charlotte, NC; experience 0 years. Any priority companies, companies you never want to hear about, and dealbreakers such as "unpaid" or "on-site only outside my metros"? You can also name extra employers to track beyond the preset seeds, with their careers pages.
-
-STUDENT: Priority: Example Capital Partners. Never: Example Staffing Group. Dealbreaker: unpaid. Extra employers to track: Example finance Target 1 at https://careers.example.com/finance/1 and Example finance Target 2 at https://careers.example.com/finance/2.
-
-INTERVIEWER: Recorded: priority Example Capital Partners; blacklist Example Staffing Group; dealbreaker unpaid; two target employers with their careers URLs. Last one for this part: the preset comes with community GitHub lists (an internship list and a new-grad list). Do you want to trial the GitHub lists? They start as `trial` and the monthly review keeps or drops them.
-
-STUDENT: Yes, trial the GitHub lists.
-
-## Phase 3: resume variants
-
-INTERVIEWER: For your internship track, what should we call the resume variant, and what page limit? Default is one page.
-
-STUDENT: Call it finance-main, one page.
-
-INTERVIEWER: Recorded: variant finance-main for the internship track, graduation 2028-05, page limit 1. The file itself stays under your control.
-
-INTERVIEWER: Now the application profile answers I reuse on forms. When could you start? Give a month as YYYY-MM.
-
-STUDENT: 2027-06.
-
-INTERVIEWER: Are you willing to relocate? Answer `yes`, `no` or `within-locations` (only the locations you listed).
-
-STUDENT: yes.
-
-INTERVIEWER: For the voluntary EEO questions, should I `leave-blank`, `ask-each-time`, or fill them in?
-
-STUDENT: leave-blank.
-
-INTERVIEWER: How did you hear about opportunities like these? One short phrase is fine.
-
-STUDENT: Campus recruiting event.
-
-INTERVIEWER: Recorded: start date 2027-06, relocation yes, EEO leave-blank, how did you hear "Campus recruiting event".
-
-## Phase 4: switches and disclosures
-
-INTERVIEWER: Before the switches, one disclaimer, read once: "This pack is not affiliated with or endorsed by LinkedIn, Handshake, career-ops or any employer. You are responsible for following the terms of every site you use it with. LinkedIn and Handshake automation can lead to limits or restrictions on your accounts; both are on by default and each can be switched off at any time ("stop outreach", "stop handshake"). The software comes with no warranty of any kind (MIT license)."
-
-INTERVIEWER: Two disclosures before I ask. First: "LinkedIn outreach. LinkedIn's terms restrict automated activity, and the status of an assistant that drafts and sends messages in the student's own signed-in browser is ambiguous. It can put the account at risk. Outreach is therefore capped by hard limits, never runs unattended, and can be set to `on`, `drafts` (drafts only, the student sends) or `off`. At any time the student can say "stop outreach" and it ends for good until they say otherwise."
-
-INTERVIEWER: Second: "Handshake. Handshake's terms are ambiguous about automated browsing in the same way. The Handshake pass is on by default and can be turned off; "stop handshake" ends it at once."
-
-INTERVIEWER: Now the switches. Outreach: `on`, `drafts` or `off`. Handshake: `on` or `off`. Who presses submit on applications: `user` (default) or `agent`. LinkedIn account tier: `free` or `premium`.
-
-STUDENT: Outreach on. Handshake off. Submission: agent. LinkedIn tier: skip.
-
-INTERVIEWER: Recorded: outreach on, Handshake off, submission agent; LinkedIn tier left unset. Do you want to change any limits from the defaults?
-
-STUDENT: Set connection requests to 50 a day, nudge after 2 days, and raise my score floor to 4.
-
-INTERVIEWER: I can't raise the connection cap above 20 a day or bring nudges under 5 days, so those two will be clamped to the ceilings and logged. Score floor 4 is stricter than 3.5, so it stands. About the limits: the pack's ceilings (daily applications, connection requests, messages, profile views, and the score floor) are fixed in `scripts/budget.mjs` in the student folder. Limits can only be tightened: daily and rolling caps can be set lower, while minimums (the score floor, which starts at 3.5, the gap between actions, and nudge wait days) can be set higher. Looser values are clamped and logged. A student with an unusual reason to evaluate lower-scoring jobs can read them in the pipeline file, but the pack will not apply to them.
-
-STUDENT: Okay.
-
-## Phase 5: schedule and spend
-
-INTERVIEWER: Automation level: `manual`, `scheduled-discovery` or `scheduled-discovery-plus-triage`? Default is scheduled-discovery.
-
-STUDENT: scheduled-discovery.
-
-INTERVIEWER: What local time should the daily run start, and in which time zone?
-
-STUDENT: 06:30, America/New_York.
-
-INTERVIEWER: Model tier: `standard` or `premium`? There is no economy tier.
-
-STUDENT: standard.
-
-INTERVIEWER: Daily target for applications? Default is 10, and the ceiling still applies.
-
-STUDENT: 8 a day.
-
-INTERVIEWER: How will mail be read for the inbox pass: `connector`, `paste` or `gmail-plugin`?
-
-STUDENT: connector.
-
-INTERVIEWER: Recorded: scheduled-discovery at 06:30 America/New_York, standard tier, 8 applications a day, mailbox via connector.
-
-## Phase 6: write, check, enable
-
-INTERVIEWER: I wrote your answers to data/interview-answers.json, following interview/answers.schema.json. Short summary: Morgan Fixture, morgan.fixture@example.edu, 415-555-0142; F-1 student, needs sponsorship; preset finance-economics; internship track, graduation 2028-05, resume variant finance-main (one page); targets Investment banking analyst and Corporate finance rotational analyst; New York, NY then Charlotte, NC; 0 years of experience; priority Example Capital Partners; blacklist Example Staffing Group; dealbreaker unpaid; two extra target employers; GitHub lists on trial; outreach on, Handshake off, submission agent; score floor 4; connection cap and nudge wait requested at 50 and 2, to be clamped; scheduled-discovery at 06:30 America/New_York; standard tier; 8 a day; mailbox via connector. Is this right?
-
-STUDENT: Yes.
-
-INTERVIEWER: I ran `node interview/apply-answers.mjs --root <ROOT> --data-dir <ROOT>/data --today 2026-10-29 --dry-run`. It exited 0 and would write config/student.yml, config/profile.yml, portals.yml, modes/_profile.md, modes/_brief.md, modes/_custom.md, data/student-github-sources.json and data/blacklist.md. It also printed: "Limits set to their ceilings: connect_per_day, nudge_min_days". This was a dry run, so nothing was written.
-
-INTERVIEWER: Enabling the GitHub-lists plugin (showing its capability card and running it again with `--confirm`) was not performed in a fixture run.
-
-INTERVIEWER: `node doctor.mjs --json` was not performed in a fixture run, so setup is not marked done.
-
-INTERVIEWER: Sign-ins (LinkedIn, then the mailbox; Handshake is off) were not performed in a fixture run. The first run with `rank-queue.mjs` and the top-three walkthrough was not performed in a fixture run either.
-
-STUDENT: Okay, thanks.
+INTERVIEWER: You are set up. What to say, grouped as in docs/commands.md: daily use: "what is new today" shows today's queue; "what ran today" shows the daily run. Applying: "apply" starts the apply loop, then "submit all" or "submit 1,3". Outreach: "outreach" runs one round, then "send all" or "send 1,3"; "stop outreach" ends it. Inbox: "check my inbox" reads mail; "turn off the inbox pass" stops the scheduled pass. Settings: "stop handshake" turns the Handshake pass off. Help: "help" shows this guide again. Say help any time to see this again.

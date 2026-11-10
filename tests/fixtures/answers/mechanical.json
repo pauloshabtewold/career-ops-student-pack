@@ -75,8 +75,23 @@
   "application_profile": {
     "start_date": "2028-01",
     "relocation": "yes",
-    "eeo": "ask-each-time",
+    "eeo": {
+      "gender": "Non-binary",
+      "race_ethnicity": "Asian",
+      "hispanic_latino": "No",
+      "veteran": "I am not a protected veteran",
+      "disability": "No",
+      "pronouns": "they/them"
+    },
     "how_did_you_hear": "Employer website"
   },
-  "us_citizen": true
+  "us_citizen": true,
+  "signins": {
+    "gmail": "ok",
+    "linkedin": "ok",
+    "handshake": "ok",
+    "simplify": "skipped",
+    "indeed": "skipped"
+  },
+  "inbox_schedule": "on"
 }

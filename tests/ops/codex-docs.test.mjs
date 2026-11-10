@@ -84,8 +84,8 @@ test('M-003-S5 docs/codex-spike.md holds no email address and passes pii-lint', 
 });
 
 // M-003-S6
-test('M-003-S6 interview.md Phase 5 names the agent key with claude and codex', () => {
-  const phase = section(read('interview/interview.md'), '## Phase 5');
+test('M-003-S6 interview.md Part D names the agent key with claude and codex', () => {
+  const phase = section(read('interview/interview.md'), '## Part D: schedule and switches');
   assert.match(phase, /`agent`/);
   assert.match(phase, /`codex`/);
   assert.match(phase, /`claude`/);

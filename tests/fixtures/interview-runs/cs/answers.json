@@ -72,7 +72,22 @@
   "application_profile": {
     "start_date": "2027-06",
     "relocation": "within-locations",
-    "eeo": "leave-blank",
+    "eeo": {
+      "gender": "decline",
+      "race_ethnicity": "decline",
+      "hispanic_latino": "No",
+      "veteran": "Not a veteran",
+      "disability": "decline",
+      "pronouns": "he/him"
+    },
     "how_did_you_hear": "University career fair"
-  }
+  },
+  "signins": {
+    "gmail": "ok",
+    "linkedin": "ok",
+    "handshake": "ok",
+    "simplify": "skipped",
+    "indeed": "skipped"
+  },
+  "inbox_schedule": "on"
 }

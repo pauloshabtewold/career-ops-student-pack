@@ -74,7 +74,22 @@
   "application_profile": {
     "start_date": "2027-06",
     "relocation": "yes",
-    "eeo": "leave-blank",
+    "eeo": {
+      "gender": "decline",
+      "race_ethnicity": "decline",
+      "hispanic_latino": "decline",
+      "veteran": "decline",
+      "disability": "decline",
+      "pronouns": "she/her"
+    },
     "how_did_you_hear": "Campus recruiting event"
-  }
+  },
+  "signins": {
+    "gmail": "ok",
+    "linkedin": "ok",
+    "handshake": "ok",
+    "simplify": "skipped",
+    "indeed": "skipped"
+  },
+  "inbox_schedule": "on"
 }

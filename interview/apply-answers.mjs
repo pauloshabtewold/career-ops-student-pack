@@ -3,7 +3,10 @@
 // interview decides. The conversation (interview.md) is LLM-driven; this step is not, so five synthetic answer sets
 // can be applied in CI without a model. Nothing is written when validation fails, and onboarding.complete flips to
 // true only after every other file and the cycle computation succeeded.
-// Usage: apply-answers.mjs <answers.json> [--root R] [--today YYYY-MM-DD] [--dry-run]
+// The interview applies in two stages. --stage queue (Part B) writes only what building the job queue needs: student.yml
+// with onboarding still false, the portals.yml blocks, the GitHub list registry and the cycle file. --stage final (the
+// default, Part D) writes everything else and then flips onboarding.complete.
+// Usage: apply-answers.mjs <answers.json> [--stage queue|final] [--root R] [--today YYYY-MM-DD] [--dry-run]
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -12,10 +15,15 @@ import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { ConfigError, deepMerge, validateConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { ProfileParseError, mergeProfileAnswers } from '../lib/profile-answers.mjs';
 import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 import { runCycle } from '../scripts/cycle.mjs';
 import { CEILINGS, effectiveLimits } from '../scripts/budget.mjs';
+
+// Keys the answers file must carry per stage; the final stage requires the schema's whole list.
+export const STAGES = ['queue', 'final'];
+const STAGE_REQUIRED = { queue: ['presets', 'tracks', 'locations', 'archetypes', 'timezone'] };
 
 export class AnswersError extends Error {
   constructor(problems) {
@@ -112,6 +120,15 @@ export function upsertPortalsBlock(text, name, key, lines) {
 }
 
 const q = (s) => JSON.stringify(s);
+const isMap = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const urlKey = (u) => String(u ?? '').trim().replace(/\/+$/, '').toLowerCase();
+
+// Careers URLs of the research_companies block research-sources.mjs wrote; the tracked_companies block leaves those out so
+// an employer is never listed twice.
+function researchedUrls(portalsText) {
+  const hit = yamlBlockRe('research_companies').exec(portalsText);
+  return new Set(hit ? [...hit[0].matchAll(/careers_url:\s*(\S+)/g)].map((m) => urlKey(m[1])) : []);
+}
 const STOP_WORDS = new Set(['a', 'an', 'and', 'or', 'of', 'the', 'for', 'in', 'to', 'at']);
 const NOTE_LIST_MAX = 10;
 // Note lists name at most NOTE_LIST_MAX items so a long preset list stays readable in the interview output.
@@ -158,7 +175,7 @@ function companyLines({ name, careers_url, watch_only: _w, ...config }) {
   return [`  - name: ${q(name)}`, `    careers_url: ${careers_url}`, ...extra, '    enabled: true'];
 }
 
-function portalLines(answers, merged, cfg, abbreviations) {
+function portalLines(answers, merged, cfg, abbreviations, researched = new Set()) {
   const rules = effectiveTitleRules(merged, cfg);
   const skipped = new Set();
   const expand = (patterns) => patterns.flatMap((p) => {
@@ -169,7 +186,7 @@ function portalLines(answers, merged, cfg, abbreviations) {
   const positive = [...new Set([...expand(rules.include), ...answers.archetypes.flatMap((a) => archetypeEntries(a, abbreviations))])];
   const negative = [...new Set(expand(rules.exclude))];
   const seeds = [...(merged?.seed_employers ?? []), ...(answers.target_employers ?? [])];
-  const unique = [...new Map(seeds.map((e) => [e.name.toLowerCase(), e])).values()];
+  const unique = [...new Map(seeds.map((e) => [e.name.toLowerCase(), e])).values()].filter((e) => !researched.has(urlKey(e.careers_url)));
   return {
     positive,
     negative,
@@ -206,6 +223,16 @@ function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
 }
 
+// The inbox pass is scheduled only when it can run unattended: something must start it (automation is not manual) and the
+// mail path must be the connector. Otherwise the answer stays off and the reason is printed.
+export function inboxSchedule(answers) {
+  if (answers.inbox_schedule !== 'on') return { value: 'off', reason: null };
+  if ((answers.automation ?? 'manual') === 'manual') return { value: 'off', reason: 'automation is manual, so nothing starts it on its own' };
+  const backend = answers.mailbox_backend ?? 'connector';
+  if (backend !== 'connector') return { value: 'off', reason: `the mail path is ${backend} and the unattended pass reads mail through the connector` };
+  return { value: 'on', reason: null };
+}
+
 export function buildConfig(answers) {
   const { values: limits } = effectiveLimits({ limits: answers.limits ?? {} });
   // A limit looser than its ceiling is written as the ceiling, so the file never claims more than budget.mjs allows.
@@ -234,9 +261,9 @@ export function buildConfig(answers) {
       score_floor: floor,
       linkedin_tier: answers.linkedin_tier ?? 'free',
       limits: written,
-      resume_variants: answers.resume_variants,
-      mailbox: { backend: answers.mailbox_backend ?? 'connector' },
-      schedule: { time: answers.schedule_time },
+      resume_variants: answers.resume_variants ?? [],
+      mailbox: { backend: answers.mailbox_backend ?? 'connector', schedule: inboxSchedule(answers).value },
+      ...(answers.schedule_time ? { schedule: { time: answers.schedule_time } } : {}),
       // Knob defaults are no-ops; written out so a student can find each key in a fresh student.yml.
       rank: {
         weights: {},
@@ -326,40 +353,54 @@ function resolveCvText(answers, root) {
 // Whitespace-only text counts as missing, so a blank resume cannot mark onboarding complete.
 const nonEmptyFile = (file) => existsSync(file) && readFileSync(file, 'utf8').trim() !== '';
 
-// config/student.yml is rewritten on every run. config/profile.yml is a keep file: when it exists the application
-// answers are not written and one note per unwritten answer tells the student.
-function writeConfigAndProfile({ answers, cvText, cfg, paths, out }) {
+// config/student.yml is rewritten on every run and cv.md is written only when missing.
+function writeConfig({ cvText, cfg, paths, out }) {
   out('config/student.yml', asYaml(cfg));
   if (cvText.trim() && !nonEmptyFile(join(paths.root, 'cv.md'))) out('cv.md', cvText);
-  const id = answers.identity;
-  const profileExists = existsSync(join(paths.root, 'config', 'profile.yml'));
+}
+
+// The application answers as the interview collected them. A legacy eeo string (leave-blank, ask-each-time) is kept as
+// written in a new file; profile-answers.mjs counts it as unknown.
+function applicationAnswers(answers) {
   const apply = answers.application_profile;
-  out(
-    'config/profile.yml',
-    yaml.dump({
-      candidate: { full_name: id.name, email: id.email, phone: id.phone ?? '', location: id.location ?? answers.locations[0], linkedin: id.linkedin ?? '', github: id.github ?? '' },
-      target_roles: { primary: answers.archetypes, archetypes: answers.archetypes.map((a, i) => ({ name: a, level: 'Entry', fit: i === 0 ? 'primary' : 'secondary' })) },
-      application_answers: {
-        work_authorization: answers.work_authorization,
-        requires_sponsorship: answers.needs_sponsorship ?? false,
-        start_date: apply.start_date,
-        relocation: apply.relocation,
-        eeo: apply.eeo,
-        how_did_you_hear: apply.how_did_you_hear,
-      },
-    }),
-    { keep: true },
-  );
-  // profile.yml is a keep file the student may have edited, so a rerun reports the answers and does not merge them.
-  return profileExists ? Object.keys(apply).map((k) => `config/profile.yml already exists and was kept, so application_answers.${k} (${apply[k]}) was not written`) : [];
+  return {
+    work_authorization: answers.work_authorization,
+    requires_sponsorship: answers.needs_sponsorship ?? false,
+    start_date: apply.start_date,
+    relocation: apply.relocation,
+    eeo: apply.eeo,
+    how_did_you_hear: apply.how_did_you_hear,
+  };
+}
+
+// config/profile.yml is written whole when it is missing. Once it exists the student may have edited it, so only its
+// application_answers block is replaced, with the old keys kept under the new answers and every other byte unchanged.
+function writeProfile({ answers, profileText, out }) {
+  const full = applicationAnswers(answers);
+  if (profileText === null) {
+    const id = answers.identity;
+    out(
+      'config/profile.yml',
+      yaml.dump({
+        candidate: { full_name: id.name, email: id.email, phone: id.phone ?? '', location: id.location ?? answers.locations[0], linkedin: id.linkedin ?? '', github: id.github ?? '' },
+        target_roles: { primary: answers.archetypes, archetypes: answers.archetypes.map((a, i) => ({ name: a, level: 'Entry', fit: i === 0 ? 'primary' : 'secondary' })) },
+        application_answers: full,
+      }),
+    );
+    return [];
+  }
+  const { eeo, ...rest } = full;
+  const patch = isMap(eeo) ? { ...rest, eeo } : rest;
+  out('config/profile.yml', mergeProfileAnswers(profileText, patch));
+  return [`config/profile.yml kept; application_answers updated (${Object.keys(rest).length + (isMap(eeo) ? Object.keys(eeo).length : 0)} keys)`];
 }
 
 // portals.yml: marked blocks inside whatever the student already has.
 function writePortals({ answers, merged, cfg, abbreviations, paths, out, read }) {
-  const lines = portalLines(answers, merged, cfg, abbreviations);
+  let portals = read('portals.yml');
+  const lines = portalLines(answers, merged, cfg, abbreviations, researchedUrls(portals));
   const templateFile = join(paths.root, 'templates', 'portals.example.yml');
   const templateText = existsSync(templateFile) ? readFileSync(templateFile, 'utf8') : '';
-  let portals = read('portals.yml');
   const notes = [...lines.notes];
   const unapplied = {
     title_filter: () => `preset title rules not applied: include ${lines.rules.include.join(', ')}; exclude ${lines.rules.exclude.join(', ')}`,
@@ -432,20 +473,49 @@ function checkPortalsParses(file) {
   }
 }
 
-export async function applyAnswers({ answers, root, packRoot, today, dryRun = false }) {
-  packRoot ??= resolvePaths({ root }).packRoot;
-  if (answers?.application_profile === undefined) {
-    throw new AnswersError(['$.application_profile is missing: this answers file predates the application profile; re-run interview Phase 3 (resume variants and application profile) and apply again']);
+// Stops the run before any write when the answers do not fit the stage: the queue stage needs only STAGE_REQUIRED.queue,
+// the final stage the schema's whole list and the application profile.
+function checkAnswers(answers, packRoot, queue) {
+  if (!queue && answers?.application_profile === undefined) {
+    throw new AnswersError(['$.application_profile is missing: this answers file predates the application profile; re-run interview Part C (application profile) and apply again']);
   }
-  const schema = readJson(join(packRoot, 'interview', 'answers.schema.json'));
-  const problems = validateAgainst(schema, answers);
+  const fullSchema = readJson(join(packRoot, 'interview', 'answers.schema.json'));
+  const problems = validateAgainst(queue ? { ...fullSchema, required: STAGE_REQUIRED.queue } : fullSchema, answers);
   if (problems.length) throw new AnswersError(problems);
+}
+
+// The existing profile.yml text, or null. A profile the merge cannot read stops the final run before anything is written,
+// so student.yml is not left half applied.
+function readProfileText(profileFile, queue) {
+  const text = existsSync(profileFile) ? readFileSync(profileFile, 'utf8') : null;
+  if (queue || text === null) return text;
+  try {
+    mergeProfileAnswers(text, {});
+  } catch (err) {
+    if (err instanceof ProfileParseError) throw new AnswersError([`config/profile.yml does not parse: ${err.message}; fix it or move it aside`]);
+    throw err;
+  }
+  return text;
+}
+
+// Notes only the final stage can state: the inbox pass left off and a short employer list.
+function finalNotes(answers) {
+  const { reason } = inboxSchedule(answers);
+  const employers = (answers.target_employers ?? []).length;
+  return [...(reason ? [`inbox pass left off: ${reason}`] : []), ...(employers < 10 ? [`target_employers has ${employers} entries; 10 to 20 give the daily scan more to read`] : [])];
+}
+
+export async function applyAnswers({ answers, root, packRoot, today, dryRun = false, stage = 'final' }) {
+  packRoot ??= resolvePaths({ root }).packRoot;
+  const queue = stage === 'queue';
+  checkAnswers(answers, packRoot, queue);
 
   const paths = resolvePaths({ root });
   const cvText = resolveCvText(answers, paths.root);
   // Without resume facts every later evaluation has nothing to work from, so onboarding must not complete.
   if (!cvText.trim() && !nonEmptyFile(join(paths.root, 'cv.md'))) throw new AnswersError(['resume is empty: paste the resume or give the path of a resume file, then apply again']);
   checkPortalsParses(join(paths.root, 'portals.yml'));
+  const profileText = readProfileText(join(paths.root, 'config', 'profile.yml'), queue);
   const merged = loadMerged(answers.presets);
   const written = [];
   const out = (rel, text, { keep = false } = {}) => {
@@ -457,12 +527,12 @@ export async function applyAnswers({ answers, root, packRoot, today, dryRun = fa
   const read = (rel) => (existsSync(join(paths.root, rel)) ? readFileSync(join(paths.root, rel), 'utf8') : '');
 
   const cfg = keepStudentKeys(buildConfig(answers), readExistingConfig(join(paths.root, 'config', 'student.yml')));
-  const profileNotes = writeConfigAndProfile({ answers, cvText, cfg, paths, out });
+  writeConfig({ cvText, cfg, paths, out });
+  const profileNotes = queue ? [] : writeProfile({ answers, profileText, out });
   const abbreviations = readJson(join(packRoot, 'interview', 'field-keywords.json')).abbreviations ?? {};
   const notes = [...writePortals({ answers, merged, cfg, abbreviations, paths, out, read }), ...profileNotes];
-  const employers = (answers.target_employers ?? []).length;
-  if (employers < 10) notes.push(`target_employers has ${employers} entries; 10 to 20 give the daily scan more to read`);
-  writeModes({ answers, merged, packRoot, cfg, out, read });
+  if (!queue) notes.push(...finalNotes(answers));
+  if (!queue) writeModes({ answers, merged, packRoot, cfg, out, read });
   writeSources({ answers, merged, cfg, paths, today, out, read });
   if (Array.isArray(answers.sources_chosen) && !answers.sources_chosen.length && (merged?.sources.github_lists ?? []).length) {
     notes.push('sources_chosen is empty, so no GitHub lists were added; list their names, or github-lists for all, to add them');
@@ -471,17 +541,20 @@ export async function applyAnswers({ answers, root, packRoot, today, dryRun = fa
   if (!dryRun) {
     runCycle({ paths, config: cfg, merged, today, dryRun: false });
     written.push('data/student-cycle.json');
-    const done = { ...cfg, onboarding: { complete: true } };
-    validateConfig(done);
-    writeAtomic(join(paths.root, 'config', 'student.yml'), asYaml(done));
+    if (!queue) {
+      const done = { ...cfg, onboarding: { complete: true } };
+      validateConfig(done);
+      writeAtomic(join(paths.root, 'config', 'student.yml'), asYaml(done));
+    }
   }
   return { written, notes, clamped: effectiveLimits({ limits: answers.limits ?? {} }).clamps.map((c) => c.key) };
 }
 
 async function main() {
-  const { command, positionals: rest, flags } = parseArgs(process.argv.slice(2), { flags: {} });
+  const { command, positionals: rest, flags } = parseArgs(process.argv.slice(2), { flags: { stage: 'string' } });
   const positionals = command ? [command, ...rest] : [];
-  if (positionals.length > 1) throw new UsageError('usage: apply-answers.mjs [<answers.json>] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run]');
+  if (positionals.length > 1) throw new UsageError('usage: apply-answers.mjs [<answers.json>] [--stage queue|final] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run]');
+  if (flags.stage !== undefined && !STAGES.includes(flags.stage)) throw new UsageError(`--stage must be one of: ${STAGES.join(', ')}`);
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const answersFile = positionals[0] ?? join(paths.dataDir, 'interview-answers.json');
   let answers;
@@ -492,7 +565,7 @@ async function main() {
   }
   const today = createClock({ today: flags.today, timezone: answers.timezone }).today();
   try {
-    const res = await applyAnswers({ answers, root: paths.root, packRoot: paths.packRoot, today, dryRun: flags.dryRun });
+    const res = await applyAnswers({ answers, root: paths.root, packRoot: paths.packRoot, today, dryRun: flags.dryRun, stage: flags.stage });
     console.log(`${flags.dryRun ? 'Would write' : 'Wrote'}:\n${res.written.map((f) => `  ${f}`).join('\n')}`);
     for (const n of res.notes) console.log(n);
     if (res.clamped.length) console.log(`Limits set to their ceilings: ${res.clamped.join(', ')}`);

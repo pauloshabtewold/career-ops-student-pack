@@ -73,7 +73,22 @@
   "application_profile": {
     "start_date": "2027-06",
     "relocation": "within-locations",
-    "eeo": "leave-blank",
+    "eeo": {
+      "gender": "Woman",
+      "race_ethnicity": "White",
+      "hispanic_latino": "Yes",
+      "veteran": "decline",
+      "disability": "decline",
+      "pronouns": "she/her"
+    },
     "how_did_you_hear": "Professor referral"
-  }
+  },
+  "signins": {
+    "gmail": "ok",
+    "linkedin": "ok",
+    "handshake": "ok",
+    "simplify": "skipped",
+    "indeed": "skipped"
+  },
+  "inbox_schedule": "on"
 }
