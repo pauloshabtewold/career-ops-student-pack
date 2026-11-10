@@ -84,7 +84,7 @@ test('W-023-A6-2 assertOwnRoot accepts the root whose student/ folder is this pa
   }
 });
 
-// verify joined status in v0.6.0: both only read the installed job; install and remove stay unapproved.
+// verify and status are pre-approved; verify runs one Gmail search through the agent (about 4,000 tokens) and writes nothing; install and remove stay unapproved
 test('W-023-A6-2 the suggested allowlist pre-approves schedule.mjs status and verify only', () => {
   const allow = JSON.parse(readFileSync(join(PACK_ROOT, 'templates', 'claude-settings.suggested.json'), 'utf8')).permissions.allow;
   const schedule = allow.filter((a) => a.includes('schedule.mjs'));

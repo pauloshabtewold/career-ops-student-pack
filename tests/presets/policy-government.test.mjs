@@ -8,7 +8,7 @@ const SHIPPED_SOURCES = {
   nyc_jobs: true,
   usajobs: true,
   github_lists: [
-    { name: 'litos-policy', repo: 'mehek-builds/Hiring-Now', path: 'csv/policy-government-affairs.csv', format: 'csv', kind: 'internship', field_map: {"company":"Company","title":"Role","location":"Location","date":"Posted","url":"Link"} },
+    { name: 'litos-policy', repo: 'mehek-builds/Hiring-Now', path: 'csv/policy-government-affairs.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
   ],
   alerts: [
     { name: 'USAJOBS', how: 'Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts.', site: 'usajobs', search: 'Pathways recent graduates' },
