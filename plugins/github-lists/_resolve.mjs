@@ -245,3 +245,8 @@ export async function resolveAggregator(rows, { fetch, sleep, dataRoot, today, d
   if (deferred) onDeferred(deferred);
   return out;
 }
+
+// Stub for the M-002 tests; the implementation replaces it.
+export function findAtEmployer(row, options) {
+  return Promise.resolve({ url: null, how: '' });
+}

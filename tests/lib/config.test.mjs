@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { loadStudentConfig, ConfigError } from '../../lib/config.mjs';
 
 function rootWith(yml) {
@@ -82,5 +84,43 @@ test('unknown top-level key and economy spend tier are rejected', async () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  }
+});
+
+// M-002-S15-cdel
+test('M-002-S15-cdel mailbox.schedule accepts on and off', async () => {
+  for (const value of ['on', 'off']) {
+    const root = rootWith(`mailbox:\n  backend: connector\n  schedule: ${value}\n`);
+    try {
+      const cfg = await loadStudentConfig({ root });
+      assert.equal(cfg.mailbox.schedule, value);
+      assert.equal(cfg.mailbox.backend, 'connector');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+// M-002-S15-cdel
+test('M-002-S15-cdel any other mailbox.schedule value throws ConfigError naming mailbox.schedule', async () => {
+  for (const value of ['maybe', 'true', '"yes"', 'daily']) {
+    const root = rootWith(`mailbox:\n  schedule: ${value}\n`);
+    try {
+      await assert.rejects(loadStudentConfig({ root }), (e) => e instanceof ConfigError && e.message.includes('mailbox.schedule'), value);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+// M-002-S15-cdel
+test('M-002-S15-cdel the shipped defaults hold mailbox.schedule off', async () => {
+  const defaults = readFileSync(fileURLToPath(new URL('../../templates/student.defaults.yml', import.meta.url)), 'utf8');
+  assert.match(defaults, /^mailbox:\n(?:[ \t]+.*\n)*?[ \t]+schedule: "off"/m);
+  const root = rootWith('timezone: America/Chicago\n');
+  try {
+    assert.equal((await loadStudentConfig({ root })).mailbox.schedule, 'off');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

@@ -237,4 +237,13 @@ async function main() {
   return platform === 'win32' ? winCommand(command, ctx) : macCommand(command, ctx);
 }
 
+// Stubs for the M-002 tests; the implementation replaces them.
+export function foreignOwner({ args, root, platform }) {
+  return null;
+}
+
+export function verifySchedule({ platform, root, time, label, readJob: read, runCheck }) {
+  return { code: 0, lines: [] };
+}
+
 if (isMain(import.meta.url)) await runCli(main);

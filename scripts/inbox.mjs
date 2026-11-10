@@ -204,4 +204,9 @@ export async function main(argv, deps = {}) {
   return 0;
 }
 
+// Stub for the M-002 tests; the implementation replaces it.
+export async function runInbox(argv, deps = {}) {
+  return { code: 1, counts: {} };
+}
+
 if (isMain(import.meta.url)) await runCli(() => main(process.argv.slice(2)));

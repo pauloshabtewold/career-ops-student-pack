@@ -493,3 +493,28 @@ test('W-024-A63-11 a padded CEILINGS line longer than any real entry is refused 
     assert.match(v.text, /CEILINGS holds more than plain entries/);
     assert.ok(Date.now() - start < 2000, 'the gate answered quickly');
   }));
+
+const mailboxDefaults = (schedule) => `${defaultsYml()}mailbox:\n  backend: connector${schedule === null ? '' : `\n  schedule: "${schedule}"`}\n`;
+
+// M-002-S21-cdel
+test('M-002-S21-cdel turning the mailbox.schedule default from off to on fails naming mailbox.schedule', () =>
+  withRepo(async (root) => {
+    put(root, 'templates/student.defaults.yml', mailboxDefaults('off'));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'schedule off');
+    git(root, 'tag', '-f', 'base');
+    const v = await verdict(root, () => put(root, 'templates/student.defaults.yml', mailboxDefaults('on')));
+    assert.equal(v.ok, false);
+    assert.match(v.text, /default turned on: mailbox\.schedule off -> on/);
+  }));
+
+// M-002-S21-cdel
+test('M-002-S21-cdel adding the mailbox.schedule key as off passes', () =>
+  withRepo(async (root) => {
+    put(root, 'templates/student.defaults.yml', mailboxDefaults(null));
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'no schedule key');
+    git(root, 'tag', '-f', 'base');
+    const v = await verdict(root, () => put(root, 'templates/student.defaults.yml', mailboxDefaults('off')));
+    assert.equal(v.ok, true, v.text);
+  }));
