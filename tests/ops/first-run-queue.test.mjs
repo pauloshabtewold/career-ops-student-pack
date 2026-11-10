@@ -75,3 +75,16 @@ test('M-001-S14-cdel --queue together with --list-only exits 2 with a usage line
     s.cleanup();
   }
 });
+
+test('rows the board scan wrote carry no src note and are counted as "board", never "none"', async () => {
+  const s = setup([line(jobUrl(1), 'Co 1', 'EE Intern 1', 'Remote', 'imported=2026-10-11'), line(jobUrl(2), 'Co 2', 'EE Intern 2', 'Remote', 'src=github:list-a; imported=2026-10-12')]);
+  try {
+    const out = [];
+    await firstRun({ root: s.up.root, dataDir: s.data, packRoot: PACK_ROOT, today: TODAY, queue: true, step: 'view', runner: () => '{}', out: (l) => out.push(String(l)) });
+    assert.ok(out.includes('source board: 1'), out.join('\n'));
+    assert.ok(out.includes('source github:list-a: 1'), out.join('\n'));
+    assert.ok(!out.some((l) => /none/.test(l)), out.join('\n'));
+  } finally {
+    s.cleanup();
+  }
+});

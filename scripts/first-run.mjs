@@ -6,14 +6,17 @@
 // --list-only skips the ingest steps and only prints the counts and the rows, for a further batch after the first run.
 // --queue runs the same ingest steps and then prints the raw queue (counts, the newest rows, upcoming sources) with no
 // scores and no triage list, which is what the interview shows before any grading.
-// Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run] [--list-only] [--queue]
+// --queue --step <name> runs one ingest step (github-lists, scan, merge-post, prefilter+triage) or `view`, which only
+// prints the queue. The interview runs the steps one command each so none nears a 10-minute command limit; the scan
+// step works through the companies in slices of about 5 minutes and says "scan partial" until none are left.
+// Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run] [--list-only] [--queue [--step S]]
 // Exit 0 after the report (a failed step is a line in it), 1 when the interview has not written config/student.yml.
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { ingestStepNames, ingestSteps, presetFeedPlugins } from '../lib/ingest.mjs';
+import { ingestStepNames, ingestSteps, presetFeedPlugins, sliceScan } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { PresetError, loadMerged } from '../lib/presets.mjs';
@@ -31,7 +34,7 @@ export function summarizePending(pipelineText) {
   const pending = sectionRows(parsePipeline(pipelineText || '# Pipeline\n'), 'Pending');
   const bySource = new Map();
   for (const { row } of pending) {
-    const src = row.notes.get('src') || 'none';
+    const src = row.notes.get('src') || 'board';
     bySource.set(src, (bySource.get(src) ?? 0) + 1);
   }
   return {
@@ -73,14 +76,14 @@ export function queueView(pipelineText, merged) {
 
 // Returns 1 only when config/student.yml is missing. A failed ingest step is a report line and the run goes on, so the
 // student always gets a list of rows to triage.
-export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT_SHOWN, listOnly = false, queue = false, runner = defaultRunner, out = (s) => console.log(s) }) {
+export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT_SHOWN, listOnly = false, queue = false, step = null, runner = defaultRunner, out = (s) => console.log(s) }) {
   const config = await loadStudentConfig({ root });
   if (!config) {
     out('INTERVIEW: run student/interview/interview.md before anything else');
     return 1;
   }
   mkdirSync(dataDir, { recursive: true });
-  if (!listOnly) runIngest({ root, dataDir, packRoot, today, runner, out, config });
+  if (!listOnly && step !== 'view') runIngest({ root, dataDir, packRoot, today, runner, out, config, only: step });
   const file = join(dataDir, 'pipeline.md');
   if (queue) {
     let merged = null;
@@ -100,9 +103,10 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
   return 0;
 }
 
-function runIngest({ root, dataDir, packRoot, today, runner, out, config }) {
+function runIngest({ root, dataDir, packRoot, today, runner, out, config, only = null }) {
   // One line per step; a failed step is reported and the rest still run, as in the daily run.
   const step = (name, fn) => {
+    if (only && name !== only) return;
     try {
       const detail = oneLine(fn());
       out(`first-run: ${name} ok${detail ? ` (${detail})` : ''}`);
@@ -116,12 +120,17 @@ function runIngest({ root, dataDir, packRoot, today, runner, out, config }) {
   } catch {
     // A preset that cannot be read leaves the extra feeds out.
   }
-  ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds });
+  // With --step the scan runs in slices; github-lists, the first step, starts a fresh pass.
+  const scan = only ? (upstream) => sliceScan({ root, dataDir, upstream, today, reset: false }) : null;
+  if (only === 'github-lists') rmSync(join(dataDir, 'student-first-scan.json'), { force: true });
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds, scan });
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { n: 'int', 'list-only': 'boolean', queue: 'boolean' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { n: 'int', 'list-only': 'boolean', queue: 'boolean', step: 'string' } });
   if (flags.queue && flags.listOnly) throw new UsageError('use --queue or --list-only, not both');
+  if (flags.step !== undefined && !flags.queue) throw new UsageError('--step goes with --queue');
+  if (flags.step !== undefined && ![...ingestStepNames({ feeds: ['nyc-jobs', 'usajobs'] }), 'view'].includes(flags.step)) throw new UsageError(`--step expects one of: ${[...ingestStepNames({ feeds: ['nyc-jobs', 'usajobs'] }), 'view'].join(', ')}`);
   if (flags.n !== undefined && flags.n < 1) throw new UsageError('--n expects a whole number of 1 or more');
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   if (flags.dryRun) {
@@ -131,7 +140,7 @@ async function main() {
   }
   const config = await loadStudentConfig({ root: paths.root });
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
-  return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN, listOnly: flags.listOnly, queue: flags.queue });
+  return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN, listOnly: flags.listOnly, queue: flags.queue, step: flags.step });
 }
 
 if (isMain(import.meta.url)) await runCli(main);
