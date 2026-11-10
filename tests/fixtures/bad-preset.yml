@@ -1,0 +1,3 @@
+id: ../tests/fixtures/bad-preset
+name: Bad
+coverage: nonsense

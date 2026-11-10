@@ -4,7 +4,7 @@
 // The agent supplies candidates; this script decides, so a hallucinated or unreadable source never reaches the scan.
 // Every candidate must pass robots.txt, be readable by upstream's audit (boards) or yield MIN_MATCHED_ROWS eligible
 // rows (lists), and not duplicate a source the student already has. No model call is made here.
-// Usage: research-sources.mjs [--candidates F] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--json] [--no-search]
+// Usage: research-sources.mjs [--candidates F] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--no-search]
 // Exit 0 after the summary, 1 when a prerequisite file is missing or data/research-candidates.json is malformed.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -255,7 +255,12 @@ async function probeList(c, { ctx, today, checker, counted }) {
   const fmt = formatFor(c, text);
   if (fmt.skip) return { reason: fmt.skip };
   source.format = fmt.format;
-  const { rows } = parseSource(text, { format: source.format, kind: source.kind, field_map: source.field_map, today });
+  let rows;
+  try {
+    ({ rows } = parseSource(text, { format: source.format, kind: source.kind, field_map: source.field_map, today }));
+  } catch (err) {
+    return { reason: `list unreadable (${String(err.message).split('\n')[0]})` };
+  }
   const eligible = rows.filter((r) => isEligible(r, { cycle: ctx.cycle, titleRules: ctx.titleRules, earlyCareer: ctx.earlyCareer }).ok && !ctx.knownRows.has(r.url));
   return { source, matched: new Set(eligible.map((r) => r.url)).size };
 }
@@ -347,7 +352,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   try {
     const candidates = readCandidates(flags.candidates ?? join(paths.dataDir, 'research-candidates.json'));
     const result = await research({ paths, today, candidates, dryRun: flags.dryRun, noSearch: flags.noSearch, ...deps.research, ...pick(deps) });
-    for (const line of flags.json ? [JSON.stringify(result)] : summaryLines(result)) console.log(line);
+    for (const line of summaryLines(result)) console.log(line);
     return 0;
   } catch (err) {
     if (!(err instanceof ResearchError)) throw err;

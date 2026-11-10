@@ -84,20 +84,6 @@ test('extra check: a new-grad track uses new grad in the query and f_E=2 on Link
   }
 });
 
-test('extra check: --json prints the same four items as an array', () => {
-  const s = setup({ presets: ['byo-employer-list'] });
-  try {
-    const r = run(s, ['--json']);
-    assert.equal(r.code, 0, r.stdout + r.stderr);
-    const items = JSON.parse(r.stdout);
-    assert.ok(Array.isArray(items));
-    assert.equal(items.length, 4);
-    for (const item of items) assert.match(JSON.stringify(item), /https:\/\//);
-  } finally {
-    s.cleanup();
-  }
-});
-
 // M-001-S12-cdel
 test('M-001-S12-cdel a policy-government student gets a USAJOBS item and the site-less preset tips tagged upcoming, with no network request', () => {
   const s = setup({ presets: ['policy-government'], archetypes: ['Policy Analyst'] });

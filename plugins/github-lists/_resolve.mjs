@@ -146,7 +146,8 @@ export function createGate(limit) {
  * Returns resolve(row) -> { url, how }, with url null when the posting was not confirmed. After `deadline` (epoch ms)
  * no further request is made, so a row that is not an employer link is left unconfirmed.
  */
-export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), limits = LIMITS, deadline = Infinity, gate = createGate(limits.aggregator_in_flight) }) {
+export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), limits = LIMITS, deadline = Infinity }) {
+  const gate = createGate(limits.aggregator_in_flight);
   // Next free request time per host. A slot is reserved before waiting so concurrent requests to one host still end up
   // request_gap_ms apart; api.lever.co asks for a Crawl-delay of 1 s, which the 1200 ms gap covers.
   const nextSlot = new Map();

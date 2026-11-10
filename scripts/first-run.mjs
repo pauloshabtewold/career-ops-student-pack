@@ -16,7 +16,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { ingestStepNames, ingestSteps, presetFeedPlugins } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { loadMerged } from '../lib/presets.mjs';
+import { PresetError, loadMerged } from '../lib/presets.mjs';
 import { ALL, CHUNK_ROWS, DEFAULT_FIRST_RUN, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
@@ -86,8 +86,9 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
     let merged = null;
     try {
       merged = loadMerged(config.presets ?? [], { root });
-    } catch {
-      // A preset that cannot be read leaves the upcoming section out.
+    } catch (err) {
+      if (!(err instanceof PresetError)) throw err;
+      out(`upcoming section left out: ${oneLine(err.message)}`);
     }
     for (const line of queueView(existsSync(file) ? readFileSync(file, 'utf8') : '', merged)) out(line);
     return 0;

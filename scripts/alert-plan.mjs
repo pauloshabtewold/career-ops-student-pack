@@ -3,7 +3,7 @@
 // Indeed searches prefilled from the archetypes and locations, plus a USAJOBS search for policy students. The pack never
 // logs in to these sites or searches them; the student presses the button, and the daily inbox pass reads the alert mail.
 // Makes no network request.
-// Usage: alert-plan.mjs [--root R] [--data-dir D] [--json]
+// Usage: alert-plan.mjs [--root R] [--data-dir D]
 // Exit 0 after the plan, 1 when the interview has not written config/student.yml.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -105,7 +105,7 @@ async function main() {
   const answersFile = join(paths.dataDir, 'interview-answers.json');
   const archetypes = existsSync(answersFile) ? (JSON.parse(readFileSync(answersFile, 'utf8')).archetypes ?? []) : [];
   const plan = alertPlan({ config, archetypes, merged: loadMerged(config.presets ?? [], { root: paths.root }) });
-  console.log(flags.json ? JSON.stringify(plan.items) : formatPlan(plan).join('\n'));
+  console.log(formatPlan(plan).join('\n'));
   return 0;
 }
 
