@@ -87,7 +87,7 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
     try {
       merged = loadMerged(config.presets ?? [], { root });
     } catch (err) {
-      if (!(err instanceof PresetError)) throw err;
+      if (!(err instanceof PresetError || err?.code === 'ENOENT' || err?.name === 'YAMLException')) throw err;
       out(`upcoming section left out: ${oneLine(err.message)}`);
     }
     for (const line of queueView(existsSync(file) ? readFileSync(file, 'utf8') : '', merged)) out(line);

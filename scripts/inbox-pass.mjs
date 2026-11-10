@@ -89,8 +89,8 @@ export function buildClaudeArgs({ model, settings, shell = false }) {
   ];
 }
 
-// The apps feature stays on because the Gmail connector is an app. Its tools are allow-listed to the two read tools
-// (codexGmailAllowFlags) and its write tools are also switched off by name; auditRun discards a run that called anything else.
+// The apps feature stays on because the Gmail connector is an app. Every other app is switched off and the connector's
+// tools are allow-listed to the two read tools (codexGmailAllowFlags) and its write tools are also switched off by name; auditRun discards a run that called anything else.
 export function buildCodexArgs({ tmp, out, effort = 'medium', shell = false }) {
   const q = (v) => quoteIf(shell, v);
   const quoteOverrides = (flags) => flags.map((f, i) => (flags[i - 1] === '-c' ? q(f) : f));

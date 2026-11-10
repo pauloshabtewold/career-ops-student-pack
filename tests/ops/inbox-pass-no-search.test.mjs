@@ -19,5 +19,7 @@ test('extra check: a pass with no Gmail search is skipped in the digest and does
 test('extra check: the codex call allow-lists the two Gmail read tools', () => {
   const values = buildCodexArgs({ tmp: '/t', out: '/t/o' }).flatMap((a, i, all) => (all[i - 1] === '-c' ? [a] : []));
   assert.ok(values.includes(`apps.${CODEX_GMAIL_CONNECTOR_ID}.default_tools_enabled=false`));
+  for (const k of ['enabled', 'destructive_enabled', 'open_world_enabled']) assert.ok(values.includes(`apps._default.${k}=false`), k);
+  assert.ok(values.includes(`apps.${CODEX_GMAIL_CONNECTOR_ID}.enabled=true`));
   for (const t of CODEX_GMAIL_READ_TOOLS) assert.ok(values.includes(`apps.${CODEX_GMAIL_CONNECTOR_ID}.tools.${t}.enabled=true`), t);
 });
