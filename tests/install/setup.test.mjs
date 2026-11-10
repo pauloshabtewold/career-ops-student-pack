@@ -47,7 +47,9 @@ function withPack(opts, fn) {
   }
 }
 
-const run = (p, { runner, ...extra } = {}) => setup({ root: p.root, packRoot: p.pack, runner: runner ?? fakeRunner().runner, nodeVersion: NODE_VERSION, home: HOME, ...extra });
+// platform defaults to darwin so the npm/npx command names asserted below do not change on the Windows CI runner;
+// the win32 test passes platform itself.
+const run = (p, { runner, ...extra } = {}) => setup({ root: p.root, packRoot: p.pack, runner: runner ?? fakeRunner().runner, nodeVersion: NODE_VERSION, home: HOME, platform: 'darwin', ...extra });
 const err = (fn) => {
   try {
     fn();
@@ -90,7 +92,7 @@ test('setup refuses a synced root and points at <home>/career-ops', () =>
     withTempDir('setup-onedrive-', (dir) => {
       const sub = join(dir, 'OneDrive', 'career-ops');
       mkdirSync(sub, { recursive: true });
-      const e2 = err(() => setup({ root: sub, packRoot: p.pack, runner: fakeRunner().runner, nodeVersion: NODE_VERSION, home: HOME }));
+      const e2 = err(() => setup({ root: sub, packRoot: p.pack, runner: fakeRunner().runner, nodeVersion: NODE_VERSION, home: HOME, platform: 'darwin' }));
       assert.ok(e2 instanceof InstallError);
       assert.match(e2.message, /OneDrive/);
       assert.match(e2.message, new RegExp(`${HOME.replace(/\\/g, '\\\\')}.career-ops`));
