@@ -27,13 +27,43 @@ Supported: macOS and Windows 11, Claude Code or Codex, US job markets.
 
 - macOS or Windows 11 with [Claude Code](https://claude.com/claude-code) or Codex (Windows and the browser steps are a preview; see [docs/codex.md](docs/codex.md)), signed in
 - Node 22.13 or newer, and git
-- A clone of career-ops at a release the pack supports; the install block below checks out career-ops-v1.39.0, the release it was tested with (the pack refuses to install on an older one)
+- A clone of career-ops at a release the pack supports; the setup prompt and the install blocks below check out career-ops-v1.39.0, the release it was tested with (the pack refuses to install on an older one)
 
-## Install
+## Install (one prompt)
 
-Do these steps once, in order. Each block is typed in a terminal: Terminal on macOS, PowerShell on Windows 11.
+You need Codex or Claude Code, signed in, on macOS or Windows 11. Claude Code means the Code tab of the Claude desktop app or the `claude` command in a terminal; plain chat on claude.ai cannot run commands on your computer, so it cannot do this. Codex means the Codex app (inside the ChatGPT desktop app on macOS) or the `codex` command.
 
-**1. Run the block for your system.** Each block does everything up to the install script, so use one only. The steps are: install Node and git, clone career-ops and move it to the release this pack was tested with, install its packages, clone this pack into a folder named `student`, then run the pack installer.
+1. Optional, one setting: so the agent does not stop for approval on every command, give it permission before you paste. In Claude Code choose the Auto permission mode (desktop: the mode menu next to the message box; terminal: start it with `claude --permission-mode auto`). In Codex choose Full access in the permissions menu (terminal: `codex --sandbox danger-full-access`). A pasted prompt cannot change this setting for you. If you skip it, the agent still does everything; you just press Approve when the app asks.
+2. Start a new chat. The folder it starts in does not matter.
+3. Paste this whole prompt and send it. That is the only thing you type until the interview starts.
+
+```
+Set up the career-ops student pack on this computer for me, from start to finish, then start my personalization interview in this same chat.
+
+First, before any command, tell me this in one short line: "If I ever hand you a step, just say do it for me and I'll do it for you, as long as you give me permission. Passwords, sign-ins and new accounts stay with you."
+
+Permission: I give you permission to run every setup command below without asking me first: installing Node.js and git, cloning the two repositories, npm installs, the Playwright browser download, and writing the pack's settings files inside the career-ops folder. If the app shows an approval button I will press it. Fix any error yourself and keep going; do not hand steps back to me. Stop only for a password, a sign-in or a new account; those are mine. If you truly must ask me something, ask everything at once as one numbered list: each item says in one line what it decides, gives a default marked (recommended) with a one-line reason, and lists the other options, so one reply from me can accept them all. This permission covers setup only: never remove the pack's Gmail send/delete/archive block or its budget and safety limits.
+
+1. Tools. Make sure git and Node.js 22.13 or newer are installed and on PATH. macOS: git comes with Apple's Command Line Tools (if git is missing, run xcode-select --install and wait while I click Install). For Node, use brew install node only if Homebrew is already installed and has a ready-made bottle for this macOS; otherwise download the official Node.js LTS tarball for this Mac's CPU from nodejs.org/dist into ~/.local/node (no sudo), put its bin folder first on PATH for this chat and add that PATH line to ~/.zprofile. Windows 11: winget install OpenJS.NodeJS.LTS and winget install Git.Git; if the commands are still not found, use their full paths or a new shell.
+2. Folder. Do not ask me where. Use a folder named career-ops directly inside my home folder ($HOME on macOS, $env:USERPROFILE on Windows). Never use Desktop, Documents, iCloud Drive, OneDrive, Dropbox or Google Drive, because they sync. If that folder already holds career-ops with a student folder in it, reuse it: run git -C student pull --ff-only there and go to step 4. If it exists but holds something else, use career-ops-2 instead.
+3. Clone, with <folder> being the folder from step 2. The pack's address comes from GitHub's lookup for repository number 1436295728 (a fixed id, so a look-alike copy cannot stand in for it): read the clone_url field of https://api.github.com/repositories/1436295728 (macOS: curl -s that address; Windows: Invoke-RestMethod) and check that its name field is career-ops-student-pack. Then:
+   git clone https://github.com/career-ops-hq/career-ops.git <folder>
+   git clone <clone_url> <folder>/student
+4. In <folder>, run: node student/setup.mjs
+   It checks out the career-ops release the pack supports, installs packages, writes the Codex and Claude Code project settings, downloads the Playwright browser and checks the result. If it prints an error, fix the cause and run it again until it prints SETUP OK.
+5. Tell me in one line the full path of the folder, and that next time I can open that folder in Codex or Claude Code and say hello.
+6. Start the interview now, without waiting for me. From here on run every command inside <folder>. Read <folder>/student/AGENTS.student.md and follow it as your rules for this chat. Then do what its Session start section says, from <folder>: it runs the session-start script and, the first time, starts the personalization interview. Do not ask me for any sign-in during setup; the interview handles those.
+```
+
+The agent tells you first that you can say "do it for me" whenever it would otherwise hand you a step, such as opening the project or trusting the folder. Say it and give permission, and it does that step. Passwords, sign-ins and creating accounts always stay with you: the agent explains the step, waits while you do it, then checks the result. Setup itself asks for no sign-in; the interview covers those.
+
+What `setup.mjs` does, so you know what you are allowing: it refuses to run in a folder that iCloud, OneDrive, Dropbox or Google Drive syncs; checks out the career-ops release named in the pack's `compat.json` (the newest one the pack was tested with) and runs `npm install`; runs `install.mjs` (below); copies `templates/codex-config.suggested.toml` to `.codex/config.toml` (it turns off the Gmail tools that send, delete or archive mail) and the safe pack commands in `templates/claude-settings.suggested.json` into `.claude/settings.local.json`, in each case only when the file is missing, or adding missing allow entries to an existing Claude file, and never overwriting a copy you changed; runs `npx playwright install chromium`; and checks that the pack files are in place. Running it again does no harm.
+
+Your career-ops folder holds your resume, tracker and pipeline in its `data` folder, which is why the prompt keeps it out of synced folders: a sync client can upload those files or make conflicting copies.
+
+## Install by hand
+
+If you prefer to type the steps yourself, run the block for your system in a terminal (Terminal on macOS, PowerShell on Windows 11), from your home folder. Each block does everything up to the install script, so use one only: install Node and git, clone career-ops and move it to the release this pack was tested with, install its packages, clone this pack into a folder named `student`, then run the pack installer.
 
 For the pack clone, open the page you were sent for this pack, press the green Code button, choose HTTPS and copy the address. Paste it where `<pack-address>` is.
 
@@ -64,9 +94,9 @@ node student/install.mjs
 
 `install.mjs` installs the pack's own packages (`npm ci --omit=dev` in the student folder) and, if career-ops has no `node_modules` yet, runs `npm install` there too. Then it writes only inside your career-ops folder: it lists `student/`, `CLAUDE.local.md`, `AGENTS.override.md` and `.codex/config.toml` in `config/local-paths.txt`, adds the same four plus `config/student.yml` to `.git/info/exclude`, writes the import block in `CLAUDE.local.md`, generates `AGENTS.override.md` for Codex (the pack rules, then a copy of upstream's `AGENTS.md`), and copies the pack plugins into `plugins.local/`. It does not turn any plugin on, and it never edits a Claude Code settings file. Running it again is safe: it repeats the `npm ci` step, skips the career-ops `npm install` when `node_modules` already exists, copies the pack plugins again and leaves its other edits as they are.
 
-**2. Open the career-ops folder in Claude Code or Codex.** Codex install steps are in [docs/codex.md](docs/codex.md). The personalization interview starts on its own the first time. It reads your resume, asks a few questions and ends with your first top 10 list of postings to apply to.
+Then run `node student/setup.mjs` from the career-ops folder for the settings files and the Playwright browser (or skip it and do those steps yourself), and open the career-ops folder in Claude Code or Codex. Codex install steps are in [docs/codex.md](docs/codex.md). The personalization interview starts on its own the first time. It reads your resume, asks a few questions and ends with your first top 10 list of postings to apply to.
 
-Keep the career-ops folder out of iCloud Drive, OneDrive, Dropbox and Google Drive. Your resume, tracker and pipeline live in its `data` folder, and a sync client can upload them or make conflicting copies.
+Keep the career-ops folder out of iCloud Drive, OneDrive, Dropbox and Google Drive (on a Mac, Desktop and Documents count when iCloud syncs them).
 
 ## Browser setup
 
@@ -75,7 +105,7 @@ Applying, the Handshake pass and LinkedIn outreach run in a browser you sign in 
 - **Codex.** On macOS Codex uses the ChatGPT in-app browser. Windows has no Codex browser tool, so browser steps stay in Claude Code there.
 - **Claude in Chrome.** Install Google Chrome and the Claude in Chrome extension from the Chrome Web Store, then sign in to LinkedIn, Handshake and your job sites in that Chrome.
 - **Playwright.** Upstream also uses its own headless browser for some pages. In the career-ops folder run `npx playwright install chromium` once. Upstream's `doctor.mjs` also warns when the Playwright MCP tools are missing; the pack uses Claude in Chrome for browser steps, so that warning can be left alone.
-- **Fewer permission prompts (optional).** `templates/claude-settings.suggested.json` in the pack lists the pack commands that are safe to allow without asking each time. If you want it, merge those entries into your own Claude Code settings by hand. The pack never writes a settings file for you.
+- **Fewer permission prompts.** `templates/claude-settings.suggested.json` in the pack lists the pack commands that are safe to allow without asking each time. `setup.mjs` adds them to `.claude/settings.local.json` in the career-ops folder, a project file that applies to that folder only; it never touches your own Claude Code settings.
 
 ## Update
 

@@ -12,15 +12,15 @@ macOS: the ChatGPT app ships Codex at `/Applications/ChatGPT.app/Contents/Resour
 
 Windows 11: in PowerShell run `irm https://chatgpt.com/codex/install.ps1 | iex`, or with Node installed run `npm i -g @openai/codex`.
 
-Run `codex` once in a terminal and sign in with your ChatGPT account. Then install the pack as the README describes and open the career-ops folder in Codex.
+Run `codex` once in a terminal, or open the Codex app, and sign in with your ChatGPT account. Then paste the setup prompt from the README into a new Codex chat. It installs everything and starts the interview in that chat. Afterwards, open the career-ops folder in Codex (add it as a local project and accept the trust prompt) for every later session. If Codex hands you either step, say "do it for me" and give permission.
 
 ## Pick the agent
 
 The interview records your choice. Running it in Codex writes `agent: codex` in config/student.yml, and running it in Claude Code writes `agent: claude`. The daily triage and the schedule read that key. To change agents, change the key and run `node student/scripts/schedule.mjs install` again.
 
-## Optional project config
+## Project config
 
-The pack ships `templates/codex-config.suggested.toml` (in the student folder). Copy it to the project config location in your career-ops folder yourself; the pack never writes it. On macOS:
+The pack ships `templates/codex-config.suggested.toml` (in the student folder). `node student/setup.mjs`, which the setup prompt runs, copies it to `.codex/config.toml` in your career-ops folder when that file is missing and never overwrites a copy you changed. `install.mjs` alone does not write it. To copy it by hand on macOS:
 
 ```
 mkdir -p .codex
@@ -31,7 +31,7 @@ On Windows, make a `.codex` folder and copy the file into it under the name conf
 
 Codex reads a project config only for a trusted folder. In a folder it does not trust, it skips `.codex/config.toml` without a warning; the header of a `codex exec` run then says `sandbox: read-only` where the template asks for workspace-write. To trust the folder, start `codex` in it once and accept its trust prompt. A `codex exec` run with `-s workspace-write` does not ask: it writes the trust entry into your own Codex settings by itself, even with `--ephemeral`. That first run still ignores the project config, and the next run uses it. A read-only `codex exec` run, such as the scheduled triage, writes no trust entry.
 
-The pack leaves your own Codex settings alone. If you skip the template, the limit can be raised per run with `-c project_doc_max_bytes=131072`.
+The pack leaves your own Codex settings (`~/.codex/config.toml`) alone; only Codex itself adds the trust entry there. If you skip the template, the limit can be raised per run with `-c project_doc_max_bytes=131072`.
 
 The template turns off 11 Gmail tools: send, send draft, forward, delete, archive, create and update draft, and the four label and modify tools, because a label change can archive or trash mail. Codex keys app settings by the connector id, so the entries read `[apps.connector_2128aebfecb84f64a069897515042a44.tools.send_email]`; an `[apps.gmail...]` entry has no effect. A live run in a trusted folder, asked to list its Gmail tools and call none, showed only the 10 read tools with the template in place and all 21 without it. The rule in `AGENTS.student.md` that forbids Gmail send, forward, delete, trash, archive and draft calls is still the main guard; the template is a second one.
 

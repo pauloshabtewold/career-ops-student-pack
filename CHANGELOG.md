@@ -4,6 +4,9 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- W-030: one-prompt setup. The README carries one prompt for Codex or Claude Code that installs everything into `career-ops` in the home folder (never a synced folder), grants permission for the setup commands up front, tells the student they can say "do it for me" for any step the agent would hand back, and starts the interview in the same chat.
+- W-030: new `setup.mjs` runs every step after the two clones: refuses a folder that iCloud (including Desktop and Documents), OneDrive, Dropbox or Google Drive syncs, checks out the career-ops release `compat.json` names, runs `install.mjs`, copies the Codex project config (with the Gmail write-tool block) and the Claude Code allow list into the career-ops folder when missing, installs the Playwright browser and checks the result.
+
 ## v0.5.0 (2026-11-09)
 
 - Fix pack for career-ops 1.39.0 (response cap, Apple provider, moved boards, 1.39.0 audit) (#38)
