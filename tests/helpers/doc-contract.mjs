@@ -8,6 +8,7 @@ import { PACK_ROOT } from './script-harness.mjs';
 export const DOC_FILES = [
   'README.md',
   'docs/usage.md',
+  'docs/commands.md',
   'docs/architecture.md',
   'docs/maintenance.md',
   'modes/apply-loop.md',

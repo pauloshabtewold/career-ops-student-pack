@@ -144,3 +144,21 @@ test('M-004-S4 every set example with --confirm follows the same example without
   }
   assert.ok(confirmed > 0, 'a writing set example with --confirm is shown');
 });
+
+// M-004-S8-cdel
+test('M-004-S8-cdel docs/usage-cost.md has an inbox pass section and a job-source research section naming their caps', () => {
+  const doc = readDoc('docs/usage-cost.md');
+  const part = (heading) => {
+    const start = doc.indexOf(`## ${heading}`);
+    assert.ok(start >= 0, `section ${heading}`);
+    const next = doc.indexOf('\n## ', start + 4);
+    return doc.slice(start, next < 0 ? undefined : next);
+  };
+  const inbox = part('The inbox pass');
+  assert.match(inbox, /40 messages/);
+  assert.match(inbox, /tokens per run/i);
+  assert.match(inbox, /one headless call per day/i);
+  const research = part('Job-source research');
+  assert.match(research, /no model call/i);
+  assert.match(research, /5 web searches/i);
+});

@@ -317,3 +317,15 @@ test('dry run on a checkout older than the compat minimum prints the plan instea
     const e = err(() => run(p));
     assert.ok(e instanceof InstallError);
   }));
+
+// M-004-S7-cdel
+test('M-004-S7-cdel the suggested Claude settings allow the new read-only student scripts', () => {
+  const allow = JSON.parse(readFileSync(new URL('../../templates/claude-settings.suggested.json', import.meta.url), 'utf8')).permissions.allow;
+  for (const entry of [
+    'Bash(node student/scripts/research-sources.mjs:*)',
+    'Bash(node student/scripts/alert-plan.mjs:*)',
+    'Bash(node student/scripts/profile-answers.mjs show:*)',
+    'Bash(node student/scripts/inbox-pass.mjs --check:*)',
+    'Bash(node student/scripts/schedule.mjs verify:*)',
+  ]) assert.ok(allow.includes(entry), `allow has ${entry}`);
+});
