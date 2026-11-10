@@ -9,7 +9,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
-import { CANONICAL_KEYS, ProfileAnswerError, ProfileParseError, mergeProfileAnswers, needsConfirmation, patchFor, readProfileAnswers, validateAnswer } from '../lib/profile-answers.mjs';
+import { CANONICAL_KEYS, ProfileAnswerError, ProfileParseError, blank, mergeProfileAnswers, needsConfirmation, patchFor, readProfileAnswers, validateAnswer, valueAt } from '../lib/profile-answers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 
@@ -17,10 +17,7 @@ const MISSING = 'run the interview first: config/profile.yml does not exist';
 
 // Saved answers as 'key: value' pairs in canonical order; eeo items appear as eeo.<item>.
 function savedPairs(answers) {
-  return CANONICAL_KEYS.flatMap((key) => {
-    const value = key.startsWith('eeo.') ? answers.eeo?.[key.slice(4)] : answers[key];
-    return value === undefined || value === null || value === '' ? [] : [[key, value]];
-  });
+  return CANONICAL_KEYS.map((key) => [key, valueAt(answers, key)]).filter(([, value]) => !blank(value));
 }
 
 export async function main(argv = process.argv.slice(2), deps = {}) {
