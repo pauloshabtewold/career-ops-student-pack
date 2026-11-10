@@ -31,7 +31,7 @@ test('M-001-S1-cdel the career-ops-student-pack group wins over the star group a
 });
 
 // M-001-S1-cdel
-test('M-001-S1-cdel star matches any run of characters and a trailing dollar anchors the end of the path', () => {
+test('extra check: star matches any run of characters and a trailing dollar anchors the end of the path', () => {
   const res = ok(BOTH_GROUPS);
   assert.equal(allowed(res, '/data/list.json'), false);
   assert.equal(allowed(res, '/data/list.json?x=1'), true, 'dollar anchors the end, so a query string escapes the rule');
@@ -40,12 +40,12 @@ test('M-001-S1-cdel star matches any run of characters and a trailing dollar anc
 });
 
 // M-001-S1-cdel
-test('M-001-S1-cdel Allow wins a tie against Disallow of the same length', () => {
+test('extra check: Allow wins a tie against Disallow of the same length', () => {
   assert.equal(allowed(ok(BOTH_GROUPS), '/same'), true);
 });
 
 // M-001-S1-cdel
-test('M-001-S1-cdel the star group applies when no group names the agent, and the longest rule still wins', () => {
+test('extra check: the star group applies when no group names the agent, and the longest rule still wins', () => {
   const res = ok('User-agent: *\nDisallow: /private\nAllow: /private/ok\nDisallow: /*.pdf$\n');
   assert.equal(allowed(res, '/private/x'), false);
   assert.equal(allowed(res, '/private/ok/y'), true);
@@ -55,7 +55,7 @@ test('M-001-S1-cdel the star group applies when no group names the agent, and th
 });
 
 // M-001-S1-cdel
-test('M-001-S1-cdel a group for some other agent does not apply', () => {
+test('extra check: a group for some other agent does not apply', () => {
   const res = ok('User-agent: otherbot\nDisallow: /\n');
   assert.equal(allowed(res, '/anything'), true);
 });
@@ -69,7 +69,7 @@ test('M-001-S2-cdel a 404 or a 401 answer means the host has no rules', () => {
 });
 
 // M-001-S2-cdel
-test('M-001-S2-cdel a 503 answer disallows every path with the reason robots.txt unreachable', () => {
+test('extra check: a 503 answer disallows every path with the reason robots.txt unreachable', () => {
   for (const path of ['/', '/jobs', '/v1/boards/x/jobs']) {
     const v = robotsVerdict({ status: 503, text: '' }, path);
     assert.equal(v.allowed, false, path);
@@ -78,7 +78,7 @@ test('M-001-S2-cdel a 503 answer disallows every path with the reason robots.txt
 });
 
 // M-001-S2-cdel
-test('M-001-S2-cdel a fetch that throws disallows every path, and a 404 host through the checker is open', async () => {
+test('extra check: a fetch that throws disallows every path, and a 404 host through the checker is open', async () => {
   const boom = createRobotsChecker({ fetch: async () => { throw new Error('socket hang up'); } });
   const down = await boom.check('https://boards-api.example.com/v1/boards/x/jobs');
   assert.equal(down.allowed, false);
@@ -88,7 +88,7 @@ test('M-001-S2-cdel a fetch that throws disallows every path, and a 404 host thr
 });
 
 // M-001-S2-cdel
-test('M-001-S2-cdel the checker fetches robots.txt once per host, applies its rules and never fetches linkedin.com', async () => {
+test('extra check: the checker fetches robots.txt once per host, applies its rules and never fetches linkedin.com', async () => {
   const urls = [];
   const fetch = async (url) => {
     urls.push(String(url));
@@ -115,7 +115,7 @@ test('M-001-S3-cdel a Crawl-delay of 6 skips the source with the cap reason whil
 });
 
 // M-001-S3-cdel
-test('M-001-S3-cdel the star group delay counts when no agent group exists and the cap is a parameter', () => {
+test('extra check: the star group delay counts when no agent group exists and the cap is a parameter', () => {
   const res = ok('User-agent: *\nCrawl-delay: 6\n');
   assert.equal(robotsVerdict(res, '/jobs').reason, 'crawl-delay 6 s above the 5 s cap');
   assert.equal(robotsVerdict(res, '/jobs', { crawlDelayCapS: 10 }).allowed, true);

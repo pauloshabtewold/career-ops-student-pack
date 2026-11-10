@@ -59,7 +59,7 @@ test('M-001-S11-cdel alert-plan prints numbered LinkedIn, Handshake, Simplify an
 });
 
 // M-001-S11-cdel
-test('M-001-S11-cdel the search URLs are prefilled from the first archetype, the track and the first location', () => {
+test('extra check: the search URLs are prefilled from the first archetype, the track and the first location', () => {
   const s = setup({ presets: ['byo-employer-list'] });
   try {
     const { stdout } = run(s);
@@ -75,7 +75,7 @@ test('M-001-S11-cdel the search URLs are prefilled from the first archetype, the
 });
 
 // M-001-S11-cdel
-test('M-001-S11-cdel a new-grad track uses new grad in the query and f_E=2 on LinkedIn', () => {
+test('extra check: a new-grad track uses new grad in the query and f_E=2 on LinkedIn', () => {
   const s = setup({ presets: ['byo-employer-list'], tracks: ['newgrad'] });
   try {
     const { stdout } = run(s);
@@ -87,7 +87,7 @@ test('M-001-S11-cdel a new-grad track uses new grad in the query and f_E=2 on Li
 });
 
 // M-001-S11-cdel
-test('M-001-S11-cdel --json prints the same four items as an array', () => {
+test('extra check: --json prints the same four items as an array', () => {
   const s = setup({ presets: ['byo-employer-list'] });
   try {
     const r = run(s, ['--json']);
@@ -122,7 +122,7 @@ test('M-001-S12-cdel a policy-government student gets a USAJOBS item and the sit
 });
 
 // M-001-S12-cdel
-test('M-001-S12-cdel a student whose presets lack policy-government gets no USAJOBS item', () => {
+test('extra check: a student whose presets lack policy-government gets no USAJOBS item', () => {
   const s = setup({ presets: ['byo-employer-list'] });
   try {
     const { blocks } = parse(run(s).stdout);

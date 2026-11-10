@@ -49,7 +49,7 @@ test('M-001-S13-cdel --queue prints the Pending total, counts by source, the 10 
 });
 
 // M-001-S13-cdel
-test('M-001-S13-cdel the Upcoming and check by hand section names the watch-only seeds of the merged presets and not the readable ones', async () => {
+test('extra check: the Upcoming and check by hand section names the watch-only seeds of the merged presets and not the readable ones', async () => {
   const s = setup(rows.slice(0, 3), '[consulting]');
   try {
     const out = [];
