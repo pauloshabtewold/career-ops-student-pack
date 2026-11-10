@@ -47,3 +47,9 @@ test('M-002-S4 Phase 4 still asks the outreach, handshake, submission and Linked
   assert.match(phase4, /^- Who presses submit on applications: `user` \(default\) or `agent`\./m);
   assert.match(phase4, /^- LinkedIn account tier: `free` or `premium`\./m);
 });
+
+// M-003-S6-cdel
+test('M-003-S6-cdel the README disclaimer appears exactly once and verbatim in interview.md', () => {
+  assert.ok(disclaimer.length > 50, 'README Disclaimer paragraph found');
+  assert.equal(count(interview, disclaimer), 1);
+});

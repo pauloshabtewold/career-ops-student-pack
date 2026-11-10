@@ -185,3 +185,32 @@ test('M-008-S6 pii-lint scanText finds nothing in any interview-runs fixture fil
     assert.deepEqual(scanText(rel, readFileSync(f, 'utf8')), [], rel);
   }
 });
+
+// M-003-S7-cdel
+for (const k of SETS) {
+  test(`M-003-S7-cdel ${k} transcript shows Parts A to D in order, ${k === 'nursing' ? 6 : 5} STUDENT turns and every application_profile value in Part C`, () => {
+    const text = transcriptOf(k);
+    const parts = text.split('\n').map((l) => /^## Part ([A-Z])\b/.exec(l)).filter(Boolean).map((m) => m[1]);
+    assert.deepEqual(parts, ['A', 'B', 'C', 'D']);
+    assert.ok(!/^## Phase\b/m.test(text), 'no Phase heading');
+    const bs = blocks(text);
+    const students = bs.filter((b) => b.kind === 'turn' && b.role === 'STUDENT');
+    assert.equal(students.length, k === 'nursing' ? 6 : 5, `STUDENT turns in ${k}`);
+    const partOf = (i) => {
+      let cur = null;
+      for (let j = 0; j <= i; j++) {
+        const m = bs[j].kind === 'heading' ? /^## Part ([A-Z])\b/.exec(bs[j].text) : null;
+        if (m) cur = m[1];
+      }
+      return cur;
+    };
+    const inC = bs.map((b, i) => ({ b, i })).filter(({ b, i }) => b.kind === 'turn' && partOf(i) === 'C');
+    assert.equal(inC.filter(({ b }) => b.role === 'STUDENT').length, k === 'nursing' ? 2 : 1, 'STUDENT turns inside Part C');
+    const partC = norm(inC.map(({ b }) => b.text).join('\n')).toLowerCase();
+    const profile = runAnswers(k).application_profile;
+    assert.equal(typeof profile.eeo, 'object', 'run answers carry the eeo map');
+    assert.deepEqual(Object.keys(profile.eeo).sort(), ['disability', 'gender', 'hispanic_latino', 'pronouns', 'race_ethnicity', 'veteran']);
+    const values = [profile.start_date, profile.relocation, profile.how_did_you_hear, ...Object.values(profile.eeo)];
+    for (const v of values) assert.ok(partC.includes(String(v).toLowerCase()), `Part C holds ${JSON.stringify(v)}`);
+  });
+}
