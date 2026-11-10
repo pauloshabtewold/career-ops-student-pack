@@ -12,7 +12,7 @@ const partD = md.slice(md.indexOf('\n## Part D'));
 
 test('the interview tells the agent to open each Part with its markdown heading', () => {
   assert.match(md, /Open each Part's message with its heading as a markdown heading/);
-  assert.doesNotMatch(md, /Part [A-D] of 4/);
+  assert.match(md, /never as plain text such as "This is Part A of 4"/);
 });
 
 test('Part B builds the queue with one --step command at a time and prints the coverage line once', () => {
