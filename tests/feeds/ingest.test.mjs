@@ -281,3 +281,18 @@ test('ingest stops reading sources once the time budget is spent and reads the s
     s.cleanup();
   }
 });
+
+test('never-read lists go first even when an earlier list was read but deferred', async () => {
+  const sources = [src({ last_read: '2026-11-01' }), src({ name: 'list-b', repo: 'example-org/list-b', last_read: '2026-11-05' }), src({ name: 'list-c', repo: 'example-org/list-c' })];
+  const handlers = [rawHandler('list-a', H.SIMPLIFY_JSON), rawHandler('list-b', H.SIMPLIFY_JSON), rawHandler('list-c', H.SIMPLIFY_JSON)];
+  const { s, stub, ctx } = await setup(sources, handlers);
+  try {
+    await plugin.ingest(ctx);
+    const order = stub.calls.map((c) => c.url.split('/')[4]);
+    assert.deepEqual(order, ['list-c', 'list-a', 'list-b']);
+    const registry = JSON.parse(readText(join(s.data, 'student-github-sources.json')));
+    assert.equal(registry.sources.find((r) => r.name === 'list-c').last_read, H.TODAY);
+  } finally {
+    s.cleanup();
+  }
+});

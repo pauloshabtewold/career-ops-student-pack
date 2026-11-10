@@ -13,7 +13,7 @@ import { resolveAggregator } from './_resolve.mjs';
 
 const STATS_HEADER = ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed'];
 // The upstream host abandons an ingest hook after 15 s and then keeps nothing, so the plugin stops requesting at 11 s and
-// returns what it has. Sources are read least recently read first, so a source cut off by the budget goes first next run.
+// returns what it has. Sources never read go first, then the least recently read, so every list is read within a few runs.
 const HOST_BUDGET_MS = 11000;
 const REAL_SLEEP = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -75,6 +75,9 @@ async function ingestSource(ctx, source, env, acc) {
   if (!fetched) return stat;
   const { hash, parsed } = fetched;
   source.failed_parses = 0;
+  // last_read marks any successful read, including one whose rows the budget deferred, so that source stops outranking
+  // lists that were never read.
+  source.last_read = env.today;
   if (hash !== source.last_hash) source.last_push = env.today;
   source.last_push ??= env.today;
   source.last_hash = hash;
@@ -87,7 +90,7 @@ async function ingestSource(ctx, source, env, acc) {
   stat.eligible = eligible.length;
   let deferred = 0;
   const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline: env.deadline, onDeferred: (n) => { deferred = n; } });
-  // A source with rows the time budget cut off keeps its old last_ingest, so it is read again first next run.
+  // A source with rows the time budget cut off keeps its old last_ingest; its last_read still moves it behind unread lists.
   if (deferred) ctx.log?.(`github-lists: ${source.name}: ${deferred} row(s) deferred, time budget reached`);
   else source.last_ingest = env.today;
   collectUnique(resolved, source, stat, env, acc);
@@ -129,10 +132,11 @@ export default {
     const stats = [];
 
     const sources = (registry.sources ?? []).filter((s) => s.status === 'active' || s.status === 'trial');
-    // Least recently read first; a source never read, or read the same day, keeps its registry position. A source whose
-    // last touch was a failed attempt sorts behind every source read that same day.
-    const lastTouched = (x) => [x.last_ingest, x.last_attempt].map((d) => String(d ?? '')).sort().at(-1);
-    const failedLast = (x) => (x.last_attempt && String(x.last_attempt) >= String(x.last_ingest ?? '') ? 1 : 0);
+    // Never-read sources first, then least recently read; sources with the same last touch keep their registry position. A
+    // source whose last touch was a failed attempt sorts behind every source read that same day.
+    const lastRead = (x) => [x.last_ingest, x.last_read].map((d) => String(d ?? '')).sort().at(-1);
+    const lastTouched = (x) => [lastRead(x), String(x.last_attempt ?? '')].sort().at(-1);
+    const failedLast = (x) => (x.last_attempt && String(x.last_attempt) >= lastRead(x) ? 1 : 0);
     const order = [...sources].sort((x, y) => lastTouched(x).localeCompare(lastTouched(y)) || failedLast(x) - failedLast(y));
     for (const [i, source] of order.entries()) {
       if (Date.now() > deadline) {
