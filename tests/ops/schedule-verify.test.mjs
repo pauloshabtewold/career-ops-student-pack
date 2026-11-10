@@ -47,7 +47,7 @@ test('M-002-S13-cdel verify prints one ok line per enabled step and the verified
 });
 
 // M-002-S13-cdel
-test('M-002-S13-cdel a step that is off prints its off line and still verifies', async () => {
+test('extra check: a step that is off prints its off line and still verifies', async () => {
   const res = await verify({ runCheck: () => ({ code: 0, lines: ['check daily run: ok', 'check inbox pass: off', 'check triage: ok'] }) });
   assert.equal(res.code, 0, textOf(res));
   assert.match(textOf(res), /inbox pass: off/);
@@ -62,7 +62,7 @@ test('M-002-S14-cdel verify exits 1 with a failed line when no job is installed'
 });
 
 // M-002-S14-cdel
-test('M-002-S14-cdel verify exits 1 when the installed job starts another folder', async () => {
+test('extra check: verify exits 1 when the installed job starts another folder', async () => {
   const res = await verify({ readJob: () => jobFor(OTHER) });
   assert.equal(res.code, 1);
   assert.match(textOf(res), /schedule check failed: .+/);
@@ -70,7 +70,7 @@ test('M-002-S14-cdel verify exits 1 when the installed job starts another folder
 });
 
 // M-002-S14-cdel
-test('M-002-S14-cdel verify exits 1 naming the inbox pass step and its fix when that check fails', async () => {
+test('extra check: verify exits 1 naming the inbox pass step and its fix when that check fails', async () => {
   const res = await verify({ runCheck: () => ({ code: 1, lines: ['check daily run: ok', 'check inbox pass: failed (no Gmail tools; connect Gmail (interview Part A))', 'check triage: ok'] }) });
   assert.equal(res.code, 1);
   const failed = textOf(res).split('\n').find((l) => /^schedule check failed:/.test(l));
@@ -112,7 +112,7 @@ function macSetup(ownerRoot) {
 const mac = {};
 
 // M-002-S22-cdel
-test('M-002-S22-cdel install exits 1 naming the other folder and leaves the job unchanged when another folder owns it', mac, () => {
+test('extra check: install exits 1 naming the other folder and leaves the job unchanged when another folder owns it', mac, () => {
   const s = macSetup(OTHER);
   try {
     const before = readFileSync(s.plist, 'utf8');
@@ -127,7 +127,7 @@ test('M-002-S22-cdel install exits 1 naming the other folder and leaves the job 
 });
 
 // M-002-S22-cdel
-test('M-002-S22-cdel install with --replace takes over the job for this folder', mac, () => {
+test('extra check: install with --replace takes over the job for this folder', mac, () => {
   const s = macSetup(OTHER);
   try {
     const out = s.install('--replace');
@@ -141,7 +141,7 @@ test('M-002-S22-cdel install with --replace takes over the job for this folder',
 });
 
 // M-002-S22-cdel
-test('M-002-S22-cdel install with no job installed proceeds as before', mac, () => {
+test('extra check: install with no job installed proceeds as before', mac, () => {
   const s = macSetup(null);
   try {
     const out = s.install();

@@ -509,7 +509,7 @@ test('M-002-S21-cdel turning the mailbox.schedule default from off to on fails n
   }));
 
 // M-002-S21-cdel
-test('M-002-S21-cdel adding the mailbox.schedule key as off passes', () =>
+test('extra check: adding the mailbox.schedule key as off passes', () =>
   withRepo(async (root) => {
     put(root, 'templates/student.defaults.yml', mailboxDefaults(null));
     git(root, 'add', '-A');

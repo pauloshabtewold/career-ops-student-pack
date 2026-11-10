@@ -96,7 +96,7 @@ test('M-002-S2-cdel simplify.jobs, indeed.com, indeedemail.com and usajobs.gov s
 });
 
 // M-002-S2-cdel
-test('M-002-S2-cdel ALERT_DOMAINS maps the six sender domains to their labels', () => {
+test('extra check: ALERT_DOMAINS maps the six sender domains to their labels', () => {
   assert.deepEqual({ ...ALERT_DOMAINS }, {
     'linkedin.com': 'linkedin-alert',
     'joinhandshake.com': 'handshake-alert',
@@ -108,7 +108,7 @@ test('M-002-S2-cdel ALERT_DOMAINS maps the six sender domains to their labels', 
 });
 
 // M-002-S2-cdel
-test('M-002-S2-cdel a simplify alert job that is not found at the employer stages with src=simplify-alert', async () => {
+test('extra check: a simplify alert job that is not found at the employer stages with src=simplify-alert', async () => {
   const s = setup();
   try {
     const out = await run(s, [msg('m-1', 'Simplify <alerts@simplify.jobs>', 'New jobs', 'New jobs.', { jobs: [job({ site: 'simplify', job_id: 'abc-123' })] })]);
@@ -139,7 +139,7 @@ test('M-002-S3-cdel an unresolved LinkedIn job stays a needs-url row with src an
 });
 
 // M-002-S3-cdel
-test('M-002-S3-cdel a message with no jobs array falls back to the subject parse', async () => {
+test('extra check: a message with no jobs array falls back to the subject parse', async () => {
   const s = setup();
   try {
     const m = msg('m-1', `LinkedIn Job Alerts <${at('jobalerts-noreply', 'linkedin.com')}>`, 'Data Engineer Intern at Tailspin Systems', 'Tailspin Systems is hiring. View job: https://www.linkedin.com/comm/jobs/view/3900001234?trk=alert');
@@ -155,7 +155,7 @@ test('M-002-S3-cdel a message with no jobs array falls back to the subject parse
 });
 
 // M-002-S3-cdel
-test('M-002-S3-cdel message ids already seen and mail older than 2 days stay skipped', async () => {
+test('extra check: message ids already seen and mail older than 2 days stay skipped', async () => {
   const s = setup(['m-seen']);
   try {
     const out = await run(s, [liAlert('m-seen', [job()]), liAlert('m-old', [job({ company: 'Old Co' })], { date: OLD }), liAlert('m-new', [job({ company: 'New Co' })])]);
@@ -184,7 +184,7 @@ test('M-002-S4-cdel pipes and semicolons become commas, fields are cut to 200 ch
 });
 
 // M-002-S4-cdel
-test('M-002-S4-cdel at most 25 jobs are kept from one message', () => {
+test('extra check: at most 25 jobs are kept from one message', () => {
   const jobs = Array.from({ length: 30 }, (_, i) => job({ title: `Intern ${i}`, job_id: `id${i}` }));
   const c = classifyMail(liAlert('c-2', jobs), CTX);
   assert.equal(c.jobs.length, 25);
@@ -218,7 +218,7 @@ test('M-002-S20-cdel --resolve sends no request to a board path robots.txt disal
 });
 
 // M-002-S20-cdel
-test('M-002-S20-cdel requests to one host go one at a time at least 1200 ms apart, or the Crawl-delay when longer', { timeout: 120000 }, async () => {
+test('extra check: requests to one host go one at a time at least 1200 ms apart, or the Crawl-delay when longer', { timeout: 120000 }, async () => {
   const s = setup();
   try {
     const stamps = [];

@@ -36,7 +36,7 @@ test('M-002-S10-cdel mailbox.schedule on runs daily.mjs, then inbox-pass.mjs, th
 });
 
 // M-002-S10-cdel
-test('M-002-S10-cdel the inbox pass starts with node in the career-ops folder, the agent flags and a --deadline', async () => {
+test('extra check: the inbox pass starts with node in the career-ops folder, the agent flags and a --deadline', async () => {
   const { r, calls } = await run(`automation: scheduled-discovery-plus-triage\n${MAILBOX_ON}`, { extra: { agent: 'codex', agentPath: '/opt/sample/bin/codex' } });
   const inbox = calls.find((c) => basename(c.args[0]) === 'inbox-pass.mjs');
   assert.equal(inbox.cmd, process.execPath);
@@ -51,7 +51,7 @@ test('M-002-S10-cdel the inbox pass starts with node in the career-ops folder, t
 });
 
 // M-002-S10-cdel
-test('M-002-S10-cdel mailbox.schedule on with scheduled-discovery runs daily.mjs then inbox-pass.mjs and no triage', async () => {
+test('extra check: mailbox.schedule on with scheduled-discovery runs daily.mjs then inbox-pass.mjs and no triage', async () => {
   const { calls } = await run(`automation: scheduled-discovery\n${MAILBOX_ON}`);
   assert.deepEqual(names(calls), ['daily.mjs', 'inbox-pass.mjs']);
 });
@@ -67,7 +67,7 @@ test('M-002-S11-cdel with mailbox.schedule absent scheduled runs daily.mjs and t
 });
 
 // M-002-AC11
-test('M-002-AC11 mailbox.schedule off runs daily.mjs and triage only', async () => {
+test('extra check: mailbox.schedule off runs daily.mjs and triage only', async () => {
   const plus = await run(`automation: scheduled-discovery-plus-triage\n${MAILBOX_OFF}`);
   assert.deepEqual(names(plus.calls), ['daily.mjs', 'daily-triage.mjs']);
   const only = await run(`automation: scheduled-discovery\n${MAILBOX_OFF}`);
@@ -82,7 +82,7 @@ test('M-002-S12-cdel an inbox-pass child that throws prints a stopped line, dail
 });
 
 // M-002-S12-cdel
-test('M-002-S12-cdel an inbox-pass child that times out is handled the same way', async () => {
+test('extra check: an inbox-pass child that times out is handled the same way', async () => {
   const timeout = () => Object.assign(new Error('spawnSync node ETIMEDOUT'), { code: 'ETIMEDOUT' });
   const { calls, text } = await run(`automation: scheduled-discovery-plus-triage\n${MAILBOX_ON}`, { fail: 'inbox-pass.mjs', failWith: timeout });
   assert.deepEqual(names(calls), ['daily.mjs', 'inbox-pass.mjs', 'daily-triage.mjs']);

@@ -154,7 +154,7 @@ test('M-002-S16-cdel findAtEmployer returns the posting URL for a strict title m
 });
 
 // M-002-S16-cdel
-test('M-002-S16-cdel findAtEmployer returns a null url for no match or for two matches', async () => {
+test('extra check: findAtEmployer returns a null url for no match or for two matches', async () => {
   const none = await find(findRow({ title: 'Quantum Intern' }), [greenhouse, lever, ashby]);
   assert.equal(none.res.url, null);
   const dup = [(u) => u.startsWith('https://boards-api.greenhouse.io/v1/boards/examplerobotics/jobs'), () => H.json({ jobs: [{ id: 1, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/examplerobotics/jobs/1' }, { id: 2, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/examplerobotics/jobs/2' }] })];
@@ -163,7 +163,7 @@ test('M-002-S16-cdel findAtEmployer returns a null url for no match or for two m
 });
 
 // M-002-S16-cdel
-test('M-002-S16-cdel findAtEmployer never requests a linkedin.com URL', async () => {
+test('extra check: findAtEmployer never requests a linkedin.com URL', async () => {
   const { stub } = await find(findRow({ url: 'https://www.linkedin.com/jobs/view/3900001234', company: 'LinkedIn Example' }), [greenhouse, lever, ashby]);
   assert.ok(!stub.urls().some((u) => /linkedin\.com/i.test(u)), stub.urls().join('\n'));
   const second = await find(findRow(), [greenhouse]);
@@ -186,7 +186,7 @@ test('M-002-S23-cdel resolving two rows on one API host returns the same posting
 });
 
 // M-002-AC24
-test('M-002-AC24 two requests to one API host wait at least 1200 ms between them and the results are unchanged', async () => {
+test('extra check: two requests to one API host wait at least 1200 ms between them and the results are unchanged', async () => {
   const s = H.scratch();
   try {
     const events = [];
