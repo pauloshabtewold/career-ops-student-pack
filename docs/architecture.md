@@ -15,6 +15,7 @@ The pack attaches through five places only:
 | upstream's local-paths list in its config folder | names the pack folder, `CLAUDE.local.md`, `AGENTS.override.md` and `.codex/config.toml` so career-ops updates leave them alone |
 | upstream's local plugins folder | holds full copies of the pack plugins |
 | `.git/info/exclude` | hides those paths and `config/student.yml` from career-ops' git status |
+| `.claude/settings.local.json` | written by `setup.mjs`: the suggested Claude Code permissions are added to the file, or the file is created with them, and every entry already there is kept; the local-paths list and `.git/info/exclude` name it; uninstall leaves it in place |
 
 Student data lives in career-ops' user layer plus a student settings file in the config folder and the pack's own data files.
 
