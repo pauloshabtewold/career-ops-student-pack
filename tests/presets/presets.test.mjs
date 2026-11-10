@@ -70,8 +70,8 @@ test('M-006-S9 a policy without source_url fails validation naming the preset an
 });
 
 // M-006-S12
-test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config or watch_only', () => {
-  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm', 'watch_only']);
+test('M-006-S12 every seed_employers entry carries name and careers_url, plus only a provider and its config, max_response_mb or watch_only', () => {
+  const allowed = new Set(['name', 'careers_url', 'provider', 'api', 'phenom', 'ibm', 'apple', 'max_response_mb', 'watch_only']);
   for (const id of ids()) {
     const raw = yaml.load(readFileSync(join(dir, `${id}.yml`), 'utf8'));
     (raw.seed_employers ?? []).forEach((e, i) => {
@@ -79,7 +79,7 @@ test('M-006-S12 every seed_employers entry carries name and careers_url, plus on
       const at = `${id} seed_employers[${i}] (${e.name ?? 'unnamed'})`;
       assert.ok(keys.includes('name') && keys.includes('careers_url'), at);
       for (const k of keys) assert.ok(allowed.has(k), `${at} key ${k}`);
-      if (!e.provider) assert.deepEqual(keys.filter((k) => k !== 'watch_only').sort(), ['careers_url', 'name'], at);
+      if (!e.provider) assert.deepEqual(keys.filter((k) => k !== 'watch_only' && k !== 'max_response_mb').sort(), ['careers_url', 'name'], at);
     });
   }
 });
@@ -125,6 +125,47 @@ test('W-019 name and careers_url stay required on a provider seed', () => {
   const p = withSeed({ provider: 'phenom' });
   delete p.seed_employers[0].careers_url;
   assert.throws(() => validatePreset(p, 'software-cs'), /seed_employers\[0\]/);
+});
+
+// W-029: career-ops 1.39.0 refuses a board response over 10 MB unless the portals.yml entry raises it with max_response_mb.
+test('W-029 a readable seed may raise the response cap with max_response_mb, with or without a provider', () => {
+  for (const extra of [{ max_response_mb: 32 }, { max_response_mb: 12.5 }, { provider: 'phenom', max_response_mb: 20 }]) {
+    assert.doesNotThrow(() => validatePreset(withSeed(extra), 'software-cs'), JSON.stringify(extra));
+  }
+});
+
+test('W-029 max_response_mb must be a number above 0 and at most 100, and never on a watch-only seed', () => {
+  for (const extra of [{ max_response_mb: 0 }, { max_response_mb: -5 }, { max_response_mb: '32' }, { max_response_mb: true }, { max_response_mb: 101 }, { watch_only: true, max_response_mb: 32 }]) {
+    assert.throws(() => validatePreset(withSeed(extra), 'software-cs'), /seed_employers\[0\]/, JSON.stringify(extra));
+  }
+});
+
+test('W-029 the four boards over 10 MB on career-ops 1.39.0 carry max_response_mb in every preset that seeds them', () => {
+  const capped = ['OpenAI', 'SpaceX', 'Lucid Motors', 'Veeva', 'Shield AI'];
+  const seen = new Set();
+  for (const id of ids()) {
+    for (const e of loadPreset(id).seed_employers.filter((s) => capped.includes(s.name))) {
+      seen.add(e.name);
+      assert.ok(e.max_response_mb > 10, `${id} ${e.name} max_response_mb`);
+    }
+  }
+  assert.deepEqual([...seen].sort(), [...capped].sort());
+});
+
+test('W-029 a seed may name the apple provider with location, queries and teams', () => {
+  assert.doesNotThrow(() => validatePreset(withSeed({ provider: 'apple', apple: { queries: ['supply chain'], teams: ['internships-STDNT-INTRN'] } }), 'software-cs'));
+  assert.doesNotThrow(() => validatePreset(withSeed({ provider: 'apple', apple: { location: 'united-states-USA', queries: ['logistics'] } }), 'software-cs'));
+  for (const extra of [{ provider: 'apple', apple: { queries: 'supply chain' } }, { provider: 'apple', apple: { team: ['x'] } }, { provider: 'apple', apple: { location: ['us'] } }]) {
+    assert.throws(() => validatePreset(withSeed(extra), 'software-cs'), /seed_employers\[0\]/, JSON.stringify(extra));
+  }
+});
+
+test('W-029 the Apple seed in supply-chain-operations is readable by the 1.39.0 apple provider, not watch-only', () => {
+  const apple = loadPreset('supply-chain-operations').seed_employers.find((e) => e.name === 'Apple');
+  assert.equal(apple.provider, 'apple');
+  assert.equal(apple.watch_only, undefined);
+  // The upstream provider throws on an entry with no queries and no teams, which printed an error on every scan.
+  assert.ok((apple.apple.queries?.length ?? 0) + (apple.apple.teams?.length ?? 0) > 0);
 });
 
 // M-006-S13

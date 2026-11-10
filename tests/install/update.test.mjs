@@ -226,3 +226,23 @@ test('W-028 update --dry-run says would copy and would trust again, and trusts n
     assert.equal(JSON.parse(readFileSync(join(p.root, 'plugins.local', 'github-lists', 'manifest.json'), 'utf8')).version, '0.9.0');
     assert.deepEqual(upstreamCalls(p, 'plugins.mjs').filter((c) => c.argv[0] === 'trust'), []);
   }));
+
+// W-029: a student portals.yml copied from a preset before the pack set max_response_mb gets the key on update.
+test('W-029 update adds max_response_mb to a capped preset seed in portals.yml, and a dry run only says it would', () =>
+  withPack((p) => {
+    p.up.setOutput('update-system', checkJson('up-to-date', { remote: '1.38.0' }));
+    const portals = '# mine\ntracked_companies:\n  - name: OpenAI\n    careers_url: https://jobs.ashbyhq.com/openai\n    enabled: true\n';
+    put(p.root, 'portals.yml', portals);
+    const dry = p.run('update.mjs', ['--dry-run']);
+    assert.equal(dry.code, 0, dry.stdout + dry.stderr);
+    assert.ok(dry.lines.includes('portals.yml: would raise the response limit for OpenAI'), dry.lines.join('\n'));
+    assert.equal(readFileSync(join(p.root, 'portals.yml'), 'utf8'), portals);
+    const r = p.run('update.mjs');
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.ok(r.lines.includes('portals.yml: raised the response limit for OpenAI'), r.lines.join('\n'));
+    const text = readFileSync(join(p.root, 'portals.yml'), 'utf8');
+    assert.match(text, /^# mine\n/);
+    assert.match(text, /\n {4}max_response_mb: \d+\n/);
+    const again = p.run('update.mjs');
+    assert.ok(!again.lines.some((l) => l.startsWith('portals.yml:')), again.lines.join('\n'));
+  }));

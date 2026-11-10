@@ -132,3 +132,29 @@ test('W-028 auditIssues counts watch-only no-provider seeds instead of listing t
   assert.ok(one.body.includes('- Board C'), 'an erroring watch-only seed is still flagged');
   assert.ok(one.body.includes('1 watch-only seed with no provider not listed.'));
 });
+
+// W-029: audit-portals 1.39.0 ignores a portals.yml entry's max_response_mb, so a board over 10 MB always audits as an
+// error even though scan.mjs reads it. Only that exact error is expected on a capped seed; any other status still flags.
+test('W-029 auditIssues counts the response-cap error on a seed with max_response_mb instead of listing it', () => {
+  const cap = 'HTTP body exceeded maxBytes of 10485760 (content-length 14357398)';
+  const current = {
+    'preset-one': {
+      rows: [
+        { name: 'Board A', verdict: 'error', count: null, detail: cap },
+        { name: 'Board B', verdict: 'error', count: null, detail: cap },
+        { name: 'Board C', verdict: 'error', count: null, detail: 'HTTP 404' },
+        { name: 'Board D', verdict: 'ok', count: 30, detail: '30 postings' },
+      ],
+    },
+    'preset-two': { rows: [{ name: 'Board E', verdict: 'error', count: null, detail: `greenhouse: ${cap}` }] },
+  };
+  const capped = { 'preset-one': ['Board A', 'Board C'], 'preset-two': ['Board E'] };
+  const issues = auditIssues({ current, capped });
+  assert.equal(issues.length, 1, 'preset-two has only an expected cap error');
+  const [one] = issues;
+  assert.equal(one.title, auditTitle('preset-one', 2));
+  assert.ok(!one.body.includes('- Board A'));
+  assert.ok(one.body.includes('- Board B'), 'a seed without max_response_mb is still flagged for the cap error');
+  assert.ok(one.body.includes('- Board C'), 'a capped seed with another error is still flagged');
+  assert.ok(one.body.includes('1 board over the 10 MB audit limit not listed: scan.mjs reads it with max_response_mb.'));
+});

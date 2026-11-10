@@ -69,3 +69,12 @@ test('W-019 presetPortals passes a seed provider and its config through to porta
   // W-028: watch_only is pack metadata and never reaches portals.yml.
   assert.ok(doc.tracked_companies.every((e) => !('watch_only' in e)));
 });
+
+// W-029
+test('W-029 presetPortals passes max_response_mb through to portals.yml as a number', async () => {
+  const doc = yaml.load(String(await presetPortals('software-cs')));
+  const openai = doc.tracked_companies.find((e) => e.name === 'OpenAI');
+  assert.equal(typeof openai.max_response_mb, 'number');
+  assert.ok(openai.max_response_mb > 10);
+  assert.ok(doc.tracked_companies.filter((e) => e.name !== 'OpenAI' && e.name !== 'Shield AI').every((e) => !('max_response_mb' in e)));
+});
