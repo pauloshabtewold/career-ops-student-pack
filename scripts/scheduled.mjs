@@ -24,6 +24,8 @@ import { plannedChunks, triageChildTimeoutMs } from './daily-triage.mjs';
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 // The inbox pass child gets the agent's own 15 minutes; its agent call ends at the --deadline passed to it.
 const INBOX_TIMEOUT_MS = AGENT_TIMEOUT_MS;
+// The child's own deadline falls this much before the wrapper's kill, so a timed-out agent call still writes its digest line.
+const INBOX_DEADLINE_MARGIN_MS = 60 * 1000;
 
 // A schedule installed before the agent flags existed passes only --claude; it keeps working until reinstalled.
 const agentFlagsFor = ({ agent, agentPath, claude }) => (agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : []);
@@ -48,7 +50,7 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
   }
   const agentFlags = agentFlagsFor({ agent, agentPath, claude });
   // inbox-pass.mjs reads --agent and --agent-path only, so a schedule with just --claude lets it use the configured agent.
-  if (config?.mailbox?.schedule === 'on') child('inbox-pass.mjs', [...(agentPath ? agentFlags : []), '--deadline', String(Date.now() + AGENT_TIMEOUT_MS)], INBOX_TIMEOUT_MS);
+  if (config?.mailbox?.schedule === 'on') child('inbox-pass.mjs', [...(agentPath ? agentFlags : []), '--deadline', String(Date.now() + INBOX_TIMEOUT_MS - INBOX_DEADLINE_MARGIN_MS)], INBOX_TIMEOUT_MS);
   if (config?.automation === 'scheduled-discovery-plus-triage') {
     // The deadline is when this wrapper's timeout kills the child. daily-triage stops starting chunks it could not finish
     // by then, because a kill mid-call would lose that chunk's ledger row while the agent kept spending.

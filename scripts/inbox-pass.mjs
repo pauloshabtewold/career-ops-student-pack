@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node
 import { join } from 'node:path';
 import {
   AGENTS, AGENT_TIMEOUT_MS, CLAUDE_GMAIL_READ_TOOLS, CLAUDE_GMAIL_WRITE_TOOLS, CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS,
-  CODEX_GMAIL_READ_TOOLS, agentCallOptions, codexGmailDisableFlags, quoteIf, resolveAgentPath, shellForm, signInHint,
+  CODEX_GMAIL_READ_TOOLS, agentCallOptions, codexGmailAllowFlags, codexGmailDisableFlags, quoteIf, resolveAgentPath, shellForm, signInHint,
 } from '../lib/agent.mjs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
@@ -89,14 +89,15 @@ export function buildClaudeArgs({ model, settings, shell = false }) {
   ];
 }
 
-// The apps feature stays on because the Gmail connector is an app; its write tools are switched off one by one.
+// The apps feature stays on because the Gmail connector is an app. Its tools are allow-listed to the two read tools
+// (codexGmailAllowFlags) and its write tools are also switched off by name; auditRun discards a run that called anything else.
 export function buildCodexArgs({ tmp, out, effort = 'medium', shell = false }) {
   const q = (v) => quoteIf(shell, v);
   const quoteOverrides = (flags) => flags.map((f, i) => (flags[i - 1] === '-c' ? q(f) : f));
   return [
     '-a', 'never', 'exec', '--ephemeral', '--skip-git-repo-check', ...quoteOverrides(CODEX_EXTRA_FLAGS), '-s', 'read-only', '--color', 'never', '--json',
     ...CODEX_DISABLED_FEATURES.filter((f) => f !== 'apps').flatMap((f) => ['--disable', f]),
-    '-c', q(`model_reasoning_effort=${effort}`), ...quoteOverrides(codexGmailDisableFlags()), '-C', q(tmp), '-o', q(out), '-',
+    '-c', q(`model_reasoning_effort=${effort}`), ...quoteOverrides(codexGmailDisableFlags()), ...quoteOverrides(codexGmailAllowFlags()), '-C', q(tmp), '-o', q(out), '-',
   ];
 }
 
@@ -242,6 +243,8 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   if (agent === 'claude' && audit.gmailTools && !audit.gmailTools.length) return fail('no Gmail tools; connect Gmail (interview Part A)');
   if (check) return audit.searched ? { ok: true, reason: '' } : { ok: false, reason: 'the check made no Gmail search; connect Gmail (interview Part A)' };
 
+  // A pass that never searched (expired connector, no Gmail app) must not move the window past mail it did not read.
+  if (!audit.searched) return fail('no Gmail search was made; connect Gmail (interview Part A)');
   const answer = parseAnswer(run.answerText);
   if (!answer) return fail('answer was not a JSON array');
   mkdirSync(paths.dataDir, { recursive: true });
