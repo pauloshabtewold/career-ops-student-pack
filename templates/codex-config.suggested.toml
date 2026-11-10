@@ -1,6 +1,7 @@
 # Suggested Codex settings for the career-ops folder. This file is optional.
 #
-# To use it, copy it to .codex/config.toml inside your career-ops folder yourself. The pack never writes that file.
+# setup.mjs copies this file to .codex/config.toml inside your career-ops folder when that file is missing, and never
+# overwrites a copy you changed. install.mjs itself does not write it.
 # Codex reads a project config only for a folder you have trusted: accept its trust prompt for this folder when it asks.
 
 # Reads the whole AGENTS.override.md (upstream's rules alone are larger than the 32768 byte default).

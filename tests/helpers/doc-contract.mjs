@@ -133,8 +133,10 @@ export function scanCommands(name, text, packRoot = PACK_ROOT) {
 const fences = (text) => [...text.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((m) => ({ at: m.index, code: m[1] }));
 
 // Returns the macOS and Windows code blocks of the README Install section, keyed by the OS label that precedes them.
+// The typed blocks live under "Install by hand" once the one-prompt section sits above them (W-030).
 export function installBlocks(readme) {
-  const start = readme.indexOf('## Install');
+  const byHand = readme.indexOf('## Install by hand');
+  const start = byHand >= 0 ? byHand : readme.indexOf('## Install');
   const end = readme.indexOf('\n## ', start + 1);
   const section = start < 0 ? '' : readme.slice(start, end < 0 ? undefined : end);
   const blocks = {};

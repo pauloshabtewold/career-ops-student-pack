@@ -3,8 +3,9 @@
 // Writes only inside the career-ops root (the one exception is git's own info/exclude file, which for a worktree or a
 // --separate-git-dir checkout sits outside it): local-paths.txt and exclude entries, the CLAUDE.local.md import
 // block, the generated AGENTS.override.md that Codex reads, and full copies of the pack plugins in plugins.local/. It
-// never enables a plugin (consent belongs to the interview) and never touches a Claude Code settings file or a Codex
-// config file. It also installs the dependencies the pack needs:
+// never enables a plugin (consent belongs to the interview). install.mjs itself writes neither a Claude Code settings
+// file nor a Codex config file; setup.mjs copies the suggested ones when they are missing and never overwrites a
+// student's changed copy. It also installs the dependencies the pack needs:
 // `npm ci --omit=dev` in the pack folder and, when career-ops has no node_modules yet, `npm install` there;
 // --skip-npm leaves those out for tests and offline repairs.
 // Usage: install.mjs [--root R] [--dry-run] [--yes] [--skip-npm]
@@ -19,9 +20,9 @@ import { defaultRunner } from './lib/upstream.mjs';
 
 export class InstallError extends Error {}
 
-// .codex/config.toml is listed so a student's own copy of the suggested Codex config stays out of upstream's commits.
-export const LOCAL_PATHS = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml'];
-export const EXCLUDES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', 'config/student.yml'];
+// .codex/config.toml and .claude/settings.local.json are listed so a student's copies of the suggested configs stay out of upstream's commits.
+export const LOCAL_PATHS = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', '.claude/settings.local.json'];
+export const EXCLUDES = ['student/', 'CLAUDE.local.md', 'AGENTS.override.md', '.codex/config.toml', '.claude/settings.local.json', 'config/student.yml'];
 // The exclude file git itself uses for root, or null when git cannot say (not a repository, no git). It is not
 // root/.git/info/exclude when .git is a file, as in a worktree, a submodule or a --separate-git-dir checkout.
 export function gitExcludePath(root, runner) {
@@ -94,9 +95,9 @@ function npmSteps({ root, packRoot, dryRun, runner, platform, actions, skipNpm }
   }
 }
 
-// Throws InstallError for an unsupported Node, a missing git or a failed npm step. With dryRun it returns the planned
-// actions and changes nothing.
-export function install({ root, packRoot, dryRun = false, runner = defaultRunner, nodeVersion, platform = process.platform, skipNpm = false }) {
+// Throws InstallError for an unsupported Node, a missing git or a root that is not a career-ops checkout. Returns the
+// root's package.json path.
+export function checkPrereqs({ root, runner = defaultRunner, nodeVersion }) {
   if (!nodeSupported(nodeVersion)) throw new InstallError('Node 22.13 or newer is required: install it from nodejs.org, then run this again');
   try {
     runner('git', ['--version']);
@@ -106,9 +107,16 @@ export function install({ root, packRoot, dryRun = false, runner = defaultRunner
   const pkgFile = join(root, 'package.json');
   const isUpstream = existsSync(pkgFile) && existsSync(join(root, 'update-system.mjs')) && JSON.parse(readFileSync(pkgFile, 'utf8')).name === 'career-ops';
   if (!isUpstream) throw new InstallError(`${root} is not a career-ops checkout: clone the pack into the student folder of your career-ops clone`);
+  return pkgFile;
+}
+
+// Throws InstallError for an unsupported Node, a missing git or a failed npm step. With dryRun it returns the planned
+// actions and changes nothing.
+export function install({ root, packRoot, dryRun = false, runner = defaultRunner, nodeVersion, platform = process.platform, skipNpm = false, skipMinCheck = false }) {
+  const pkgFile = checkPrereqs({ root, runner, nodeVersion });
   const compat = JSON.parse(readFileSync(join(packRoot, 'compat.json'), 'utf8'));
   const version = JSON.parse(readFileSync(pkgFile, 'utf8')).version;
-  if (compare(version, compat.upstream.min) < 0) {
+  if (!skipMinCheck && compare(version, compat.upstream.min) < 0) {
     throw new InstallError(`career-ops ${version} is older than ${compat.upstream.min}: run "node update-system.mjs apply --confirm" in the career-ops folder, then run this again`);
   }
 
