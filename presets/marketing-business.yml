@@ -221,7 +221,7 @@ seed_employers:
   - name: "Zendesk"
     careers_url: https://zendesk.bamboohr.com
   - name: "Zillow"
-    careers_url: https://zillow.bamboohr.com
+    careers_url: https://zillow.wd5.myworkdayjobs.com/Zillow_Group_External
   - name: "ZoomInfo"
     careers_url: https://job-boards.greenhouse.io/zoominfo
 archetypes:

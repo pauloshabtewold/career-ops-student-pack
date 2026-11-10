@@ -1,7 +1,7 @@
 {
   "upstream": {
     "min": "1.38.0",
-    "max": "1.38.0",
+    "max": "1.39.0",
     "tag_prefix": "career-ops-v"
   },
   "budgetSha256": "29046903194aaadeb7f27e18b55432ef22ec2d1d346a750b54824c48f9b3638d",

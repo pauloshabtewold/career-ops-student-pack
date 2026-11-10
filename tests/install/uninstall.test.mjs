@@ -245,6 +245,9 @@ test('W-024-A2-7 install and uninstall skip the exclude step, with a line, when 
 
 // W-024-A2-8
 const DISMISS = '.update-dismissed';
+// Versions are derived from compat.json so a canary bump of upstream.max does not turn the fixture into an in-range release.
+const COMPAT = JSON.parse(readFileSync(new URL('../../compat.json', import.meta.url), 'utf8')).upstream;
+const ABOVE_MAX = ((v) => `${v[0]}.${v[1] + 1}.0`)(COMPAT.max.split('.').map(Number));
 const dismissCase = (name, content, args, expectKept, expectLine) =>
   test(`W-024-A2-8 ${name}`, () =>
     withPack((p) => {
@@ -254,11 +257,11 @@ const dismissCase = (name, content, args, expectKept, expectLine) =>
       assert.equal(existsSync(join(p.root, DISMISS)), expectKept, name);
       if (expectLine) assert.match(r.stdout, expectLine);
     }));
-dismissCase('uninstall removes a dismiss marker for a version outside the pack range', '{"version":"1.39.0","at":"2026-10-01T00:00:00.000Z"}\n', [], false, /\.update-dismissed: removed/);
-dismissCase('uninstall keeps a dismiss marker for a version inside the pack range', '{"version":"1.38.0","at":"2026-10-01T00:00:00.000Z"}\n', [], true);
+dismissCase('uninstall removes a dismiss marker for a version outside the pack range', `{"version":"${ABOVE_MAX}","at":"2026-10-01T00:00:00.000Z"}\n`, [], false, /\.update-dismissed: removed/);
+dismissCase('uninstall keeps a dismiss marker for a version inside the pack range', `{"version":"${COMPAT.max}","at":"2026-10-01T00:00:00.000Z"}\n`, [], true);
 dismissCase('uninstall keeps an older bare-timestamp dismiss marker', '2026-10-01T00:00:00.000Z\n', [], true);
 dismissCase('uninstall keeps an unparsable dismiss marker', '{"version":', [], true);
-dismissCase('uninstall --dry-run says it would remove the marker and keeps it', '{"version":"1.39.0","at":"2026-10-01T00:00:00.000Z"}\n', ['--dry-run'], true, /would do: \.update-dismissed: would remove/);
+dismissCase('uninstall --dry-run says it would remove the marker and keeps it', `{"version":"${ABOVE_MAX}","at":"2026-10-01T00:00:00.000Z"}\n`, ['--dry-run'], true, /would do: \.update-dismissed: would remove/);
 
 test('W-024-A2-7 a career-ops folder inside another repository does not write that repository\'s exclude file', () => {
   const outer = mkdtempSync(join(tmpdir(), 'enclosing-repo-'));

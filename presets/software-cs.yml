@@ -147,6 +147,7 @@ seed_employers:
     careers_url: https://job-boards.greenhouse.io/samsara
   - name: "Anduril"
     careers_url: https://job-boards.greenhouse.io/andurilindustries
+    max_response_mb: 96
   - name: "Scale AI"
     careers_url: https://job-boards.greenhouse.io/scaleai
   - name: "Roblox"
@@ -175,6 +176,7 @@ seed_employers:
     careers_url: https://jobs.ashbyhq.com/notion
   - name: "OpenAI"
     careers_url: https://jobs.ashbyhq.com/openai
+    max_response_mb: 32
   - name: "Ramp"
     careers_url: https://jobs.ashbyhq.com/ramp
   - name: "Linear"
@@ -270,7 +272,8 @@ seed_employers:
   - name: "Verkada"
     careers_url: https://job-boards.greenhouse.io/verkada
   - name: "Shield AI"
-    careers_url: https://jobs.ashbyhq.com/shieldai
+    careers_url: https://jobs.lever.co/shieldai
+    max_response_mb: 32
   - name: "Tailscale"
     careers_url: https://job-boards.greenhouse.io/tailscale
   - name: "Mercury"

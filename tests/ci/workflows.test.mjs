@@ -180,3 +180,13 @@ test('W-011-S2 audit-presets.yml never hides an audit failure and never opens is
   assert.match(String(steps[fail].if), /steps\.audit\.outputs\.failed/);
   assert.equal(steps[audit].id, 'audit');
 });
+
+// Upstream 1.39.0 bump: the canary ran the suite before raising compat.json, so tests coupled to upstream.max passed in
+// the canary and failed on the bump PR. The test job must raise compat.json to the tested version before the suite runs.
+test('canary runs the pack tests after raising compat.json to the tested version', () => {
+  const runs = parse('canary.yml').jobs.test.steps.map((s) => s.run ?? '');
+  const bump = runs.findIndex((r) => r.includes('bump-compat.mjs'));
+  const suite = runs.findIndex((r) => r.includes('node --test'));
+  assert.ok(bump >= 0, 'test job has no bump-compat step');
+  assert.ok(bump < suite, 'bump-compat must run before node --test');
+});

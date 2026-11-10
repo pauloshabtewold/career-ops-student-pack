@@ -204,6 +204,7 @@ seed_employers:
     careers_url: https://job-boards.greenhouse.io/okta
   - name: "Veeva"
     careers_url: https://jobs.lever.co/veeva
+    max_response_mb: 32
   - name: "Anaplan"
     careers_url: https://job-boards.greenhouse.io/anaplan
   - name: "Experian"

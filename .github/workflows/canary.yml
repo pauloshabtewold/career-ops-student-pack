@@ -36,6 +36,10 @@ jobs:
         with:
           node-version: 22.x
       - run: npm ci
+      # Raise compat.json first so the suite sees the tree the bump PR will carry; exit 1 means not newer, which is fine.
+      - name: Raise compat.json to the tested version
+        shell: bash
+        run: node scripts/ci/bump-compat.mjs "${{ needs.resolve.outputs.version }}" || [ $? -eq 1 ]
       - run: node --test --test-concurrency=1
       - run: node scripts/ci/upstream-setup.mjs --out ${{ runner.temp }}/upstream --version ${{ needs.resolve.outputs.version }}
       - run: node scripts/ci/assert-doctor.mjs ${{ runner.temp }}/upstream/doctor.json

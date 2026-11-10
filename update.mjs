@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Updates the pack and upstream. Run as `node student/update.mjs`; session start runs it with --safety-only.
-// Order: integrity check, safety tag, newest release tag, plugin re-copy, upstream update, integrity check.
+// Order: integrity check, safety tag, newest release tag, plugin re-copy, upstream update, portals.yml response limits,
+// integrity check.
 // The pack enforces the upstream version range itself: upstream's dismiss file does not gate `apply`, and
 // `check --force` bypasses it, so this script never passes --force and never applies a version outside compat.json.
 // Usage: update.mjs [--root R] [--offline] [--dry-run] [--safety-only]
@@ -13,8 +14,10 @@ import { verifyAndRestore } from './lib/integrity.mjs';
 import { resolvePaths } from './lib/paths.mjs';
 import { scheduleNotice } from './lib/schedule-check.mjs';
 import { checkSafetyDiff } from './lib/safety-diff.mjs';
+import { addResponseCaps, presetResponseCaps } from './lib/portals-caps.mjs';
 import { inRange } from './lib/semver.mjs';
 import { oneLine } from './lib/text.mjs';
+import { writeAtomic } from './lib/tsv.mjs';
 import { createUpstream, defaultRunner } from './lib/upstream.mjs';
 
 const LOCAL_COMMITS = 'student/ has local commits; pack update skipped (fork-and-edit, see README)';
@@ -146,6 +149,20 @@ function updateUpstream({ up, packRoot, dryRun, say }) {
   else if (status) say(`upstream: up to date (${up.version()})`);
 }
 
+// Seeds copied into portals.yml before a preset raised a board's response limit keep the old entry; see lib/portals-caps.mjs.
+function raisePortalCaps({ root, packRoot, dryRun, say }) {
+  const file = join(root, 'portals.yml');
+  if (!existsSync(file)) return;
+  try {
+    const { text, added } = addResponseCaps(readFileSync(file, 'utf8'), presetResponseCaps(packRoot));
+    if (!added.length) return;
+    if (!dryRun) writeAtomic(file, text);
+    say(`portals.yml: ${dryRun ? 'would raise' : 'raised'} the response limit for ${added.join(', ')}`);
+  } catch (err) {
+    say(`portals.yml: response limits not raised (${oneLine(err.message) || 'failed'})`);
+  }
+}
+
 export async function runUpdate({ root, packRoot, offline = false, dryRun = false, safetyOnly = false, runner = defaultRunner, upstream, schedule = {} }) {
   const lines = [];
   const say = (l) => lines.push(l);
@@ -157,6 +174,8 @@ export async function runUpdate({ root, packRoot, offline = false, dryRun = fals
   const localCommits = await updatePack({ packRoot, runner, offline, dryRun, safetyOnly, say });
   if (!localCommits) syncPlugins({ root, packRoot, upstream: up, dryRun, say });
   if (!offline && !safetyOnly) updateUpstream({ up, packRoot, dryRun, say });
+  // After the pack fast-forward, so a release that adds a cap applies in the same run.
+  if (!safetyOnly) raisePortalCaps({ root, packRoot, dryRun, say });
 
   // Refreshed after every step that can replace AGENTS.md or AGENTS.student.md. Session start runs this with safetyOnly
   // and refreshes and reports the override itself, so only an explicit update touches it here.
