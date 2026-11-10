@@ -239,7 +239,7 @@ test('W-023-A4-12 architecture and coverage.mjs name phase 2 and the attach-poin
   assert.doesNotMatch(arch, /four places/);
   assert.match(arch, /five places only/);
   assert.match(arch, /\| `AGENTS\.override\.md` \|/);
-  assert.match(arch, /Interview phase 2 states the coverage line/);
+  assert.match(arch, /Part B builds and shows the raw queue first, then prints the coverage line/);
   assert.match(readDoc('interview/coverage.mjs'), /read aloud in interview phase 2/);
 });
 
