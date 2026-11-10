@@ -50,7 +50,7 @@ export function lintFiles(root) {
       if (CODE_EXT.test(rel) && !rel.startsWith('tests/') && line.includes(MAC_ONLY_TOKEN)) {
         findings.push({ file: rel, line: i + 1, rule: MAC_ONLY_TOKEN });
       }
-      // A test line that calls doesNotMatch( names the banned characters in order to assert their absence.
+      // A test line that calls doesNotMatch( names the banned characters to assert their absence.
       const assertsAbsence = rel.startsWith('tests/') && line.includes('doesNotMatch(');
       if (!assertsAbsence && [...line].some((c) => TYPOGRAPHY.has(c))) findings.push({ file: rel, line: i + 1, rule: 'typography' });
     });

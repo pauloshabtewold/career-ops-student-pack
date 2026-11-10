@@ -55,5 +55,5 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 | `docs/commands.md` | the user says "help" or "what can you do": show it from the student folder as written, grouped, and say "help" shows it again |
 | `scripts/profile-answers.mjs` | the user says "change a saved answer": run `node student/scripts/profile-answers.mjs set <key> <value>`; never copy an EEO value anywhere else |
 | `scripts/schedule.mjs` | the user says "change my schedule" (run `install --time HH:MM`), "check my schedule" (run `verify`) or "pause my schedule" (run `remove`) |
-| `config/student.yml` | the user says "change my triage budget": follow the triage budget rule above |
+| config/student.yml | the user says "change my triage budget": follow the triage budget rule above |
 | `update.mjs` | the user says "update the pack": run `node student/update.mjs` |

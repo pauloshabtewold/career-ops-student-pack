@@ -25,7 +25,7 @@ Read this when the user says "apply" or "start applying". The numbers below are 
 
 ## Fact gate
 
-Write nothing about the user that does not come from `cv.md`, the `application_answers` in `config/profile.yml` or the user in this chat. If a form asks for something none of them answers, ask. EEO values never go into reports, digests, logs, notes or messages; they go only into the form fields.
+Write nothing about the user that does not come from `cv.md`, the `application_answers` in config/profile.yml or the user in this chat. If a form asks for something none of them answers, ask. EEO values never go into reports, digests, logs, notes or messages; they go only into the form fields.
 
 ## Submit
 

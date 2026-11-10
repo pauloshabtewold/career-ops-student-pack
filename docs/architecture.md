@@ -15,7 +15,7 @@ The pack attaches through six places only:
 | upstream's local-paths list in its config folder | names the pack folder, `CLAUDE.local.md`, `AGENTS.override.md` and `.codex/config.toml` so career-ops updates leave them alone |
 | upstream's local plugins folder | holds full copies of the pack plugins |
 | `.git/info/exclude` | hides those paths and `config/student.yml` from career-ops' git status |
-| `.claude/settings.local.json` | written by `setup.mjs`: the suggested Claude Code permissions are added to the file, or the file is created with them, and every entry already there is kept; the local-paths list and `.git/info/exclude` name it; uninstall leaves it in place |
+| .claude/settings.local.json | written by `setup.mjs`: the suggested Claude Code permissions are added to the file, or the file is created with them, and every entry already there is kept; the local-paths list and `.git/info/exclude` name it; uninstall leaves it in place |
 
 Student data lives in career-ops' user layer plus a student settings file in the config folder and the pack's own data files.
 
@@ -73,7 +73,7 @@ Mail is untrusted input, so the inbox step changes the tracker for two outcomes 
 
 ## Source research
 
-`scripts/research-sources.mjs` finds sources for any field. The agent's web searches supply candidate boards and GitHub lists in `data/research-candidates.json`; the script decides. `lib/robots.mjs` applies RFC 9309 (the career-ops-student-pack group wins over `*`, the longest matching rule wins, a 4xx answer means no rules, a 5xx answer or a failed request means every path is disallowed, and a Crawl-delay above the 5 s cap skips the source). A board must be a Greenhouse, Lever or Ashby URL that robots allows and that upstream's `audit-portals` rates ok or small; a list must yield at least 5 unique eligible rows (when the merged preset has no include rules, a row counts only if its title holds a word of the student's roles). Survivors go into the `research_companies` block of `portals.yml` and the GitHub list registry as `trial` with notes `research`; `apply-answers.mjs` leaves that block alone and omits any employer already in it. A student's `config/profile.yml` is changed only in its `application_answers` block, by `lib/profile-answers.mjs`.
+`scripts/research-sources.mjs` finds sources for any field. The agent's web searches supply candidate boards and GitHub lists in data/research-candidates.json; the script decides. `lib/robots.mjs` applies RFC 9309 (the career-ops-student-pack group wins over `*`, the longest matching rule wins, a 4xx answer means no rules, a 5xx answer or a failed request means every path is disallowed, and a Crawl-delay above the 5 s cap skips the source). A board must be a Greenhouse, Lever or Ashby URL that robots allows and that upstream's `audit-portals` rates ok or small; a list must yield at least 5 unique eligible rows (when the merged preset has no include rules, a row counts only if its title holds a word of the student's roles). Survivors go into the `research_companies` block of `portals.yml` and the GitHub list registry as `trial` with notes `research`; `apply-answers.mjs` leaves that block alone and omits any employer already in it. A student's config/profile.yml is changed only in its `application_answers` block, by `lib/profile-answers.mjs`.
 
 ## Scheduled inbox pass
 
