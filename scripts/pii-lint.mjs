@@ -42,7 +42,20 @@ const FORBIDDEN_PATH_PATTERNS = [
 ];
 
 // RFC 2606 reserved domains only; anything else could reach a real person.
-const ALLOWED_EMAIL_DOMAINS = new Set(['example.com', 'example.org', 'example.net', 'example.edu']);
+const ALLOWED_EMAIL_DOMAINS = new Set([
+  'example.com',
+  'example.org',
+  'example.net',
+  'example.edu',
+  // Public job-alert and no-reply sender domains the inbox classifier recognizes. These are organization sender
+  // addresses, not personal data, so fixtures that name them reach no person.
+  'joinhandshake.com',
+  'simplify.jobs',
+  'indeed.com',
+  'indeedemail.com',
+  'usajobs.gov',
+  'linkedin.com',
+]);
 
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
 // US numbers: (408) 555-0100, 408-555-0100, 408.555.0100, +1 408 555 0100
