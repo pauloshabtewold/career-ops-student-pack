@@ -211,3 +211,69 @@ test('W-028 watch_only is accepted as true alone and rejected with any other val
     assert.throws(() => validatePreset(withSeed(extra), 'software-cs'), /seed_employers\[0\]/, JSON.stringify(extra));
   }
 });
+
+// M-001-S16-cdel
+test('M-001-S16-cdel software-cs ships the zapplyjobs Internships-2027 and New-Grad-Software-Engineering-Jobs-2027 README lists', () => {
+  const lists = loadPreset('software-cs').sources.github_lists;
+  const pick = (name) => lists.find((l) => l.name === name);
+  const intern = pick('zapply-intern');
+  const newgrad = pick('zapply-newgrad');
+  assert.ok(intern, 'zapply-intern list present');
+  assert.ok(newgrad, 'zapply-newgrad list present');
+  assert.deepEqual({ repo: intern.repo, path: intern.path, format: intern.format, kind: intern.kind }, { repo: 'zapplyjobs/Internships-2027', path: 'README.md', format: 'markdown-table', kind: 'internship' });
+  assert.deepEqual({ repo: newgrad.repo, path: newgrad.path, format: newgrad.format, kind: newgrad.kind }, { repo: 'zapplyjobs/New-Grad-Software-Engineering-Jobs-2027', path: 'README.md', format: 'markdown-table', kind: 'newgrad' });
+});
+
+// M-001-S16-cdel
+test('M-001-S16-cdel a preset alert accepts an optional site and search next to name and how, and any other key is unknown', () => {
+  const withAlert = (alert) => {
+    const p = structuredClone(loadPreset('byo-employer-list'));
+    p.sources.alerts = [alert];
+    return p;
+  };
+  const base = { name: 'Some alert', how: 'Turn it on.' };
+  assert.doesNotThrow(() => validatePreset(withAlert(base), 'byo-employer-list'));
+  for (const site of ['linkedin', 'handshake', 'simplify', 'indeed', 'usajobs', 'other']) {
+    assert.doesNotThrow(() => validatePreset(withAlert({ ...base, site, search: 'data intern' }), 'byo-employer-list'), site);
+  }
+  assert.doesNotThrow(() => validatePreset(withAlert({ ...base, site: 'linkedin' }), 'byo-employer-list'), 'site alone');
+  assert.doesNotThrow(() => validatePreset(withAlert({ ...base, search: 'data intern' }), 'byo-employer-list'), 'search alone');
+  assert.throws(() => validatePreset(withAlert({ ...base, color: 'red' }), 'byo-employer-list'), /color/);
+  assert.throws(() => validatePreset(withAlert({ ...base, site: 'myspace' }), 'byo-employer-list'), /site/);
+  assert.throws(() => validatePreset(withAlert({ ...base, search: '' }), 'byo-employer-list'), /search/);
+  assert.throws(() => validatePreset(withAlert({ ...base, site: 'linkedin', search: 5 }), 'byo-employer-list'), /search/);
+});
+
+// M-001-S16-cdel
+test('M-001-S16-cdel software-cs Handshake and LinkedIn alerts carry a site and a search', () => {
+  const alerts = loadPreset('software-cs').sources.alerts;
+  for (const site of ['handshake', 'linkedin']) {
+    const hit = alerts.find((a) => a.site === site);
+    assert.ok(hit, `${site} alert with a site key`);
+    assert.ok(typeof hit.search === 'string' && hit.search.length > 0, `${site} alert has a search`);
+  }
+});
+
+// M-001-S16-cdel
+test('M-001-S16-cdel engineering-mech-elec carries a Handshake alert with search engineering intern and a LinkedIn alert with search electrical engineering intern', () => {
+  const alerts = loadPreset('engineering-mech-elec').sources.alerts;
+  assert.equal(alerts.find((a) => a.site === 'handshake')?.search, 'engineering intern');
+  assert.equal(alerts.find((a) => a.site === 'linkedin')?.search, 'electrical engineering intern');
+});
+
+// M-001-S16-cdel
+test('M-001-S16-cdel the other field presets carry Handshake and LinkedIn alerts with a search, policy-government adds usajobs, tip-only entries keep no site', () => {
+  const FIELD = ['accounting', 'consulting', 'cybersecurity', 'finance-economics', 'marketing-business', 'mis-business-analytics', 'nursing', 'policy-government', 'statistics-math-actuarial', 'supply-chain-operations'];
+  for (const id of FIELD) {
+    const alerts = loadPreset(id).sources.alerts;
+    for (const site of ['handshake', 'linkedin']) {
+      const hit = alerts.find((a) => a.site === site);
+      assert.ok(hit, `${id}: ${site} alert`);
+      assert.ok(typeof hit.search === 'string' && hit.search.length > 0, `${id}: ${site} search`);
+    }
+  }
+  assert.ok(loadPreset('policy-government').sources.alerts.some((a) => a.site === 'usajobs'), 'policy-government usajobs entry');
+  assert.equal(loadPreset('nursing').sources.alerts.find((a) => a.name === 'Hospital residency pages')?.site, undefined);
+  assert.ok(loadPreset('nursing').sources.alerts.some((a) => a.name === 'Hospital residency pages'), 'the tip-only entry stays');
+  assert.equal(loadPreset('policy-government').sources.alerts.find((a) => a.name === 'Think tank pages')?.site, undefined);
+});

@@ -139,3 +139,33 @@ test('a scan that fails once is run a second time, and a second failure is repor
   assert.deepEqual(drive(1), { scans: 2, scan: 'scan ok' });
   assert.deepEqual(drive(2), { scans: 2, scan: 'scan FAILED' });
 });
+
+// M-001-S15-cdel
+test('M-001-S15-cdel without --queue the report prints exactly the lines it printed before the queue view existed', async () => {
+  const s = setup([
+    line(jobUrl(1), 'Example Robotics', 'Data Intern 1', 'Remote', 'src=handshake; imported=2026-10-27'),
+    line(jobUrl(2), 'Sample Labs', 'Data Intern 2', 'Austin, TX', 'src=handshake; imported=2026-10-27'),
+    line(jobUrl(3), 'Sample Labs', 'Data Intern 3', 'Austin, TX', 'src=github-lists; imported=2026-10-27; triage=PASS; score=4.6'),
+  ]);
+  try {
+    const out = [];
+    const code = await firstRun({ root: s.up.root, dataDir: s.data, packRoot: PACK_ROOT, today: TODAY, runner: () => '{}', out: (l) => out.push(String(l)) });
+    assert.equal(code, 0);
+    assert.deepEqual(out, [
+      'first-run: github-lists ok ({})',
+      'first-run: scan ok ({})',
+      'first-run: merge-post ok ({})',
+      'first-run: prefilter+triage ok ({})',
+      'Pending rows: 3',
+      '  src=handshake: 2',
+      '  src=github-lists: 1',
+      'Untriaged Pending rows: 2',
+      'Fewer than 10 postings fit your setup today (3), so the top list will be shorter than 10. The daily run adds new postings as they appear.',
+      'First-run triage budget: 60 rows (0 scored so far, batches of 20)',
+      'https://example.com/jobs/1 | Example Robotics | Data Intern 1',
+      'https://example.com/jobs/2 | Sample Labs | Data Intern 2',
+    ]);
+  } finally {
+    s.cleanup();
+  }
+});
