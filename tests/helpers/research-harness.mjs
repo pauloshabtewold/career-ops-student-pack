@@ -122,19 +122,22 @@ export function fakeFetch(routes = []) {
 export const route = (re, answer) => [(u) => re.test(u), answer];
 export const robots = (host, text, status = 200) => route(new RegExp(`^https://${host.replace(/\./g, '\\.')}/robots\\.txt$`), () => new Response(text, { status }));
 
-// Fake upstream: auditPortals(args) reads the temp yml named after --file at call time and answers
-// { boards: [{ name, status, postings }] }; statuses maps a board name to its status (default ok). The answer is a
-// JSON string that also carries the parsed keys, so a caller that parses text or reads fields both work.
+// Fake upstream: auditPortals(args) reads the temp yml named after --file at call time and answers like upstream
+// audit-portals.mjs 1.39.0 --json: an indented JSON array of { name, provider, careers_url, verdict, count, detail,
+// samples }. statuses maps a board name to its verdict (default ok); an ok board has 12 postings, any other 0.
 export function fakeUpstream(statuses = {}) {
   const calls = [];
   return {
     calls,
     auditPortals: (args = []) => {
       const file = args[args.indexOf('--file') + 1];
-      const names = (yaml.load(readFileSync(file, 'utf8'))?.tracked_companies ?? []).map((c) => c.name);
-      calls.push({ args, names });
-      const body = { boards: names.map((name) => ({ name, status: statuses[name] ?? 'ok', postings: (statuses[name] ?? 'ok') === 'ok' ? 12 : 0 })) };
-      return Object.assign(new String(JSON.stringify(body)), body);
+      const entries = yaml.load(readFileSync(file, 'utf8'))?.tracked_companies ?? [];
+      calls.push({ args, names: entries.map((c) => c.name) });
+      const rows = entries.map((c) => {
+        const verdict = statuses[c.name] ?? 'ok';
+        return { name: c.name, provider: 'greenhouse', careers_url: c.careers_url, verdict, count: verdict === 'ok' ? 12 : 0, detail: verdict === 'ok' ? '12 postings' : verdict, samples: [] };
+      });
+      return JSON.stringify(rows, null, 2) + '\n';
     },
   };
 }

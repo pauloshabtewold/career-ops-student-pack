@@ -360,3 +360,45 @@ test('M-001-S20-cdel --dry-run prints the full summary and changes neither porta
     real.cleanup();
   }
 });
+
+// Output shape captured from upstream audit-portals.mjs 1.39.0 --json (names changed): an indented array, verdict and count.
+const REAL_AUDIT_OUTPUT = `[
+  {
+    "name": "Sample Etch Works",
+    "provider": "greenhouse",
+    "careers_url": "https://job-boards.greenhouse.io/sampleetch",
+    "verdict": "ok",
+    "count": 25,
+    "detail": "25 postings",
+    "samples": [
+      "Process Engineer Intern (Austin, TX)",
+      "Design Engineer (Remote)"
+    ]
+  },
+  {
+    "name": "Sample Quiet Labs",
+    "provider": "lever",
+    "careers_url": "https://jobs.lever.co/samplequiet",
+    "verdict": "empty",
+    "count": 0,
+    "detail": "board answers with zero postings",
+    "samples": []
+  }
+]
+`;
+
+test('the audit step reads the real upstream --json array: verdict ok adds the board, verdict empty skips it', async () => {
+  const s = H.scratch();
+  try {
+    s.writeCandidates(cands({ boards: [BOARD('Sample Etch Works', 'https://job-boards.greenhouse.io/sampleetch'), BOARD('Sample Quiet Labs', 'https://jobs.lever.co/samplequiet')] }));
+    const up = { auditPortals: async () => REAL_AUDIT_OUTPUT };
+    const r = await H.runMain(s, ['--no-search'], { fetch: H.fakeFetch([]).fetch, sleep: H.sleeper().sleep, upstream: up, preset: H.PRESET });
+    assert.equal(r.code, 0, r.errText);
+    assert.ok(hasLine(r, /^research: added 1 boards, 0 GitHub lists$/), r.text);
+    assert.ok(hasLine(r, /^added: .*Sample Etch Works.*25 postings/), r.text);
+    assert.ok(hasLine(r, /Sample Quiet Labs.*audit: empty/), r.text);
+    assert.ok(!r.text.includes('audit: error'), r.text);
+  } finally {
+    s.cleanup();
+  }
+});

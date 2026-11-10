@@ -125,13 +125,28 @@ function knownEmployerKeys({ merged, portalsText, targets }) {
   return keys;
 }
 
+// Upstream 1.39.0 prints an indented JSON array of { name, verdict, count, ... } (an object { rows, drops } with
+// --baseline). An older shape { boards: [{ status, postings }] } is accepted too. Any text before the JSON is skipped.
+function parseAuditText(text) {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (err) {
+    const start = trimmed.search(/^[[{]/m);
+    if (start <= 0) throw err;
+    return JSON.parse(trimmed.slice(start));
+  }
+}
+
+const auditRows = (parsed) => (Array.isArray(parsed) ? parsed : parsed?.rows ?? parsed?.boards ?? []);
+
 async function auditBoards(upstream, entries) {
   return withTempDir('career-ops-research-', async (dir) => {
     const file = join(dir, 'portals.yml');
     writeAtomic(file, yaml.dump({ tracked_companies: entries.map((e) => ({ name: e.name, careers_url: e.careers_url, enabled: true })) }, { lineWidth: -1 }));
     const raw = await upstream.auditPortals(['--json', '--file', file]);
-    const parsed = typeof raw === 'string' ? JSON.parse(raw.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('{')).pop() ?? '{}') : raw;
-    return new Map((parsed.boards ?? []).map((b) => [b.name, b]));
+    const rows = auditRows(typeof raw === 'string' ? parseAuditText(raw) : raw);
+    return new Map(rows.map((b) => [b.name, { status: b.verdict ?? b.status, postings: b.count ?? b.postings }]));
   });
 }
 
