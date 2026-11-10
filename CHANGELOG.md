@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.5.0 (2026-11-09)
+
+- Fix pack for career-ops 1.39.0 (response cap, Apple provider, moved boards, 1.39.0 audit) (#38)
+- W-028: stop review-app test writing a stray -p file (#36)
+
+### Details
+
 - W-028: a review-app test's fake runner no longer writes a stray `-p` file into the working directory when a call has no `-o` flag.
 - W-029: career-ops 1.39.0 support. Tests no longer pin `upstream.max`, and the canary raises `compat.json` before its test job so it tests the tree it proposes.
 - W-029: a seed may carry `max_response_mb` (a number above 0, at most 100) for a board over upstream 1.39.0's 10 MB response limit, and `preset-portals.mjs` writes it to `portals.yml`; OpenAI, SpaceX, Lucid Motors, Veeva, Shield AI and Anduril carry it. `update.mjs` adds the key to a matching entry already in a student's `portals.yml` without touching anything else in the file, and the monthly audit issue counts the size error on those seeds in one line instead of listing it.
