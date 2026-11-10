@@ -45,10 +45,15 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 
 | File | Read when |
 |---|---|
-| `interview/interview.md` | `session-start` prints `INTERVIEW:`, or the user asks to redo their setup; its last phase runs `node student/scripts/first-run.mjs` and shows the first top 10 |
+| `interview/interview.md` | `session-start` prints `INTERVIEW:`, or the user says "redo my setup"; its Part D ends with the first top 10 and the guide in `docs/commands.md`. "find more job sources" runs its Part B research steps again (`node student/scripts/research-sources.mjs`) |
 | `modes/apply-loop.md` | the user says "apply" or "start applying" |
 | `modes/review.md` | `reviewer` is `on` in config/student.yml and a 4.0+ application's drafts are ready to show |
-| `modes/outreach.md` | the first session of the day, or the user asks for outreach |
-| `modes/handshake.md` | the user asks for the Handshake pass and the switch is on |
-| `modes/inbox.md` | the user asks to check the inbox or answers the digest |
-| `modes/daily-run.md` | the user asks about the unattended daily run or its triage step |
+| `modes/outreach.md` | the first session of the day, or the user says "outreach" |
+| `modes/handshake.md` | the user says "Handshake pass" and the switch is on |
+| `modes/inbox.md` | the user says "check my inbox" or "check my mail", or answers the digest; "turn off the inbox pass" sets `mailbox.schedule` to `off` |
+| `modes/daily-run.md` | the user says "what ran today" or "daily run" |
+| `docs/commands.md` | the user says "help" or "what can you do": show it from the student folder as written, grouped, and say "help" shows it again |
+| `scripts/profile-answers.mjs` | the user says "change a saved answer": run `node student/scripts/profile-answers.mjs set <key> <value>`; never copy an EEO value anywhere else |
+| `scripts/schedule.mjs` | the user says "change my schedule" (run `install --time HH:MM`), "check my schedule" (run `verify`) or "pause my schedule" (run `remove`) |
+| `config/student.yml` | the user says "change my triage budget": follow the triage budget rule above |
+| `update.mjs` | the user says "update the pack": run `node student/update.mjs` |

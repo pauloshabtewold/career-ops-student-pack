@@ -82,6 +82,16 @@ The computed codex input is the measured fixed cost of a codex call (10,100) plu
 
 Ten reviewed applications a day is therefore about $0.24 on Claude and $0.34 on codex at API rates. The reviewer is opt-in: with `reviewer: off` it sends nothing, and the triage budget above is separate and unchanged.
 
+## The inbox pass
+
+When `mailbox.schedule` is `on`, the schedule runs `scripts/inbox-pass.mjs` after the daily run and before triage. It makes one headless call per day, an agent call (`claude -p` or `codex exec`) in an empty folder with the Gmail read tools only: search, read one message and list labels. It reads at most 40 messages, company replies and assessment mail first and job alerts with what is left, and it reads a message body only for alert mail. Every tool the run called is audited, so a run that touched anything else is discarded.
+
+Tokens per run are an estimate until a live run on your own computer replaces it with a measured figure: about 15,000 tokens on a typical day (5 alert emails and 10 other messages), and at most about 60,000 at the 40-message cap. The fixed cost of one call is the same 3,500 tokens (Claude) or 10,100 tokens (Codex) as the triage call above. `node student/scripts/inbox-pass.mjs --check` runs one search and costs about 4,000 tokens. Turn the pass off by saying "turn off the inbox pass".
+
+## Job-source research
+
+`node student/scripts/research-sources.mjs` makes no model call. The model work is the web searches your agent does in the session while it looks for job lists and employer boards for your field: at most 5 web searches, counted as ordinary session usage. The script then vets what was found with plain requests: at most 20 boards and 15 GitHub lists per run, one audit of the boards that pass robots.txt, list files read 1.2 seconds apart, a GitHub search of at most 10 calls 6 seconds apart, and a stop after 5 minutes. Its last line prints the requests made, the seconds taken and the web searches used.
+
 ## Your plan
 
 Set `plan` in config/student.yml (the interview asks) to one of the ids below. It only chooses which plan line the pack prints; it limits nothing. Where a vendor publishes no number the pack says "not published" and does not invent one.

@@ -53,6 +53,10 @@ A codex too old to know one of the disabled feature names stops with "Unknown fe
 
 The call runs once per 20 rows of your daily triage budget. The digest carries the same lines as with Claude: a progress line per chunk, `daily triage: triaged N, passed N, ignored N`, a cost line with the rows sent today and an estimate, or a note saying why triage was skipped (agent not found, signed out, timed out). A skipped triage changes nothing and the rows wait for a later day. For what the estimate means on ChatGPT Plus and Pro, and how to read your own share with `/status`, see [usage-cost.md](usage-cost.md).
 
+## Inbox pass
+
+With `mailbox.schedule` on and `agent: codex`, the schedule runs the unattended inbox pass as one `codex exec` call with the Gmail app enabled and its 11 write tools disabled one by one, in an empty folder and with your own config ignored. The run's tool calls are audited, and one outside the Gmail read tools discards the answer. Part A of the interview runs `node student/scripts/inbox-pass.mjs --check --agent codex`; when that check fails, Part D shows the inbox pass off and says it runs only in sessions. On Windows the same pass runs from Task Scheduler through `codex` or `claude.cmd`; the Part A check and `node student/scripts/schedule.mjs verify` on that computer are what prove it there.
+
 ## What stays Claude-only
 
 The browser steps (applying, the Handshake pass, LinkedIn outreach) use Claude in Chrome. Codex has the ChatGPT in-app browser on macOS only. On Windows, and wherever no browser tool exists, Codex stops and tells you to do the step by hand or in Claude Code.
