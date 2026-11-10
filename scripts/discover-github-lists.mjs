@@ -72,7 +72,7 @@ export function buildQueries({ searchTerms, cycle }) {
   return queries.slice(0, DISCOVERY.max_search_calls);
 }
 
-async function searchRepos({ fetchImpl, sleep, queries, cutoff }) {
+export async function searchRepos({ fetchImpl, sleep, queries, cutoff }) {
   const found = new Map();
   for (const [i, q] of queries.entries()) {
     if (i > 0) await sleep(DISCOVERY.search_gap_ms);

@@ -4,7 +4,9 @@
 // daily run, makes no model call and opens no browser; the verdicts come from the session that runs it. It lists only
 // the rows left in the student's first-run triage budget (lib/triage-budget.mjs).
 // --list-only skips the ingest steps and only prints the counts and the rows, for a further batch after the first run.
-// Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run] [--list-only]
+// --queue runs the same ingest steps and then prints the raw queue (counts, the newest rows, upcoming sources) with no
+// scores and no triage list, which is what the interview shows before any grading.
+// Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run] [--list-only] [--queue]
 // Exit 0 after the report (a failed step is a line in it), 1 when the interview has not written config/student.yml.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,12 +16,15 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { ingestStepNames, ingestSteps, presetFeedPlugins } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { loadMerged } from '../lib/presets.mjs';
 import { ALL, CHUNK_ROWS, DEFAULT_FIRST_RUN, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 
 const DEFAULT_SHOWN = 20;
 const TOP_LIST_SIZE = 10;
+// Alert sites alert-plan.mjs turns into numbered setup steps; every other preset alert is a tip to follow by hand.
+const PLANNED_ALERT_SITES = ['linkedin', 'handshake', 'simplify', 'indeed', 'usajobs'];
 
 // Pending rows grouped by their src= note, and the ones that have no triage= note yet.
 export function summarizePending(pipelineText) {
@@ -49,9 +54,26 @@ export function formatFirstRunReport(summary, shown, { budget = DEFAULT_FIRST_RU
   return lines;
 }
 
+// The raw queue: how many postings wait, from which sources, the newest rows with no score, and the sources that are
+// upcoming or checked by hand. The newest are ordered by the imported= note, then by their place in the file.
+export function queueView(pipelineText, merged) {
+  const pending = sectionRows(parsePipeline(pipelineText || '# Pipeline\n'), 'Pending');
+  const summary = summarizePending(pipelineText);
+  const newest = pending
+    .map(({ row }, i) => ({ row, i }))
+    .sort((a, b) => (b.row.notes.get('imported') ?? '').localeCompare(a.row.notes.get('imported') ?? '') || b.i - a.i)
+    .slice(0, TOP_LIST_SIZE);
+  const lines = [`queue: ${summary.total} postings waiting`, ...summary.sources.map(([src, n]) => `source ${src}: ${n}`)];
+  if (newest.length) lines.push('newest:', ...newest.map(({ row }) => `${row.company} | ${row.title} | ${row.location}`));
+  const watchOnly = (merged?.seed_employers ?? []).filter((e) => e.watch_only).map((e) => `- ${e.name} ${e.careers_url} (upcoming)`);
+  const tips = (merged?.sources.alerts ?? []).filter((a) => !PLANNED_ALERT_SITES.includes(a.site)).map((a) => `- ${a.name} (upcoming): ${a.how}`);
+  if (watchOnly.length || tips.length) lines.push('Upcoming and check by hand:', ...watchOnly, ...tips);
+  return lines;
+}
+
 // Returns 1 only when config/student.yml is missing. A failed ingest step is a report line and the run goes on, so the
 // student always gets a list of rows to triage.
-export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT_SHOWN, listOnly = false, runner = defaultRunner, out = (s) => console.log(s) }) {
+export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT_SHOWN, listOnly = false, queue = false, runner = defaultRunner, out = (s) => console.log(s) }) {
   const config = await loadStudentConfig({ root });
   if (!config) {
     out('INTERVIEW: run student/interview/interview.md before anything else');
@@ -60,6 +82,16 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
   mkdirSync(dataDir, { recursive: true });
   if (!listOnly) runIngest({ root, dataDir, packRoot, today, runner, out, config });
   const file = join(dataDir, 'pipeline.md');
+  if (queue) {
+    let merged = null;
+    try {
+      merged = loadMerged(config.presets ?? [], { root });
+    } catch {
+      // A preset that cannot be read leaves the upcoming section out.
+    }
+    for (const line of queueView(existsSync(file) ? readFileSync(file, 'utf8') : '', merged)) out(line);
+    return 0;
+  }
   const budget = resolveTriageBudget(config).firstRun;
   const used = readTriageUsage(dataDir, today).firstRun;
   const report = formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), Math.min(shown, rowsLeft(budget, used)), { budget, used });
@@ -87,7 +119,8 @@ function runIngest({ root, dataDir, packRoot, today, runner, out, config }) {
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { n: 'int', 'list-only': 'boolean' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { n: 'int', 'list-only': 'boolean', queue: 'boolean' } });
+  if (flags.queue && flags.listOnly) throw new UsageError('use --queue or --list-only, not both');
   if (flags.n !== undefined && flags.n < 1) throw new UsageError('--n expects a whole number of 1 or more');
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   if (flags.dryRun) {
@@ -97,7 +130,7 @@ async function main() {
   }
   const config = await loadStudentConfig({ root: paths.root });
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
-  return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN, listOnly: flags.listOnly });
+  return firstRun({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, today, shown: flags.n ?? DEFAULT_SHOWN, listOnly: flags.listOnly, queue: flags.queue });
 }
 
 if (isMain(import.meta.url)) await runCli(main);
