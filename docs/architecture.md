@@ -80,7 +80,7 @@ The `usajobs` plugin (version 1.1.0, off by default) reads the USAJOBS search AP
 
 ## Coverage outside tech
 
-Coverage equals the quality of the preset's seed employer list. Interview phase 2 states the coverage line per field and never implies automation for a discovery-only preset. Twelve named presets ship, plus the bring-your-own-list preset for other fields. A seed is `name` and `careers_url`; when upstream cannot detect the board from its URL (Phenom, Radancy, Jibe and IBM boards), it may also carry `provider` (one of `phenom`, `radancy`, `jibeapply`, `ibm`) and only the config keys that provider reads, and `preset-portals.mjs` writes them into the upstream `portals.yml` entry. A monthly job audits the seed lists with upstream `audit-portals.mjs`.
+Coverage equals the quality of the preset's seed employer list. Interview phase 2 states the coverage line per field and never implies automation for a discovery-only preset. Twelve named presets ship, plus the bring-your-own-list preset for other fields. A seed is `name` and `careers_url`; when upstream cannot detect the board from its URL (Phenom, Radancy, Jibe and IBM boards) or the provider needs a search to run (Apple), it may also carry `provider` (one of `phenom`, `radancy`, `jibeapply`, `ibm`, `apple`) and only the config keys that provider reads, and `preset-portals.mjs` writes them into the upstream `portals.yml` entry. A board whose response is over upstream's 10 MB limit carries `max_response_mb`, which `update.mjs` also adds to a matching entry already in a student's `portals.yml`. A monthly job audits the seed lists with upstream `audit-portals.mjs`.
 
 ## Parity and CI
 

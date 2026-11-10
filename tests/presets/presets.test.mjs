@@ -140,8 +140,8 @@ test('W-029 max_response_mb must be a number above 0 and at most 100, and never 
   }
 });
 
-test('W-029 the four boards over 10 MB on career-ops 1.39.0 carry max_response_mb in every preset that seeds them', () => {
-  const capped = ['OpenAI', 'SpaceX', 'Lucid Motors', 'Veeva', 'Shield AI'];
+test('W-029 the boards over 10 MB on career-ops 1.39.0 carry max_response_mb in every preset that seeds them', () => {
+  const capped = ['OpenAI', 'SpaceX', 'Lucid Motors', 'Veeva', 'Shield AI', 'Anduril'];
   const seen = new Set();
   for (const id of ids()) {
     for (const e of loadPreset(id).seed_employers.filter((s) => capped.includes(s.name))) {

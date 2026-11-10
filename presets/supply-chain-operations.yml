@@ -166,6 +166,7 @@ seed_employers:
     careers_url: https://job-boards.greenhouse.io/hasbro
   - name: "SpaceX"
     careers_url: https://job-boards.greenhouse.io/spacex
+    max_response_mb: 64
   - name: "Expeditors"
     careers_url: https://careers.smartrecruiters.com/expeditors
   - name: "AbbVie"
@@ -206,8 +207,11 @@ seed_employers:
     careers_url: https://careers.fedex.com
     watch_only: true
   - name: "Apple"
-    careers_url: https://jobs.apple.com
-    watch_only: true
+    careers_url: https://jobs.apple.com/en-us/search
+    provider: apple
+    apple:
+      queries: ["supply chain", "procurement", "logistics"]
+      teams: ["internships-STDNT-INTRN", "manufacturing-and-operations-engineering-OPMFG-MFGE", "business-process-management-OPMFG-BPM"]
   - name: "Whirlpool"
     careers_url: https://whirlpool.eightfold.ai/careers?domain=whirlpool.com
   - name: "Tyson Foods"

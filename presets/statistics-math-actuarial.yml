@@ -187,6 +187,7 @@ seed_employers:
     careers_url: https://job-boards.greenhouse.io/okta
   - name: "OpenAI"
     careers_url: https://jobs.ashbyhq.com/openai
+    max_response_mb: 32
   - name: "Pacific Life"
     careers_url: https://pacificlife.wd1.myworkdayjobs.com/PacificLifeCareers
   - name: "Palantir"

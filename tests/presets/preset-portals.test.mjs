@@ -76,5 +76,5 @@ test('W-029 presetPortals passes max_response_mb through to portals.yml as a num
   const openai = doc.tracked_companies.find((e) => e.name === 'OpenAI');
   assert.equal(typeof openai.max_response_mb, 'number');
   assert.ok(openai.max_response_mb > 10);
-  assert.ok(doc.tracked_companies.filter((e) => e.name !== 'OpenAI' && e.name !== 'Shield AI').every((e) => !('max_response_mb' in e)));
+  assert.ok(doc.tracked_companies.filter((e) => !['OpenAI', 'Shield AI', 'Anduril'].includes(e.name)).every((e) => !('max_response_mb' in e)));
 });

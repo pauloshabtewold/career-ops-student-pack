@@ -22,18 +22,27 @@ export const auditTitle = (preset, total) => `Preset audit: ${preset} has ${tota
 // Accepts { boards: [{ name, status, postings }] }; rows with verdict/count are read the same way.
 const boardsOf = (out) => {
   const list = Array.isArray(out) ? out : (out?.boards ?? out?.rows ?? []);
-  return list.map((b) => ({ name: b.name, status: b.status ?? b.verdict, postings: b.postings ?? b.count }));
+  return list.map((b) => ({ name: b.name, status: b.status ?? b.verdict, postings: b.postings ?? b.count, detail: b.detail ?? '' }));
 };
+
+// audit-portals 1.39.0 ignores an entry's max_response_mb, so a board over its 10 MB default always audits as this error.
+const CAP_ERROR = /exceeded maxBytes/;
 
 // watchOnly maps preset id -> names of seeds marked watch_only. Their no-provider rows are expected every month, so they
 // are counted in one line instead of listed; any other status on them (error, empty, halved) is still flagged.
-export function auditIssues({ current, previous = {}, watchOnly = {} }) {
+// capped maps preset id -> names of seeds that set max_response_mb. scan.mjs reads those boards above 10 MB but
+// audit-portals does not, so their response-cap error is counted the same way; any other error on them is flagged.
+export function auditIssues({ current, previous = {}, watchOnly = {}, capped = {} }) {
   const issues = [];
   for (const [preset, out] of Object.entries(current)) {
     const watched = new Set(watchOnly[preset] ?? []);
+    const big = new Set(capped[preset] ?? []);
     const all = boardsOf(out);
-    const boards = all.filter((b) => !(b.status === 'no-provider' && watched.has(b.name)));
-    const skipped = all.length - boards.length;
+    const isWatched = (b) => b.status === 'no-provider' && watched.has(b.name);
+    const isCapped = (b) => b.status === 'error' && big.has(b.name) && CAP_ERROR.test(b.detail);
+    const boards = all.filter((b) => !isWatched(b) && !isCapped(b));
+    const skipped = all.filter(isWatched).length;
+    const overCap = all.filter(isCapped).length;
     const before = new Map(boardsOf(previous[preset]).filter((b) => Number.isFinite(b.postings)).map((b) => [b.name, b.postings]));
     const groups = new Map(FLAGGED.map((s) => [s, boards.filter((b) => b.status === s).map((b) => b.name)]));
     const halved = boards
@@ -53,6 +62,7 @@ export function auditIssues({ current, previous = {}, watchOnly = {} }) {
         ...section('Status empty', groups.get('empty')),
         ...section('Posting count halved or worse', halved),
         ...(skipped ? [`${skipped} watch-only seed${skipped === 1 ? '' : 's'} with no provider not listed.`, ''] : []),
+        ...(overCap ? [`${overCap} board${overCap === 1 ? '' : 's'} over the 10 MB audit limit not listed: scan.mjs reads ${overCap === 1 ? 'it' : 'them'} with max_response_mb.`, ''] : []),
       ].join('\n'),
     });
   }
@@ -92,8 +102,8 @@ async function main() {
   if (!flags.current) throw new UsageError('--current <dir> is required');
   if (Boolean(flags.open) !== Boolean(flags.repo)) throw new UsageError('--open and --repo go together');
   const current = loadDir(flags.current);
-  const watchOnly = Object.fromEntries(Object.keys(current).map((id) => [id, loadPreset(id).seed_employers.filter((e) => e.watch_only).map((e) => e.name)]));
-  const issues = auditIssues({ current, previous: loadDir(flags.previous), watchOnly });
+  const seedNames = (pick) => Object.fromEntries(Object.keys(current).map((id) => [id, loadPreset(id).seed_employers.filter(pick).map((e) => e.name)]));
+  const issues = auditIssues({ current, previous: loadDir(flags.previous), watchOnly: seedNames((e) => e.watch_only), capped: seedNames((e) => e.max_response_mb !== undefined) });
   if (!flags.repo) {
     console.log(JSON.stringify(issues, null, 2));
     return 0;

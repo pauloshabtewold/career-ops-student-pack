@@ -67,7 +67,7 @@ seed_employers:
   - name: "KnowBe4"
     careers_url: https://job-boards.greenhouse.io/knowbe4
   - name: "Sophos"
-    careers_url: https://jobs.lever.co/sophos
+    careers_url: https://jobs.ashbyhq.com/sophos
   - name: "Recorded Future"
     careers_url: https://job-boards.greenhouse.io/recordedfuture
   - name: "Snyk"
@@ -138,6 +138,7 @@ seed_employers:
     careers_url: https://job-boards.greenhouse.io/securityscorecard
   - name: "Anduril"
     careers_url: https://job-boards.greenhouse.io/andurilindustries
+    max_response_mb: 96
   - name: "Palantir"
     careers_url: https://jobs.lever.co/palantir
   - name: "Coinbase"
