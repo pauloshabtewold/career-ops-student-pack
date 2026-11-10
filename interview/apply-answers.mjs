@@ -365,7 +365,7 @@ function applicationAnswers(answers) {
   const apply = answers.application_profile;
   return {
     work_authorization: answers.work_authorization,
-    requires_sponsorship: answers.needs_sponsorship ?? false,
+    ...(answers.needs_sponsorship === undefined || answers.needs_sponsorship === null ? {} : { requires_sponsorship: answers.needs_sponsorship }),
     start_date: apply.start_date,
     relocation: apply.relocation,
     eeo: apply.eeo,
