@@ -80,7 +80,7 @@ function collectUnique(resolved, source, stat, env, acc) {
     if (env.known.has(key)) stat.already_queued++;
     if (!env.known.has(key)) stat.unique_new++;
     acc.jobs.push({ title: row.title, url: row.url, company: row.company, location: row.location });
-    acc.sidecarRows.push({ url: row.url, src: `github:${source.name}`, imported: env.today, extid: row.extid ?? '', notes: '' });
+    acc.sidecarRows.push({ url: row.url, src: `github:${source.name}`, imported: env.today, extid: row.extid ?? '', notes: row.company ? `company=${row.company}` : '' });
   }
 }
 

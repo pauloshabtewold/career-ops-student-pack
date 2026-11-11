@@ -20,6 +20,8 @@ import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { INTERVIEW_MAX_LIST_PASSES, INTERVIEW_MAX_SLICES, ingestStepNames, ingestSteps, presetFeedPlugins, sliceScan } from '../lib/ingest.mjs';
+import { parseTsv } from '../lib/tsv.mjs';
+import { urlKey } from '../lib/url-key.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { PresetError, loadMerged } from '../lib/presets.mjs';
@@ -33,11 +35,17 @@ const TOP_LIST_SIZE = 10;
 const PLANNED_ALERT_SITES = ['linkedin', 'handshake', 'simplify', 'indeed', 'usajobs'];
 
 // Pending rows grouped by their src= note, and the ones that have no triage= note yet.
-export function summarizePending(pipelineText) {
+// `sidecarText` (data/student-rows.tsv) names the list a row came from until merge-post joins it into the row's notes.
+export function summarizePending(pipelineText, sidecarText = '') {
+  const srcByKey = new Map();
+  for (const r of parseTsv(sidecarText).rows) {
+    const key = urlKey(r.url);
+    if (key && r.src) srcByKey.set(key, r.src);
+  }
   const pending = sectionRows(parsePipeline(pipelineText || '# Pipeline\n'), 'Pending');
   const bySource = new Map();
   for (const { row } of pending) {
-    const src = row.notes.get('src') || 'board';
+    const src = row.notes.get('src') || srcByKey.get(urlKey(row.url)) || 'board';
     bySource.set(src, (bySource.get(src) ?? 0) + 1);
   }
   return {
@@ -62,9 +70,9 @@ export function formatFirstRunReport(summary, shown, { budget = DEFAULT_FIRST_RU
 
 // The raw queue: how many postings wait, from which sources, the newest rows with no score, and the sources that are
 // upcoming or checked by hand. The newest are ordered by the imported= note, then by their place in the file.
-export function queueView(pipelineText, merged) {
+export function queueView(pipelineText, merged, sidecarText = '') {
   const pending = sectionRows(parsePipeline(pipelineText || '# Pipeline\n'), 'Pending');
-  const summary = summarizePending(pipelineText);
+  const summary = summarizePending(pipelineText, sidecarText);
   const newest = pending
     .map(({ row }, i) => ({ row, i }))
     .sort((a, b) => (b.row.notes.get('imported') ?? '').localeCompare(a.row.notes.get('imported') ?? '') || b.i - a.i)
@@ -96,15 +104,17 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
       if (!(err instanceof PresetError || err?.code === 'ENOENT' || err?.name === 'YAMLException')) throw err;
       out(`upcoming section left out: ${oneLine(err.message)}`);
     }
-    for (const line of queueView(existsSync(file) ? readFileSync(file, 'utf8') : '', merged)) out(line);
+    for (const line of queueView(existsSync(file) ? readFileSync(file, 'utf8') : '', merged, readSidecar(dataDir))) out(line);
     return 0;
   }
   const budget = resolveTriageBudget(config).firstRun;
   const used = readTriageUsage(dataDir, today).firstRun;
-  const report = formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : ''), Math.min(shown, rowsLeft(budget, used)), { budget, used });
+  const report = formatFirstRunReport(summarizePending(existsSync(file) ? readFileSync(file, 'utf8') : '', readSidecar(dataDir)), Math.min(shown, rowsLeft(budget, used)), { budget, used });
   for (const line of report) out(line);
   return 0;
 }
+
+const readSidecar = (dataDir) => (existsSync(join(dataDir, 'student-rows.tsv')) ? readFileSync(join(dataDir, 'student-rows.tsv'), 'utf8') : '');
 
 // Names of the employers the student put in the interview answers; none when the file is missing or unreadable.
 function targetEmployers(dataDir) {

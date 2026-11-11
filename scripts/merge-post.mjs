@@ -126,6 +126,13 @@ function joinSidecar(row, sidecar, stats) {
   const hit = sidecar.lookup(row.url);
   let changed = false;
   if (!hit) return changed;
+  // Upstream rebuilds the company from the job-site address (Pnc, Bocusa); the list's own company cell, kept in the
+  // sidecar, is the better name.
+  const listCompany = /^github:/.test(hit.src ?? '') ? /(?:^|;\s*)company=(.*?)(?=;\s*\w+=|$)/.exec(hit.notes ?? '')?.[1]?.trim() : '';
+  if (listCompany && listCompany !== row.company) {
+    row.company = listCompany;
+    changed = true;
+  }
   for (const col of ['src', 'imported', 'extid']) {
     if (hit[col] && !row.notes.has(col)) {
       row.notes.set(col, hit[col]);
