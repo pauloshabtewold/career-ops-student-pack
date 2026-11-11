@@ -135,9 +135,9 @@ const wordRegex = (archetypes) => {
 };
 
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
-const RESEARCH_BLOCK = /^[ \t]*# student-pack:start research_companies\n([\s\S]*?)^[ \t]*# student-pack:end research_companies[ \t]*$/m;
+const RESEARCH_BLOCK = /^[ \t]*# student-pack:start research_companies\r?\n([\s\S]*?)^[ \t]*# student-pack:end research_companies[ \t]*(?=\r?$)/m;
 
-function priorResearchEntries(portalsText) {
+export function priorResearchEntries(portalsText) {
   const hit = RESEARCH_BLOCK.exec(portalsText);
   const list = hit ? yaml.load(hit[1]) : null;
   return Array.isArray(list) ? list : [];
@@ -238,13 +238,22 @@ export function auditReason(status, detail) {
 // size (the preset caps for large boards run from 32 to 96). Returns { postings, cap } or null.
 const OVER_CAP_SIZE = /content-length (\d+)/;
 const UNKNOWN_SIZE_CAP_MB = 64;
-async function readableWithCap({ survivor, detail, fetch }) {
+const REQUEST_TIMEOUT_MS = 8000;
+// The extra fetch is bounded like every other research request: the robots Crawl-delay for the host is waited out (the
+// audit just read the same host), a stalled host is aborted after timeoutMs, and past the research deadline nothing is
+// sent. Returns { postings, cap }, { skip: reason } or null.
+export async function readableWithCap({ survivor, detail, fetch, checker, sleep, now, deadline, timeoutMs = REQUEST_TIMEOUT_MS }) {
   if (survivor.provider !== 'greenhouse') return null;
   const size = Number(OVER_CAP_SIZE.exec(String(detail))?.[1]);
   const cap = Number.isFinite(size) ? Math.ceil((size / 1048576) * 1.5) : UNKNOWN_SIZE_CAP_MB;
   if (cap > MAX_RESPONSE_MB_CEILING) return null;
   try {
-    const res = await fetch(survivor.apiUrl, { headers: { 'User-Agent': 'career-ops-student-pack' } });
+    const verdict = await checker.check(survivor.apiUrl);
+    if (!verdict.allowed) return null;
+    const wait = (verdict.crawlDelay ?? 0) * 1000;
+    if (now() + wait >= deadline) return { skip: 'time limit reached' };
+    if (wait > 0) await sleep(wait);
+    const res = await fetch(survivor.apiUrl, { headers: { 'User-Agent': 'career-ops-student-pack' }, signal: AbortSignal.timeout(timeoutMs) });
     const postings = res.ok ? (await res.json())?.jobs : null;
     return Array.isArray(postings) && postings.length ? { postings: postings.length, cap } : null;
   } catch {
@@ -253,7 +262,7 @@ async function readableWithCap({ survivor, detail, fetch }) {
 }
 
 // The audit result for the boards that passed the cheap checks; one upstream call covers them all.
-async function auditSurvivors({ survivors, upstream, root, fetch, added, skip }) {
+async function auditSurvivors({ survivors, upstream, root, fetch, checker, sleep, now, deadline, added, skip }) {
   try {
     const audit = await auditBoards(upstream ?? createUpstream({ root }), survivors);
     for (const s of survivors) {
@@ -261,8 +270,9 @@ async function auditSurvivors({ survivors, upstream, root, fetch, added, skip })
       const status = row?.status ?? 'error';
       if (status === 'ok' || status === 'small') added.push({ ...s, type: 'board', detail: `${s.provider}, ${row?.postings ?? 0} postings` });
       else if (auditReason(status, row?.detail).startsWith('board too large')) {
-        const big = await readableWithCap({ survivor: s, detail: row?.detail, fetch });
-        if (big) added.push({ ...s, type: 'board', max_response_mb: big.cap, detail: `${s.provider}, ${big.postings} postings, large board read with a ${big.cap} MB cap` });
+        const big = await readableWithCap({ survivor: s, detail: row?.detail, fetch, checker, sleep, now, deadline });
+        if (big?.skip) skip(s.name, big.skip);
+        else if (big) added.push({ ...s, type: 'board', max_response_mb: big.cap, detail: `${s.provider}, ${big.postings} postings, large board read with a ${big.cap} MB cap` });
         else skip(s.name, auditReason(status, row?.detail));
       } else skip(s.name, auditReason(status, row?.detail));
     }
@@ -284,7 +294,7 @@ async function checkBoard(c, { known, checker, skip }) {
 }
 
 // Boards: cheap local checks first, robots next, one audit call for everything that is left.
-async function vetBoards({ boards, ctx, checker, upstream, root, fetch, now, deadline, added, skip }) {
+async function vetBoards({ boards, ctx, checker, upstream, root, fetch, sleep, now, deadline, added, skip }) {
   const survivors = [];
   for (const [i, c] of boards.entries()) {
     if (i >= RESEARCH_LIMITS.max_boards) skip(c.name, 'cap reached');
@@ -294,7 +304,7 @@ async function vetBoards({ boards, ctx, checker, upstream, root, fetch, now, dea
       if (survivor) survivors.push(survivor);
     }
   }
-  if (survivors.length) await auditSurvivors({ survivors, upstream, root, fetch, added, skip });
+  if (survivors.length) await auditSurvivors({ survivors, upstream, root, fetch, checker, sleep, now, deadline, added, skip });
 }
 
 // The lists to probe: the agent's, then the catalog of preset lists not yet in the registry, then a bounded GitHub search.
@@ -408,7 +418,7 @@ export async function research({ paths, today, candidates = NO_CANDIDATES, fetch
     skipped.push({ name, reason });
     return null;
   };
-  await vetBoards({ boards: candidates.boards, ctx, checker, upstream, root: paths.root, fetch: counted, now, deadline, added, skip });
+  await vetBoards({ boards: candidates.boards, ctx, checker, upstream, root: paths.root, fetch: counted, sleep, now, deadline, added, skip });
   const queue = await listCandidates({ githubLists: candidates.github_lists, ctx, today, counted, sleep, noSearch, skip });
   const fresh = await vetLists({ queue, ctx, today, checker, counted, sleep, now, deadline, added, skip });
   const cost = { requests, seconds: Math.round((now() - startedAt) / 100) / 10, web_searches: candidates.web_searches };

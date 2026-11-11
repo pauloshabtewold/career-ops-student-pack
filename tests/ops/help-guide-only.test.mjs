@@ -14,6 +14,7 @@ test('help answers with the guide only and skips the session checks', () => {
   assert.match(rule0, /update-system\.mjs check/);
   assert.match(rule0, /docs\/commands\.md/);
   assert.match(rule0, /no update notice/);
+  assert.match(rule0, /first message that is not "help" still runs steps 1 to 4 \(`session-start\.mjs` first\)/);
 });
 
 test('normal sessions keep the update rule', () => {

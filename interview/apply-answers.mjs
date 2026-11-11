@@ -84,7 +84,7 @@ function renderCustom(template, values) {
 }
 
 function yamlBlockRe(name) {
-  return new RegExp(`^([ \\t]*)# student-pack:start ${name}\\n[\\s\\S]*?^[ \\t]*# student-pack:end ${name}[ \\t]*$`, 'm');
+  return new RegExp(`^([ \\t]*)# student-pack:start ${name}\\r?\\n[\\s\\S]*?^[ \\t]*# student-pack:end ${name}[ \\t]*(?=\\r?$)`, 'm');
 }
 
 // Inserts or replaces a marked block in portals.yml without touching anything else. A top-level key the user

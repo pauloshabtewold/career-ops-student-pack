@@ -4,7 +4,7 @@ These rules load in every session in this career-ops folder, through CLAUDE.loca
 
 ## Session start
 
-0. If the user's whole message is "help", skip steps 1 to 4 and upstream's session checks (do not run `update-system.mjs check` or `session-start.mjs`), and answer with the guide in `docs/commands.md` only, with no update notice. Any other message starts the session normally.
+0. If the user's whole message is "help", skip steps 1 to 4 and upstream's session checks (do not run `update-system.mjs check` or `session-start.mjs`), and answer with the guide in `docs/commands.md` only, with no update notice. The first message that is not "help" still runs steps 1 to 4 (`session-start.mjs` first), as if the session were just starting.
 1. Run `node student/scripts/session-start.mjs` first and act on its lines before anything else.
 2. If it prints `INTERVIEW:`, read `interview/interview.md` in the student folder and run the personalization interview. Do nothing else until it finishes, and offer no update (not upstream's notice, not step 3) until it is done; mention an available update once the interview is complete.
 3. Updates: when upstream's session check suggests updating, run `node student/update.mjs` instead, but never while the interview is pending. It updates the pack and upstream together and keeps both inside the supported version range.
