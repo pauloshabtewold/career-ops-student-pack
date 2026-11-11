@@ -4,6 +4,12 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.6.0 (2026-11-10)
+
+- Student pack v0.6.0: interview A-D, automatic job-source research for any major, scheduled inbox pass, EEO from profile, command guide (#40)
+
+### Details
+
 - W-031: the personalization interview is four batched Parts (sign-ins, job queue, application profile, schedule and switches) with a recommended answer and reason for every item; per-major job-source research (`research-sources.mjs`, `lib/robots.mjs`) vets boards and GitHub lists for any field before they reach the scan; `alert-plan.mjs` prints prefilled LinkedIn, Handshake, Simplify and Indeed alert steps; `first-run.mjs --queue` shows the raw queue; the scheduled inbox pass (`inbox-pass.mjs`, Gmail read tools only) stages alert jobs and reads replies each day, with `schedule.mjs verify`; saved application answers include the six EEO items (`profile-answers.mjs`) and apply mode fills forms from them; `docs/commands.md` is the one guide to what to say, checked against the files that handle each phrase; `github-lists` 1.3.2; SECURITY.md
 - 959: research accepts Workday, Jobvite, SmartRecruiters, Workable, BambooHR, Recruitee, Teamtailor, Breezy, Personio, Pinpoint, JazzHR and iCIMS boards, names why an audit failed, and reads a Greenhouse board over 10 MB with `max_response_mb`; the interview scan stops after 2 slices and reads research boards and target employers first; triage FAILs a posting that needs a credential the student will not hold in time and scores every row on its own text
 - 959: `github-lists` 1.4.0 asks for a 48 MiB body cap so the 13 MB SimplifyJobs listings.json is read (upstream capped a plugin response at 10 MiB), reads research-added lists first, records `deferred` and `already_queued` per list so 0 new rows is explained, and the interview's github-lists step runs it up to 6 times until every enabled list is read; the session rules offer no update during the interview
