@@ -14,8 +14,8 @@ const SHIPPED_SOURCES = {
     { name: 'litos-visa-quant', repo: 'mehek-builds/Finance-Accounting-Visa-Internships', path: 'csv/quant-risk.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
   ],
   alerts: [
-    { name: 'Handshake saved search', how: 'Save searches for summer analyst, finance intern and rotational program.' },
-    { name: 'LinkedIn job alerts', how: 'Alerts for investment banking analyst and corporate finance.' },
+    { name: 'Handshake saved search', how: 'Save searches for summer analyst, finance intern and rotational program.', site: 'handshake', search: 'finance intern' },
+    { name: 'LinkedIn job alerts', how: 'Alerts for investment banking analyst and corporate finance.', site: 'linkedin', search: 'investment banking analyst' },
     { name: 'Bank career sites', how: 'Banks post analyst programs on their own sites; check them in the fall.' },
   ],
 };

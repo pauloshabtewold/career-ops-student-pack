@@ -49,17 +49,17 @@ function blocks(text) {
 // Anchors read from interview.md at run time.
 function anchors() {
   const md = readText('interview/interview.md');
-  const phase4 = md.split(/^## Phase 4/m)[1].split(/^## Phase 5/m)[0];
+  const phase4 = md.split(/^## Part D: schedule and switches/m)[1];
   const paras = phase4.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const at = paras.findIndex((p) => /read this disclaimer once/i.test(p));
-  assert.ok(at >= 0 && paras[at + 1], 'Phase 4 read-once instruction followed by the disclaimer paragraph');
+  assert.ok(at >= 0 && paras[at + 1], 'Part D read-once instruction followed by the disclaimer paragraph');
   const D = norm(paras[at + 1]);
   const li = paras.find((p) => p.startsWith('LinkedIn outreach.'));
   assert.ok(li, 'LinkedIn outreach disclosure present');
   const L = norm(/^.*?[.!?](?=\s|$)(?:\s*)/s.exec(li)[0]);
-  const sLine = phase4.split('\n').find((l) => l.startsWith('- Outreach:'));
-  assert.ok(sLine, 'switch line starting Outreach: present');
-  const S = norm(sLine.replace(/^- /, ''));
+  const sLine = phase4.split('\n').find((l) => /^\d+\. Outreach\./.test(l));
+  assert.ok(sLine, 'switch item starting Outreach. present');
+  const S = norm(sLine.replace(/^\d+\. /, ''));
   return { D, L, S };
 }
 
@@ -74,14 +74,14 @@ function orderProblems(text) {
   const rest = interviewer.filter(({ i }) => i !== dIdx);
   const lTurn = rest.find(({ b }) => norm(b.text).includes(L));
   const sTurn = rest.find(({ b }) => norm(b.text).includes(S));
-  const p6 = bs.findIndex((b) => b.kind === 'heading' && /^##\s+Phase 6\b/.test(b.text));
+  const p6 = bs.findIndex((b) => b.kind === 'turn' && b.role === 'INTERVIEWER' && b.text.includes('schedule.mjs install'));
   if (!lTurn) problems.push('no turn quotes the LinkedIn outreach disclosure first sentence');
   if (!sTurn) problems.push('no turn quotes the Outreach: switch line');
-  if (p6 < 0) problems.push('no ## Phase 6 heading');
+  if (p6 < 0) problems.push('no schedule install turn');
   if (problems.length) return problems;
   if (!(dIdx < lTurn.i)) problems.push('disclaimer does not precede the LinkedIn disclosure');
   if (!(lTurn.i < sTurn.i)) problems.push('LinkedIn disclosure does not precede the switch line');
-  if (!(sTurn.i < p6)) problems.push('switch line does not precede ## Phase 6');
+  if (!(sTurn.i < p6)) problems.push('switch line does not precede the schedule install turn');
   return problems;
 }
 
@@ -114,16 +114,16 @@ for (const k of SETS) {
 
 // M-008-S3
 for (const k of SETS) {
-  test(`M-008-S3 ${k} transcript orders disclaimer, LinkedIn disclosure, Outreach switch, Phase 6`, () => {
+  test(`M-008-S3 ${k} transcript orders disclaimer, LinkedIn disclosure, Outreach switch, schedule install`, () => {
     assert.deepEqual(orderProblems(transcriptOf(k)), []);
   });
 }
 
 test('M-008-S3 order check flags a transcript that asks the switch before the disclaimer', () => {
   const { D, L, S } = anchors();
-  const bad = ['## Phase 4: switches', `INTERVIEWER: ${S}`, `INTERVIEWER: ${D}`, `INTERVIEWER: ${L}`, '## Phase 6: write'].join('\n');
+  const bad = ['## Part D: switches', `INTERVIEWER: ${S}`, `INTERVIEWER: ${D}`, `INTERVIEWER: ${L}`, 'INTERVIEWER: schedule.mjs install'].join('\n');
   assert.notDeepEqual(orderProblems(bad), []);
-  const good = ['## Phase 4: switches', `INTERVIEWER: ${D}`, `INTERVIEWER: ${L}`, `INTERVIEWER: ${S}`, '## Phase 6: write'].join('\n');
+  const good = ['## Part D: switches', `INTERVIEWER: ${D}`, `INTERVIEWER: ${L}`, `INTERVIEWER: ${S}`, 'INTERVIEWER: schedule.mjs install'].join('\n');
   assert.deepEqual(orderProblems(good), []);
 });
 
@@ -149,7 +149,7 @@ for (const k of SETS) {
 // M-008-S5
 // M-004-S4: the Phase 3 profile turns keep the Phase 1 to 6 heading order.
 for (const k of SETS) {
-  test(`M-008-S5 ${k} transcript has the marker, Preset set line and Phase 1 to 6 headings in order`, () => {
+  test(`M-008-S5 ${k} transcript has the marker, Preset set line and Part A to D headings in order`, () => {
     const text = transcriptOf(k);
     assert.ok(text.split('\n').slice(0, 5).join('\n').includes('SYNTHETIC FIXTURE'), 'marker in first five lines');
     const line = text.split('\n').find((l) => l.startsWith('Preset set:'));
@@ -160,8 +160,8 @@ for (const k of SETS) {
     assert.ok(ids.length > 0, 'preset ids present');
     for (const id of ids) assert.ok(ALLOWED_PRESETS.includes(id), `unexpected preset id ${id}`);
     assert.deepEqual([...new Set(tokens.filter((t) => ALLOWED_PRESETS.includes(t)))].sort(), [...ALLOWED_PRESETS].sort(), 'Preset set: line lists every preset in presets/');
-    const phases = text.split('\n').map((l) => /^## Phase (\d)\b/.exec(l)).filter(Boolean).map((m) => Number(m[1]));
-    assert.deepEqual(phases, [1, 2, 3, 4, 5, 6]);
+    const parts = text.split('\n').map((l) => /^## Part ([A-Z])\b/.exec(l)).filter(Boolean).map((m) => m[1]);
+    assert.deepEqual(parts, ['A', 'B', 'C', 'D']);
   });
 }
 
@@ -185,3 +185,31 @@ test('M-008-S6 pii-lint scanText finds nothing in any interview-runs fixture fil
     assert.deepEqual(scanText(rel, readFileSync(f, 'utf8')), [], rel);
   }
 });
+
+for (const k of SETS) {
+  test(`${k === SETS[0] ? 'M-003-S7-cdel' : 'extra check:'} ${k} transcript shows Parts A to D in order, ${k === 'nursing' ? 6 : 5} STUDENT turns and every application_profile value in Part C`, () => {
+    const text = transcriptOf(k);
+    const parts = text.split('\n').map((l) => /^## Part ([A-Z])\b/.exec(l)).filter(Boolean).map((m) => m[1]);
+    assert.deepEqual(parts, ['A', 'B', 'C', 'D']);
+    assert.ok(!/^## Phase\b/m.test(text), 'no Phase heading');
+    const bs = blocks(text);
+    const students = bs.filter((b) => b.kind === 'turn' && b.role === 'STUDENT');
+    assert.equal(students.length, k === 'nursing' ? 6 : 5, `STUDENT turns in ${k}`);
+    const partOf = (i) => {
+      let cur = null;
+      for (let j = 0; j <= i; j++) {
+        const m = bs[j].kind === 'heading' ? /^## Part ([A-Z])\b/.exec(bs[j].text) : null;
+        if (m) cur = m[1];
+      }
+      return cur;
+    };
+    const inC = bs.map((b, i) => ({ b, i })).filter(({ b, i }) => b.kind === 'turn' && partOf(i) === 'C');
+    assert.equal(inC.filter(({ b }) => b.role === 'STUDENT').length, k === 'nursing' ? 2 : 1, 'STUDENT turns inside Part C');
+    const partC = norm(inC.map(({ b }) => b.text).join('\n')).toLowerCase();
+    const profile = runAnswers(k).application_profile;
+    assert.equal(typeof profile.eeo, 'object', 'run answers carry the eeo map');
+    assert.deepEqual(Object.keys(profile.eeo).sort(), ['disability', 'gender', 'hispanic_latino', 'pronouns', 'race_ethnicity', 'sexual_orientation', 'transgender', 'veteran']);
+    const values = [profile.start_date, profile.relocation, profile.how_did_you_hear, ...Object.values(profile.eeo)];
+    for (const v of values) assert.ok(partC.includes(String(v).toLowerCase()), `Part C holds ${JSON.stringify(v)}`);
+  });
+}

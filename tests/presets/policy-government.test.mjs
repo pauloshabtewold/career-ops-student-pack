@@ -11,9 +11,11 @@ const SHIPPED_SOURCES = {
     { name: 'litos-policy', repo: 'mehek-builds/Hiring-Now', path: 'csv/policy-government-affairs.csv', format: 'csv', kind: 'internship', field_map: { company: 'Company', title: 'Role', location: 'Location', date: 'Posted', url: 'Link' } },
   ],
   alerts: [
-    { name: 'USAJOBS', how: 'Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts.' },
+    { name: 'USAJOBS', how: 'Save a USAJOBS search with the Pathways and recent graduates hiring paths and turn on its email alerts; the inbox step reads those alerts.', site: 'usajobs', search: 'Pathways recent graduates' },
     { name: 'Think tank pages', how: 'Check think tank internship pages by hand each term.' },
     { name: 'Idealist', how: 'Idealist bars scraping, so use its email alerts only.' },
+    { name: 'Handshake saved search', how: 'Save searches for policy analyst and government intern.', site: 'handshake', search: 'policy intern' },
+    { name: 'LinkedIn job alerts', how: 'Create alerts for policy analyst intern and public sector.', site: 'linkedin', search: 'policy intern' },
   ],
 };
 

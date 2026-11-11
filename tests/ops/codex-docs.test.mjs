@@ -84,8 +84,8 @@ test('M-003-S5 docs/codex-spike.md holds no email address and passes pii-lint', 
 });
 
 // M-003-S6
-test('M-003-S6 interview.md Phase 5 names the agent key with claude and codex', () => {
-  const phase = section(read('interview/interview.md'), '## Phase 5');
+test('M-003-S6 interview.md Part D names the agent key with claude and codex', () => {
+  const phase = section(read('interview/interview.md'), '## Part D: schedule and switches');
   assert.match(phase, /`agent`/);
   assert.match(phase, /`codex`/);
   assert.match(phase, /`claude`/);
@@ -150,4 +150,13 @@ test('M-003-S11 README.md and docs/codex.md never tell anyone to edit a file und
   }
   assert.ok(HOME_CODEX_EDIT.test('Edit ~/.codex/config.toml and add the key'), 'the pattern catches an edit instruction');
   assert.ok(!HOME_CODEX_EDIT.test('Copy the template to .codex/config.toml in the career-ops folder'), 'the pattern allows the project copy');
+});
+
+// M-003-S20-cdel
+test('M-003-S20-cdel interview.md Part D records the agent key as codex in Codex and claude in Claude Code without asking', () => {
+  const part = section(read('interview/interview.md'), '## Part D: schedule and switches');
+  assert.match(part, /`agent`/);
+  assert.match(part, /`codex` when (this|the) interview runs in Codex/i);
+  assert.match(part, /`claude` (when|in) [^.\n]*Claude Code/i);
+  assert.match(part, /(never asked|do not ask|without asking|not asked)/i);
 });

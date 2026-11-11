@@ -18,6 +18,7 @@ import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { STEP_TIMEOUT_MS } from '../lib/ingest.mjs';
 import { classifyMail } from '../lib/mail-classify.mjs';
+import { EEO_KEYS } from '../lib/profile-answers.mjs';
 import { effectiveTitleRules, loadMerged, toUpstreamTerms } from '../lib/presets.mjs';
 import { INTERN_TITLE, NEWGRAD_TITLE } from '../lib/title-patterns.mjs';
 import { realish, scratchOverlap } from './parity.mjs';
@@ -39,7 +40,7 @@ const ROWS = [
   ['Tailored materials and resume guard (PROXY)', 'check-resume passes one page, fails two; apply-loop names its flags'],
   ['Inbox', 'interview after a receipt is interview; a conditional receipt is ignored'],
   ['Outreach and apply gates', 'log apply.policy exits 0; a below-floor submit check is refused'],
-  ['Daily schedule installed (PROXY)', 'schedule install --dry-run starts scheduled.mjs; interview runs it after rank-queue'],
+  ['Daily schedule installed (PROXY)', 'schedule install --dry-run starts scheduled.mjs; interview Part D runs schedule install before rank-queue'],
 ];
 
 const run = (cmd, args, opts = {}) => {
@@ -135,6 +136,8 @@ function checkFiles({ dir }) {
   try {
     const answers = yaml.load(readIf(join(dir, 'config', 'profile.yml')))?.application_answers ?? {};
     must(PROFILE_KEYS.every((k) => answers[k] !== undefined), 'application_answers keys');
+    // eeo is a map holding the eight items, or the older single string that profile-answers.mjs counts as unknown.
+    must(typeof answers.eeo === 'string' || EEO_KEYS.every((k) => typeof answers.eeo?.[k] === 'string' && answers.eeo[k]), 'application_answers eeo');
   } catch {
     fails.push('profile.yml parse');
   }
@@ -269,8 +272,10 @@ function checkSchedule({ dir }) {
   const res = student(dir, join('scripts', 'schedule.mjs'), ['install', '--dry-run', '--root', dir]);
   const fails = [];
   if (res.code !== 0 || !res.stdout.includes('scheduled.mjs') || !res.stdout.includes(process.execPath)) fails.push('dry-run program');
-  const phase6 = readIf(join(dir, 'student', 'interview', 'interview.md')).split('## Phase 6')[1] ?? '';
-  if (!(phase6.includes('rank-queue.mjs') && phase6.lastIndexOf('schedule.mjs install') > phase6.lastIndexOf('rank-queue.mjs'))) fails.push('interview order');
+  // Part D installs and verifies the schedule before it shows the first top 10, so a broken schedule is found first.
+  const partD = readIf(join(dir, 'student', 'interview', 'interview.md')).split('## Part D')[1] ?? '';
+  const install = partD.indexOf('schedule.mjs install');
+  if (!(install !== -1 && partD.includes('rank-queue.mjs') && install < partD.indexOf('rank-queue.mjs'))) fails.push('interview order');
   return fails;
 }
 

@@ -103,7 +103,7 @@ test('M-003-S7 stats row has the documented columns and counts', async () => {
   try {
     await plugin.ingest(ctx);
     const st = await stats(s);
-    assert.deepEqual(st.header, ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed']);
+    assert.deepEqual(st.header, ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed', 'deferred', 'already_queued']);
     assert.equal(st.rows.length, 1);
     assert.equal(st.rows[0].date, H.TODAY);
     assert.equal(st.rows[0].name, 'list-a');
@@ -277,6 +277,21 @@ test('ingest stops reading sources once the time budget is spent and reads the s
     assert.equal(registry.sources.find((r) => r.name === 'list-b').last_ingest, undefined);
     await plugin.ingest(ctx);
     assert.equal(stub.calls[1].url.includes('list-b'), true);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('never-read lists go first even when an earlier list was read but deferred', async () => {
+  const sources = [src({ last_read: '2026-11-01' }), src({ name: 'list-b', repo: 'example-org/list-b', last_read: '2026-11-05' }), src({ name: 'list-c', repo: 'example-org/list-c' })];
+  const handlers = [rawHandler('list-a', H.SIMPLIFY_JSON), rawHandler('list-b', H.SIMPLIFY_JSON), rawHandler('list-c', H.SIMPLIFY_JSON)];
+  const { s, stub, ctx } = await setup(sources, handlers);
+  try {
+    await plugin.ingest(ctx);
+    const order = stub.calls.map((c) => c.url.split('/')[4]);
+    assert.deepEqual(order, ['list-c', 'list-a', 'list-b']);
+    const registry = JSON.parse(readText(join(s.data, 'student-github-sources.json')));
+    assert.equal(registry.sources.find((r) => r.name === 'list-c').last_read, H.TODAY);
   } finally {
     s.cleanup();
   }

@@ -1,6 +1,6 @@
 # Outreach
 
-Read this in the first session of the day, or when the user asks for outreach. It only applies while `switches.outreach` is `on` (drafts mode is below).
+Read this when the user says "outreach", and in the first session of the day. It only applies while `switches.outreach` is `on` (drafts mode is below).
 
 ## One round per day
 

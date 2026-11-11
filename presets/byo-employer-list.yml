@@ -23,8 +23,10 @@ sources:
   alerts:
     - name: "Handshake saved search"
       how: "Save a search for your field and turn on email alerts."
+      site: handshake
     - name: "LinkedIn job alerts"
       how: "Create alerts for your target titles and employers."
+      site: linkedin
     - name: "Employer career pages"
       how: "Add each target employer career page when the interview asks for your employer list."
 search_terms: []

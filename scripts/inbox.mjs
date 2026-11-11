@@ -2,7 +2,9 @@
 // Inbox step. Works only on mail the student pastes or the Gmail connector hands over as a JSON file; it never
 // logs in, fetches or follows a link, and nothing it prints carries message text or links.
 // Usage: inbox.mjs --backend connector --input F | paste --file F | gmail-plugin
-//                  [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--propose-only]
+//                  [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--propose-only] [--resolve]
+// --resolve looks each alert job up on the employer's own public board (Greenhouse, Lever or Ashby), so the row can
+// reach Pending with the employer's URL; it reads robots.txt first and makes at most RESOLVE_LOOKUPS requests per run.
 // Status changes go only through upstream set-status.mjs. Seen message ids live in data/.student-inbox-seen.
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,12 +13,19 @@ import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { classifyMail, compact, squash } from '../lib/mail-classify.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { politeFetch } from '../lib/robots.mjs';
 import { runResult } from '../lib/run.mjs';
 import { loadMerged } from '../lib/presets.mjs';
+import { findAtEmployer } from '../plugins/github-lists/_resolve.mjs';
 import { effectiveLimits } from './budget.mjs';
 
 const BACKENDS = ['connector', 'paste', 'gmail-plugin'];
 const DAY_MS = 86400000;
+// A run looks up at most this many alert jobs and stops looking after the deadline, so one busy inbox cannot hold the
+// scheduled run; jobs past either limit stay needs-url rows.
+const RESOLVE_LOOKUPS = 30;
+const RESOLVE_DEADLINE_MS = 5 * 60 * 1000;
+const HANDSHAKE_JOB_URL = 'https://app.joinhandshake.com/jobs/';
 
 function isoDate(value) {
   const ms = Date.parse(value);
@@ -54,6 +63,7 @@ export function normalize(backend, payload) {
     subject: squash(m.subject),
     snippet: squash(m.snippet),
     date: isoDate(m.date),
+    ...(Array.isArray(m.jobs) ? { jobs: m.jobs.filter((j) => j && typeof j === 'object') } : {}),
   }));
 }
 
@@ -125,15 +135,55 @@ async function applyStatus({ m, c }, env) {
   }
 }
 
+// One lookup per company and title per run; a miss, the lookup cap or the deadline all answer null.
+function createLookup({ flags, deps, limits }) {
+  if (!flags.resolve) return () => null;
+  const find = deps.findAtEmployer ?? findAtEmployer;
+  const fetch = politeFetch({ ...(deps.fetch ? { fetch: deps.fetch } : {}), ...(deps.sleep ? { sleep: deps.sleep } : {}), gapMs: limits.request_gap_ms });
+  const deadline = (deps.now?.() ?? Date.now()) + RESOLVE_DEADLINE_MS;
+  const answers = new Map();
+  return async (job) => {
+    const key = `${compact(job.company)}|${compact(job.title)}`;
+    if (!answers.has(key)) {
+      const lookable = answers.size < RESOLVE_LOOKUPS && (deps.now?.() ?? Date.now()) < deadline;
+      answers.set(key, lookable ? ((await find({ company: job.company, title: job.title, location: job.location }, { fetch, ...(deps.sleep ? { sleep: deps.sleep } : {}), deadline })).url ?? null) : null);
+    }
+    return answers.get(key);
+  };
+}
+
+// A message with a jobs array stages one row per job; a message without one stages the single row its subject gave.
+// Rows are never given a LinkedIn, Indeed or Simplify URL: those hosts are aggregators and merge-post would flag them.
+async function stageAlert(c, env) {
+  const { out, clock } = env;
+  const jobs = c.jobs ?? [{ title: c.title, company: c.company, location: '', jobId: c.jobId, site: '' }];
+  const imported = `imported=${clock.today()}`;
+  for (const job of jobs) {
+    const cells = (url) => `- [ ] ${url} | ${job.company} | ${job.title} | ${job.location || 'unknown'} |`;
+    const extid = job.jobId ? [`extid=${job.jobId}`] : [];
+    out.counts.alerts += 1;
+    // The job's own site wins over the sender: a Handshake mail can carry a posting that lives elsewhere. A message with
+    // no jobs array keeps the subject-parse row it always staged.
+    const onHandshake = job.site ? job.site === 'handshake' : c.label === 'handshake-alert';
+    if (c.jobs && onHandshake && /^\d+$/.test(job.jobId)) {
+      out.stagingRows.push(`${cells(`${HANDSHAKE_JOB_URL}${job.jobId}`)} note: ${['src=handshake-alert', imported].join('; ')}`);
+      out.counts.handshake += 1;
+      continue;
+    }
+    const employerUrl = c.jobs ? await env.lookup(job) : null;
+    out.stagingRows.push(`${cells(employerUrl ?? 'needs-url')} note: ${[`src=${c.label}`, ...extid, imported].join('; ')}`);
+    out.counts[employerUrl ? 'employer' : 'needUrl'] += 1;
+  }
+}
+
 async function handleResult(item, env) {
   const { m, c } = item;
-  const { out, clock } = env;
+  const { out } = env;
   if (c.kind === 'suspicious') {
     out.suspicious.push(`- ${m.id} asks for sensitive details or a link; do not reply or click`);
     out.notices.push(`suspicious message ${m.id}, see the digest`);
   } else if (c.kind === 'alert') {
-    const note = [`src=${c.label}`, ...(c.jobId ? [`extid=${c.jobId}`] : []), `imported=${clock.today()}`].join('; ');
-    out.stagingRows.push(`- [ ] needs-url | ${c.company} | ${c.title} | unknown | note: ${note}`);
+    await stageAlert(c, env);
   } else if (env.conflicted(m, c)) {
     out.proposed.push(`- ${m.id} ${c.company}: ${PROPOSAL_TEXT.conflict}`);
     out.notices.push(`${c.company}: conflicting mail, check the digest`);
@@ -157,8 +207,9 @@ function persist({ paths, flags, out, fresh, seenFile }) {
   if (done.length) appendFileSync(seenFile, `${done.map((m) => m.id).join('\n')}\n`);
 }
 
-export async function main(argv, deps = {}) {
-  const { flags } = parseArgs(argv, { flags: { backend: 'string', input: 'string', file: 'string', 'propose-only': 'boolean' } });
+// Returns the exit code and the counts the scheduled inbox pass puts in its digest line.
+export async function runInbox(argv, deps = {}) {
+  const { flags } = parseArgs(argv, { flags: { backend: 'string', input: 'string', file: 'string', 'propose-only': 'boolean', resolve: 'boolean' } });
   const print = deps.out ?? ((l) => console.log(l));
   const runner = deps.runner ?? defaultRunner;
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
@@ -169,7 +220,7 @@ export async function main(argv, deps = {}) {
   if (backend === 'gmail-plugin') {
     const res = await runner(['plugins.mjs', 'run', 'gmail'], { cwd: paths.root });
     print(`gmail plugin ${res.code === 0 ? 'ran' : `failed (exit ${res.code})`}; it feeds job discovery only, so replies need the connector or paste backend`);
-    return 0;
+    return { code: 0, counts: null };
   }
 
   const messages = loadMessages(backend, flags);
@@ -190,18 +241,24 @@ export async function main(argv, deps = {}) {
     fresh.push(m);
   }
   const results = fresh.map((m) => ({ m, c: classifyMail(m, ctx) }));
-  const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set() };
-  const env = { companies, flags, runner, paths, out, clock, conflicted: conflictChecker(results) };
+  const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set(), counts: { alerts: 0, employer: 0, handshake: 0, needUrl: 0 } };
+  const env = { companies, flags, runner, paths, out, clock, conflicted: conflictChecker(results), lookup: createLookup({ flags, deps, limits }) };
   for (const item of results) await handleResult(item, env);
 
   for (const [heading, bullets] of [['Status updates applied', out.applied], ['Proposed status changes', out.proposed], ['Suspicious', out.suspicious]]) {
     if (!bullets.length) continue;
     for (const l of [`## ${heading}`, ...bullets, '']) print(l);
   }
+  const { counts } = out;
+  if (counts.alerts) print(`inbox: alerts staged ${counts.alerts} (employer ${counts.employer}, handshake ${counts.handshake}, need a link ${counts.needUrl})`);
   for (const n of out.notices.slice(0, limits.notifications_per_run)) print(`notice: ${n}`);
 
   if (!flags.dryRun) persist({ paths, flags, out, fresh, seenFile });
-  return 0;
+  return { code: 0, counts: { messages: fresh.length, ...counts, applied: out.applied.length, proposed: out.proposed.length, suspicious: out.suspicious.length } };
+}
+
+export async function main(argv, deps = {}) {
+  return (await runInbox(argv, deps)).code;
 }
 
 if (isMain(import.meta.url)) await runCli(() => main(process.argv.slice(2)));

@@ -5,14 +5,14 @@ on:
     - cron: "17 6 * * 1"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+# Each job asks for only what it uses.
+permissions: {}
 
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.latest.outputs.version }}
     steps:
@@ -25,6 +25,8 @@ jobs:
 
   test:
     needs: resolve
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -39,15 +41,24 @@ jobs:
       # Raise compat.json first so the suite sees the tree the bump PR will carry; exit 1 means not newer, which is fine.
       - name: Raise compat.json to the tested version
         shell: bash
-        run: node scripts/ci/bump-compat.mjs "${{ needs.resolve.outputs.version }}" || [ $? -eq 1 ]
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: node scripts/ci/bump-compat.mjs "$VERSION" || [ $? -eq 1 ]
       - run: node --test --test-concurrency=1
-      - run: node scripts/ci/upstream-setup.mjs --out ${{ runner.temp }}/upstream --version ${{ needs.resolve.outputs.version }}
-      - run: node scripts/ci/assert-doctor.mjs ${{ runner.temp }}/upstream/doctor.json
+      - shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: node scripts/ci/upstream-setup.mjs --out "$RUNNER_TEMP/upstream" --version "$VERSION"
+      - shell: bash
+        run: node scripts/ci/assert-doctor.mjs "$RUNNER_TEMP/upstream/doctor.json"
 
   bump:
     needs: [resolve, test]
     if: needs.test.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,7 +66,9 @@ jobs:
           node-version: 22.x
       - run: npm ci
       - id: bump
-        run: node scripts/ci/bump-compat.mjs ${{ needs.resolve.outputs.version }}
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: node scripts/ci/bump-compat.mjs "$VERSION"
         continue-on-error: true
       - name: Open pull request in this repository
         if: steps.bump.outcome == 'success'
@@ -74,6 +87,8 @@ jobs:
     needs: [resolve, test]
     if: needs.test.result == 'failure'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - name: Open issue in this repository
         env:

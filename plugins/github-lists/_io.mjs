@@ -46,7 +46,13 @@ export function escapeCell(value) {
 export async function appendStats(file, header, rows) {
   if (!rows.length) return;
   mkdirSync(dirname(file), { recursive: true });
-  if (!existsSync(file)) writeFileSync(file, `${header.join('\t')}\n`);
+  const head = header.join('\t');
+  if (!existsSync(file)) writeFileSync(file, `${head}\n`);
+  else {
+    // A file written by an older version has a shorter header; extend it so the new columns have names.
+    const [first, ...rest] = readFileSync(file, 'utf8').split('\n');
+    if (first !== head && head.startsWith(first)) writeFileSync(file, [head, ...rest].join('\n'));
+  }
   appendFileSync(file, `${rows.map((r) => header.map((h) => escapeCell(r[h])).join('\t')).join('\n')}\n`);
 }
 

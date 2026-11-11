@@ -20,16 +20,14 @@ test('M-002-S1 interview.md contains the README Disclaimer paragraph verbatim ex
 });
 
 // M-002-S2
-test('M-002-S2 disclaimer precedes the LinkedIn outreach disclosure, the switch questions and the Phase 6 sign-in step', () => {
+test('M-002-S2 disclaimer precedes the LinkedIn outreach disclosure and the switch questions inside Part D', () => {
   const at = interview.indexOf(disclaimer);
   const linkedin = interview.indexOf('LinkedIn outreach.');
-  const firstSwitch = interview.indexOf('- Outreach:');
-  const signIn = interview.indexOf('Sign-in order');
+  const firstSwitch = interview.search(/^\d+\. Outreach\./m);
   assert.ok(at >= 0, 'disclaimer present');
   assert.ok(linkedin > at, 'before LinkedIn outreach disclosure');
   assert.ok(firstSwitch > at, 'before switch questions');
-  assert.ok(signIn > at, 'before Phase 6 sign-in step');
-  assert.ok(at > interview.indexOf('## Phase 4'), 'inside Phase 4');
+  assert.ok(at > interview.indexOf('## Part D'), 'inside Part D');
 });
 
 // M-002-S3
@@ -40,10 +38,16 @@ test('M-002-S3 interview tells the agent to read the disclaimer once and not rep
 });
 
 // M-002-S4
-test('M-002-S4 Phase 4 still asks the outreach, handshake, submission and LinkedIn tier switches', () => {
-  const phase4 = interview.split(/^## Phase 4/m)[1].split(/^## Phase 5/m)[0];
-  assert.match(phase4, /^- Outreach: `on`, `drafts` or `off`\./m);
-  assert.match(phase4, /^- Handshake: `on` or `off`\./m);
-  assert.match(phase4, /^- Who presses submit on applications: `user` \(default\) or `agent`\./m);
-  assert.match(phase4, /^- LinkedIn account tier: `free` or `premium`\./m);
+test('M-002-S4 Part D still asks the outreach, handshake, submission and LinkedIn tier switches', () => {
+  const partD = interview.split(/^## Part D: schedule and switches/m)[1];
+  assert.match(partD, /^\d+\. Outreach\. .*`on`.*`drafts`/m);
+  assert.match(partD, /^\d+\. Handshake pass\. .*`on`.*`off`/m);
+  assert.match(partD, /^\d+\. Who presses submit\. .*`user`.*`agent`/m);
+  assert.match(partD, /^\d+\. LinkedIn account tier\. .*`free`.*`premium`/m);
+});
+
+// M-003-S6-cdel
+test('M-003-S6-cdel the README disclaimer appears exactly once and verbatim in interview.md', () => {
+  assert.ok(disclaimer.length > 50, 'README Disclaimer paragraph found');
+  assert.equal(count(interview, disclaimer), 1);
 });

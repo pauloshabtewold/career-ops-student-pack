@@ -168,3 +168,18 @@ test('W-023-A3-6 with no link column a title containing "closed" survives; a loc
   const { rows } = parseSource(text, { format: 'markdown-table', kind: 'internship' });
   assert.deepEqual(rows.map((r) => r.title), ['Closed-Loop Controls Engineer Intern', 'Enclosed Systems Intern', 'Platform Intern']);
 });
+
+test('959 company cells: arrow inherits the company above, edge emoji is stripped, real names stay', () => {
+  const md = [
+    '| Company | Role | Location | Application/Link | Date Posted |',
+    '| --- | --- | --- | --- | --- |',
+    '| **[Point72 📚](https://example.com/p)** | Analyst Intern | NYC | <a href="https://boards.greenhouse.io/point72/jobs/1">Apply</a> | Oct 1 |',
+    '| ↳ ✨ | Quant Intern | NYC | <a href="https://boards.greenhouse.io/point72/jobs/2">Apply</a> | Oct 1 |',
+    '| ↳ | Risk Intern | NYC | <a href="https://boards.greenhouse.io/point72/jobs/3">Apply</a> | Oct 1 |',
+    '| 🔥 AT&amp;T ✨ | Net Intern | TX | <a href="https://boards.greenhouse.io/att/jobs/4">Apply</a> | Oct 1 |',
+    '| Procter & Gamble | Ops Intern | OH | <a href="https://boards.greenhouse.io/pg/jobs/5">Apply</a> | Oct 1 |',
+    '| Nestlé | Food Intern | VA | <a href="https://boards.greenhouse.io/nestle/jobs/6">Apply</a> | Oct 1 |',
+  ].join('\n');
+  const { rows } = parseSource(md, { format: 'markdown-table', kind: 'internship' });
+  assert.deepEqual(rows.map((r) => r.company), ['Point72', 'Point72', 'Point72', 'AT&T', 'Procter & Gamble', 'Nestlé']);
+});

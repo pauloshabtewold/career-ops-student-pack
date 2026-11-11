@@ -84,8 +84,9 @@ test('W-023-A6-2 assertOwnRoot accepts the root whose student/ folder is this pa
   }
 });
 
-test('W-023-A6-2 the suggested allowlist pre-approves schedule.mjs status only', () => {
+// verify and status are pre-approved; verify runs one Gmail search through the agent (about 4,000 tokens) and writes nothing; install and remove stay unapproved
+test('W-023-A6-2 the suggested allowlist pre-approves schedule.mjs status and verify only', () => {
   const allow = JSON.parse(readFileSync(join(PACK_ROOT, 'templates', 'claude-settings.suggested.json'), 'utf8')).permissions.allow;
   const schedule = allow.filter((a) => a.includes('schedule.mjs'));
-  assert.deepEqual(schedule, ['Bash(node student/scripts/schedule.mjs status:*)']);
+  assert.deepEqual(schedule, ['Bash(node student/scripts/schedule.mjs status:*)', 'Bash(node student/scripts/schedule.mjs verify:*)']);
 });

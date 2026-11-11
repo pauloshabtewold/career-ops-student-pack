@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { classifyUrl, resolveAggregator } from '../../plugins/github-lists/_resolve.mjs';
+import { classifyUrl, findAtEmployer, resolveAggregator } from '../../plugins/github-lists/_resolve.mjs';
 import * as H from '../helpers/feed-harness.mjs';
 
 const AGG = 'https://simplify.jobs/p/abc-123';
@@ -136,4 +136,87 @@ test('M-001-S4 an unmatched trylitos row is recorded as unresolved without reque
   assert.equal(out.length, 0);
   assert.equal(unresolved.length, 2, 'header plus one row');
   assert.ok(!stub.urls().some((u) => /trylitos/i.test(u)));
+});
+
+const findRow = (o = {}) => ({ company: 'Example Robotics', title: 'Software Engineer Intern', location: 'Austin, TX', ...o });
+async function find(row, handlers) {
+  const stub = H.stubFetch(handlers);
+  const sl = H.sleeper();
+  const res = await findAtEmployer(row, { fetch: stub.fetch, sleep: sl.sleep });
+  return { res, stub };
+}
+
+// M-002-S16-cdel
+test('M-002-S16-cdel findAtEmployer returns the posting URL for a strict title match on Greenhouse, Lever and Ashby', async () => {
+  assert.equal((await find(findRow(), [greenhouse])).res.url, 'https://boards.greenhouse.io/examplerobotics/jobs/8');
+  assert.equal((await find(findRow(), [lever])).res.url, 'https://jobs.lever.co/examplerobotics/x1');
+  assert.equal((await find(findRow(), [ashby])).res.url, 'https://jobs.ashbyhq.com/examplerobotics/a1');
+});
+
+test('extra check: findAtEmployer returns a null url for no match or for two matches', async () => {
+  const none = await find(findRow({ title: 'Quantum Intern' }), [greenhouse, lever, ashby]);
+  assert.equal(none.res.url, null);
+  const dup = [(u) => u.startsWith('https://boards-api.greenhouse.io/v1/boards/examplerobotics/jobs'), () => H.json({ jobs: [{ id: 1, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/examplerobotics/jobs/1' }, { id: 2, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/examplerobotics/jobs/2' }] })];
+  assert.equal((await find(findRow(), [dup])).res.url, null);
+  assert.equal((await find(findRow({ company: 'Nowhere Co' }), [])).res.url, null);
+});
+
+test('extra check: findAtEmployer never requests a linkedin.com URL', async () => {
+  const { stub } = await find(findRow({ url: 'https://www.linkedin.com/jobs/view/3900001234', company: 'LinkedIn Example' }), [greenhouse, lever, ashby]);
+  assert.ok(!stub.urls().some((u) => /linkedin\.com/i.test(u)), stub.urls().join('\n'));
+  const second = await find(findRow(), [greenhouse]);
+  assert.ok(!second.stub.urls().some((u) => /linkedin\.com/i.test(u)));
+});
+
+// M-002-S23-cdel
+test('M-002-S23-cdel resolving two rows on one API host returns the same postings as before', async () => {
+  const s = H.scratch();
+  try {
+    const stub = H.stubFetch([
+      [(u) => u.startsWith('https://boards-api.greenhouse.io/v1/boards/examplerobotics'), () => H.json({ jobs: [{ id: 8, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/examplerobotics/jobs/8' }] })],
+      [(u) => u.startsWith('https://boards-api.greenhouse.io/v1/boards/samplelabs'), () => H.json({ jobs: [{ id: 9, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/samplelabs/jobs/9' }] })],
+    ]);
+    const out = await resolveAggregator([aggRow(), aggRow({ company: 'Sample Labs', url: 'https://simplify.jobs/p/def-456' })], { fetch: stub.fetch, sleep: H.sleeper().sleep, dataRoot: s.data, today: H.TODAY });
+    assert.deepEqual(out.map((r) => r.url), ['https://boards.greenhouse.io/examplerobotics/jobs/8', 'https://boards.greenhouse.io/samplelabs/jobs/9']);
+  } finally {
+    s.cleanup();
+  }
+});
+
+// M-002-AC24
+test('extra check: two requests to one API host wait at least 1200 ms between them and the results are unchanged', async () => {
+  const s = H.scratch();
+  try {
+    const events = [];
+    const stub = H.stubFetch([
+      [(u) => u.startsWith('https://boards-api.greenhouse.io/v1/boards/examplerobotics'), () => H.json({ jobs: [{ id: 8, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/examplerobotics/jobs/8' }] })],
+      [(u) => u.startsWith('https://boards-api.greenhouse.io/v1/boards/samplelabs'), () => H.json({ jobs: [{ id: 9, title: 'Software Engineer Intern', absolute_url: 'https://boards.greenhouse.io/samplelabs/jobs/9' }] })],
+    ]);
+    const fetch = async (input, init) => {
+      events.push({ type: 'request', host: new URL(String(input?.url ?? input)).host });
+      return stub.fetch(input, init);
+    };
+    const sleep = async (ms) => void events.push({ type: 'sleep', ms });
+    const out = await resolveAggregator([aggRow(), aggRow({ company: 'Sample Labs', url: 'https://simplify.jobs/p/def-456' })], { fetch, sleep, dataRoot: s.data, today: H.TODAY });
+    assert.deepEqual(out.map((r) => r.url), ['https://boards.greenhouse.io/examplerobotics/jobs/8', 'https://boards.greenhouse.io/samplelabs/jobs/9']);
+    const requests = events.filter((e) => e.type === 'request');
+    assert.ok(requests.length >= 2);
+    const lastIndex = new Map();
+    events.forEach((e, i) => {
+      if (e.type !== 'request') return;
+      if (lastIndex.has(e.host)) {
+        const slept = events.slice(lastIndex.get(e.host) + 1, i).filter((x) => x.type === 'sleep').reduce((n, x) => n + x.ms, 0);
+        assert.ok(slept >= 1100, `waited ${slept} ms before a second request to ${e.host}`);
+      }
+      lastIndex.set(e.host, i);
+    });
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('959 classifyUrl treats useno.app and its subdomains as aggregator', () => {
+  assert.equal(classifyUrl('https://useno.app/jobs/abc'), 'aggregator');
+  assert.equal(classifyUrl('https://www.useno.app/jobs/abc'), 'aggregator');
+  assert.equal(classifyUrl('https://notuseno.app/jobs/abc'), 'employer');
 });

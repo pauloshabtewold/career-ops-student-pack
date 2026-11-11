@@ -55,7 +55,13 @@ test('M-009-S7 permissions match the interface per workflow', () => {
   assert.deepEqual(parse('ci.yml').permissions, { contents: 'read' });
   assert.deepEqual(parse('safety-tag.yml').permissions, { contents: 'read' });
   assert.deepEqual(parse('audit-presets.yml').permissions, { contents: 'read', issues: 'write' });
-  assert.deepEqual(parse('canary.yml').permissions, { contents: 'write', 'pull-requests': 'write', issues: 'write' });
+  // canary grants nothing at the top; each job asks for only what it uses (zizmor excessive-permissions).
+  const canary = parse('canary.yml');
+  assert.deepEqual(canary.permissions, {});
+  assert.deepEqual(canary.jobs.resolve.permissions, { contents: 'read' });
+  assert.deepEqual(canary.jobs.test.permissions, { contents: 'read' });
+  assert.deepEqual(canary.jobs.bump.permissions, { contents: 'write', 'pull-requests': 'write' });
+  assert.deepEqual(canary.jobs.report.permissions, { issues: 'write' });
 });
 
 // M-005-S2

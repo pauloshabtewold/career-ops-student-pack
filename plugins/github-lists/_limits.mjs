@@ -7,6 +7,8 @@ export const LIMITS = Object.freeze({
   never_fetch_hosts: Object.freeze(['linkedin.com']),
   max_attempts: 3,
   resolver_pause_ms: 150,
+  // The upstream engine caps a plugin response at 10 MiB unless the call passes maxBytes. SimplifyJobs listings.json is about 13 MB.
+  max_list_bytes: 48 * 1024 * 1024,
 });
 
 export function hostOf(url) {

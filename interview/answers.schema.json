@@ -294,11 +294,60 @@
           ]
         },
         "eeo": {
-          "enum": [
-            "leave-blank",
-            "ask-each-time"
-          ],
-          "default": "leave-blank"
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "gender",
+                "race_ethnicity",
+                "hispanic_latino",
+                "veteran",
+                "disability",
+                "pronouns"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "gender": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "race_ethnicity": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "hispanic_latino": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "veteran": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "disability": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "pronouns": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sexual_orientation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "transgender": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "enum": [
+                "leave-blank",
+                "ask-each-time"
+              ]
+            }
+          ]
         },
         "how_did_you_hear": {
           "type": "string",
@@ -347,6 +396,53 @@
         "chatgpt-pro",
         "api",
         "unknown"
+      ]
+    },
+    "signins": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gmail": {
+          "enum": [
+            "ok",
+            "skipped",
+            "failed"
+          ]
+        },
+        "linkedin": {
+          "enum": [
+            "ok",
+            "skipped",
+            "failed"
+          ]
+        },
+        "handshake": {
+          "enum": [
+            "ok",
+            "skipped",
+            "failed"
+          ]
+        },
+        "simplify": {
+          "enum": [
+            "ok",
+            "skipped",
+            "failed"
+          ]
+        },
+        "indeed": {
+          "enum": [
+            "ok",
+            "skipped",
+            "failed"
+          ]
+        }
+      }
+    },
+    "inbox_schedule": {
+      "enum": [
+        "on",
+        "off"
       ]
     }
   }

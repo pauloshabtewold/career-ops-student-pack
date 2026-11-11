@@ -15,12 +15,12 @@ import { copyPack, cleanupAll } from '../goal-check/_harness.mjs';
 
 const SETS = ['cs', 'mis', 'finance', 'mechanical', 'nursing'];
 const TODAY_M1 = '2026-10-29';
-const PROFILE = { start_date: '2027-06', relocation: 'within-locations', eeo: 'leave-blank', how_did_you_hear: 'University career fair' };
+const PROFILE = { start_date: '2027-06', relocation: 'within-locations', eeo: { gender: 'decline', race_ethnicity: 'decline', hispanic_latino: 'No', veteran: 'Not a veteran', disability: 'decline', pronouns: 'he/him', sexual_orientation: 'decline', transgender: 'decline' }, how_did_you_hear: 'University career fair' };
 const CV = '# Jordan Testwell\n\nSkills: Python, Java, SQL\n';
 const answersOf = (k) => JSON.parse(readFileSync(join(PACK_ROOT, 'tests', 'fixtures', 'answers', `${k}.json`), 'utf8'));
 // An answers file saved before Phase 3 collected the application profile.
 const withoutProfile = ({ application_profile, ...rest }) => rest;
-const withProfile = (a) => ({ application_profile: PROFILE, ...a });
+const withProfile = (a) => ({ ...a, application_profile: PROFILE });
 
 const TITLE_FILTER = 'title_filter:\n  positive:\n    - "AI"\n    - "Machine Learning"\n  negative:\n    - "word:Intern"\n    - "word:Junior"\n';
 const LOCATION_FILTER = 'location_filter:\n  allow:\n    - "United States"\n    - "Canada"\n';
@@ -181,7 +181,7 @@ test('M-001-S5 application_profile answers land under application_answers in a n
     const res = run(r);
     assert.equal(res.code, 0, res.stderr);
     const profile = yaml.load(r.read('config/profile.yml'));
-    for (const [key, value] of Object.entries(PROFILE)) assert.equal(profile.application_answers?.[key], value, key);
+    for (const [key, value] of Object.entries(PROFILE)) assert.deepEqual(profile.application_answers?.[key], value, key);
   } finally {
     r.cleanup();
   }
@@ -208,14 +208,14 @@ test('M-001-S6 answers without application_profile raise AnswersError naming $.a
 });
 
 // M-001-S28 error
-test('M-001-S28 an answers file without application_profile tells the student to re-run interview Phase 3 and writes nothing', () => {
+test('M-001-S28 an answers file without application_profile tells the student to re-run interview Part C and writes nothing', () => {
   const r = scratch(withoutProfile(answersOf('mis')));
   try {
     const before = snapshot(r.root);
     const res = run(r);
     assert.equal(res.code, 1);
     assert.match(res.stderr, /re-?run/i);
-    assert.match(res.stderr, /Phase 3/);
+    assert.match(res.stderr, /Part C/);
     assert.deepEqual(snapshot(r.root), before);
   } finally {
     r.cleanup();
@@ -223,19 +223,18 @@ test('M-001-S28 an answers file without application_profile tells the student to
 });
 
 // M-001-S7 edge
-test('M-001-S7 an existing config/profile.yml stays byte-identical and one note per unwritten application answer is printed', () => {
+test('M-001-S7 an existing config/profile.yml keeps its other keys and takes the application answers at key level', () => {
   const existing = 'candidate:\n  full_name: "Pre Existing"\napplication_answers:\n  start_date: "2030-01"\n';
   const r = scratch(withProfile(answersOf('cs')));
   try {
     r.write('config/profile.yml', existing);
     const res = run(r);
     assert.equal(res.code, 0, res.stderr);
-    assert.equal(r.read('config/profile.yml'), existing);
-    const outLines = res.stdout.split('\n');
-    for (const key of Object.keys(PROFILE)) {
-      const mentions = outLines.filter((l) => l.includes(key));
-      assert.equal(mentions.length, 1, `exactly one note for ${key}, saw ${JSON.stringify(mentions)}`);
-    }
+    const profile = yaml.load(r.read('config/profile.yml'));
+    assert.equal(profile.candidate.full_name, 'Pre Existing');
+    assert.equal(profile.application_answers.start_date, PROFILE.start_date);
+    assert.equal(profile.application_answers.how_did_you_hear, PROFILE.how_did_you_hear);
+    assert.ok(r.read('config/profile.yml').startsWith('candidate:\n  full_name: "Pre Existing"\n'));
   } finally {
     r.cleanup();
   }

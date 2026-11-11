@@ -9,6 +9,10 @@ import { createFakeUpstream } from '../helpers/fake-upstream.mjs';
 import { PACK_ROOT, TODAY, jobUrl, line, pipelineText } from '../helpers/script-harness.mjs';
 import { checkInstallBlocks, checkReadmeRules, readDoc } from '../helpers/doc-contract.mjs';
 
+const part = (text, letter) => {
+  const m = new RegExp(`^## Part ${letter}:[^\\n]*\\n([\\s\\S]*?)(?=^## Part |(?![\\s\\S]))`, 'm').exec(text);
+  return m ? m[1] : '';
+};
 const phase = (text, n) => {
   const m = new RegExp(`^## Phase ${n}:[^\\n]*\\n([\\s\\S]*?)(?=^## Phase |(?![\\s\\S]))`, 'm').exec(text);
   return m ? m[1] : '';
@@ -76,8 +80,8 @@ test('M-003-S2 README or usage names Claude in Chrome, playwright chromium and t
 });
 
 // M-003-S3
-test('M-003-S3 interview Phase 1 runs resume-text.mjs and detect-field.mjs', () => {
-  const p1 = phase(readDoc('interview/interview.md'), 1);
+test('M-003-S3 interview Part B runs resume-text.mjs and detect-field.mjs', () => {
+  const p1 = part(readDoc('interview/interview.md'), 'B');
   assert.match(p1, /resume-text\.mjs/);
   assert.match(p1, /detect-field\.mjs/);
 });
@@ -87,21 +91,19 @@ test('M-003-S3 interview asks the application profile and target employers, offe
   const text = readDoc('interview/interview.md');
   assert.match(text, /application[ _]profile/i);
   assert.match(text, /target employers/i);
-  assert.match(text, /10 to 20/);
-  assert.match(text, /every field/i);
-  assert.match(phase(text, 2), /h1b-sponsor/);
+  assert.match(part(text, 'C'), /h1b-sponsor/);
   assert.match(text, /USAJOBS[^\n]*saved[ -]search|saved[ -]search[^\n]*USAJOBS/i);
 });
 
 // M-003-S3
-test('M-003-S3 Phase 6 runs first-run.mjs, then rank-queue.mjs --n 10, then schedule.mjs install', () => {
-  const p6 = phase(readDoc('interview/interview.md'), 6);
+test('M-003-S3 Part D runs schedule.mjs install, then first-run.mjs, then rank-queue.mjs --n 10', () => {
+  const p6 = part(readDoc('interview/interview.md'), 'D');
+  const c = p6.indexOf('schedule.mjs install');
   const a = p6.indexOf('first-run.mjs');
   const b = p6.indexOf('rank-queue.mjs --n 10');
-  const c = p6.indexOf('schedule.mjs install');
-  assert.ok(a >= 0, 'first-run.mjs');
+  assert.ok(c >= 0, 'schedule.mjs install');
+  assert.ok(a > c, 'first-run.mjs after schedule install');
   assert.ok(b > a, 'rank-queue.mjs --n 10 after first-run');
-  assert.ok(c > b, 'schedule.mjs install after rank-queue');
   assert.match(p6, /apply-triage\.mjs/);
 });
 
@@ -117,10 +119,10 @@ test('M-003-S5 a README with <pack-url> or without the sync warning fails', () =
 });
 
 // M-003-S6
-test('M-003-S6 interview.md keeps the Phase 4 and Phase 6 headings', () => {
+test('M-003-S6 interview.md keeps the Part B and Part D headings', () => {
   const text = readDoc('interview/interview.md');
-  assert.match(text, /^## Phase 4: switches and disclosures$/m);
-  assert.match(text, /^## Phase 6: write, check, enable$/m);
+  assert.match(text, /^## Part B: your job queue$/m);
+  assert.match(text, /^## Part D: schedule and switches$/m);
 });
 
 // M-003-S7
@@ -175,34 +177,34 @@ test('M-003-S9 docs/usage.md names every count label first-run.mjs prints on the
 });
 
 // W-023-A4-2, A4-3
-test('W-023-A4-2 interview step 4 runs detect-field on the resume text, not on a cv.md that may not exist yet', () => {
-  const p1 = phase(readDoc('interview/interview.md'), 1);
-  const step4 = p1.split('\n').find((l) => /^4\. /.test(l));
-  assert.ok(step4, 'step 4 present');
+test('W-023-A4-2 interview Part B runs detect-field on the resume text, not on a cv.md that may not exist yet', () => {
+  const p1 = part(readDoc('interview/interview.md'), 'B');
+  const step4 = p1.split('\n').find((l) => /^1\. Run `node student\/interview\/detect-field\.mjs`/.test(l));
+  assert.ok(step4, 'detect-field step present');
   assert.doesNotMatch(step4, /detect-field\.mjs cv\.md/);
   assert.match(step4, /resume text/);
-  assert.match(step4, /resume-text\.mjs/);
+  assert.match(p1, /resume-text\.mjs/);
   assert.match(step4, /stdin/);
 });
 
 // W-023-A4-3
-test('W-023-A4-3 interview step 1 allows cv_path only for .md or .txt', () => {
-  const step1 = phase(readDoc('interview/interview.md'), 1).split('\n').find((l) => /^1\. /.test(l));
+test('W-023-A4-3 interview Part B resume item allows cv_path only for .md or .txt', () => {
+  const step1 = part(readDoc('interview/interview.md'), 'B').split('\n').find((l) => /^1\. Resume\./.test(l));
   assert.match(step1, /`cv_path` only for a `\.md` or `\.txt` file/);
 });
 
 // W-023-A4-4
-test('W-023-A4-4 the rerun wording says student-owned keys are kept, in the interview, usage and Phase 5', () => {
+test('W-023-A4-4 the rerun wording says student-owned keys are kept, in the interview, usage and Part D', () => {
   const interview = readDoc('interview/interview.md');
   assert.doesNotMatch(interview, /rewrites only the blocks the pack owns/);
   assert.match(interview.split('\n')[2], /judgment_keywords/);
   assert.match(readDoc('docs/usage.md'), /Running the interview again rebuilds the keys of config\/student\.yml that it asks about/);
-  assert.match(phase(interview, 5), /On a re-run, read config\/student\.yml first and offer each current value as the default/);
+  assert.match(interview, /On a re-run, read config\/student\.yml first and offer each current value as the default/);
 });
 
 // W-023-A4-5
-test('W-023-A4-5 Phase 5 step 7 passes the chosen spend tier to triage-budget.mjs cost', () => {
-  const step7 = phase(readDoc('interview/interview.md'), 5).split('\n').find((l) => /^7\. /.test(l));
+test('W-023-A4-5 Part D triage budget item passes the chosen spend tier to triage-budget.mjs cost', () => {
+  const step7 = part(readDoc('interview/interview.md'), 'D').split('\n').find((l) => /^6\. Triage budget/.test(l));
   assert.match(step7, /triage-budget\.mjs cost <n\|all> --plan <plan> --agent <agent> --spend-tier <standard\|premium>/);
 });
 
@@ -235,9 +237,9 @@ test('W-023-A4-11 the changelog says schedule.mjs passes --agent to scheduled.mj
 test('W-023-A4-12 architecture and coverage.mjs name phase 2 and the attach-point table lists AGENTS.override.md', () => {
   const arch = readDoc('docs/architecture.md');
   assert.doesNotMatch(arch, /four places/);
-  assert.match(arch, /five places only/);
+  assert.match(arch, /six places only/);
   assert.match(arch, /\| `AGENTS\.override\.md` \|/);
-  assert.match(arch, /Interview phase 2 states the coverage line/);
+  assert.match(arch, /Part B builds and shows the raw queue first, then prints the coverage line/);
   assert.match(readDoc('interview/coverage.mjs'), /read aloud in interview phase 2/);
 });
 

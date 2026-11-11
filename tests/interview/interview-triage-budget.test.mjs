@@ -19,7 +19,8 @@ const agents = read('AGENTS.student.md');
 
 // M-003-S2
 test('M-003-S2 interview.md line 12 splits the student triage budget from fixed budget.mjs limits', () => {
-  const l = lines[11];
+  const l = lines.find((x) => x.startsWith('- The limits in scripts/budget.mjs'));
+  assert.ok(l, 'principles bullet present');
   assert.match(l, /budget\.mjs/);
   assert.match(l, /tighten/i);
   assert.match(l, /triage budget/i);
@@ -29,8 +30,8 @@ test('M-003-S2 interview.md line 12 splits the student triage budget from fixed 
   assert.match(l, /"all"/);
 });
 
-test('M-003-S2 Phase 4 limits paragraph names the triage budget as the student\'s and budget.mjs limits as fixed', () => {
-  const p4 = section('Phase 4');
+test('M-003-S2 Part D limits paragraph names the triage budget as the student\'s and budget.mjs limits as fixed', () => {
+  const p4 = section('Part D');
   const para = p4.split('\n').find((l) => l.startsWith('Below the limits table'));
   assert.ok(para, 'limits paragraph present');
   assert.match(para, /scripts\/budget\.mjs/);
@@ -40,8 +41,8 @@ test('M-003-S2 Phase 4 limits paragraph names the triage budget as the student\'
   assert.match(para, /tighten/i);
 });
 
-test('M-003-S2 Phase 5 asks plan and both budgets and shows the triage-budget cost line', () => {
-  const p5 = section('Phase 5');
+test('M-003-S2 Part D asks plan and both budgets and shows the triage-budget cost line', () => {
+  const p5 = section('Part D');
   assert.match(p5, /triage budget/i);
   for (const plan of ['claude-pro', 'claude-max', 'claude-ultra', 'chatgpt-plus', 'chatgpt-pro', 'api', 'unknown']) {
     assert.ok(p5.includes(plan), `plan ${plan} listed`);
@@ -56,8 +57,8 @@ test('M-003-S2 Phase 5 asks plan and both budgets and shows the triage-budget co
   assert.match(p5, /\b60\b/);
 });
 
-test('M-003-S2 Phase 6 batches stop at the first-run budget and log with --first-run', () => {
-  const p6 = section('Phase 6');
+test('M-003-S2 Part D batches stop at the first-run budget and log with --first-run', () => {
+  const p6 = section('Part D');
   assert.match(p6, /node student\/scripts\/triage-budget\.mjs log <n> --first-run/);
   assert.match(p6, /first-run budget/i);
   assert.match(p6, /triage-budget\.mjs set <n\|all> --first-run/);

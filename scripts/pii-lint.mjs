@@ -41,8 +41,17 @@ const FORBIDDEN_PATH_PATTERNS = [
   /\.(pdf|docx)$/i,
 ];
 
-// RFC 2606 reserved domains only; anything else could reach a real person.
+// RFC 2606 reserved domains may carry any local part; anything else could reach a real person.
 const ALLOWED_EMAIL_DOMAINS = new Set(['example.com', 'example.org', 'example.net', 'example.edu']);
+// Exact organization role addresses the inbox classifier recognizes. Only these full addresses pass, not their
+// domains, so a personal address at one of these providers is still a finding.
+const ALLOWED_EMAIL_ADDRESSES = new Set([
+  'alert@indeed.com',
+  'alerts@simplify.jobs',
+  'no-reply@joinhandshake.com',
+  'no-reply@usajobs.gov',
+  'noreply@indeedemail.com',
+]);
 
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
 // US numbers: (408) 555-0100, 408-555-0100, 408.555.0100, +1 408 555 0100
@@ -88,7 +97,7 @@ export function scanText(relPath, text) {
 
   for (const m of text.matchAll(EMAIL_RE)) {
     const domain = m[1].toLowerCase();
-    if (!ALLOWED_EMAIL_DOMAINS.has(domain) && !domain.endsWith('.example.com')) {
+    if (!ALLOWED_EMAIL_DOMAINS.has(domain) && !domain.endsWith('.example.com') && !ALLOWED_EMAIL_ADDRESSES.has(m[0].toLowerCase())) {
       findings.push({ file: relPath, line: lineOf(m.index), rule: 'email', detail: `address at domain ${domain}` });
     }
   }

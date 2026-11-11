@@ -14,10 +14,12 @@ const SHIPPED_SOURCES = {
     { name: 'speedy-newgrad', repo: 'speedyapply/2027-SWE-College-Jobs', path: 'NEW_GRAD_USA.md', format: 'markdown-table', kind: 'newgrad' },
     { name: 'speedy-ai-intern', repo: 'speedyapply/2027-AI-College-Jobs', path: 'README.md', format: 'markdown-table', kind: 'internship' },
     { name: 'speedy-ai-newgrad', repo: 'speedyapply/2027-AI-College-Jobs', path: 'NEW_GRAD_USA.md', format: 'markdown-table', kind: 'newgrad' },
+    { name: 'zapply-intern', repo: 'zapplyjobs/Internships-2027', path: 'README.md', format: 'markdown-table', kind: 'internship' },
+    { name: 'zapply-newgrad', repo: 'zapplyjobs/New-Grad-Software-Engineering-Jobs-2027', path: 'README.md', format: 'markdown-table', kind: 'newgrad' },
   ],
   alerts: [
-    { name: 'Handshake saved search', how: 'Save a software search on Handshake and turn on email alerts.' },
-    { name: 'LinkedIn job alerts', how: 'Create alerts for software engineer intern and new grad.' },
+    { name: 'Handshake saved search', how: 'Save a software search on Handshake and turn on email alerts.', site: 'handshake', search: 'software engineer intern' },
+    { name: 'LinkedIn job alerts', how: 'Create alerts for software engineer intern and new grad.', site: 'linkedin', search: 'software engineer intern' },
   ],
 };
 

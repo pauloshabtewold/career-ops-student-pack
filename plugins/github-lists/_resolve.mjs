@@ -7,7 +7,7 @@ import { appendStats } from './_io.mjs';
 
 // Hosts whose links route to a vendor posting; rows on them are resolved at the employer or dropped.
 // Keep in step with isAggregatorHref in _parsers.mjs.
-const AGGREGATORS = ['zapply.jobs', 'simplify.jobs', 'jobright.ai', 'trylitos.com'];
+const AGGREGATORS = ['zapply.jobs', 'simplify.jobs', 'jobright.ai', 'trylitos.com', 'useno.app'];
 const UNRESOLVED_HEADER = ['date', 'company', 'title', 'source'];
 const BOARD_URL = {
   greenhouse: (slug) => `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`,
@@ -148,16 +148,34 @@ export function createGate(limit) {
  */
 export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), limits = LIMITS, deadline = Infinity }) {
   const gate = createGate(limits.aggregator_in_flight);
+  // Next free request time per host. A slot is reserved before waiting so concurrent requests to one host still end up
+  // request_gap_ms apart; api.lever.co asks for a Crawl-delay of 1 s, which the 1200 ms gap covers.
+  const nextSlot = new Map();
+  // Requests given up because their turn came after the deadline; a search that lost any is deferred, not a miss.
+  let cutOff = 0;
 
   // 404 is the normal answer to a wrong slug guess, so every failure is "no data", not an error.
   // Redirects are followed by hand so each Location hop is checked against the forbidden hosts before it is requested.
   async function get(url, asJson) {
     return gate.run(async () => {
-      if (Date.now() > deadline) return NO_DATA;
+      if (Date.now() > deadline) {
+        cutOff++;
+        return NO_DATA;
+      }
       let current = url;
       for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
         if (isForbiddenHost(hostOf(current))) return NO_DATA;
         await sleep(limits.resolver_pause_ms);
+        const host = hostOf(current);
+        const slot = Math.max(Date.now(), nextSlot.get(host) ?? 0);
+        // A request whose turn comes after the deadline is not queued: waiting for it would run the plugin past the
+        // upstream host's 15 s limit, and the host then keeps none of the run's rows.
+        if (slot >= deadline) {
+          cutOff++;
+          return NO_DATA;
+        }
+        nextSlot.set(host, slot + limits.request_gap_ms);
+        if (slot > Date.now()) await sleep(slot - Date.now());
         let res;
         try {
           res = await fetch(current, { headers: { 'User-Agent': 'career-ops-student-pack' }, redirect: 'manual', timeoutMs: Math.max(500, deadline - Date.now()) });
@@ -208,7 +226,12 @@ export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTi
       const hit = jobs.find((j) => j.id === m[3] && j.url);
       if (hit && titlesMatch(hit.title, title)) return { url: hit.url, how: `zapply-id+${m[1].toLowerCase()}` };
     }
-    // c. public board APIs by company-name slug, matched on a strict title
+    return findAtEmployer({ company, title, location });
+  }
+
+  // c. public board APIs by company-name slug, matched on a strict title
+  async function findAtEmployer({ company, title, location = '' }) {
+    const cutOffBefore = cutOff;
     for (const slug of slugGuesses(company)) {
       for (const k of ['greenhouse', 'lever', 'ashby']) {
         const jobs = await board(k, slug);
@@ -218,10 +241,15 @@ export function createResolver({ fetch, sleep = (ms) => new Promise((r) => setTi
       }
     }
     // A search the deadline cut short proves nothing about the employer, so it is deferred rather than reported as a miss.
-    return Date.now() > deadline ? { url: null, how: DEFERRED } : { url: null, how: 'not found at employer' };
+    return Date.now() > deadline || cutOff > cutOffBefore ? { url: null, how: DEFERRED } : { url: null, how: 'not found at employer' };
   }
 
-  return { resolve, gate };
+  return { resolve, findAtEmployer, gate };
+}
+
+// Looks for one role on the employer's own public board. The inbox step passes a fetch that checks robots.txt first.
+export function findAtEmployer(row, options) {
+  return createResolver(options).findAtEmployer(row);
 }
 
 /**

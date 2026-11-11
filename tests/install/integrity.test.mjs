@@ -86,3 +86,18 @@ test('M-005-S11 a restore that cannot complete is reported as not ok', () =>
     assert.equal(res.ok, false);
     assert.equal(res.restored, false);
   }));
+
+test('a folder with no git history and a matching hash says so instead of "restore did not work"', () => {
+  const root = mkdtempSync(join(tmpdir(), 'pack-integrity-nogit-'));
+  try {
+    put(root, 'scripts/budget.mjs', BUDGET);
+    put(root, 'compat.json', compatFor(BUDGET));
+    const res = verifyAndRestore({ packRoot: root });
+    assert.equal(res.ok, false);
+    assert.match(res.message, /hash matches compat\.json/);
+    assert.match(res.message, /no git history/);
+    assert.doesNotMatch(res.message, /restore did not work/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

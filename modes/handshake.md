@@ -1,6 +1,6 @@
 # Handshake pass
 
-Read this when the user asks for the Handshake pass and `switches.handshake` is `on`.
+Read this when the user says "Handshake pass" and `switches.handshake` is `on`.
 
 ## Terms
 

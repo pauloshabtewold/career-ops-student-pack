@@ -28,7 +28,10 @@ jobs:
       - run: node scripts/compat-hash.mjs --check
       - name: Plugin versions
         if: github.event_name == 'pull_request'
-        run: node scripts/check-plugin-versions.mjs origin/${{ github.base_ref }}
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/check-plugin-versions.mjs "origin/$BASE_REF"
 
   upstream-install:
     needs: test

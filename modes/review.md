@@ -1,6 +1,6 @@
 # Fresh-context review
 
-Read this when `reviewer` is `on` in config/student.yml and the tailored resume and cover letter for a 4.0+ row (full path) are drafted, before the batch is shown. With `reviewer: off` (the default) nothing here runs and nothing is spent. The review costs model usage on every reviewed application; `docs/usage-cost.md` has the figure.
+Read this by rule, with no phrase to say, when `reviewer` is `on` in config/student.yml and the tailored resume and cover letter for a 4.0+ row (full path) are drafted, before the batch is shown. With `reviewer: off` (the default) nothing here runs and nothing is spent. The review costs model usage on every reviewed application; `docs/usage-cost.md` has the figure.
 
 The reviewer is a second reader that has not seen this conversation, so it cannot be talked into agreeing with the drafts. It checks; you decide. The fact gate in `modes/apply-loop.md` still rules: nothing about the student goes into a draft unless `cv.md` or the student in this chat says it.
 

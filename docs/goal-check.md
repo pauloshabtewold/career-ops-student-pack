@@ -8,7 +8,7 @@ Triage: stand-in scorer (PASS 4.2 or FAIL 1.0); rows 7 and 10 are proxies.
 
 | Row | Deciding check | Verdict | Counts |
 |---|---|---|---|
-| Interview writes config, profile, portals and modes | files written and parse after apply-answers | met | 5/5 fixtures |
+| Interview writes config, profile, portals and modes | files written and parse after apply-answers; application_answers carries the eight-item eeo map or the older single string | met | 5/5 fixtures |
 | Preset choice and honest coverage line | detect-field pick equals expected preset; coverage line printed | met | 5/5 fixtures |
 | Correct cycle years | student-cycle.json equals expected years | met | 5/5 fixtures |
 | Daily zero-token digest never fails | daily.mjs with a failing step exits 0, writes the digest, starts no claude | met | 5/5 fixtures |
@@ -17,7 +17,7 @@ Triage: stand-in scorer (PASS 4.2 or FAIL 1.0); rows 7 and 10 are proxies.
 | Tailored materials and resume guard (PROXY) | check-resume passes one page, fails two; apply-loop names its flags | met | 5/5 fixtures |
 | Inbox | interview after a receipt is interview; a conditional receipt is ignored | met | 5/5 fixtures |
 | Outreach and apply gates | log apply.policy exits 0; a below-floor submit check is refused | met | 5/5 fixtures |
-| Daily schedule installed (PROXY) | schedule install --dry-run starts scheduled.mjs; interview runs it after rank-queue | met | 5/5 fixtures |
+| Daily schedule installed (PROXY) | schedule install --dry-run starts scheduled.mjs; interview Part D runs schedule install before rank-queue | met | 5/5 fixtures |
 
 - cs: top-list 10, new-grad rows 0, staged 0, pending 234, untriaged 234, passed 225, tagged rows in ranking 0
 - finance: top-list 10, new-grad rows 0, staged 0, pending 247, untriaged 247, passed 150, tagged rows in ranking 0

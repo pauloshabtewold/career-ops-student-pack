@@ -114,3 +114,30 @@ test('M-004-S12 the report names the deciding check for each row and labels only
   assert.ok(proxy.some((c) => /Tailored materials/i.test(c[0])));
   assert.ok(proxy.some((c) => /Daily schedule/i.test(c[0])));
 });
+
+// A pack copy whose interview.md holds only a Part D with the two commands in the given order.
+function packWithPartD(first, second) {
+  const pack = copyPack();
+  const body = ['# Personalization interview', '', '## Part C: application profile', '', 'Fake text.', '', '## Part D: schedule and switches', '', `1. Run \`node student/scripts/${first}\`.`, `2. Run \`node student/scripts/${second}\`.`, ''].join('\n');
+  writeFile(pack, 'interview/interview.md', body);
+  return pack;
+}
+const scheduleRow = (r) => designRows(r.stdout).find((c) => /Daily schedule/i.test(c[0]));
+
+// M-003-S16-cdel
+test('M-003-S16-cdel the Daily schedule row is met when Part D runs schedule.mjs install before rank-queue.mjs', () => {
+  const s = setup({ pack: packWithPartD('schedule.mjs install', 'rank-queue.mjs --n 10') });
+  const r = run(s);
+  const row = scheduleRow(r);
+  assert.ok(row, r.stdout);
+  assert.equal(row[2], 'met', row.join(' | '));
+});
+
+// extra check
+test('extra check: the Daily schedule row is not met when Part D runs rank-queue.mjs before schedule.mjs install', () => {
+  const s = setup({ pack: packWithPartD('rank-queue.mjs --n 10', 'schedule.mjs install') });
+  const r = run(s);
+  const row = scheduleRow(r);
+  assert.ok(row, r.stdout);
+  assert.equal(row[2], 'not met', row.join(' | '));
+});

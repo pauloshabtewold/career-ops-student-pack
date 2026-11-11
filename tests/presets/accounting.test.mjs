@@ -9,8 +9,9 @@ const SHIPPED_SOURCES = {
     { name: 'jobright-account-newgrad', repo: 'jobright-ai/2026-Account-New-Grad', path: 'README.md', format: 'markdown-table', kind: 'newgrad' },
   ],
   alerts: [
-    { name: 'Handshake saved search', how: 'Save searches for audit intern, tax intern and assurance associate.' },
+    { name: 'Handshake saved search', how: 'Save searches for audit intern, tax intern and assurance associate.', site: 'handshake', search: 'audit intern' },
     { name: 'Firm career sites', how: 'Winter busy-season internships are posted on each firm site in the spring and summer.' },
+    { name: 'LinkedIn job alerts', how: 'Create alerts for audit intern and tax intern.', site: 'linkedin', search: 'audit intern' },
   ],
 };
 
