@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { PACK_ROOT, TODAY } from './script-harness.mjs';
 
 export const EEO_FAKE = Object.freeze({
@@ -61,7 +61,7 @@ export function snapshot(dir) {
     for (const name of readdirSync(d)) {
       const p = join(d, name);
       if (statSync(p).isDirectory()) walk(p);
-      else acc[relative(dir, p)] = readFileSync(p, 'utf8');
+      else acc[relative(dir, p).split(sep).join('/')] = readFileSync(p, 'utf8');
     }
   };
   walk(dir);

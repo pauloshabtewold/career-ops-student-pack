@@ -5,6 +5,7 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { ingestSteps } from '../../lib/ingest.mjs';
 import { oneLine } from '../../lib/text.mjs';
 import { scanErrorLine, scanFileCounts } from '../../lib/scan-errors.mjs';
@@ -60,7 +61,7 @@ test('the daily digest lists scan errors under Failures', () => {
     const wrap = join(up.root, 'wrap.mjs');
     writeFileSync(wrap, `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(join(data, 'scan-runs.tsv'))}, '2026-11-10T01:00:00Z\\tcompleted\\t5\\t0\\t10\\t1\\n');\nappendFileSync(${JSON.stringify(join(data, 'portal-health.tsv'))}, '2026-11-10T01:00:00Z\\tAcme Fake\\tauth\\n');\n`);
     const scanFile = join(up.root, 'scan.mjs');
-    appendFileSync(scanFile, `\nawait import(${JSON.stringify(wrap)});\n`);
+    appendFileSync(scanFile, `\nawait import(${JSON.stringify(pathToFileURL(wrap).href)});\n`);
     const res = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'daily.mjs'), '--root', up.root, '--data-dir', data, '--today', '2026-11-10'], { cwd: PACK_ROOT, encoding: 'utf8', timeout: 120000 });
     assert.equal(res.status, 0, res.stderr);
     const digest = readFileSync(join(data, 'digest', 'student-2026-11-10.md'), 'utf8');

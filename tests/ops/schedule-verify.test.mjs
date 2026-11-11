@@ -106,7 +106,7 @@ function macSetup(ownerRoot) {
   });
   return { tmp, root, plist, log, install, cleanup: () => rmSync(tmp, { recursive: true, force: true }) };
 }
-const mac = {};
+const mac = process.platform === 'darwin' ? {} : { skip: 'drives the launchd install; win32 install would register a real scheduled task' };
 
 test('extra check: install exits 1 naming the other folder and leaves the job unchanged when another folder owns it', mac, () => {
   const s = macSetup(OTHER);

@@ -174,7 +174,7 @@ function fakeAgent(dir, mode) {
   chmodSync(file, 0o755);
   return file;
 }
-const posix = {};
+const posix = process.platform === 'win32' ? { skip: 'the fake agent is a shebang script; win32 agents are covered by the .cmd argv tests' } : {};
 const cli = (args, cwd) => spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'inbox-pass.mjs'), ...args], { encoding: 'utf8', timeout: 60000, cwd });
 
 // M-002-S9-cdel
