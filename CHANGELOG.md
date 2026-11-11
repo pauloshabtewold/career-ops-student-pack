@@ -4,6 +4,8 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- 991: live sign-in proof fixes: the guide says "drafts only" only lowers the outreach switch, drafts mode writes `data/outreach/drafts-YYYY-MM-DD.md` instead of pointing at a temp path, and the Handshake step opens the student's own search results
+
 ## v0.6.0 (2026-11-10)
 
 - Student pack v0.6.0: interview A-D, automatic job-source research for any major, scheduled inbox pass, EEO from profile, command guide (#40)
