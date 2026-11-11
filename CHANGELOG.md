@@ -5,6 +5,7 @@ One section per pack release, newest first. The release workflow writes each sec
 ## Unreleased
 
 - W-031: the personalization interview is four batched Parts (sign-ins, job queue, application profile, schedule and switches) with a recommended answer and reason for every item; per-major job-source research (`research-sources.mjs`, `lib/robots.mjs`) vets boards and GitHub lists for any field before they reach the scan; `alert-plan.mjs` prints prefilled LinkedIn, Handshake, Simplify and Indeed alert steps; `first-run.mjs --queue` shows the raw queue; the scheduled inbox pass (`inbox-pass.mjs`, Gmail read tools only) stages alert jobs and reads replies each day, with `schedule.mjs verify`; saved application answers include the six EEO items (`profile-answers.mjs`) and apply mode fills forms from them; `docs/commands.md` is the one guide to what to say, checked against the files that handle each phrase; `github-lists` 1.3.2; SECURITY.md
+- 959: research accepts Workday, Jobvite, SmartRecruiters, Workable, BambooHR, Recruitee, Teamtailor, Breezy, Personio, Pinpoint, JazzHR and iCIMS boards, names why an audit failed, and reads a Greenhouse board over 10 MB with `max_response_mb`; the interview scan stops after 2 slices and reads research boards and target employers first; triage FAILs a posting that needs a credential the student will not hold in time and scores every row on its own text
 
 ## v0.5.1 (2026-11-10)
 

@@ -16,7 +16,7 @@ import { companyKey } from '../lib/company-key.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { readCycle } from '../lib/cycle-file.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { loadMerged } from '../lib/presets.mjs';
+import { MAX_RESPONSE_MB_CEILING, loadMerged } from '../lib/presets.mjs';
 import { createRobotsChecker } from '../lib/robots.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
@@ -42,11 +42,46 @@ export class ResearchError extends Error {
   }
 }
 
-// Public board APIs the pack can read; the API URL is what robots.txt is checked against.
+// Public board APIs the pack can read; the API URL is what robots.txt is checked against. These are the employer ATS
+// providers upstream's audit and scan read from a careers_url alone (aggregators and regional sites are not listed).
+// `board(url)` returns { slug, careersUrl, apiUrl } or null. A tenant provider keeps its tenant in the host name.
+const hostBoard = (url, apiPath) => {
+  const host = url.hostname.toLowerCase();
+  return { slug: host.split('.')[0], careersUrl: `https://${host}`, apiUrl: `https://${host}${apiPath}` };
+};
+const pathBoard = (url, api) => {
+  const host = url.hostname.toLowerCase();
+  const slug = url.pathname.split('/').filter(Boolean)[0]?.toLowerCase();
+  return slug ? { slug, careersUrl: `https://${host}/${slug}`, apiUrl: api(slug) } : null;
+};
+const WORKDAY_SITE = /^\/(?:[a-z]{2}-[A-Z]{2}\/)?([^/?#]+)/;
+
 const PROVIDERS = [
-  { id: 'greenhouse', host: /^(job-boards|boards)\.greenhouse\.io$/, api: (slug) => `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs` },
-  { id: 'lever', host: /^jobs\.lever\.co$/, api: (slug) => `https://api.lever.co/v0/postings/${slug}` },
-  { id: 'ashby', host: /^jobs\.ashbyhq\.com$/, api: (slug) => `https://api.ashbyhq.com/posting-api/job-board/${slug}` },
+  { id: 'greenhouse', host: /^(job-boards|boards)\.greenhouse\.io$/, board: (u) => pathBoard(u, (s) => `https://boards-api.greenhouse.io/v1/boards/${s}/jobs`) },
+  { id: 'lever', host: /^jobs\.lever\.co$/, board: (u) => pathBoard(u, (s) => `https://api.lever.co/v0/postings/${s}`) },
+  { id: 'ashby', host: /^jobs\.ashbyhq\.com$/, board: (u) => pathBoard(u, (s) => `https://api.ashbyhq.com/posting-api/job-board/${s}`) },
+  {
+    id: 'workday',
+    host: /^[a-z0-9-]+\.wd[a-z0-9-]*\.myworkdayjobs\.com$/,
+    board(u) {
+      const host = u.hostname.toLowerCase();
+      const site = WORKDAY_SITE.exec(u.pathname)?.[1];
+      if (!site || site === 'wday') return null;
+      const tenant = host.split('.')[0];
+      return { slug: `${tenant}/${site.toLowerCase()}`, careersUrl: `https://${host}/${site}`, apiUrl: `https://${host}/wday/cxs/${tenant}/${site}/jobs` };
+    },
+  },
+  { id: 'jobvite', host: /^jobs\.jobvite\.com$/, board: (u) => pathBoard(u, (s) => `https://jobs.jobvite.com/${s}`) },
+  { id: 'smartrecruiters', host: /^(careers|jobs)\.smartrecruiters\.com$/, board: (u) => pathBoard(u, (s) => `https://api.smartrecruiters.com/v1/companies/${s}/postings`) },
+  { id: 'workable', host: /^apply\.workable\.com$/, board: (u) => pathBoard(u, (s) => `https://apply.workable.com/api/v1/widget/accounts/${s}`) },
+  { id: 'bamboohr', host: /^[a-z0-9][a-z0-9-]*\.bamboohr\.com$/, board: (u) => hostBoard(u, '/careers/list') },
+  { id: 'recruitee', host: /^[a-z0-9][a-z0-9-]*\.recruitee\.com$/, board: (u) => hostBoard(u, '/api/offers/') },
+  { id: 'teamtailor', host: /^[a-z0-9][a-z0-9-]*\.teamtailor\.com$/, board: (u) => hostBoard(u, '/jobs.rss') },
+  { id: 'breezy', host: /^[a-z0-9][a-z0-9-]*\.breezy\.hr$/, board: (u) => hostBoard(u, '/json') },
+  { id: 'personio', host: /^[a-z0-9][a-z0-9-]*\.jobs\.personio\.(de|com)$/, board: (u) => hostBoard(u, '/xml') },
+  { id: 'pinpoint', host: /^[a-z0-9][a-z0-9-]*\.pinpointhq\.com$/, board: (u) => hostBoard(u, '/postings.json') },
+  { id: 'jazzhr', host: /^[a-z0-9][a-z0-9-]*\.applytojob\.com$/, board: (u) => hostBoard(u, '/apply') },
+  { id: 'icims', host: /^careers-[a-z0-9-]+\.icims\.com$/, board: (u) => hostBoard(u, '/jobs/search?ss=1') },
 ];
 
 export function boardFromUrl(url) {
@@ -57,8 +92,8 @@ export function boardFromUrl(url) {
     return null;
   }
   const provider = PROVIDERS.find((p) => p.host.test(parsed.hostname.toLowerCase()));
-  const slug = parsed.pathname.split('/').filter(Boolean)[0]?.toLowerCase();
-  return provider && slug ? { provider: provider.id, slug, careersUrl: `https://${parsed.hostname.toLowerCase()}/${slug}`, apiUrl: provider.api(slug) } : null;
+  const board = provider?.board(parsed);
+  return board ? { provider: provider.id, ...board } : null;
 }
 
 // First problem as a sentence, or null when the object has the {web_searches, boards, github_lists} shape.
@@ -108,7 +143,7 @@ function priorResearchEntries(portalsText) {
   return Array.isArray(list) ? list : [];
 }
 
-const entryLines = ({ name, careers_url: url }) => [`  - name: ${JSON.stringify(name)}`, `    careers_url: ${url}`, '    enabled: true'];
+const entryLines = ({ name, careers_url: url, max_response_mb: cap }) => [`  - name: ${JSON.stringify(name)}`, `    careers_url: ${url}`, ...(cap ? [`    max_response_mb: ${cap}`] : []), '    enabled: true'];
 
 // Every employer the student already has, as provider+slug and normalized-name keys.
 function knownEmployerKeys({ merged, portalsText, targets }) {
@@ -146,7 +181,7 @@ async function auditBoards(upstream, entries) {
     writeAtomic(file, yaml.dump({ tracked_companies: entries.map((e) => ({ name: e.name, careers_url: e.careers_url, enabled: true })) }, { lineWidth: -1 }));
     const raw = await upstream.auditPortals(['--json', '--file', file]);
     const rows = auditRows(typeof raw === 'string' ? parseAuditText(raw) : raw);
-    return new Map(rows.map((b) => [b.name, { status: b.verdict ?? b.status, postings: b.count ?? b.postings }]));
+    return new Map(rows.map((b) => [b.name, { status: b.verdict ?? b.status, postings: b.count ?? b.postings, detail: b.detail }]));
   });
 }
 
@@ -188,14 +223,48 @@ async function loadContext({ paths, preset }) {
   };
 }
 
+// Why a board did not pass: upstream's detail line made plain. A body over upstream's 10 MB read cap is the cap
+// scan.mjs reads with too, so the daily scan could not read that board either.
+export function auditReason(status, detail) {
+  const text = String(detail ?? '').split('\n')[0].trim();
+  if (/exceeded maxBytes|response_too_large/i.test(text)) return 'board too large to scan (over 10 MB)';
+  return text && text !== status ? `audit: ${status} (${text})` : `audit: ${status}`;
+}
+
+// A Greenhouse board whose full-text list is over upstream's 10 MB read cap is still readable when its portals.yml entry
+// sets max_response_mb, which scan.mjs honors (audit-portals does not, so it reports the board as an error). The pack
+// confirms the board with the plain jobs list, which has no posting text and is a fraction of the size, and sets the cap
+// from the size the audit reported (with half again as headroom), or UNKNOWN_SIZE_CAP_MB when a streamed body gave no
+// size (the preset caps for large boards run from 32 to 96). Returns { postings, cap } or null.
+const OVER_CAP_SIZE = /content-length (\d+)/;
+const UNKNOWN_SIZE_CAP_MB = 64;
+async function readableWithCap({ survivor, detail, fetch }) {
+  if (survivor.provider !== 'greenhouse') return null;
+  const size = Number(OVER_CAP_SIZE.exec(String(detail))?.[1]);
+  const cap = Number.isFinite(size) ? Math.ceil((size / 1048576) * 1.5) : UNKNOWN_SIZE_CAP_MB;
+  if (cap > MAX_RESPONSE_MB_CEILING) return null;
+  try {
+    const res = await fetch(survivor.apiUrl, { headers: { 'User-Agent': 'career-ops-student-pack' } });
+    const postings = res.ok ? (await res.json())?.jobs : null;
+    return Array.isArray(postings) && postings.length ? { postings: postings.length, cap } : null;
+  } catch {
+    return null;
+  }
+}
+
 // The audit result for the boards that passed the cheap checks; one upstream call covers them all.
-async function auditSurvivors({ survivors, upstream, root, added, skip }) {
+async function auditSurvivors({ survivors, upstream, root, fetch, added, skip }) {
   try {
     const audit = await auditBoards(upstream ?? createUpstream({ root }), survivors);
     for (const s of survivors) {
-      const status = audit.get(s.name)?.status ?? 'error';
-      if (status === 'ok' || status === 'small') added.push({ ...s, type: 'board', detail: `${s.provider}, ${audit.get(s.name)?.postings ?? 0} postings` });
-      else skip(s.name, `audit: ${status}`);
+      const row = audit.get(s.name);
+      const status = row?.status ?? 'error';
+      if (status === 'ok' || status === 'small') added.push({ ...s, type: 'board', detail: `${s.provider}, ${row?.postings ?? 0} postings` });
+      else if (auditReason(status, row?.detail).startsWith('board too large')) {
+        const big = await readableWithCap({ survivor: s, detail: row?.detail, fetch });
+        if (big) added.push({ ...s, type: 'board', max_response_mb: big.cap, detail: `${s.provider}, ${big.postings} postings, large board read with a ${big.cap} MB cap` });
+        else skip(s.name, auditReason(status, row?.detail));
+      } else skip(s.name, auditReason(status, row?.detail));
     }
   } catch (err) {
     for (const s of survivors) skip(s.name, `audit: error (${String(err.message).split('\n')[0]})`);
@@ -211,11 +280,11 @@ async function checkBoard(c, { known, checker, skip }) {
   const verdict = await checker.check(board.apiUrl);
   if (!verdict.allowed) return skip(c.name, verdict.reason);
   keys.forEach((k) => known.add(k));
-  return { name: c.name, careers_url: board.careersUrl, provider: board.provider };
+  return { name: c.name, careers_url: board.careersUrl, provider: board.provider, apiUrl: board.apiUrl };
 }
 
 // Boards: cheap local checks first, robots next, one audit call for everything that is left.
-async function vetBoards({ boards, ctx, checker, upstream, root, now, deadline, added, skip }) {
+async function vetBoards({ boards, ctx, checker, upstream, root, fetch, now, deadline, added, skip }) {
   const survivors = [];
   for (const [i, c] of boards.entries()) {
     if (i >= RESEARCH_LIMITS.max_boards) skip(c.name, 'cap reached');
@@ -225,7 +294,7 @@ async function vetBoards({ boards, ctx, checker, upstream, root, now, deadline, 
       if (survivor) survivors.push(survivor);
     }
   }
-  if (survivors.length) await auditSurvivors({ survivors, upstream, root, added, skip });
+  if (survivors.length) await auditSurvivors({ survivors, upstream, root, fetch, added, skip });
 }
 
 // The lists to probe: the agent's, then the catalog of preset lists not yet in the registry, then a bounded GitHub search.
@@ -307,7 +376,7 @@ async function vetLists({ queue, ctx, today, checker, counted, sleep, now, deadl
 function writeResults({ paths, ctx, today, added, skipped, fresh, cost }) {
   const boards = added.filter((a) => a.type === 'board');
   if (boards.length) {
-    const merge = [...priorResearchEntries(ctx.portalsText), ...boards.map((b) => ({ name: b.name, careers_url: b.careers_url }))];
+    const merge = [...priorResearchEntries(ctx.portalsText), ...boards.map((b) => ({ name: b.name, careers_url: b.careers_url, ...(b.max_response_mb ? { max_response_mb: b.max_response_mb } : {}) }))];
     const res = upsertPortalsBlock(ctx.portalsText, 'research_companies', 'tracked_companies', merge.flatMap(entryLines));
     if (res.kept) {
       for (const b of boards) skipped.push({ name: b.name, reason: 'tracked_companies in portals.yml is a flow-style list; rewrite it in block form' });
@@ -318,7 +387,7 @@ function writeResults({ paths, ctx, today, added, skipped, fresh, cost }) {
     }
   }
   if (fresh.length) writeAtomic(ctx.registryFile, `${JSON.stringify({ ...ctx.registry, sources: [...ctx.registry.sources, ...fresh] }, null, 2)}\n`);
-  const result = { added: added.map(({ source: _s, ...rest }) => rest), skipped, cost };
+  const result = { added: added.map(({ source: _s, apiUrl: _a, ...rest }) => rest), skipped, cost };
   mkdirSync(paths.dataDir, { recursive: true });
   writeAtomic(join(paths.dataDir, `research-${today}.json`), `${JSON.stringify(result, null, 2)}\n`);
 }
@@ -339,12 +408,12 @@ export async function research({ paths, today, candidates = NO_CANDIDATES, fetch
     skipped.push({ name, reason });
     return null;
   };
-  await vetBoards({ boards: candidates.boards, ctx, checker, upstream, root: paths.root, now, deadline, added, skip });
+  await vetBoards({ boards: candidates.boards, ctx, checker, upstream, root: paths.root, fetch: counted, now, deadline, added, skip });
   const queue = await listCandidates({ githubLists: candidates.github_lists, ctx, today, counted, sleep, noSearch, skip });
   const fresh = await vetLists({ queue, ctx, today, checker, counted, sleep, now, deadline, added, skip });
   const cost = { requests, seconds: Math.round((now() - startedAt) / 100) / 10, web_searches: candidates.web_searches };
   if (!dryRun) writeResults({ paths, ctx, today, added, skipped, fresh, cost });
-  return { added: added.map(({ source: _s, ...rest }) => rest), skipped, cost };
+  return { added: added.map(({ source: _s, apiUrl: _a, ...rest }) => rest), skipped, cost };
 }
 
 export function summaryLines({ added, skipped, cost }) {

@@ -19,7 +19,7 @@ Answering yes to the US citizen question keeps postings that ask for clearance o
 
 ## First run
 
-Part B of the interview builds your queue one step per command (`node student/scripts/first-run.mjs --queue --step github-lists`, then `--step scan`, repeated while it says `scan partial`, then `--step merge-post` and `--step prefilter+triage`), so no command runs past a 10-minute limit; `--queue --step view` prints the postings waiting, a count per source, the 10 newest rows and the sources that are upcoming or checked by hand, with no scores. Part D then scores the first rows after the schedule check. You can repeat the first run any time:
+Part B of the interview builds your queue one step per command (`node student/scripts/first-run.mjs --queue --step github-lists`, then `--step scan`, run a second time when it says `scan partial` (at most 2 slices of about 5 minutes; the boards research added and your target employers go first, then the boards whose name or address names one of your cities, and the daily run reads whatever is left), then `--step merge-post` and `--step prefilter+triage`), so no command runs past a 10-minute limit; `--queue --step view` prints the postings waiting, a count per source, the 10 newest rows and the sources that are upcoming or checked by hand, with no scores. Part D then scores the first rows after the schedule check. You can repeat the first run any time:
 
 ```
 node student/scripts/first-run.mjs

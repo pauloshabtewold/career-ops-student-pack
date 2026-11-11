@@ -8,7 +8,8 @@
 // scores and no triage list, which is what the interview shows before any grading.
 // --queue --step <name> runs one ingest step (github-lists, scan, merge-post, prefilter+triage) or `view`, which only
 // prints the queue. The interview runs the steps one command each so none nears a 10-minute command limit; the scan
-// step works through the companies in slices of about 5 minutes and says "scan partial" until none are left.
+// step works through the companies in at most 2 slices of about 5 minutes, the boards research added and the student's target
+// employers first, and says "scan partial" after the first and "scan stopped" after the second; the daily run scans the rest.
 // Usage: first-run.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--n 20] [--dry-run] [--list-only] [--queue [--step S]]
 // Exit 0 after the report (a failed step is a line in it), 1 when the interview has not written config/student.yml.
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
@@ -16,7 +17,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { ingestStepNames, ingestSteps, presetFeedPlugins, sliceScan } from '../lib/ingest.mjs';
+import { INTERVIEW_MAX_SLICES, ingestStepNames, ingestSteps, presetFeedPlugins, sliceScan } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { PresetError, loadMerged } from '../lib/presets.mjs';
@@ -103,6 +104,16 @@ export async function firstRun({ root, dataDir, packRoot, today, shown = DEFAULT
   return 0;
 }
 
+// Names of the employers the student put in the interview answers; none when the file is missing or unreadable.
+function targetEmployers(dataDir) {
+  try {
+    const answers = JSON.parse(readFileSync(join(dataDir, 'interview-answers.json'), 'utf8'));
+    return (answers.target_employers ?? []).map((e) => e?.name).filter((n) => typeof n === 'string');
+  } catch {
+    return [];
+  }
+}
+
 function runIngest({ root, dataDir, packRoot, today, runner, out, config, only = null }) {
   // One line per step; a failed step is reported and the rest still run, as in the daily run.
   const step = (name, fn) => {
@@ -120,8 +131,9 @@ function runIngest({ root, dataDir, packRoot, today, runner, out, config, only =
   } catch {
     // A preset that cannot be read leaves the extra feeds out.
   }
-  // With --step the scan runs in slices; github-lists, the first step, starts a fresh pass.
-  const scan = only ? (upstream) => sliceScan({ root, dataDir, upstream, today, reset: false }) : null;
+  // With --step the scan runs in at most INTERVIEW_MAX_SLICES slices, the boards research added and the student's target
+  // employers first; github-lists, the first step, starts a fresh pass.
+  const scan = only ? (upstream) => sliceScan({ root, dataDir, upstream, today, reset: false, maxSlices: INTERVIEW_MAX_SLICES, targets: targetEmployers(dataDir), locations: config.locations ?? [] }) : null;
   if (only === 'github-lists') rmSync(join(dataDir, 'student-first-scan.json'), { force: true });
   ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds, scan });
 }

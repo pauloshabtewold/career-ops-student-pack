@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as yaml from 'js-yaml';
 import * as H from '../helpers/research-harness.mjs';
+import { boardFromUrl } from '../../scripts/research-sources.mjs';
 
 const BOARD = (name, careers_url) => ({ name, careers_url });
 const cands = (o = {}) => ({ web_searches: 0, boards: [], github_lists: [], ...o });
@@ -169,13 +170,60 @@ test('extra check: a second run skips what the first run added and writes portal
 });
 
 // M-001-S8-cdel
-test('M-001-S8-cdel a Workday or unknown host is skipped as no supported public board and is never requested', async () => {
+test('M-001-S8-cdel an unknown host is skipped as no supported public board and is never requested', async () => {
   const s = H.scratch();
   try {
-    const r = await go(s, cands({ boards: [BOARD('Workday Co', 'https://example.wd1.myworkdayjobs.com/en-US/careers'), BOARD('Unknown Host Co', 'https://careers.example.com/jobs')] }));
-    assert.ok(r.out.includes('skipped: Workday Co: no supported public board, check by hand'), r.text);
+    const r = await go(s, cands({ boards: [BOARD('Unknown Host Co', 'https://careers.example.com/jobs'), BOARD('Marketing Page Co', 'https://www.challiance.example/careers/nursing')] }));
     assert.ok(r.out.includes('skipped: Unknown Host Co: no supported public board, check by hand'), r.text);
-    assert.deepEqual(r.f.calls.filter((u) => /myworkdayjobs|careers\.example\.com/.test(u)), []);
+    assert.ok(r.out.includes('skipped: Marketing Page Co: no supported public board, check by hand'), r.text);
+    assert.deepEqual(r.f.calls.filter((u) => /careers\.example\.com|challiance/.test(u)), []);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('regression 959b: a Workday board is robots-checked on its CXS API and added with its site in portals.yml', async () => {
+  const s = H.scratch();
+  try {
+    const r = await go(s, cands({ boards: [BOARD('Sample Health', 'https://samplehealth.wd1.myworkdayjobs.com/en-US/External_Careers')] }));
+    assert.ok(hasLine(r, /^research: added 1 boards, 0 GitHub lists$/), r.text);
+    assert.ok(r.f.calls.includes('https://samplehealth.wd1.myworkdayjobs.com/robots.txt'), r.f.calls.join('\n'));
+    assert.ok(tracked(s).some((c) => c.name === 'Sample Health' && c.careers_url === 'https://samplehealth.wd1.myworkdayjobs.com/External_Careers'), s.portals());
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('regression 959b: every other employer ATS upstream reads is accepted by its public URL form', () => {
+  const cases = {
+    'https://jobs.jobvite.com/samplehosp': 'jobvite',
+    'https://careers.smartrecruiters.com/SampleHosp': 'smartrecruiters',
+    'https://apply.workable.com/samplehosp/': 'workable',
+    'https://samplehosp.bamboohr.com/careers': 'bamboohr',
+    'https://samplehosp.recruitee.com/': 'recruitee',
+    'https://samplehosp.teamtailor.com/jobs': 'teamtailor',
+    'https://samplehosp.breezy.hr/': 'breezy',
+    'https://samplehosp.jobs.personio.de/': 'personio',
+    'https://samplehosp.pinpointhq.com/': 'pinpoint',
+    'https://samplehosp.applytojob.com/apply': 'jazzhr',
+    'https://careers-samplehosp.icims.com/jobs/search?ss=1': 'icims',
+  };
+  for (const [url, id] of Object.entries(cases)) assert.equal(boardFromUrl(url)?.provider, id, url);
+  assert.equal(boardFromUrl('https://samplehosp.wd5.myworkdayjobs.com/wday/cxs/samplehosp/wday/jobs'), null, 'a CXS URL without a site is not a board');
+  assert.equal(boardFromUrl('https://www.linkedin.com/company/samplehosp'), null);
+});
+
+test('regression 959a: a board whose audit hit the 10 MB cap is skipped as too large to scan, other failures keep upstream detail', async () => {
+  const s = H.scratch();
+  try {
+    s.writeCandidates(cands({ boards: [BOARD('Huge Board', 'https://boards.greenhouse.io/hugeboard'), BOARD('Down Board', 'https://jobs.lever.co/downboard')] }));
+    const rows = [
+      { name: 'Huge Board', verdict: 'error', count: 0, detail: 'HTTP body exceeded maxBytes of 10485760 (content-length 29555122)' },
+      { name: 'Down Board', verdict: 'error', count: 0, detail: 'HTTP 503 Service Unavailable' },
+    ];
+    const r = await H.runMain(s, ['--no-search'], { fetch: H.fakeFetch([]).fetch, sleep: H.sleeper().sleep, upstream: { auditPortals: async () => JSON.stringify(rows) }, preset: H.PRESET });
+    assert.ok(r.out.includes('skipped: Huge Board: board too large to scan (over 10 MB)'), r.text);
+    assert.ok(r.out.includes('skipped: Down Board: audit: error (HTTP 503 Service Unavailable)'), r.text);
   } finally {
     s.cleanup();
   }
@@ -398,6 +446,34 @@ test('the audit step reads the real upstream --json array: verdict ok adds the b
     assert.ok(hasLine(r, /^added: .*Sample Etch Works.*25 postings/), r.text);
     assert.ok(hasLine(r, /Sample Quiet Labs.*audit: empty/), r.text);
     assert.ok(!r.text.includes('audit: error'), r.text);
+  } finally {
+    s.cleanup();
+  }
+});
+
+test('regression 959a: a Greenhouse board over the 10 MB audit cap is added with max_response_mb when its plain jobs list reads, after the robots check', async () => {
+  const s = H.scratch();
+  try {
+    s.writeCandidates(cands({ boards: [BOARD('Big Greenhouse Co', 'https://boards.greenhouse.io/biggh')] }));
+    const rows = [{ name: 'Big Greenhouse Co', verdict: 'error', count: 0, detail: 'HTTP body exceeded maxBytes of 10485760 (content-length 29555122)' }];
+    const f = H.fakeFetch([H.route(/^https:\/\/boards-api\.greenhouse\.io\/v1\/boards\/biggh\/jobs$/, () => new Response(JSON.stringify({ jobs: [{ id: 1 }, { id: 2 }, { id: 3 }] }), { status: 200 }))]);
+    const r = await H.runMain(s, ['--no-search'], { fetch: f.fetch, sleep: H.sleeper().sleep, upstream: { auditPortals: async () => JSON.stringify(rows) }, preset: H.PRESET });
+    assert.ok(hasLine(r, /^research: added 1 boards, 0 GitHub lists$/), r.text);
+    assert.ok(hasLine(r, /^added: Big Greenhouse Co \(board, greenhouse, 3 postings, large board read with a 43 MB cap\)$/), r.text);
+    assert.ok(f.calls.indexOf('https://boards-api.greenhouse.io/robots.txt') < f.calls.indexOf('https://boards-api.greenhouse.io/v1/boards/biggh/jobs'), 'robots is read before the list');
+    const entry = tracked(s).find((c) => c.name === 'Big Greenhouse Co');
+    assert.equal(entry.max_response_mb, 43);
+    const f2 = H.fakeFetch([H.route(/\/v1\/boards\/biggh\/jobs$/, () => new Response(JSON.stringify({ jobs: [{ id: 1 }] }), { status: 200 }))]);
+    const s2 = H.scratch();
+    try {
+      s2.writeCandidates(cands({ boards: [BOARD('Big Greenhouse Co', 'https://boards.greenhouse.io/biggh')] }));
+      const streamed = [{ name: 'Big Greenhouse Co', verdict: 'error', count: 0, detail: 'HTTP body exceeded maxBytes of 10485760' }];
+      await H.runMain(s2, ['--no-search'], { fetch: f2.fetch, sleep: H.sleeper().sleep, upstream: { auditPortals: async () => JSON.stringify(streamed) }, preset: H.PRESET });
+      assert.equal(tracked(s2).find((c) => c.name === 'Big Greenhouse Co')?.max_response_mb, 64, 'no reported size gives the 64 MB cap');
+    } finally {
+      s2.cleanup();
+    }
+    assert.equal(entry.careers_url, 'https://boards.greenhouse.io/biggh');
   } finally {
     s.cleanup();
   }
