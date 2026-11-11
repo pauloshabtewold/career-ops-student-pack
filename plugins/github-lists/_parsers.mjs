@@ -5,6 +5,13 @@
 const REL = /^(\d+)\s*(mo|w|d|h|m|y)$/i;
 const REL_DAYS = { mo: 30, w: 7, d: 1, h: 0, m: 0, y: 365 };
 const CONTINUATION = new Set(['\u21b3', '']);
+// Emoji, arrows, other symbols, joiners and markdown emphasis marks at either end of a company cell are decoration;
+// letters, digits and punctuation such as "&" stay, so "AT&T" and "Procter & Gamble" are untouched.
+const COMPANY_EDGE = /^[\s\p{Extended_Pictographic}\p{So}\p{Sk}\p{Cf}\uFE0F*_]+|[\s\p{Extended_Pictographic}\p{So}\p{Sk}\p{Cf}\uFE0F*_]+$/gu;
+
+export function cleanCompany(cell) {
+  return textOf(cell).replace(COMPANY_EDGE, '');
+}
 
 export function decodeEntities(s) {
   return s
@@ -46,7 +53,7 @@ function columnMap(headers) {
   return col;
 }
 
-const isAggregatorHref = (u) => /(^|\.)(simplify\.jobs|jobright\.ai|zapply\.jobs|trylitos\.com)$/i.test(hostname(u));
+const isAggregatorHref = (u) => /(^|\.)(simplify\.jobs|jobright\.ai|zapply\.jobs|trylitos\.com|useno\.app)$/i.test(hostname(u));
 
 function hostname(u) {
   try {
@@ -89,7 +96,7 @@ function buildRows(tables, kind, today) {
         parseErrors++;
         continue;
       }
-      let company = textOf(row[col.company]);
+      let company = cleanCompany(row[col.company]);
       if (CONTINUATION.has(company)) company = prevCompany;
       else prevCompany = company;
       const cellLink = row[linkCol];

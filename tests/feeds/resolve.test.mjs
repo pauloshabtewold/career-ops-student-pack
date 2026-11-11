@@ -214,3 +214,9 @@ test('extra check: two requests to one API host wait at least 1200 ms between th
     s.cleanup();
   }
 });
+
+test('959 classifyUrl treats useno.app and its subdomains as aggregator', () => {
+  assert.equal(classifyUrl('https://useno.app/jobs/abc'), 'aggregator');
+  assert.equal(classifyUrl('https://www.useno.app/jobs/abc'), 'aggregator');
+  assert.equal(classifyUrl('https://notuseno.app/jobs/abc'), 'employer');
+});

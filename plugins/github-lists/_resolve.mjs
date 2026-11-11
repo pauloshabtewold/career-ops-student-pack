@@ -7,7 +7,7 @@ import { appendStats } from './_io.mjs';
 
 // Hosts whose links route to a vendor posting; rows on them are resolved at the employer or dropped.
 // Keep in step with isAggregatorHref in _parsers.mjs.
-const AGGREGATORS = ['zapply.jobs', 'simplify.jobs', 'jobright.ai', 'trylitos.com'];
+const AGGREGATORS = ['zapply.jobs', 'simplify.jobs', 'jobright.ai', 'trylitos.com', 'useno.app'];
 const UNRESOLVED_HEADER = ['date', 'company', 'title', 'source'];
 const BOARD_URL = {
   greenhouse: (slug) => `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`,
