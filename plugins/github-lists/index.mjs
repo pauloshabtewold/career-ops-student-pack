@@ -11,9 +11,10 @@ import { parseSource } from './_parsers.mjs';
 import { isEligible } from './_eligibility.mjs';
 import { resolveAggregator } from './_resolve.mjs';
 
-const STATS_HEADER = ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed'];
+const STATS_HEADER = ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed', 'deferred', 'already_queued'];
 // The upstream host abandons an ingest hook after 15 s and then keeps nothing, so the plugin stops requesting at 11 s and
-// returns what it has. Sources never read go first, then the least recently read, so every list is read within a few runs.
+// returns what it has. Research-added lists never read go first, then other never-read lists, then the least recently read,
+// so every list is read within a few runs.
 const HOST_BUDGET_MS = 11000;
 const REAL_SLEEP = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -29,7 +30,7 @@ export async function fetchListText(ctx, url, sleep, deadline = Infinity) {
   let lastError = new Error('no attempt made');
   for (let attempt = 1; attempt <= LIMITS.max_attempts; attempt++) {
     try {
-      const res = await ctx.fetch(url, { headers: { 'User-Agent': 'career-ops-student-pack' }, timeoutMs: Math.max(500, deadline - Date.now()) });
+      const res = await ctx.fetch(url, { headers: { 'User-Agent': 'career-ops-student-pack' }, timeoutMs: Math.max(500, deadline - Date.now()), maxBytes: LIMITS.max_list_bytes });
       if (res.ok) return await res.text();
       lastError = new Error(`HTTP ${res.status}`);
       if (isFinalStatus(res.status)) break;
@@ -61,8 +62,14 @@ async function fetchSource(ctx, source, stat, env) {
 function collectUnique(resolved, source, stat, env, acc) {
   for (const row of resolved) {
     const key = urlKey(row.url);
-    if (!key || acc.seen.has(key)) continue;
+    if (!key) continue;
+    // Already in the queue: another list added it earlier in this run, or it is in the sidecar from an earlier run.
+    if (acc.seen.has(key)) {
+      stat.already_queued++;
+      continue;
+    }
     acc.seen.add(key);
+    if (env.known.has(key)) stat.already_queued++;
     if (!env.known.has(key)) stat.unique_new++;
     acc.jobs.push({ title: row.title, url: row.url, company: row.company, location: row.location });
     acc.sidecarRows.push({ url: row.url, src: `github:${source.name}`, imported: env.today, extid: row.extid ?? '', notes: '' });
@@ -70,7 +77,7 @@ function collectUnique(resolved, source, stat, env, acc) {
 }
 
 async function ingestSource(ctx, source, env, acc) {
-  const stat = { date: env.today, name: source.name, fetched: 0, eligible: 0, unique_new: 0, parse_errors: 0, failed: 0 };
+  const stat = { date: env.today, name: source.name, fetched: 0, eligible: 0, unique_new: 0, parse_errors: 0, failed: 0, deferred: 0, already_queued: 0 };
   const fetched = await fetchSource(ctx, source, stat, env);
   if (!fetched) return stat;
   const { hash, parsed } = fetched;
@@ -91,6 +98,7 @@ async function ingestSource(ctx, source, env, acc) {
   let deferred = 0;
   const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline: env.deadline, onDeferred: (n) => { deferred = n; } });
   // A source with rows the time budget cut off keeps its old last_ingest; its last_read still moves it behind unread lists.
+  stat.deferred = deferred;
   if (deferred) ctx.log?.(`github-lists: ${source.name}: ${deferred} row(s) deferred, time budget reached`);
   else source.last_ingest = env.today;
   collectUnique(resolved, source, stat, env, acc);
@@ -132,12 +140,14 @@ export default {
     const stats = [];
 
     const sources = (registry.sources ?? []).filter((s) => s.status === 'active' || s.status === 'trial');
-    // Never-read sources first, then least recently read; sources with the same last touch keep their registry position. A
+    // Research-added never-read sources first, then other never-read ones, then least recently read; sources with the same last touch keep their registry position. A
     // source whose last touch was a failed attempt sorts behind every source read that same day.
     const lastRead = (x) => [x.last_ingest, x.last_read].map((d) => String(d ?? '')).sort().at(-1);
     const lastTouched = (x) => [lastRead(x), String(x.last_attempt ?? '')].sort().at(-1);
     const failedLast = (x) => (x.last_attempt && String(x.last_attempt) >= lastRead(x) ? 1 : 0);
-    const order = [...sources].sort((x, y) => lastTouched(x).localeCompare(lastTouched(y)) || failedLast(x) - failedLast(y));
+    // Tier 0: research-added lists nobody has read or tried; tier 1: other never-touched lists; tier 2: the rest, least recently touched first.
+    const tier = (x) => (lastTouched(x) ? 2 : x.notes === 'research' ? 0 : 1);
+    const order = [...sources].sort((x, y) => tier(x) - tier(y) || lastTouched(x).localeCompare(lastTouched(y)) || failedLast(x) - failedLast(y));
     for (const [i, source] of order.entries()) {
       if (Date.now() > deadline) {
         ctx.log?.(`github-lists: time budget reached; ${order.length - i} source(s) wait for the next run`);

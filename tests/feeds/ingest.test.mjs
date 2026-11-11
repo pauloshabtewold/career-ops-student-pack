@@ -103,7 +103,7 @@ test('M-003-S7 stats row has the documented columns and counts', async () => {
   try {
     await plugin.ingest(ctx);
     const st = await stats(s);
-    assert.deepEqual(st.header, ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed']);
+    assert.deepEqual(st.header, ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed', 'deferred', 'already_queued']);
     assert.equal(st.rows.length, 1);
     assert.equal(st.rows[0].date, H.TODAY);
     assert.equal(st.rows[0].name, 'list-a');

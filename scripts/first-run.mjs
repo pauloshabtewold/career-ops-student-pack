@@ -6,6 +6,8 @@
 // --list-only skips the ingest steps and only prints the counts and the rows, for a further batch after the first run.
 // --queue runs the same ingest steps and then prints the raw queue (counts, the newest rows, upcoming sources) with no
 // scores and no triage list, which is what the interview shows before any grading.
+// The github-lists step runs the plugin up to INTERVIEW_MAX_LIST_PASSES times until no enabled list is unread, since one
+// hook run stops at the host's 11 second budget.
 // --queue --step <name> runs one ingest step (github-lists, scan, merge-post, prefilter+triage) or `view`, which only
 // prints the queue. The interview runs the steps one command each so none nears a 10-minute command limit; the scan
 // step works through the companies in at most 2 slices of about 5 minutes, the boards research added and the student's target
@@ -17,7 +19,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { INTERVIEW_MAX_SLICES, ingestStepNames, ingestSteps, presetFeedPlugins, sliceScan } from '../lib/ingest.mjs';
+import { INTERVIEW_MAX_LIST_PASSES, INTERVIEW_MAX_SLICES, ingestStepNames, ingestSteps, presetFeedPlugins, sliceScan } from '../lib/ingest.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { PresetError, loadMerged } from '../lib/presets.mjs';
@@ -135,7 +137,7 @@ function runIngest({ root, dataDir, packRoot, today, runner, out, config, only =
   // employers first; github-lists, the first step, starts a fresh pass.
   const scan = only ? (upstream) => sliceScan({ root, dataDir, upstream, today, reset: false, maxSlices: INTERVIEW_MAX_SLICES, targets: targetEmployers(dataDir), locations: config.locations ?? [] }) : null;
   if (only === 'github-lists') rmSync(join(dataDir, 'student-first-scan.json'), { force: true });
-  ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds, scan });
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, feeds, scan, listPasses: only === 'github-lists' ? INTERVIEW_MAX_LIST_PASSES : 1 });
 }
 
 async function main() {
