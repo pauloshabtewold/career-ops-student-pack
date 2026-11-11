@@ -10,8 +10,14 @@ const allow = (crawlDelay = null) => ({ check: async () => ({ allowed: true, rea
 
 test('a stalled host is aborted after the timeout', async () => {
   const fetch = (_url, init) => new Promise((_res, rej) => init.signal.addEventListener('abort', () => rej(new Error('aborted'))));
-  const res = await readableWithCap({ survivor, detail, fetch, checker: allow(), sleep: async () => {}, now: () => 0, deadline: 1e9, timeoutMs: 20 });
-  assert.equal(res, null);
+  // AbortSignal.timeout's timer is unref'd, so a ref'd handle keeps the loop alive until the abort fires.
+  const keepAlive = setTimeout(() => {}, 10000);
+  try {
+    const res = await readableWithCap({ survivor, detail, fetch, checker: allow(), sleep: async () => {}, now: () => 0, deadline: 1e9, timeoutMs: 20 });
+    assert.equal(res, null);
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test('past the research deadline the extra fetch is not made', async () => {
