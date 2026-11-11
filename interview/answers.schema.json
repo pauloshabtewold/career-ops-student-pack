@@ -303,9 +303,7 @@
                 "hispanic_latino",
                 "veteran",
                 "disability",
-                "pronouns",
-                "sexual_orientation",
-                "transgender"
+                "pronouns"
               ],
               "additionalProperties": false,
               "properties": {
