@@ -208,7 +208,7 @@ for (const k of SETS) {
     const partC = norm(inC.map(({ b }) => b.text).join('\n')).toLowerCase();
     const profile = runAnswers(k).application_profile;
     assert.equal(typeof profile.eeo, 'object', 'run answers carry the eeo map');
-    assert.deepEqual(Object.keys(profile.eeo).sort(), ['disability', 'gender', 'hispanic_latino', 'pronouns', 'race_ethnicity', 'veteran']);
+    assert.deepEqual(Object.keys(profile.eeo).sort(), ['disability', 'gender', 'hispanic_latino', 'pronouns', 'race_ethnicity', 'sexual_orientation', 'transgender', 'veteran']);
     const values = [profile.start_date, profile.relocation, profile.how_did_you_hear, ...Object.values(profile.eeo)];
     for (const v of values) assert.ok(partC.includes(String(v).toLowerCase()), `Part C holds ${JSON.stringify(v)}`);
   });

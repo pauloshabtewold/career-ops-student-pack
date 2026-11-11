@@ -79,7 +79,9 @@
       "hispanic_latino": "Yes",
       "veteran": "decline",
       "disability": "decline",
-      "pronouns": "she/her"
+      "pronouns": "she/her",
+      "sexual_orientation": "decline",
+      "transgender": "decline"
     },
     "how_did_you_hear": "Professor referral"
   },

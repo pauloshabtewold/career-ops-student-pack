@@ -127,7 +127,9 @@
       "hispanic_latino": "No",
       "veteran": "No",
       "disability": "decline",
-      "pronouns": "he/him"
+      "pronouns": "he/him",
+      "sexual_orientation": "decline",
+      "transgender": "decline"
     },
     "how_did_you_hear": "Hospital job board"
   },

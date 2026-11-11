@@ -72,7 +72,7 @@ test('M-003-S2-cdel each Part holds a numbered batch whose items carry a (recomm
 // M-003-S3-cdel
 test('M-003-S3-cdel Part C EEO items carry no recommended value and say all recommended does not cover them and decline stays decline', () => {
   const partC = section(HEADINGS[2]);
-  const words = [/gender/i, /race/i, /hispanic/i, /veteran/i, /disab/i, /pronoun/i];
+  const words = [/gender/i, /race/i, /hispanic/i, /veteran/i, /disab/i, /pronoun/i, /sexual orientation/i, /transgender/i];
   for (const w of words) {
     const lines = partC.split('\n').filter((l) => w.test(l));
     assert.ok(lines.length >= 1, `Part C mentions ${w}`);
@@ -133,4 +133,14 @@ test('M-003-S21-cdel Part A runs inbox-pass.mjs --check with the session agent a
   assert.match(item, /manual/i, 'condition: automation is not manual');
   assert.match(item, /connector/i, 'condition: mail path is connector');
   assert.match(item, /\boff\b/i, 'shown off otherwise');
+});
+
+test('Part C has eight EEO items, none with a recommended value, including sexual orientation and transgender', () => {
+  const partC = section(HEADINGS[2]);
+  assert.match(partC, /The eight EEO questions/);
+  const items = partC.split('\n').filter((l) => /^(9|1[0-6])\. /.test(l) && /no default/.test(l));
+  assert.equal(items.length, 8, items.join('\n'));
+  for (const l of items) assert.doesNotMatch(l, /\(recommended/i);
+  assert.ok(items.some((l) => /Sexual orientation/.test(l)));
+  assert.ok(items.some((l) => /Transgender/.test(l)));
 });

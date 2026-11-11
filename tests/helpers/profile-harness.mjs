@@ -12,8 +12,10 @@ export const EEO_FAKE = Object.freeze({
   veteran: 'fake-vet-c',
   disability: 'decline',
   pronouns: 'fake-pron-d',
+  sexual_orientation: 'fake-orient-e',
+  transgender: 'decline',
 });
-export const EEO_KEYS = ['gender', 'race_ethnicity', 'hispanic_latino', 'veteran', 'disability', 'pronouns'];
+export const EEO_KEYS = ['gender', 'race_ethnicity', 'hispanic_latino', 'veteran', 'disability', 'pronouns', 'sexual_orientation', 'transgender'];
 
 const persona = () => JSON.parse(readFileSync(join(PACK_ROOT, 'tests', 'fixtures', 'answers', 'cs.json'), 'utf8'));
 

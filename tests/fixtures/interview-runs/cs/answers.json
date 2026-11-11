@@ -78,7 +78,9 @@
       "hispanic_latino": "No",
       "veteran": "Not a veteran",
       "disability": "decline",
-      "pronouns": "he/him"
+      "pronouns": "he/him",
+      "sexual_orientation": "decline",
+      "transgender": "decline"
     },
     "how_did_you_hear": "University career fair"
   },

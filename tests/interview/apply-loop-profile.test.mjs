@@ -27,3 +27,9 @@ test('M-003-S15-cdel apply-loop runs profile-answers show, fills from saved answ
   assert.match(md, /application_answers/, 'fact gate names application_answers');
   assert.match(md, /"submit all" or "submit 1,3"/);
 });
+
+test('apply-loop matches fields by the question asked, not a keyword, and never guesses an uncovered field', () => {
+  assert.match(md, /by the question it asks, not by a keyword it contains \("transgender" is not "gender"\)/);
+  assert.match(md, /no saved key covers is left blank and added to the one list of unanswered fields shown with the batch, never guessed/);
+  assert.match(md, /sexual orientation and transgender/);
+});

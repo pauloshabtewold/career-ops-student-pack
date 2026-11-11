@@ -15,7 +15,7 @@ import { copyPack, cleanupAll } from '../goal-check/_harness.mjs';
 
 const SETS = ['cs', 'mis', 'finance', 'mechanical', 'nursing'];
 const TODAY_M1 = '2026-10-29';
-const PROFILE = { start_date: '2027-06', relocation: 'within-locations', eeo: { gender: 'decline', race_ethnicity: 'decline', hispanic_latino: 'No', veteran: 'Not a veteran', disability: 'decline', pronouns: 'he/him' }, how_did_you_hear: 'University career fair' };
+const PROFILE = { start_date: '2027-06', relocation: 'within-locations', eeo: { gender: 'decline', race_ethnicity: 'decline', hispanic_latino: 'No', veteran: 'Not a veteran', disability: 'decline', pronouns: 'he/him', sexual_orientation: 'decline', transgender: 'decline' }, how_did_you_hear: 'University career fair' };
 const CV = '# Jordan Testwell\n\nSkills: Python, Java, SQL\n';
 const answersOf = (k) => JSON.parse(readFileSync(join(PACK_ROOT, 'tests', 'fixtures', 'answers', `${k}.json`), 'utf8'));
 // An answers file saved before Phase 3 collected the application profile.

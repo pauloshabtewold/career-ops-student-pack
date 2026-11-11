@@ -77,7 +77,7 @@ One batch for what forms ask for again and again. Reply rules: "all recommended"
 7. Resume variants. Does: names one resume per track with a page limit. (recommended) one page per track, because that is what recruiters read. The files themselves stay under the student's control.
 8. Priority companies, blacklist, dealbreakers and target employers. Does: ranks, hides or adds employers (dealbreakers are phrases such as "unpaid" or "on-site only outside my metros"). (recommended) none now, because Part B already added employers for your field; add them any time.
 
-The six EEO questions below are voluntary and usually not seen by the hiring team. They have no recommended value: "all recommended" and "ok" do not cover them. Each takes a value in the student's words or "decline", which is stored as the string `decline` and shown as "decline to self-identify". If any are left unanswered, ask for only those once, in the same reply to the student's answers.
+The eight EEO questions below are voluntary and usually not seen by the hiring team. They have no recommended value: "all recommended" and "ok" do not cover them. Each takes a value in the student's words or "decline", which is stored as the string `decline` and shown as "decline to self-identify". If any are left unanswered, ask for only those once, in the same reply to the student's answers.
 
 9. Gender. personal, no default. Does: fills the gender question on forms.
 10. Race or ethnicity. personal, no default. Does: fills that question.
@@ -85,8 +85,10 @@ The six EEO questions below are voluntary and usually not seen by the hiring tea
 12. Veteran status. personal, no default. Does: fills that question.
 13. Disability status. personal, no default. Does: fills that question.
 14. Pronouns. personal, no default. Does: fills that question.
+15. Sexual orientation. personal, no default. Does: fills the sexual orientation question on forms.
+16. Transgender. personal, no default. Does: fills the "Do you identify as transgender" question on forms, separate from gender.
 
-If the student needs sponsorship, offer upstream's h1b-sponsor plugin: show its capability card with `node plugins.mjs enable h1b-sponsor` and run it again with `--confirm` only after the student agrees. Record `application_profile` with `eeo` as a map of the six items (never the older `leave-blank` or `ask-each-time`), and save the answers file.
+If the student needs sponsorship, offer upstream's h1b-sponsor plugin: show its capability card with `node plugins.mjs enable h1b-sponsor` and run it again with `--confirm` only after the student agrees. Record `application_profile` with `eeo` as a map of the eight items (never the older `leave-blank` or `ask-each-time`), and save the answers file.
 
 ## Part D: schedule and switches
 

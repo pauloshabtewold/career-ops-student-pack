@@ -81,7 +81,9 @@
       "hispanic_latino": "No",
       "veteran": "I am not a protected veteran",
       "disability": "No",
-      "pronouns": "they/them"
+      "pronouns": "they/them",
+      "sexual_orientation": "decline",
+      "transgender": "decline"
     },
     "how_did_you_hear": "Employer website"
   },

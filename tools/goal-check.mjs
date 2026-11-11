@@ -136,7 +136,7 @@ function checkFiles({ dir }) {
   try {
     const answers = yaml.load(readIf(join(dir, 'config', 'profile.yml')))?.application_answers ?? {};
     must(PROFILE_KEYS.every((k) => answers[k] !== undefined), 'application_answers keys');
-    // eeo is a map holding the six items, or the older single string that profile-answers.mjs counts as unknown.
+    // eeo is a map holding the eight items, or the older single string that profile-answers.mjs counts as unknown.
     must(typeof answers.eeo === 'string' || EEO_KEYS.every((k) => typeof answers.eeo?.[k] === 'string' && answers.eeo[k]), 'application_answers eeo');
   } catch {
     fails.push('profile.yml parse');

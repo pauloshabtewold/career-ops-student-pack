@@ -8,7 +8,7 @@ Triage: stand-in scorer (PASS 4.2 or FAIL 1.0); rows 7 and 10 are proxies.
 
 | Row | Deciding check | Verdict | Counts |
 |---|---|---|---|
-| Interview writes config, profile, portals and modes | files written and parse after apply-answers; application_answers carries the six-item eeo map or the older single string | met | 5/5 fixtures |
+| Interview writes config, profile, portals and modes | files written and parse after apply-answers; application_answers carries the eight-item eeo map or the older single string | met | 5/5 fixtures |
 | Preset choice and honest coverage line | detect-field pick equals expected preset; coverage line printed | met | 5/5 fixtures |
 | Correct cycle years | student-cycle.json equals expected years | met | 5/5 fixtures |
 | Daily zero-token digest never fails | daily.mjs with a failing step exits 0, writes the digest, starts no claude | met | 5/5 fixtures |

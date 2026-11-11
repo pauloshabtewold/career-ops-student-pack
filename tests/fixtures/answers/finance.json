@@ -80,7 +80,9 @@
       "hispanic_latino": "decline",
       "veteran": "decline",
       "disability": "decline",
-      "pronouns": "she/her"
+      "pronouns": "she/her",
+      "sexual_orientation": "decline",
+      "transgender": "decline"
     },
     "how_did_you_hear": "Campus recruiting event"
   },

@@ -10,7 +10,7 @@ const TAIL = 'target_roles:\n  primary:\n    - Old role\n';
 const PROFILE = `${HEAD}${BLOCK}\n${TAIL}`;
 
 for (const legacy of ['leave-blank', 'ask-each-time']) {
-  test(`${legacy === 'leave-blank' ? 'M-003-S12-cdel' : 'extra check:'} an answers file with eeo ${legacy} still applies and show lists all six eeo items in needs_confirmation`, () => {
+  test(`${legacy === 'leave-blank' ? 'M-003-S12-cdel' : 'extra check:'} an answers file with eeo ${legacy} still applies and show lists all eight eeo items in needs_confirmation`, () => {
     const r = scratch();
     try {
       const base = finalAnswers();
@@ -86,6 +86,41 @@ test('extra check: profile-answers set with a start_date that is neither YYYY-MM
       assert.equal(res.code, 0, `${good}: ${res.text}`);
       assert.equal(String(yaml.load(r.read('config/profile.yml')).application_answers.start_date), good);
     }
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('eeo.sexual_orientation and eeo.transgender: set saves each, show prints each, other items kept', () => {
+  const r = scratch();
+  try {
+    r.write('config/profile.yml', PROFILE);
+    for (const [k, v] of [['eeo.sexual_orientation', 'fake-orient-x'], ['eeo.transgender', 'decline']]) {
+      const set = profileAnswers(r, ['set', k, v]);
+      assert.equal(set.code, 0, set.text);
+      assert.match(set.stdout, new RegExp(`saved ${k.replace('.', '\\.')}`));
+    }
+    const a = yaml.load(r.read('config/profile.yml')).application_answers;
+    assert.equal(a.eeo.sexual_orientation, 'fake-orient-x');
+    assert.equal(a.eeo.transgender, 'decline');
+    assert.equal(a.eeo.pronouns, 'fake-pron-d', 'other eeo item kept');
+    const show = profileAnswers(r, ['show']);
+    const lines = show.stdout.split('\n');
+    assert.ok(lines.includes('eeo.sexual_orientation: fake-orient-x'), show.stdout);
+    assert.ok(lines.includes('eeo.transgender: decline'), show.stdout);
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('needs_confirmation lists eeo.sexual_orientation and eeo.transgender when missing', () => {
+  const r = scratch();
+  try {
+    r.write('config/profile.yml', 'application_answers:\n  eeo:\n    gender: decline\n');
+    const out = JSON.parse(profileAnswers(r, ['show', '--json']).stdout);
+    assert.ok(out.needs_confirmation.includes('eeo.sexual_orientation'));
+    assert.ok(out.needs_confirmation.includes('eeo.transgender'));
+    assert.ok(!out.needs_confirmation.includes('eeo.gender'));
   } finally {
     r.cleanup();
   }

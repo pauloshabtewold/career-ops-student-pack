@@ -4,7 +4,7 @@
 // Usage: profile-answers.mjs show [--json] | set <key> <value> [--root R]
 //   keys: work_authorization, requires_sponsorship (yes|no), start_date (YYYY-MM|immediately), relocation
 //   (yes|no|within-locations), how_did_you_hear, eeo.gender, eeo.race_ethnicity, eeo.hispanic_latino, eeo.veteran,
-//   eeo.disability, eeo.pronouns (a value, or decline). The EEO values are voluntary and are never copied anywhere else.
+//   eeo.disability, eeo.pronouns, eeo.sexual_orientation, eeo.transgender (a value, or decline). The EEO values are voluntary and are never copied anywhere else.
 // Exit 0 on success, 1 when config/profile.yml does not exist or does not parse, 2 for an unknown key or a bad value.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
