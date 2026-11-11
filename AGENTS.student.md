@@ -4,6 +4,7 @@ These rules load in every session in this career-ops folder, through CLAUDE.loca
 
 ## Session start
 
+0. If the user's whole message is "help", skip steps 1 to 4 and upstream's session checks (do not run `update-system.mjs check` or `session-start.mjs`), and answer with the guide in `docs/commands.md` only, with no update notice. Any other message starts the session normally.
 1. Run `node student/scripts/session-start.mjs` first and act on its lines before anything else.
 2. If it prints `INTERVIEW:`, read `interview/interview.md` in the student folder and run the personalization interview. Do nothing else until it finishes.
 3. Updates: when upstream's session check suggests updating, run `node student/update.mjs` instead. It updates the pack and upstream together and keeps both inside the supported version range.
@@ -52,7 +53,7 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 | `modes/handshake.md` | the user says "Handshake pass" and the switch is on |
 | `modes/inbox.md` | the user says "check my inbox" or "check my mail", or answers the digest; "turn off the inbox pass" sets `mailbox.schedule` to `off` |
 | `modes/daily-run.md` | the user says "what ran today" or "daily run" |
-| `docs/commands.md` | the user says "help" or "what can you do": show it from the student folder as written, grouped, and say "help" shows it again |
+| `docs/commands.md` | the user says "help" or "what can you do": show it from the student folder as written, grouped, and say "help" shows it again; answer with the guide only (Session start rule 0) |
 | `scripts/profile-answers.mjs` | the user says "change a saved answer": run `node student/scripts/profile-answers.mjs set <key> <value>`; never copy an EEO value anywhere else |
 | `scripts/schedule.mjs` | the user says "change my schedule" (run `install --time HH:MM`), "check my schedule" (run `verify`) or "pause my schedule" (run `remove`) |
 | config/student.yml | the user says "change my triage budget": follow the triage budget rule above |

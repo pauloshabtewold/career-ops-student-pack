@@ -77,10 +77,13 @@ function feedsFor(root, config) {
   }
 }
 
-function runSteps({ root, dataDir, packRoot, today, config, limits, runner, results }) {
+function runSteps({ root, dataDir, packRoot, today, config, limits, runner, results, flags }) {
   const step = (name, fn) => {
     try {
-      results.push({ name, ok: true, detail: oneLine(fn()) });
+      const out = fn();
+      // github-lists puts its count line first; a time-budget deferral warning is shown as an extra line.
+      const extra = name === 'github-lists' ? String(out ?? '').split('\n').map((l) => l.trim()).filter(Boolean).slice(1) : [];
+      results.push({ name, ok: true, detail: oneLine(out), extra });
     } catch (err) {
       results.push({ name, ok: false, detail: stepErrorText(err) });
     }
@@ -103,7 +106,7 @@ function runSteps({ root, dataDir, packRoot, today, config, limits, runner, resu
     step('audit-portals', () => upstream('audit-portals.mjs', ['--summary']));
     writeFileSync(markerFile, `${today.slice(0, 7)}\n`);
   }
-  ingestSteps({ root, dataDir, packRoot, today, runner, step, sweep: isSunday(today), feeds: feedsFor(root, config) });
+  ingestSteps({ root, dataDir, packRoot, today, runner, step, sweep: isSunday(today), feeds: feedsFor(root, config), flag: (line) => flags.push(line) });
 }
 
 // A health check that throws becomes one digest line; it never fails the run.
@@ -116,17 +119,17 @@ function healthLines({ dataDir, today, results }) {
 }
 
 // Writes the digest and returns the number of failed steps.
-function writeDigest({ dataDir, today, results, notes }) {
+function writeDigest({ dataDir, today, results, notes, flags = [] }) {
   const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
   const failed = results.filter((r) => !r.ok);
   const digest = [
     `# Student daily run ${today}`,
     '',
     '## Steps',
-    ...results.map((r) => `- ${r.name}: ${r.ok ? 'ok' : 'FAILED'}${r.detail ? ` (${r.detail})` : ''}`),
+    ...results.flatMap((r) => [`- ${r.name}: ${r.ok ? 'ok' : 'FAILED'}${r.detail ? ` (${r.detail})` : ''}`, ...(r.extra ?? []).map((e) => `- ${r.name}: ${e}`)]),
     '',
     '## Failures',
-    ...(failed.length ? failed.map((r) => `- ${r.name}`) : ['- none']),
+    ...(failed.length || flags.length ? [...failed.map((r) => `- ${r.name}`), ...flags.map((f) => `- ${f}`)] : ['- none']),
     '',
     ...(notes.length ? ['## Notes', ...notes.map((n) => `- ${n}`), ''] : []),
     '## Feed health',
@@ -180,14 +183,15 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   }
 
   const results = [];
+  const flags = [];
   // scheduled.mjs passes --via-scheduled; without it this is a manual run or a schedule from before the triage wrapper, and neither triages.
   const notes = !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
     ? ['this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, run node student/scripts/schedule.mjs install again']
     : [];
   try {
     log(`START ${stamp()} student-daily ${today}`);
-    runSteps({ root, dataDir, packRoot, today, config, limits, runner, results });
-    const failedCount = writeDigest({ dataDir, today, results, notes });
+    runSteps({ root, dataDir, packRoot, today, config, limits, runner, results, flags });
+    const failedCount = writeDigest({ dataDir, today, results, notes, flags });
     log(`END ${stamp()} student-daily ok=${results.length - failedCount} failed=${failedCount}`);
     say(`student-daily: ${results.length - failedCount} step(s) ok, ${failedCount} failed; digest at data/digest/student-${today}.md`);
   } catch (err) {
