@@ -17,7 +17,7 @@ Everything career-ops itself does works when asked in plain words. Say any phras
 
 - "outreach": runs one round of LinkedIn drafts for today (`modes/outreach.md`).
 - "send all" or "send 1,4,7": sends only the numbered messages you name (`modes/outreach.md`).
-- "drafts only": keeps drafts and sends nothing (`AGENTS.student.md`).
+- "drafts only": switches outreach from `on` to drafts, so nothing is sent (`AGENTS.student.md`). It only lowers the switch: from `off`, edit `switches.outreach: drafts` in `config/student.yml` yourself.
 - "stop outreach": turns outreach off until you edit the file (`AGENTS.student.md`).
 
 ## Inbox

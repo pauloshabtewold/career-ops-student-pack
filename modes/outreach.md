@@ -25,4 +25,4 @@ On any warning, CAPTCHA or weekly-limit notice from LinkedIn, stop LinkedIn for 
 
 ## Drafts mode
 
-When `switches.outreach` is `drafts`, put each message on the clipboard for the user to paste and send themselves. Profile views for research are still allowed; sends are not.
+When `switches.outreach` is `drafts`, write every drafted message, numbered with contact, company and character count, to `data/outreach/drafts-YYYY-MM-DD.md` in the student folder, put item 1 on the clipboard, and tell the user the file path. Never point the user at a temp or scratchpad path. Profile views for research are still allowed; sends are not.
