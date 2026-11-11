@@ -1,5 +1,6 @@
 // W-023-A3-1: upstream ctx.fetch throws on any non-2xx with err.status set. A 4xx other than 429 is final, so a renamed list
-// costs one request, and the failed source goes to the back of the least-recently-read queue.
+// costs one request, and the failed source is retried first in the next run, ahead of lists that were read (github-lists 1.4.1;
+// before it, a failed list sorted last and the Simplify lists were never retried).
 // W-023-A3-3: every request carries a timeoutMs so a slow host cannot run past the 11 s host budget.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -47,12 +48,12 @@ test('W-023-A3-1 a 404 list is requested once with no backoff sleep, and the oth
   assert.ok(!sleeps.includes(3000) && !sleeps.includes(6000), JSON.stringify(sleeps));
 });
 
-test('W-023-A3-1 a failed list still counts toward retirement and goes to the back of the next run', async () => {
+test('W-023-A3-1 a failed list still counts toward retirement and is retried first in the next run', async () => {
   const first = await run([src('gone'), src('b'), src('c')]);
   assert.equal(first.registry.sources[0].failed_parses, 1);
   assert.equal(first.registry.sources[0].last_attempt, H.TODAY);
   const second = await run(first.registry.sources);
-  assert.equal(second.fetched.at(-1), 'example-org/gone', second.fetched.join());
+  assert.equal(second.fetched[0], 'example-org/gone', second.fetched.join());
   assert.equal(second.registry.sources[0].failed_parses, 2);
 });
 

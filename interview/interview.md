@@ -71,7 +71,7 @@ One batch for what forms ask for again and again. Reply rules: "all recommended"
 1. Identity. personal, no default. Does: name, email, phone, city, LinkedIn and GitHub for forms. Propose each from the resume and let the student correct them.
 2. Work authorization. personal, no default. Does: answers "are you authorized to work" in the student's words, for example "F-1 with OPT" or "US citizen".
 3. Needs sponsorship. personal, no default. Does: answers the sponsorship question: yes or no.
-4. Start date. Does: answers "when can you start". (recommended) the month after graduation as `YYYY-MM`, because it matches your track. Other: `immediately`.
+4. Start date. Does: answers "when can you start". (recommended) as `YYYY-MM`, by track: for an internship or co-op track, the start month of the next Summer term in `data/student-cycle.json` (`2027-06` for a student who graduates 2028-05 and is recruiting in fall 2026); for a new-grad track, the month after graduation (`2028-06` for that same student); because it matches your track. Other: `immediately`.
 5. Relocation. Does: answers "willing to relocate". (recommended) `within-locations`, because it keeps you to the places you named. Other: `yes`, `no`.
 6. How did you hear about us. Does: fills that box. (recommended) "Online job search", because it is true for every posting the pack finds.
 7. Resume variants. Does: names one resume per track with a page limit. (recommended) one page per track, because that is what recruiters read. The files themselves stay under the student's control.

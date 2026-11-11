@@ -13,9 +13,12 @@ import { resolveAggregator } from './_resolve.mjs';
 
 const STATS_HEADER = ['date', 'name', 'fetched', 'eligible', 'unique_new', 'parse_errors', 'failed', 'deferred', 'already_queued'];
 // The upstream host abandons an ingest hook after 15 s and then keeps nothing, so the plugin stops requesting at 11 s and
-// returns what it has. Research-added lists never read go first, then other never-read lists, then the least recently read,
-// so every list is read within a few runs.
+// returns what it has. Lists never read go first (research-added ones before the rest), then failed lists, then lists with
+// deferred rows, then the least recently read, so every list is read within a few runs.
 const HOST_BUDGET_MS = 11000;
+// While another list is still unread or failed, one list may spend at most this long resolving aggregator rows, so a list with
+// many rows left over cannot take the whole budget and starve the lists behind it.
+const RESOLVE_CAP_MS = 3000;
 const REAL_SLEEP = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function rawUrl(source) {
@@ -38,7 +41,12 @@ export async function fetchListText(ctx, url, sleep, deadline = Infinity) {
       lastError = err;
       if (isFinalStatus(err?.status)) break;
     }
-    if (attempt < LIMITS.max_attempts) await sleep(LIMITS.backoff_ms_per_attempt * attempt);
+    if (attempt < LIMITS.max_attempts) {
+      const wait = LIMITS.backoff_ms_per_attempt * attempt;
+      // A retry that would start after the budget ends is not made: waiting past it costs the whole run its rows.
+      if (Date.now() + wait >= deadline) break;
+      await sleep(wait);
+    }
   }
   throw lastError;
 }
@@ -76,12 +84,14 @@ function collectUnique(resolved, source, stat, env, acc) {
   }
 }
 
-async function ingestSource(ctx, source, env, acc) {
+async function ingestSource(ctx, source, env, acc, capResolve = false) {
   const stat = { date: env.today, name: source.name, fetched: 0, eligible: 0, unique_new: 0, parse_errors: 0, failed: 0, deferred: 0, already_queued: 0 };
   const fetched = await fetchSource(ctx, source, stat, env);
   if (!fetched) return stat;
   const { hash, parsed } = fetched;
   source.failed_parses = 0;
+  // A read that worked ends the failed state, so a last_attempt dated by an older release (UTC) cannot keep the list in the retry group.
+  delete source.last_attempt;
   // last_read marks any successful read, including one whose rows the budget deferred, so that source stops outranking
   // lists that were never read.
   source.last_read = env.today;
@@ -96,7 +106,8 @@ async function ingestSource(ctx, source, env, acc) {
     .map((row) => ({ ...row, source: source.name }));
   stat.eligible = eligible.length;
   let deferred = 0;
-  const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline: env.deadline, onDeferred: (n) => { deferred = n; } });
+  const deadline = capResolve ? Math.min(env.deadline, Date.now() + env.resolveCapMs) : env.deadline;
+  const resolved = await resolveAggregator(eligible, { fetch: ctx.fetch, sleep: env.sleep, dataRoot: env.dataDir, today: env.today, dryRun: ctx.dryRun, deadline, onDeferred: (n) => { deferred = n; } });
   // A source with rows the time budget cut off keeps its old last_ingest; its last_read still moves it behind unread lists.
   stat.deferred = deferred;
   if (deferred) ctx.log?.(`github-lists: ${source.name}: ${deferred} row(s) deferred, time budget reached`);
@@ -122,10 +133,23 @@ function studentDataDir(dataRoot) {
   return existsSync(join(nested, 'student-github-sources.json')) ? nested : dataRoot;
 }
 
+// Dates are local, the same convention first-run.mjs, daily.mjs and the upstream host use. The pack passes its own date in
+// STUDENT_TODAY so a configured timezone gives one date everywhere.
+export function localDate(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function runDate(ctx) {
+  if (ctx.today) return ctx.today;
+  const pinned = process.env.STUDENT_TODAY;
+  return /^\d{4}-\d{2}-\d{2}$/.test(pinned ?? '') ? pinned : localDate();
+}
+
 export default {
   async ingest(ctx) {
     const sleep = ctx.sleep ?? REAL_SLEEP;
-    const today = ctx.today ?? new Date().toISOString().slice(0, 10);
+    const today = runDate(ctx);
     const dataDir = studentDataDir(ctx.dataRoot);
     const registry = readJson(join(dataDir, 'student-github-sources.json'));
     const cycle = readJson(join(dataDir, 'student-cycle.json'));
@@ -135,26 +159,28 @@ export default {
     }
     const sidecarFile = join(dataDir, 'student-rows.tsv');
     const deadline = Date.now() + (ctx.budgetMs ?? HOST_BUDGET_MS);
-    const env = { deadline, sleep, today, dataDir, cycle, titleRules: titleRulesFor(ctx, registry), earlyCareer: ctx.preset?.early_career ?? registry.rules?.early_career, known: loadSidecarKeys(sidecarFile) };
+    const env = { deadline, resolveCapMs: ctx.resolveCapMs ?? RESOLVE_CAP_MS, sleep, today, dataDir, cycle, titleRules: titleRulesFor(ctx, registry), earlyCareer: ctx.preset?.early_career ?? registry.rules?.early_career, known: loadSidecarKeys(sidecarFile) };
     const acc = { seen: new Set(), jobs: [], sidecarRows: [] };
     const stats = [];
 
     const sources = (registry.sources ?? []).filter((s) => s.status === 'active' || s.status === 'trial');
-    // Research-added never-read sources first, then other never-read ones, then least recently read; sources with the same last touch keep their registry position. A
-    // source whose last touch was a failed attempt sorts behind every source read that same day.
+    // Order: research-added lists nobody has touched, other untouched lists, lists whose last attempt failed, lists with rows
+    // the time budget deferred, then lists already fully read; inside a tier the least recently touched goes first and
+    // equal ones keep their registry position. A failed list is retried before deferred ones so one broken or slow list
+    // is never starved by lists that only have leftovers.
     const lastRead = (x) => [x.last_ingest, x.last_read].map((d) => String(d ?? '')).sort().at(-1);
     const lastTouched = (x) => [lastRead(x), String(x.last_attempt ?? '')].sort().at(-1);
-    const failedLast = (x) => (x.last_attempt && String(x.last_attempt) >= lastRead(x) ? 1 : 0);
-    // Tier 0: research-added lists nobody has read or tried; tier 1: other never-touched lists; tier 2: the rest, least recently touched first.
-    const tier = (x) => (lastTouched(x) ? 2 : x.notes === 'research' ? 0 : 1);
-    const order = [...sources].sort((x, y) => tier(x) - tier(y) || lastTouched(x).localeCompare(lastTouched(y)) || failedLast(x) - failedLast(y));
+    const failed = (x) => Boolean(x.last_attempt && String(x.last_attempt) >= lastRead(x));
+    const deferredLeft = (x) => Boolean(x.last_read) && String(x.last_ingest ?? '') < String(x.last_read);
+    const tier = (x) => (!lastTouched(x) ? (x.notes === 'research' ? 0 : 1) : failed(x) ? 2 : deferredLeft(x) ? 3 : 4);
+    const order = [...sources].sort((x, y) => tier(x) - tier(y) || lastTouched(x).localeCompare(lastTouched(y)));
     for (const [i, source] of order.entries()) {
       if (Date.now() > deadline) {
         ctx.log?.(`github-lists: time budget reached; ${order.length - i} source(s) wait for the next run`);
         break;
       }
       if (i > 0) await sleep(LIMITS.request_gap_ms);
-      stats.push(await ingestSource(ctx, source, env, acc));
+      stats.push(await ingestSource(ctx, source, env, acc, order.slice(i + 1).some((x) => tier(x) <= 2)));
     }
 
     for (const source of sources) {

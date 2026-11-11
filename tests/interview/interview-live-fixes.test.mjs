@@ -30,3 +30,11 @@ test('Part D calls the Playwright MCP warning safe to ignore and asks nothing be
   assert.match(partD, /top picks \(up to 10\)/);
   assert.match(partD, /In the same message as the top picks, show the guide with no question first/);
 });
+
+test('Part C recommends a start date that follows the track: next summer term for an internship, the month after graduation for new grad', () => {
+  const partC = md.slice(md.indexOf('\n## Part C'), md.indexOf('\n## Part D'));
+  const item = partC.split('\n').find((l) => l.startsWith('4. Start date.'));
+  assert.match(item, /internship or co-op track, the start month of the next Summer term in `data\/student-cycle\.json` \(`2027-06` for a student who graduates 2028-05/);
+  assert.match(item, /new-grad track, the month after graduation \(`2028-06`/);
+  assert.doesNotMatch(item, /\(recommended\) the month after graduation as/);
+});

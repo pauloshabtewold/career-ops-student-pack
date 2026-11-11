@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import plugin from '../../plugins/github-lists/index.mjs';
 import { LIMITS } from '../../plugins/github-lists/_limits.mjs';
-import { ingestSteps, unreadListCount } from '../../lib/ingest.mjs';
+import { ingestSteps, openLists } from '../../lib/ingest.mjs';
 import * as H from '../helpers/feed-harness.mjs';
 
 const src = (name, extra = {}) => ({ name, repo: `example-org/${name}`, path: 'listings.json', format: 'simplify-json', kind: 'internship', status: 'trial', ...extra });
@@ -93,7 +93,7 @@ test('fix 2: the interview step runs github-lists again until no list is unread,
       return 'github-lists ingest: 0 found, 0 new.\n';
     };
     writeFileSync(join(dir, 'student-github-sources.json'), JSON.stringify(registry));
-    assert.equal(unreadListCount(dir, '2026-11-10'), 5);
+    assert.equal(openLists(dir).length, 5);
     let out = '';
     ingestSteps({ root: dir, dataDir: dir, packRoot: dir, today: '2026-11-10', runner, listPasses: 6, step: (name, fn) => { if (name === 'github-lists') out = fn(); } });
     assert.equal(runs, 3);
@@ -111,7 +111,7 @@ test('fix 2: a stuck unread list stops the loop after the first run with no prog
     let out = '';
     ingestSteps({ root: dir, dataDir: dir, packRoot: dir, today: '2026-11-10', runner: (c, args) => (basename(args[0]) === 'plugins.mjs' ? (runs++, 'github-lists ingest: 0 found, 0 new.\n') : ''), listPasses: 6, step: (name, fn) => { if (name === 'github-lists') out = fn(); } });
     assert.equal(runs, 2);
-    assert.match(out, /1 list\(s\) still unread/);
+    assert.match(out, /1 list\(s\) still unread or failed \(a\)/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
