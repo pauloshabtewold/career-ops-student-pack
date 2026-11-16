@@ -69,4 +69,6 @@ export function readLedger(r) {
 
 export const sentUrls = (input) => new Set(String(input).match(/https:\/\/example\.com\/jobs\/\d+/g) ?? []);
 
-export const args = (r, extra = {}) => ({ root: r.root, dataDir: r.data, packRoot: PACK_ROOT, today: TODAY, claude: '/opt/sample/bin/claude', say: () => {}, ...extra });
+// robots allows every url and sleep returns at once, so no test reads a real robots.txt or waits out the same-host gap.
+export const allowAllRobots = { check: async () => ({ allowed: true, reason: '', crawlDelay: null }) };
+export const args = (r, extra = {}) => ({ root: r.root, dataDir: r.data, packRoot: PACK_ROOT, today: TODAY, claude: '/opt/sample/bin/claude', say: () => {}, robots: allowAllRobots, sleep: async () => {}, ...extra });
