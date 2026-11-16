@@ -4,6 +4,9 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- Support career-ops 1.40.0: `compat.json` upstream.max is 1.40.0 and `docs/preset-audit.md` is re-counted for every preset against it. MetLife has no readable board and is watch-only in accounting, finance-economics and statistics-math-actuarial; Shield AI moved to Ashby in software-cs and engineering-mech-elec.
+- The canary opens its failure issue again when the test job fails, and the setup tests follow `compat.json` upstream.max instead of a fixed version.
+
 ## v0.6.1 (2026-11-11)
 
 - Live sign-in proof fixes: drafts guide, drafts file, Handshake search (#41)

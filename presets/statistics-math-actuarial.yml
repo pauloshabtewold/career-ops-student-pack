@@ -170,7 +170,8 @@ seed_employers:
   - name: "Mastercard"
     careers_url: https://mastercard.wd1.myworkdayjobs.com/CorporateCareers
   - name: "MetLife"
-    careers_url: https://jobs.lever.co/metlife
+    careers_url: https://www.metlifecareers.com/
+    watch_only: true
   - name: "Micron"
     careers_url: https://micron.wd1.myworkdayjobs.com/External
   - name: "Moderna"

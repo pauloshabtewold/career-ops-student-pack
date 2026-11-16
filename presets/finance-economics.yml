@@ -177,7 +177,8 @@ seed_employers:
   - name: "Prudential Financial"
     careers_url: https://prudential.wd3.myworkdayjobs.com/prudential
   - name: "MetLife"
-    careers_url: https://jobs.lever.co/metlife
+    careers_url: https://www.metlifecareers.com/
+    watch_only: true
   - name: "AIG"
     careers_url: https://aig.wd1.myworkdayjobs.com/aig
   - name: "Travelers"

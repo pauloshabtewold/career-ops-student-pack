@@ -319,7 +319,7 @@ seed_employers:
   - name: "Epirus"
     careers_url: https://job-boards.greenhouse.io/epirus
   - name: "Shield AI"
-    careers_url: https://jobs.lever.co/shieldai
+    careers_url: https://jobs.ashbyhq.com/shield
     max_response_mb: 32
   - name: "Hermeus"
     careers_url: https://jobs.lever.co/hermeus
