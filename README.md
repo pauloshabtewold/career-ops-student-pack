@@ -27,7 +27,7 @@ Supported: macOS and Windows 11, Claude Code or Codex, US job markets.
 
 - macOS or Windows 11 with [Claude Code](https://claude.com/claude-code) or Codex (Windows and the browser steps are a preview; see [docs/codex.md](docs/codex.md)), signed in
 - Node 22.13 or newer, and git
-- A clone of career-ops at a release the pack supports; the setup prompt and the install blocks below check out career-ops-v1.39.0, the release it was tested with (the pack refuses to install on an older one)
+- A clone of career-ops at a release the pack supports; the setup prompt and the install blocks below check out career-ops-v1.40.0, the release it was tested with (the pack refuses to install on an older one)
 
 ## Install (one prompt)
 
@@ -73,7 +73,7 @@ macOS (Terminal; needs [Homebrew](https://brew.sh), so install it first if `brew
 brew install node git
 git clone https://github.com/career-ops-hq/career-ops.git
 cd career-ops
-git checkout -B main career-ops-v1.39.0
+git checkout -B main career-ops-v1.40.0
 npm install
 git clone <pack-address> student
 node student/install.mjs
@@ -86,7 +86,7 @@ winget install OpenJS.NodeJS.LTS
 winget install Git.Git
 git clone https://github.com/career-ops-hq/career-ops.git
 cd career-ops
-git checkout -B main career-ops-v1.39.0
+git checkout -B main career-ops-v1.40.0
 npm install
 git clone <pack-address> student
 node student/install.mjs

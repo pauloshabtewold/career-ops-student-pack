@@ -49,6 +49,20 @@ test('scan errors: board names and reasons come from this scan only', () => {
   }
 });
 
+test('scan errors: a board career-ops read in part (status partial) is not listed as failed', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'digest-truth-'));
+  try {
+    writeFileSync(join(dir, 'scan-runs.tsv'), RUNS);
+    writeFileSync(join(dir, 'portal-health.tsv'), HEALTH);
+    const before = scanFileCounts(dir);
+    appendFileSync(join(dir, 'scan-runs.tsv'), '2026-11-10T01:00:00Z\tcompleted\t5\t0\t10\t1\n');
+    appendFileSync(join(dir, 'portal-health.tsv'), '2026-11-10T01:00:00Z\tAcme Fake\tauth\n2026-11-10T01:00:00Z\tPartCo\tpartial\n');
+    assert.equal(scanErrorLine(dir, before), 'scan: 1 board failed: Acme Fake (auth)');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('the daily digest lists scan errors under Failures', () => {
   const up = createFakeUpstream();
   try {

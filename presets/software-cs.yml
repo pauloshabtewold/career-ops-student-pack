@@ -286,7 +286,7 @@ seed_employers:
   - name: "Verkada"
     careers_url: https://job-boards.greenhouse.io/verkada
   - name: "Shield AI"
-    careers_url: https://jobs.lever.co/shieldai
+    careers_url: https://jobs.ashbyhq.com/shield
     max_response_mb: 32
   - name: "Tailscale"
     careers_url: https://job-boards.greenhouse.io/tailscale

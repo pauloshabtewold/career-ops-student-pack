@@ -196,3 +196,12 @@ test('canary runs the pack tests after raising compat.json to the tested version
   assert.ok(bump >= 0, 'test job has no bump-compat step');
   assert.ok(bump < suite, 'bump-compat must run before node --test');
 });
+
+// Upstream 1.40.0 canary: the test job failed but no issue was opened. A job `if:` without a status function gets an
+// implicit success(), so a job that needs a failed job is skipped before its condition is read. The report job must
+// carry failure() (or always()) so it runs when the test job fails.
+test('canary report job runs when the test job fails', () => {
+  const cond = String(parse('canary.yml').jobs.report.if ?? '');
+  assert.match(cond, /\b(failure|always)\(\)/, `report.if has no status function: ${cond}`);
+  assert.match(cond, /needs\.test\.result\s*==\s*'failure'/);
+});

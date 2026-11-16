@@ -13,7 +13,10 @@ import { makePack, put, snapshot } from './_pack-repo.mjs';
 
 const NODE_VERSION = process.versions.node;
 const HOME = join('/', 'home', 'student');
-const TAG = 'career-ops-v1.39.0';
+// setup.mjs pins to compat.json upstream.max, so the tests follow it; a hard-coded version broke on every canary bump.
+const COMPAT = JSON.parse(readFileSync(new URL('../../compat.json', import.meta.url), 'utf8')).upstream;
+const MAX = COMPAT.max;
+const TAG = `${COMPAT.tag_prefix}${MAX}`;
 const CODEX = 'templates/codex-config.suggested.toml';
 const CLAUDE = 'templates/claude-settings.suggested.json';
 
@@ -100,7 +103,7 @@ test('setup refuses a synced root and points at <home>/career-ops', () =>
   }));
 
 test('pin is skipped when HEAD is the tag commit', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const { runner, calls } = fakeRunner({ head: 'ccc333', tagCommit: 'ccc333' });
     const lines = run(p, { runner });
     assert.ok(lines.includes(`skipped: career-ops is already at ${TAG}`), lines.join('\n'));
@@ -109,7 +112,7 @@ test('pin is skipped when HEAD is the tag commit', () =>
   }));
 
 test('pin runs when the version equals max but HEAD is a different commit than the tag', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const { runner, calls } = fakeRunner();
     const lines = run(p, { runner });
     assert.equal(lines.some((l) => l.startsWith('skipped: career-ops is already')), false);
@@ -149,7 +152,7 @@ test('a dirty tracked tree is refused before any checkout', () =>
   }));
 
 test('codex config is written when missing, skipped when identical, kept when different', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const dest = join(p.root, '.codex', 'config.toml');
     const want = readFileSync(join(p.pack, CODEX), 'utf8');
     assert.match(want, /enabled = false/);
@@ -166,7 +169,7 @@ test('codex config is written when missing, skipped when identical, kept when di
   }));
 
 test('claude settings: written when missing, merge keeps every other key and entry, invalid JSON kept', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const dest = join(p.root, '.claude', 'settings.local.json');
     const want = JSON.parse(readFileSync(join(p.pack, CLAUDE), 'utf8'));
     run(p);
@@ -190,7 +193,7 @@ test('claude settings: written when missing, merge keeps every other key and ent
   }));
 
 test('playwright failure is a warning, not fatal; success and --skip-playwright lines', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const failing = fakeRunner({ fail: (cmd) => cmd === 'npx' });
     const lines = run(p, { runner: failing.runner });
     const warn = lines.find((l) => l.startsWith('warning: playwright'));
@@ -207,7 +210,7 @@ test('playwright failure is a warning, not fatal; success and --skip-playwright 
   }));
 
 test('a missing generated file fails verification', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     // a runner cannot make install skip its writes, so remove the file through a fake npx call after install ran
     const { runner } = fakeRunner();
     const wrapped = (cmd, args, opts) => {
@@ -220,7 +223,7 @@ test('a missing generated file fails verification', () =>
   }));
 
 test('the final lines are exact and a dry run prints neither', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const root = realpathSync.native(p.root);
     const lines = run(p);
     assert.deepEqual(lines.slice(-2), [
@@ -264,16 +267,17 @@ test('a real git checkout -B main <tag> keeps an untracked student folder', () =
     const env = { ...process.env, GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@example.com' };
     const git = (...a) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...a], { cwd: dir, env, encoding: 'utf8' });
     git('init', '-q', '-b', 'main');
-    put(dir, 'package.json', '{"name":"career-ops","version":"1.39.0"}\n');
+    // version markers are relative (tagged vs later), so the test holds whatever compat.json max is
+    put(dir, 'package.json', '{"name":"career-ops","version":"tagged"}\n');
     git('add', '-A');
     git('commit', '-q', '-m', 'one');
     git('tag', TAG);
-    put(dir, 'package.json', '{"name":"career-ops","version":"1.40.0"}\n');
+    put(dir, 'package.json', '{"name":"career-ops","version":"later"}\n');
     git('commit', '-qam', 'two');
     put(dir, 'student/mine.txt', 'keep me\n');
     git('checkout', '-B', 'main', TAG);
     assert.equal(readFileSync(join(dir, 'student', 'mine.txt'), 'utf8'), 'keep me\n');
-    assert.match(readFileSync(join(dir, 'package.json'), 'utf8'), /1\.39\.0/);
+    assert.match(readFileSync(join(dir, 'package.json'), 'utf8'), /"tagged"/);
   }));
 
 test('a dirty tree message says to show the student and never offers a discard command', () =>
@@ -294,7 +298,7 @@ test('local main commits that are not in origin/main are refused before the chec
   }));
 
 test('a kept codex config missing Gmail entries gets a warning naming them and is not rewritten', () =>
-  withPack({ upstreamVersion: '1.39.0' }, (p) => {
+  withPack({ upstreamVersion: MAX }, (p) => {
     const dest = join(p.root, '.codex', 'config.toml');
     const want = readFileSync(join(p.pack, CODEX), 'utf8');
     const trimmed = want.replace(/\[apps\.connector_[^\]]*\.tools\.send_email\]\r?\nenabled = false\r?\n/, '').replace(/(\.tools\.delete_emails\]\r?\n)enabled = false/, '$1enabled = true');

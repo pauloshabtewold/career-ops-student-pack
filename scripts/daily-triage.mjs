@@ -20,6 +20,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { LockTimeoutError, acquireLock } from '../lib/dir-lock.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { createRobotsChecker } from '../lib/robots.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { EMPTY_REMOVED, addRemoved, guardPosting, removedSummary, removedTotal } from '../lib/posting-guard.mjs';
 import { oneLine } from '../lib/text.mjs';
@@ -27,6 +28,7 @@ import { CHUNK_ROWS, appendDigestLines, appendTriageUsage, readTriageUsage, reso
 import { VERDICT_RE } from '../lib/triage-verdict.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { formatCostLine } from '../lib/usage-cost.mjs';
+import { effectiveLimits } from './budget.mjs';
 
 const FETCH_TIMEOUT_MS = 30 * 1000;
 const JD_CHARS = 6000;
@@ -108,18 +110,65 @@ export function buildPrompt({ brief, postings, nonce = randomBytes(8).toString('
   ].join('\n');
 }
 
-// A failed fetch gives empty text and the posting is judged on title and company alone. The text goes through the
-// posting guard (lib/posting-guard.mjs) first and is then cut to JD_CHARS to bound the prompt, so a hidden or disguised
-// line past the cut still counts as a flag.
-function fetchPosting({ root, row, runner }) {
+// Hosts whose postings fetch-jd reads from the ATS's public JSON API (upstream liveness-api.mjs JD_TEXT_API_ATS). Since
+// career-ops 1.40.0 fetch-jd falls back to a plain GET of the posting page on every other host, so those go through
+// robots.txt first.
+const ATS_API_HOSTS = [
+  /^(job-boards|boards)\.greenhouse\.io$/,
+  /^jobs\.(eu\.)?lever\.co$/,
+  /^jobs\.ashbyhq\.com$/,
+  /^apply\.workable\.com$/,
+  /^jobs\.smartrecruiters\.com$/,
+  /^[\w-]+\.wd[\w-]*\.myworkdayjobs\.com$/,
+];
+const hostOf = (url) => {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+const isAtsApiHost = (url) => ATS_API_HOSTS.some((re) => re.test(hostOf(url)));
+
+// Returns mayFetch(url): true when fetch-jd may fetch the url now. A public ATS host always may. Any other host must pass
+// robots.txt (an unreachable robots.txt refuses, as lib/robots.mjs decides), and calls to one host start at least the
+// longer of the pack's request gap and the host's Crawl-delay apart.
+function createFetchGate({ robots, sleep, now, gapMs }) {
+  const lastByHost = new Map();
+  return async (url) => {
+    if (isAtsApiHost(url)) return true;
+    const verdict = await robots.check(url);
+    if (!verdict.allowed) return false;
+    const host = hostOf(url);
+    const wait = (lastByHost.get(host) ?? -Infinity) + Math.max(gapMs, (verdict.crawlDelay ?? 0) * 1000) - now();
+    if (wait > 0) await sleep(wait);
+    lastByHost.set(host, now());
+    return true;
+  };
+}
+
+// fetch-jd exits 3 and prints `CLOSED_POSTING <evidence>` when the posting's own data says it is closed (career-ops 1.40.0).
+const CLOSED_EXIT = 3;
+const CLOSED_RE = /^CLOSED_POSTING\b\s*([\s\S]*)$/;
+
+// A refused or failed fetch gives empty text and the posting is judged on title and company alone; a closed posting
+// carries `closed` (its evidence) instead. The text goes through the posting guard (lib/posting-guard.mjs) first and is
+// then cut to JD_CHARS to bound the prompt, so a hidden or disguised line past the cut still counts as a flag.
+async function fetchPosting({ root, row, runner, mayFetch }) {
+  const none = { text: '', removed: { ...EMPTY_REMOVED }, flagged: [] };
+  if (!(await mayFetch(row.url))) return none;
   try {
     const raw = runner(process.execPath, [join(root, 'fetch-jd.mjs'), row.url], { cwd: root, timeout: FETCH_TIMEOUT_MS });
     const { text, removed, flagged } = guardPosting(String(raw));
     return { text: text.slice(0, JD_CHARS), removed, flagged };
-  } catch {
-    return { text: '', removed: { ...EMPTY_REMOVED }, flagged: [] };
+  } catch (err) {
+    const closed = err?.status === CLOSED_EXIT ? CLOSED_RE.exec(String(err.stdout ?? '').trim()) : null;
+    return closed ? { ...none, closed: closed[1] } : none;
   }
 }
+
+// The evidence is posting text, so it is cut to one line and loses the pipe that would split the verdict line.
+const expiredLine = (url, evidence) => `TRIAGE: EXPIRED | ${url} | 0.0 | ${oneLine(`posting closed: ${evidence}`.replace(/\|/g, '/'), GUARD_REASON_CHARS)}`;
 
 // A posting the guard flagged never keeps a plain verdict: a PASS or MARGINAL line gets an `ANOMALY:` reason quoting the
 // flagged line(s), which apply-triage already holds for a person (PASS becomes ANOMALY, counted MARGINAL). The score and
@@ -274,14 +323,25 @@ export function triageChildTimeoutMs({ chunks, runLockHours }) {
 }
 
 // One chunk: fetch, one agent call, apply. A call that started has spent tokens whether it worked or not, so its rows go
-// in the ledger as sent (a spawn error or an agent that could not start spent none). Returns the counts, or a failure { kind, reason }.
-async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform }) {
-  const fetched = chunk.map((row) => ({ row, ...fetchPosting({ root, row, runner }) }));
-  const postings = fetched.map(({ row, text }) => ({ url: row.url, company: row.company, title: row.title, text }));
+// in the ledger as sent (a spawn error or an agent that could not start spent none). A closed posting is not sent: it
+// gets an EXPIRED line applied with the model's verdicts, and a chunk of closed postings only makes no call at all.
+// Fetches run one at a time so the same-host gap holds. Returns the counts and `sent` (rows sent to the agent), or a
+// failure { kind, reason }.
+async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch }) {
+  const fetched = [];
+  for (const row of chunk) fetched.push({ row, ...(await fetchPosting({ root, row, runner, mayFetch })) });
+  const expired = fetched.filter((f) => f.closed !== undefined).map((f) => expiredLine(f.row.url, f.closed));
+  const open = fetched.filter((f) => f.closed === undefined);
   const guard = { removed: fetched.reduce((acc, f) => addRemoved(acc, f.removed), {}), flagged: fetched.filter((f) => f.flagged.length).length };
-  const flagsByUrl = new Map(fetched.filter((f) => f.flagged.length).map((f) => [f.row.url, f.flagged]));
+  const apply = (lines) => runApplyTriage({ lines, root, dataDir, packRoot, runner });
+  if (!open.length) {
+    const reason = apply(expired);
+    return reason ? { failure: { kind: 'apply', reason }, sent: 0 } : { triaged: expired.length, passed: 0, ignored: 0, guard, sent: 0 };
+  }
+  const flagsByUrl = new Map(open.filter((f) => f.flagged.length).map((f) => [f.row.url, f.flagged]));
+  const postings = open.map(({ row, text }) => ({ url: row.url, company: row.company, title: row.title, text }));
   const prompt = buildPrompt({ brief: readIf(join(root, 'modes', '_brief.md')), postings });
-  const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: chunk.length, outcome });
+  const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: open.length, outcome });
   let output;
   try {
     output = callAgent({ configured, file, config, prompt, root, packRoot, runner, platform });
@@ -289,20 +349,20 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
     // An empty answer spent the call but is not a sign-in or timeout failure, so it must not end the day's scheduled triage.
     const sent = err.code !== 'ENOENT' && !cannotStart(err);
     if (sent) await record(err.noAnswer ? 'ok' : 'failed');
-    return { failure: { kind: 'call', reason: agentFailure(configured, err) }, sent };
+    return { failure: { kind: 'call', reason: agentFailure(configured, err) }, sent: sent ? open.length : 0 };
   }
-  const kept = filterVerdicts(output, new Set(chunk.map((r) => r.url)));
+  const kept = filterVerdicts(output, new Set(open.map((f) => f.row.url)));
   const { lines, ignored } = kept;
   const held = holdFlagged(lines, flagsByUrl);
   const passed = kept.passed - held.passed;
   // A refusal, limit or login message arrives as prose with exit 0; counting it as a good chunk would send every later chunk too.
   if (!lines.length) {
     await record('failed');
-    return { failure: { kind: 'call', reason: `${configured} answered with no verdict lines (${oneLine(output) || 'empty answer'})` }, sent: true };
+    return { failure: { kind: 'call', reason: `${configured} answered with no verdict lines (${oneLine(output) || 'empty answer'})` }, sent: open.length };
   }
-  const reason = runApplyTriage({ lines: held.lines, root, dataDir, packRoot, runner });
+  const reason = apply([...held.lines, ...expired]);
   await record(reason ? 'failed' : 'ok');
-  return reason ? { failure: { kind: 'apply', reason }, sent: true } : { triaged: lines.length, passed, ignored, guard, sent: true };
+  return reason ? { failure: { kind: 'apply', reason }, sent: open.length } : { triaged: lines.length + expired.length, passed, ignored, guard, sent: open.length };
 }
 
 // Chunks run one after another; the digest gets a progress line after each so a parent kill keeps the counts so far.
@@ -316,7 +376,7 @@ async function runChunks({ chunks, note, deadline, now, ...ctx }) {
       break;
     }
     const result = await triageChunk({ chunk, ...ctx });
-    if (result.sent) run.sent += chunk.length;
+    run.sent += result.sent;
     if (result.failure) {
       run.failure = { ...result.failure, chunk: i + 1, rowsLeft: chunks.slice(i).reduce((n, c) => n + c.length, 0) };
       break;
@@ -334,7 +394,8 @@ const failureText = ({ kind, reason }) => (kind === 'apply' ? `could not apply i
 // The rows sent per run are the student's own triage budget (lib/triage-budget.mjs): 20 unless the student chose another
 // number or "all", minus the rows already sent today. `deadline` is an epoch-ms time (null for none) that a chunk must be
 // able to finish before; `now` is the clock it is compared with.
-export async function dailyTriage({ root, dataDir, packRoot, today, runner = defaultRunner, agent = null, agentPath = null, claude = null, platform = process.platform, say = () => {}, deadline = null, now = Date.now }) {
+// `robots` (a lib/robots.mjs checker) and `sleep` serve the robots.txt check and same-host gap before each fetch-jd call.
+export async function dailyTriage({ root, dataDir, packRoot, today, runner = defaultRunner, agent = null, agentPath = null, claude = null, platform = process.platform, say = () => {}, deadline = null, now = Date.now, robots = createRobotsChecker(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   const config = await loadStudentConfig({ root });
   if (config?.automation !== 'scheduled-discovery-plus-triage') {
     say('daily-triage: automation is not scheduled-discovery-plus-triage; nothing to do');
@@ -361,13 +422,14 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
     return { ran: false };
   }
   try {
-    return await triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now });
+    const mayFetch = createFetchGate({ robots, sleep, now, gapMs: effectiveLimits(config).values.request_gap_ms });
+    return await triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now, mayFetch });
   } finally {
     lock.release();
   }
 }
 
-async function triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now }) {
+async function triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now, mayFetch }) {
   const { daily, calibration, left, stop } = budgetGate({ config, dataDir, today });
   // Rows sent today come from the ledger after this run's chunks are written to it.
   const costLine = (rows) => `daily triage cost: ${readTriageUsage(dataDir, today).today} rows sent today (counted against the budget of ${daily}); ${formatCostLine({ agent: configured, plan: config.plan, rows, spendTier: config.spend_tier, calibration })}`;
@@ -385,7 +447,7 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     return { ran: false };
   }
   const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK_ROWS) }, (_, i) => rows.slice(i * CHUNK_ROWS, (i + 1) * CHUNK_ROWS));
-  const run = await runChunks({ chunks, note, deadline, now, configured, file, config, root, dataDir, packRoot, today, runner, platform });
+  const run = await runChunks({ chunks, note, deadline, now, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch });
   const { failure } = run;
   if (failure && failure.chunk === 1) {
     note([failure.kind === 'apply' ? `daily triage ${failureText(failure)}` : `daily triage skipped: ${failureText(failure)}`]);

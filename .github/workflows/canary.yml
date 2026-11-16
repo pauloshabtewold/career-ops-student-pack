@@ -85,7 +85,7 @@ jobs:
 
   report:
     needs: [resolve, test]
-    if: needs.test.result == 'failure'
+    if: failure() && needs.test.result == 'failure'
     runs-on: ubuntu-latest
     permissions:
       issues: write

@@ -144,7 +144,8 @@ seed_employers:
   - name: "Prudential Financial"
     careers_url: https://prudential.wd3.myworkdayjobs.com/prudential
   - name: "MetLife"
-    careers_url: https://jobs.lever.co/metlife
+    careers_url: https://www.metlifecareers.com/
+    watch_only: true
   - name: "Allstate"
     careers_url: https://allstate.wd5.myworkdayjobs.com/allstate_careers
   - name: "Nationwide"
