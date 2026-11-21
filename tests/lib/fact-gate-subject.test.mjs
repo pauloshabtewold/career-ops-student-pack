@@ -3,7 +3,7 @@
 // need cv.md. SYNTHETIC FIXTURE: fake data only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { check } from '../../lib/fact-gate.mjs';
+import { check, retryTerms } from '../../lib/fact-gate.mjs';
 
 const CV = '# Jordan Testwell\n- Software Intern, Example Robotics: built a Python scheduling tool\nSkills: Python, SQL\n';
 const POSTING = 'Acme uses Tableau, Snowflake and Looker and wants 3 years of SQL. Your analytics team reports weekly.';
@@ -267,4 +267,210 @@ test('r4: tech terms that are also English words count only in tech casing or ne
   const src = B3();
   for (const s of ["I'd go further for your team.", 'A spark of interest led me to data.', 'I react quickly to feedback.', 'I excel at SQL.', 'I took a swift look at the data.', 'My epic project used SQL.', 'Rust on the old bike taught me patience.'.toLowerCase()]) assert.deepEqual(check(s, src), [], s);
   for (const [s, want] of [['I write Go services.', 'Go'], ['I build React apps.', 'React'], ['I wrote R scripts.', 'R'], ['I used r scripts for class.', 'r'], ['I wrote go code for a class.', 'go'], ['I know node.js well.', 'node'], ['I write Swift apps.', 'Swift'], ['I used Epic at the clinic.', 'Epic'], ['React is my favorite tool.', 'React']]) assert.deepEqual(check(s, src), [want], s);
+});
+
+// Review r4 probes (round 5 ruling): quantity forms, invisible characters, joined tool names, sentence-initial names,
+// the company as employer or tool in a first-person claim, and a role held. Each should-flag case returns at least one
+// item; each control returns none.
+const CV5 = '# Casey Fakename\ncasey@example.com\n## Experience\n- Data Intern, Example Logistics (Summer 2025): built weekly SQL reports for 3 teams; wrote Python scripts to clean shipment data\n## Education\n- B.S. Statistics, Example State University, GPA 3.5\n## Skills\nPython, SQL, pandas\n';
+const POST5 = (co) => `${co} is hiring a Data Analyst Intern. You will build dashboards in Tableau, model data with dbt, stream events through Kafka, prototype in Figma, and track product metrics in Mixpanel and Amplitude. Experience with Jupyter, Power BI and Looker is a plus. Track work in Planner and Microsoft Teams. Improve reporting turnaround by 30%.`;
+const S5 = { cv: CV5, answers: {}, posting: POST5('Acme'), company: 'Acme', role: 'Data Analyst Intern' };
+const K5 = { ...S5, posting: POST5('Snowflake'), company: 'Snowflake' };
+const T5 = { ...S5, role: 'Tableau Developer Intern' };
+
+const R5_SHOULD_FLAG = [
+  ['My dbtCloud projects followed SQL best practices.', S5],
+  ['PowerBI dashboards were my main deliverable at Example Logistics.', S5],
+  ['I used powerbi and dbtcloud daily.', S5],
+  ['I build dashboards in Tab\u200bleau.', S5],
+  ['I build dashboards in Tab\u00adleau.', S5],
+  ['I build dashboards in Tab\u2060leau.', S5],
+  ['I build dashboards in Tab\ufeffleau.', S5],
+  ['Tableau\u2122 dashboards were my daily work.', S5],
+  ['Fivetran syncs fed my SQL models at Example Logistics.', S5],
+  ['Google hired me as a summer intern.', S5],
+  ['Deloitte trained me in SQL.', S5],
+  ['Planner boards kept my team on track.', S5],
+  ['I used Teams daily.', S5],
+  ['I helped double sign-ups with a Python script.', S5],
+  ['I helped quadruple traffic.', S5],
+  ['I am proud of doubling sign-ups.', S5],
+  ['I am proud of tripling report throughput with SQL.', S5],
+  ['Halving the refresh time was my biggest win.', S5],
+  ['I halved the refresh time.', S5],
+  ['I was the number one analyst in my cohort.', S5],
+  ['I was the first intern to ship a SQL model to production.', S5],
+  ['I was the very first analyst hired.', S5],
+  ['I ranked in the top tenth of my class.', S5],
+  ['I am a top 5% student.', S5],
+  ['I was second in my class.', S5],
+  ['I finished the dashboard in a week.', S5],
+  ['I finished the report in a month.', S5],
+  ['I spent a year on SQL.', S5],
+  ['I spent half a decade on SQL.', S5],
+  ['I analyzed \u0663 years of sales data.', S5],
+  ['I analyzed \u06f5 years of sales data.', S5],
+  ['I write services in go and build components with react.', S5],
+  ['I held the Data Analyst Intern position at Example Logistics last summer.', S5],
+  ['I am excited to continue to work as a Data Analyst Intern at Example Logistics.', S5],
+  ["I was Acme's top analyst intern last summer.", S5],
+  ['I interned at Acme last summer.', S5],
+  ['At Acme, I interned on the data team.', S5],
+  ['My internship at Acme taught me SQL.', S5],
+  ['I already work for Acme on the data team.', S5],
+  ['I am applying to Acme because I interned at Acme.', S5],
+  ['I migrated our warehouse to Snowflake at Example Logistics.', K5],
+  ['I earned a certification from Snowflake.', K5],
+  ['I write SQL for Snowflake every day.', K5],
+  ["I know Snowflake's query engine inside out.", K5],
+  ['I loaded data from Snowflake into Python.', K5],
+  ['I held the Tableau Developer Intern role at Example Logistics.', T5],
+  ['I am glad to continue to work as a Tableau Developer Intern.', T5],
+  ["Acme's Tableau Developer Intern last year was me.", T5],
+];
+
+const R5_PASS = [
+  'I would love to join Acme.',
+  'I am applying to Acme.',
+  "Acme's mission excites me.",
+  'I was excited to apply as a Data Analyst Intern at Acme.',
+  'At Acme I would build clear SQL reports.',
+  'I would bring my SQL skills to Acme as the Data Analyst Intern.',
+  'I hope to join as the Data Analyst Intern.',
+  'I am drawn to Acme because I built SQL reports at Example Logistics.',
+  'I built SQL reports at Example Logistics, and I want to do the same at Acme.',
+  "I was impressed by Acme's reports.",
+  'First, I built weekly SQL reports at Example Logistics.',
+  'At first I found SQL hard.',
+  'Your team is my first choice for this summer.',
+  'I double-checked every query.',
+  'Last summer I wrote Python scripts.',
+  'Forecasting demand is a problem I enjoy.',
+  'One day I hope to lead a team.',
+  'I track my work in a planner.',
+  "This is the job I want, and I'm glad you're hiring.",
+  "You'll find I'm careful, and that has been my focus.",
+  "I'd go further for your team.",
+];
+
+test('r5: every r4 should-flag probe is flagged', () => {
+  const leaks = R5_SHOULD_FLAG.filter(([s, src]) => check(s, src).length === 0).map(([s]) => s);
+  assert.deepEqual(leaks, []);
+});
+
+test('r5: apply, join and wish sentences, honest ordinals and grammar words pass', () => {
+  const flaggedControls = R5_PASS.map((s) => [s, check(s, S5)]).filter(([, r]) => r.length);
+  assert.deepEqual(flaggedControls, []);
+});
+
+test('r5: exact items for the new quantity forms and names', () => {
+  for (const [s, want] of [
+    ['I helped quadruple traffic.', ['quadruple']],
+    ['I was the very first analyst hired.', ['first']],
+    ['I ranked in the top tenth of my class.', ['top tenth']],
+    ['I finished the dashboard in a week.', ['a week']],
+    ['I analyzed \u0663 years of sales data.', ['3']],
+    ['Google hired me as a summer intern.', ['Google']],
+    ['I interned at Acme last summer.', ['Acme']],
+    ['Tableau\u2122 dashboards were my daily work.', ['Tableau']],
+  ]) assert.deepEqual(check(s, S5), want, s);
+  // Grounded by the cv: the same expression or its equivalent, and the employer named in the cv.
+  const cv = `${CV5}- Doubled sign-ups; finished first in the Example State datathon; SQL, 3 years\n`;
+  for (const s of ['I am proud of doubling sign-ups.', 'I came first in the Example State datathon.', 'I have three years of SQL.', 'I interned at Example Logistics last summer.']) assert.deepEqual(check(s, { ...S5, cv }), [], s);
+  // A number before a time unit needs the same unit in the cv: "3 teams" does not ground "3 years".
+  assert.deepEqual(check('I have 3 years of SQL.', S5), ['3']);
+  assert.deepEqual(check('I built reports for 3 teams.', S5), []);
+});
+
+test('r5: the retry note names only flagged risk terms, never grammar or common words', () => {
+  assert.deepEqual(retryTerms(['is', 're', 'Data', 'Tableau', 'a week', 'second', '3', 'power bi']), ['Tableau', 'a week', 'second', '3', 'power bi']);
+});
+
+// Realistic postings of about 150 words (one-line fixtures hide over-flagging): the honest letters flag only the
+// by-design "learn <tool the cv lacks>" sentences.
+const EEO = 'This is a paid internship. We are an equal opportunity employer; all qualified applicants will receive consideration without regard to race, color, religion, sex, gender identity, national origin, disability or veteran status.';
+const LONG_POSTINGS = {
+  'Bluefin Outfitters': `Data Analyst Intern - Summer 2026
+Bluefin Outfitters is a fast-growing outdoor retailer. Our analytics team turns sales and supply chain data into decisions.
+What you'll do:
+- Build and maintain dashboards in Tableau that track KPIs for merchandising and operations
+- Write SQL queries against our Snowflake warehouse and help clean data
+- Partner with stakeholders across the business to answer ad hoc questions
+- Present insights to the team every week
+What we're looking for:
+- Pursuing a degree in analytics, statistics, economics or a related field
+- Experience with SQL and Excel; Python is a plus
+- Strong attention to detail and the ability to explain findings clearly
+- Curious, organized and comfortable in a fast-paced environment
+This is a paid, hybrid internship based in Example City. It's a 12-week program.`,
+  'Acme Analytics': `Data Analyst Intern (Summer 2026)
+Acme Analytics helps regional clinics and stores understand their data. You will join the operations team for 12 weeks.
+Responsibilities:
+- Use SQL, Python and Tableau to build reports for our operations team
+- Clean and validate data from several sources before it reaches a dashboard
+- Document your queries so others can reuse them
+- Share findings with managers in a short weekly update
+Qualifications:
+- Currently pursuing a degree in statistics, data science, computer science or a related field
+- Coursework or project experience with SQL; Python or R is a plus
+- Clear written communication and attention to detail
+- Comfortable asking questions and working with a small team
+${EEO}`,
+  'Northwind Health': `Business Intelligence Intern
+Northwind Health is a network of community clinics. Our analytics group relies on Excel and Power BI for clinic reporting.
+What you will do:
+- Build and update clinic dashboards in Power BI and Excel
+- Write SQL to pull visit and scheduling data
+- Help clinic managers read their weekly numbers and spot trends
+- Keep reporting documentation current
+What you bring:
+- A degree in progress in statistics, health informatics, business or a related field
+- Experience with SQL and Excel; Power BI is a plus
+- Care with sensitive data and a patient, clear way of explaining results
+- Ability to manage several requests at once
+${EEO} Our team has been recognized as a great place to work.`,
+  'Contoso Mobility': `Data Science Intern
+Contoso Mobility builds ride forecasting models in Python for bike and scooter fleets in several cities.
+In this role you will:
+- Clean trip data and build features for demand forecasting
+- Train and evaluate models with scikit-learn and pandas
+- Help the data science team move models into Airflow pipelines
+- Present results to product and operations partners
+You might be a fit if you:
+- Are pursuing a degree in statistics, computer science, economics or a related field
+- Have built at least one forecasting or regression project in Python
+- Write clear code and explain your choices
+- Enjoy messy real-world data
+${EEO}`,
+};
+const CV4 = `# Morgan Placeholder
+morgan@example.com
+## Education
+- B.S. Business Analytics, Example State University, expected May 2026, GPA 3.4
+## Experience
+- Operations Intern, Example Freight Co. (Summer 2025): built weekly Excel reports on late shipments for the operations manager; wrote SQL queries to pull order data; cleaned data and fixed errors in the tracking sheet
+- Student Assistant, Example State Library (2023-2025): answered patron questions; trained 4 new assistants
+## Projects
+- Course project: forecasting bike-share demand in Python with pandas; presented results to the class
+## Skills
+Excel (pivot tables, VLOOKUP), SQL, Python, pandas, communication
+`;
+const BLUEFIN_LETTERS = [
+  'I am applying for the Data Analyst Intern role at Bluefin Outfitters because I like turning messy data into something a team can act on. Last summer at Example Freight Co., I built weekly Excel reports on late shipments for the operations manager and wrote SQL queries to pull order data. I also cleaned the tracking sheet and fixed errors that had been slowing the team down. I would bring that same care to your analytics team.',
+  'My coursework in business analytics at Example State University taught me to start with the question before touching the data. In a course project I forecast bike-share demand in Python with pandas and presented the results to my class. That project showed me how much a clear explanation matters, and it is a big part of why I want to join Bluefin Outfitters. I am eager to learn how a retailer uses data to make decisions.',
+  'Working as a student assistant at the Example State Library, I answered patron questions every day and trained 4 new assistants, so I am used to explaining things simply and patiently. At Example Freight Co., I used Excel pivot tables and SQL to keep shipment data accurate, and I enjoyed sharing what I found with the operations manager. I would welcome the chance to bring that attention to detail to Bluefin Outfitters as the Data Analyst Intern.',
+];
+const flaggedSentencesOf = (p, src) => p.split(/(?<=[.!?])\s+(?=[A-Z])/).filter((s) => check(s, src).length > 0);
+
+test('r5: honest letters against realistic postings flag only the by-design "learn" sentences', () => {
+  for (const p of BLUEFIN_LETTERS) {
+    const src = { cv: CV4, answers: {}, posting: LONG_POSTINGS['Bluefin Outfitters'], company: 'Bluefin Outfitters', role: 'Data Analyst Intern' };
+    assert.deepEqual(flaggedSentencesOf(p, src), [], p);
+  }
+  for (const L of HONEST) {
+    const src = { cv: CVH, answers: {}, posting: LONG_POSTINGS[L.company], company: L.company, role: L.role };
+    const flaggedSentences = flaggedSentencesOf(L.p, src);
+    assert.equal(flaggedSentences.length, L.flagged, `${L.company}: ${JSON.stringify(flaggedSentences)}`);
+    for (const s of flaggedSentences) assert.match(s, /\blearn\b/, s);
+  }
 });
