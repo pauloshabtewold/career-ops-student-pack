@@ -531,9 +531,11 @@ async function cmdCheckLog(env) {
   return logAllowed({ action, now, env, res });
 }
 
-// apply.pending is a compare-and-set: under the action-log lock the fresh rows must still hold an approved, unused item,
-// so two submits of one item (a retry after a timeout, a scheduled run beside a session) never both get to click.
-async function logPending({ flags, file, mkRow }) {
+// apply.pending is a compare-and-set: under the action-log lock the fresh rows must still hold an approved, unused item
+// and the daily submit ceiling must still allow one more, so two submits of one item (a retry after a timeout, a
+// scheduled run beside a session) never both get to click, and two submits of different items never both pass the last
+// daily slot.
+async function logPending({ flags, file, mkRow, config, session, clock }) {
   if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('apply.pending needs --batch-id and --item of the approved batch item');
   if (flags.dryRun) {
     console.log('logged apply.pending (dry run)');
@@ -545,6 +547,12 @@ async function logPending({ flags, file, mkRow }) {
     if (!approvedItem(rows, flags.batchId, flags.item)) {
       console.log(`refused: item ${flags.item} of batch ${flags.batchId} has no unused logged approval`);
       return EXIT.refused;
+    }
+    const ctx = makeContext({ action: 'apply.submit', args: argsFrom(flags, true), history: rows, config, session, now: clock.now() });
+    const full = ctx.cap(ctx.L.submit_per_day, submitRows(rows, ctx.args).filter(ctx.isToday).length, 'submits today');
+    if (full) {
+      console.log(describe(full, clock));
+      return EXIT[full.status];
     }
     const detail = [flags.track && `track=${flags.track}`, `batch=${flags.batchId}`, `item=${flags.item}`].filter(Boolean).join(';');
     const row = mkRow('apply.pending', { target: flags.target ?? '', company: flags.company ?? '', detail });

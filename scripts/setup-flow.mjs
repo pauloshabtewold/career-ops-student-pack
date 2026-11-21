@@ -163,7 +163,13 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
 
   const report = [['install', state.installed], ['interview', state.interview], ['resume', state.resume], ['automation Chrome', state.chrome], ...SIGN_IN_SITES.map((s) => [`sign-in ${s}`, Boolean(state.signins[s])]), ['schedule', state.schedule]];
   for (const [name, done] of report) say(`setup ${name}: ${done ? 'done' : 'not yet'}`);
-  const next = nextStep({ setup: state, pipeline: pipelineState(paths.dataDir, { answers: readProfileAnswers(paths.root) ?? {} }) });
+  let answers = {};
+  try {
+    answers = readProfileAnswers(paths.root) ?? {};
+  } catch (err) {
+    say(`setup: config/profile.yml could not be read (${err.message}); fix it or move it aside, then run setup again. Saved answers are not counted until then.`);
+  }
+  const next = nextStep({ setup: state, pipeline: pipelineState(paths.dataDir, { answers }) });
   say('');
   for (const line of guidedFooter(next)) say(line);
   await append(paths.dataDir, zeroRow({ date: today, step: 'setup', feature: 'setup', rows: report.length, source: 'session' }));

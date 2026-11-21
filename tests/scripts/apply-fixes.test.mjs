@@ -171,3 +171,62 @@ test('N4 a second approval adds items to the batch instead of replacing the firs
     r.cleanup();
   }
 });
+
+test('NIT apply.pending rechecks the daily submit cap under the lock: the pending row past the last daily slot is refused', () => {
+  const r = scratch();
+  try {
+    const budget = (args) => spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'budget.mjs'), ...args, '--root', r.root, '--data-dir', r.dataDir], { cwd: PACK_ROOT, encoding: 'utf8' });
+    // Ten approved items on one page and an eleventh on a second page, each at its own company.
+    const items = Array.from({ length: 10 }, (_, i) => i + 1);
+    assert.equal(budget(['log', 'batch.approve', '--batch-id', 'b-caps-1', '--items', items.join(','), '--approval', 'approve all']).status, 0);
+    assert.equal(budget(['log', 'batch.approve', '--batch-id', 'b-caps-2', '--items', '1', '--approval', 'approve all']).status, 0);
+    const pending = (id, n, co) => budget(['log', 'apply.pending', '--batch-id', id, '--item', String(n), '--company', `Example Co ${co}`, '--target', `https://example.com/jobs/${co}`]);
+    for (const n of items) assert.equal(pending('b-caps-1', n, n).status, 0, `item ${n}`);
+    const last = pending('b-caps-2', 1, 11);
+    assert.equal(last.status, 3, last.stdout + last.stderr);
+    assert.match(last.stdout, /submits today: 10 of 10/);
+    const log = readFileSync(join(r.dataDir, 'action-log.tsv'), 'utf8');
+    assert.equal(log.split('\n').filter((l) => l.includes('\tapply.pending\t')).length, 10, 'no eleventh pending row');
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('NIT updateBatch waits for the batch lock, so a change made while another process holds it is not lost', async () => {
+  const r = scratch();
+  try {
+    const { updateBatch } = await import('../../lib/batch-file.mjs');
+    const [id] = writeBatches(r.dataDir, { date: TODAY, kind: 'apply', items: [{ company: 'Example Co', role: 'Data Intern', score: 4.1, preview: 'Fake.', link: 'https://example.com/jobs/1' }] });
+    const file = join(r.dataDir, 'batches', `${id}.json`);
+    const holder = `import { withLock } from ${JSON.stringify(join(PACK_ROOT, 'lib', 'dir-lock.mjs'))};
+      import { readFileSync, writeFileSync } from 'node:fs';
+      const file = process.argv[1];
+      await withLock(file, async () => { const b = JSON.parse(readFileSync(file, 'utf8')); console.log('held');
+        await new Promise((ok) => setTimeout(ok, 600)); writeFileSync(file, JSON.stringify({ ...b, other: true })); });`;
+    const { spawn } = await import('node:child_process');
+    const child = spawn(process.execPath, ['--input-type=module', '-e', holder, file], { stdio: ['ignore', 'pipe', 'inherit'] });
+    await new Promise((ok) => child.stdout.once('data', ok));
+    const done = new Promise((ok) => child.once('exit', ok));
+    updateBatch(r.dataDir, id, (b) => ({ ...b, approved: { items: [1], words: 'approve all' } }));
+    await done;
+    const b = readBatch(r.dataDir, id);
+    assert.equal(b.other, true, 'the holder change kept');
+    assert.deepEqual(b.approved?.items, [1], 'the approval kept');
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('NIT setup-flow with a broken config/profile.yml ends with a guided message instead of a crash', async () => {
+  const r = scratch();
+  try {
+    writeFileSync(join(r.root, 'config', 'profile.yml'), 'candidate:\n  full_name: "Jordan Testwell"\napplication_answers:\n  - : [broken\n');
+    const lines = [];
+    const deps = { ...fakes(r.dataDir).deps, chrome: async () => ({ code: 0 }), schedule: async () => ({ code: 0 }), say: (l) => lines.push(l) };
+    const res = await setupFlow({ paths: r.paths, flags: { slotCmd: '' }, today: TODAY, deps });
+    assert.ok(res.next, 'a next step is still given');
+    assert.ok(lines.some((l) => /profile\.yml could not be read/.test(l)), lines.join('\n'));
+  } finally {
+    r.cleanup();
+  }
+});
