@@ -13,6 +13,10 @@ test('inline columns and column-count in a style attribute are multi-column', ()
     "<main style='columns: 200px 3'>Jordan Testwell</main>",
     '<main style="color: black; column-count: 12">Jordan Testwell</main>',
     '<style>main { columns: 2; }</style><main>Jordan Testwell</main>',
+    '<style>main { -webkit-column-count: 2 }</style><main>Jordan Testwell</main>',
+    '<style>main { -webkit-columns: 2 }</style><main>Jordan Testwell</main>',
+    '<main style=column-count:2>Jordan Testwell</main>',
+    '<main style=columns:3>Jordan Testwell</main>',
   ]) assert.ok(flagged(html), html);
 });
 
