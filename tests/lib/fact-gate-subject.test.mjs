@@ -589,6 +589,8 @@ const INVENTED6 = [
   ['nw', 'Northwind Health, who hired me last year, is a great employer.'],
   ['nw', 'I loved my summer at Northwind Health.'],
   ['nw', 'Northwind Health has been my employer since 2024.'],
+  ['nw', 'I have been coding in Python for years.'],
+  ['nw', 'Returning to Northwind Health would be a dream.'],
 ];
 
 test('r6: every drafter-style invented claim against the four realistic postings is flagged', () => {
@@ -607,6 +609,7 @@ test('r6: exact items for titles, counts of years, relative clauses and slash te
     ['nw', "Northwind Health's analytics team, where I volunteered last year, showed me how data improves patient care.", ['Northwind Health']],
     ['fb', 'I designed and analyzed A/B tests for email campaigns.', ['A/B']],
     ['nw', 'I have 2-3 years of SQL work.', ['2-3']],
+    ['nw', 'I have been coding in Python for years.', ['for years']],
   ]) assert.deepEqual(check(s, src6(k)), want, s);
   // Grounded by the cv: the title phrase held, a span of years, a team the cv says was led.
   const cv = `${CV6}- Data Analyst, Example Bank (2021-2024): led a team of 3 analysts; SQL, 3 years\n`;
@@ -625,6 +628,7 @@ test('r6: wish and apply frames, held titles and filler modifiers pass the title
     ['nw', 'I am excited to apply as a junior analyst.'],
     ['nw', 'I see the work as a chance to learn.'],
     ['nw', 'I hope to lead a team someday.'],
+    ['nw', 'Your analytics team has led the way for years.'],
     ['ct', 'The work I want to do as a Business Intelligence Intern is exactly this.'],
   ]) assert.deepEqual(check(s, src6(k)), [], s);
 });
