@@ -262,3 +262,9 @@ test('r4: "with <Company>" is not a name context, so the company as a tool needs
   assert.deepEqual(check('I worked with Snowflake daily.', K3), ['Snowflake']);
   assert.deepEqual(check('I would love to join Snowflake.', K3), []);
 });
+
+test('r4: tech terms that are also English words count only in tech casing or next to a tech context word', () => {
+  const src = B3();
+  for (const s of ["I'd go further for your team.", 'A spark of interest led me to data.', 'I react quickly to feedback.', 'I excel at SQL.', 'I took a swift look at the data.', 'My epic project used SQL.', 'Rust on the old bike taught me patience.'.toLowerCase()]) assert.deepEqual(check(s, src), [], s);
+  for (const [s, want] of [['I write Go services.', 'Go'], ['I build React apps.', 'React'], ['I wrote R scripts.', 'R'], ['I used r scripts for class.', 'r'], ['I wrote go code for a class.', 'go'], ['I know node.js well.', 'node'], ['I write Swift apps.', 'Swift'], ['I used Epic at the clinic.', 'Epic'], ['React is my favorite tool.', 'React']]) assert.deepEqual(check(s, src), [want], s);
+});
