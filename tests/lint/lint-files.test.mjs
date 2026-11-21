@@ -103,6 +103,20 @@ test('M-001-S17 clean tree exits 0', async () => {
   }
 });
 
+test('the typography rule skips tests/scripts/cover.test.mjs and no other file, not even one with the same name elsewhere', async () => {
+  const root = makeRepo({
+    'tests/scripts/cover.test.mjs': `const RAW = '${LQ}x${RQ} ${EM}';\n`,
+    'tests/scripts/other.test.mjs': `const RAW = '${EM}';\n`,
+    'scripts/cover.test.mjs': `const RAW = '${EM}';\n`,
+  });
+  try {
+    const found = (await lintFiles(root)).map((f) => `${f.file}:${f.line} ${f.rule}`).sort();
+    assert.deepEqual(found, ['scripts/cover.test.mjs:1 typography', 'tests/scripts/other.test.mjs:1 typography']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('shipped tree is clean', async () => {
   assert.deepEqual(await lintFiles(repoRoot), []);
 });
