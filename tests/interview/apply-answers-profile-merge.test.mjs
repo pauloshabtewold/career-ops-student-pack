@@ -113,3 +113,26 @@ test('final apply keeps the learned questions map and a learn patch adds one que
     r.cleanup();
   }
 });
+
+// Sensitive questions (SSN, card, bank) never enter the answer bank: learn refuses them and the CLI exits 2 without
+// touching profile.yml. Fake labels only.
+test('M-002 profile-answers learn refuses SSN, card and bank questions and leaves profile.yml unchanged', async () => {
+  const { isSensitive } = await import('../../lib/profile-answers.mjs');
+  const { profileAnswers } = await import('../helpers/profile-harness.mjs');
+  for (const q of ['Social Security Number', 'SSN (last 4 digits)', 'Credit card number', 'CVV', 'Card expiration date', 'Bank account number', 'Routing number']) {
+    assert.equal(isSensitive(q), true, q);
+    assert.throws(() => learn(q, '000'), /never saved/, q);
+  }
+  assert.equal(isSensitive({ label: 'Name on card', autocomplete: 'cc-name' }), true, 'autocomplete cc-* is sensitive');
+  assert.equal(isSensitive('Why do you want to work here?'), false);
+  const r = scratch();
+  try {
+    const before = profileWithQuestions();
+    r.write('config/profile.yml', before);
+    const res = profileAnswers(r, ['learn', 'What is your Social Security Number?', '000-00-0000']);
+    assert.equal(res.code, 2, res.text);
+    assert.equal(r.read('config/profile.yml'), before);
+  } finally {
+    r.cleanup();
+  }
+});

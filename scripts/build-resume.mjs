@@ -3,13 +3,17 @@
 // one-page PDF through upstream generate-pdf.mjs as a child process (the pack never imports upstream code).
 // cv.md subset: "# Name", one contact line, "## Section", "### Title | Dates", "- bullet", plain paragraphs.
 // Usage: build-resume.mjs [--cv FILE] [--out DIR] [--order "Education,Experience,Projects,Skills"] [--html-only] [--root R]
-// Exit 0 ok, 1 render failed, 2 usage.
+// The PDF render launches a headless browser, so the configured browser-slot command (BROWSER_SLOT_CMD, else
+// config browser.slot_cmd) runs first; any non-zero exit means no render is spawned this time.
+// Exit 0 ok, 1 render failed, 2 usage, 4 waiting for a browser slot.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
+import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
+import { resolveSlotCommand, runSlotCommand } from './chrome.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 export const DEFAULT_ORDER = Object.freeze(['Education', 'Experience', 'Projects', 'Skills']);
@@ -75,14 +79,28 @@ export function renderPdf({ root, html, pdf, runner = runResult }) {
   return runner(process.execPath, [join(root, 'generate-pdf.mjs'), html, pdf, '--format=letter', '--max-pages=1', '--strict-pages'], { cwd: root, timeout: 120 * 1000 });
 }
 
-// Parses the cv, writes the template HTML into outDir, and renders the PDF unless htmlOnly is set.
-export function buildResume({ root, cvFile, outDir, order = DEFAULT_ORDER, htmlOnly = false, runner }) {
+export const EXIT_WAIT = 4;
+
+// The browser-slot gate before any PDF render: null when the render may start, else the slot command's exit code. With
+// no slot command configured the render starts, as chrome.mjs open does.
+export function slotRefusal({ env = process.env, config = null, runSlot = runSlotCommand } = {}) {
+  const slot = resolveSlotCommand({ env, config });
+  if (!slot) return null;
+  const code = runSlot(slot);
+  return code === 0 ? null : code;
+}
+
+// Parses the cv, writes the template HTML into outDir, and renders the PDF unless htmlOnly is set. The render runs only
+// after the browser-slot gate passes; a refused slot returns code 4 (waiting) and spawns nothing.
+export function buildResume({ root, cvFile, outDir, order = DEFAULT_ORDER, htmlOnly = false, runner, config = null, env = process.env, runSlot = runSlotCommand }) {
   const cv = parseCv(readFileSync(cvFile, 'utf8'));
   mkdirSync(outDir, { recursive: true });
   const html = join(outDir, 'resume.html');
   const pdf = join(outDir, 'resume.pdf');
   writeFileSync(html, renderHtml(cv, order));
   if (htmlOnly) return { code: 0, html, pdf: null };
+  const refused = slotRefusal({ env, config, runSlot });
+  if (refused !== null) return { code: EXIT_WAIT, html, pdf: null, error: `waiting for a browser slot (hook exit ${refused}); run this again in a few minutes` };
   const res = renderPdf({ root, html, pdf, runner });
   return { code: res.code === 0 ? 0 : 1, html, pdf, error: res.code === 0 ? null : (res.stderr || res.stdout).trim().split('\n')[0] };
 }
@@ -93,8 +111,10 @@ async function main() {
   const cvFile = flags.cv ?? join(paths.root, 'cv.md');
   if (!existsSync(cvFile)) throw new UsageError(`no cv file at ${cvFile}`);
   const order = flags.order ? flags.order.split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_ORDER;
-  const res = buildResume({ root: paths.root, cvFile, outDir: flags.out ?? join(paths.dataDir, 'resume'), order, htmlOnly: Boolean(flags.htmlOnly) });
-  console.log(res.code === 0 ? `build-resume: wrote ${res.pdf ?? res.html}` : `build-resume: PDF render failed: ${res.error}`);
+  const config = await loadStudentConfig({ root: paths.root }).catch(() => null);
+  const res = buildResume({ root: paths.root, cvFile, outDir: flags.out ?? join(paths.dataDir, 'resume'), order, htmlOnly: Boolean(flags.htmlOnly), config });
+  if (res.code === EXIT_WAIT) console.log(`build-resume: ${res.error}`);
+  else console.log(res.code === 0 ? `build-resume: wrote ${res.pdf ?? res.html}` : `build-resume: PDF render failed: ${res.error}`);
   return res.code;
 }
 

@@ -5,20 +5,23 @@
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
 // Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close
 //        chrome.mjs fill --plan FILE | submit --batch-id ID --item N   [--root R] [--data-dir D]
-// fill types into the form by field map and never into a password field; a CAPTCHA or bot check stops it and moves the
+// fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
+// as blocked-on-user and the fill exits 5 after the rest is filled); a CAPTCHA or bot check stops it and moves the
 // job to the batch's finish-yourself list. submit clicks only after budget.mjs check passes for the approved item.
 // Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage, 3 refused (password field, or budget.mjs refused the submit),
-// 4 wait (browser slot or budget.mjs wait), 5 needs the user (budget.mjs exit 5 passed through, or a submit that clicked
-// but could not be logged), 6 CAPTCHA or bot check (finish it yourself), 7 automation Chrome not running or its profile
+// 4 wait (browser slot or budget.mjs wait), 5 needs the user (budget.mjs exit 5 passed through, a sensitive field left
+// for the student, or a submit that clicked but could not be logged), 6 CAPTCHA or bot check (finish it yourself), 7 automation Chrome not running or its profile
 // held by a Chrome this CLI did not record.
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
+import { SENSITIVE_KEY } from '../lib/ats-fields.mjs';
 import { addFinishYourself } from '../lib/batch-file.mjs';
 import { attachTo, click, describeField, evaluate, readText, openPage, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { isSensitive } from '../lib/profile-answers.mjs';
 import { isPidAlive, withLock } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
@@ -358,17 +361,25 @@ async function fillField(client, sessionId, field) {
 export async function fillPlan(client, plan, { dataDir }) {
   const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
   const { sessionId } = page;
-  const blocked = await detectCaptcha(client, sessionId);
-  if (blocked) {
-    if (plan.batchId) addFinishYourself(dataDir, plan.batchId, { company: plan.company, role: plan.role, link: plan.link ?? plan.url, reason: blocked });
-    return { code: EXIT.captcha, filled: 0, problems: [`blocked: ${siteOf(plan.url)} shows a ${blocked}; added to finish these yourself`] };
+  const captcha = await detectCaptcha(client, sessionId);
+  if (captcha) {
+    if (plan.batchId) addFinishYourself(dataDir, plan.batchId, { company: plan.company, role: plan.role, link: plan.link ?? plan.url, reason: captcha });
+    return { code: EXIT.captcha, filled: 0, problems: [`blocked: ${siteOf(plan.url)} shows a ${captcha}; added to finish these yourself`] };
   }
   const problems = [];
+  const blocked = [];
   let filled = 0;
-  for (const field of (plan.fields ?? []).filter((f) => f.selector && f.value !== undefined && f.value !== null && f.value !== '')) {
-    if (isPasswordField(await describeField(client, sessionId, field.selector))) {
+  for (const field of (plan.fields ?? []).filter((f) => f.selector)) {
+    const info = await describeField(client, sessionId, field.selector);
+    if (isPasswordField(info)) {
       return { code: EXIT.refused, filled, problems: [`refused: ${field.label || field.selector} is a password field; sign-ins stay with you`] };
     }
+    // SSN, card and bank fields are never typed, whatever value the plan carries; the student fills them.
+    if (field.key === SENSITIVE_KEY || isSensitive({ label: field.label, name: field.name, autocomplete: info?.autocomplete ?? field.autocomplete })) {
+      blocked.push(`blocked-on-user: ${field.label || field.name || field.selector} is a card, bank or government id field; fill it yourself`);
+      continue;
+    }
+    if (field.value === undefined || field.value === null || field.value === '') continue;
     if (await fillField(client, sessionId, field)) filled++;
     else problems.push(`could not fill ${field.label || field.selector}`);
   }
@@ -378,7 +389,7 @@ export async function fillPlan(client, plan, { dataDir }) {
       filled++;
     }
   }
-  return { code: EXIT.ok, filled, problems };
+  return { code: blocked.length ? EXIT.needsUser : EXIT.ok, filled, problems: [...problems, ...blocked] };
 }
 
 async function cmdFill({ dataDir, flags, deps, say }) {
@@ -391,7 +402,7 @@ async function cmdFill({ dataDir, flags, deps, say }) {
   }
   const res = await withBrowser(live.port, (client) => fillPlan(client, plan, { dataDir }), deps);
   for (const p of res.problems) say(`chrome: ${p}`);
-  if (res.code === EXIT.ok) say(`chrome: filled ${res.filled} field(s) on ${siteOf(plan.url)}`);
+  if (res.code === EXIT.ok || res.code === EXIT.needsUser) say(`chrome: filled ${res.filled} field(s) on ${siteOf(plan.url)}`);
   return res.code;
 }
 

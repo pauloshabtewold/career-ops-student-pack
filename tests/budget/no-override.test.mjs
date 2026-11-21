@@ -93,3 +93,36 @@ test('a submit check with a logged approved item passes and the same item after 
     p.cleanup();
   }
 });
+
+// Batch approval gate: the CLI check of apply.submit (evaluateCheck) needs an unused, logged batch.approve item, while
+// evaluate() alone stays the ceiling decision.
+test('M-002 evaluateCheck refuses apply.submit without --batch-id and --item, for an unlisted item and for a used item, unlogged', async () => {
+  const { evaluate, evaluateCheck } = await import('../../scripts/budget.mjs');
+  const { DAY, at, row, shiftDate, baseConfig } = await import('../helpers/budget-harness.mjs');
+  const seasoned = row({ ts: at(shiftDate(DAY, -60), 12, 0), action: 'apply.submit', target: 'ex-old', company: 'Old Example Co', session: 's0', detail: 'track=swe-intern' });
+  const approval = row({ ts: at(DAY, 8, 0), action: 'batch.approve', approval: 'approve all', detail: 'batch=b1;items=1,2' });
+  const args = { target: 'ex-new', company: 'Example Robotics', track: 'swe-intern', score: 4.2, batch: 1, batchId: 'b1', item: 1 };
+  const ev = (a, history) => evaluateCheck({ action: 'apply.submit', args: a, history, config: baseConfig(), session: 's1', now: at(DAY, 15, 0) });
+  const history = [seasoned, approval];
+
+  const missing = ev({ ...args, batchId: undefined, item: undefined }, history);
+  assert.equal(missing.status, 'refused');
+  assert.equal(missing.unlogged, true, 'a missing approval refuses only this item and writes no budget.refusal row');
+  assert.equal(ev({ ...args, item: 3 }, history).status, 'refused');
+  assert.equal(ev(args, history).status, 'ok');
+  const used = row({ ts: at(DAY, 9, 0), action: 'apply.submit', target: 'ex-u', company: 'Example Co u', detail: 'track=swe-intern;batch=b1;item=1' });
+  assert.equal(ev(args, [...history, used]).status, 'refused');
+  assert.equal(ev({ ...args, item: 2 }, [...history, used]).status, 'ok');
+  assert.equal(evaluate({ action: 'apply.submit', args: { ...args, batchId: undefined, item: undefined }, history, config: baseConfig(), session: 's1', now: at(DAY, 15, 0) }).status, 'ok');
+});
+
+test('M-002 log apply.submit without --batch-id and --item exits 2 and logs nothing', async () => {
+  const p = await makePack();
+  try {
+    const r = run(p, ['log', 'apply.submit', '--target', 'ex-new', '--company', 'Example Robotics', '--track', 'swe-intern', '--score', '4.2', '--batch', '1', '--approval', 'submit 1']);
+    assert.equal(r.code, 2, r.stdout + r.stderr);
+    assert.equal((await readLog(p)).length, 0);
+  } finally {
+    p.cleanup();
+  }
+});

@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { atsTextProblems, htmlSections } from '../lib/ats-text.mjs';
-import { mapForm } from '../lib/ats-fields.mjs';
+import { SENSITIVE_KEY, atsOf, mapField, mapForm } from '../lib/ats-fields.mjs';
 import { writeBatches, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -33,7 +33,7 @@ import { writeAtomic } from '../lib/tsv.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { append, zeroRow } from '../lib/usage-ledger.mjs';
 import { effectiveLimits } from './budget.mjs';
-import { DEFAULT_ORDER, buildResume, parseCv } from './build-resume.mjs';
+import { DEFAULT_ORDER, EXIT_WAIT, buildResume, parseCv } from './build-resume.mjs';
 import { sourceContacts, sourceWords, textLayerProblems } from './check-resume.mjs';
 import { writeCover } from './cover.mjs';
 import { buildReviewPrompt } from './review-app.mjs';
@@ -64,15 +64,25 @@ export function answerFor(key, { answers, candidate }) {
 }
 
 // Every mapped field gets its value by code; an unmapped field is filled from a saved question or listed as unknown.
+// form = { url, fields } with raw fields (mapped here through lib/ats-fields.mjs) or fields mapForm already mapped.
+// A sensitive field (SSN, card, bank) gets no value and is listed in blocked: the student fills it, it is never asked
+// as an unknown question, so its answer never reaches the answer bank.
 export function resolveFields(form, ctx) {
+  const ats = atsOf(form.url);
   const unknown = [];
-  const fields = form.fields.map((f) => {
+  const blocked = [];
+  const fields = (form.fields ?? []).map((raw) => {
+    const f = 'key' in raw ? raw : { ...raw, ...mapField(raw, { ats }) };
     if (f.slot) return f;
+    if (f.key === SENSITIVE_KEY) {
+      blocked.push(f.label || f.name);
+      return { ...f, value: undefined };
+    }
     const value = f.key ? answerFor(f.key, ctx) : matchQuestion(ctx.answers, f.label);
     if (value === undefined && f.label) unknown.push(f.label);
     return { ...f, value };
   });
-  return { fields, unknown };
+  return { fields, unknown, blocked };
 }
 
 // The model may only pick and order bullets that cv.md already has; any other line sends the tailoring back to the
@@ -96,33 +106,52 @@ const keptOnlyOriginal = (tailored, cv) => {
 };
 
 // Default resume checker: the check-resume text-layer checks plus the lib/ats-text.mjs checks on the rendered PDF.
+// Returns { ok, problems }.
 export async function atsCheck({ pdf, html }) {
   const source = readFileSync(html, 'utf8');
   const text = await extractPdfText(readFileSync(pdf));
-  return [...textLayerProblems(text, sourceContacts(source), sourceWords(source)), ...atsTextProblems(text, { sections: htmlSections(source), sourceText: source, words: sourceWords(source), glued: false })];
+  const problems = [...textLayerProblems(text, sourceContacts(source), sourceWords(source)), ...atsTextProblems(text, { sections: htmlSections(source), sourceText: source, words: sourceWords(source), glued: false })];
+  return { ok: problems.length === 0, problems };
 }
 
-// Renders and checks one resume; a failed tailored build retries once from the untailored order, a second failure flags.
+// Renders and checks one resume; a failed tailored build retries once from the untailored cv and section order, a
+// second failure flags the item naming the failed check. build(opts) and checker({ pdf, html }) may be sync or async.
 async function resumeFor({ row, cv, outDir, root, full, deps, date, dataDir, agent }) {
   const build = deps.buildResume ?? buildResume;
   const checker = deps.atsCheck ?? atsCheck;
   let text = cv;
+  let order = DEFAULT_ORDER;
   if (full) {
     const res = await (deps.headless ?? runHeadless)({ agent, prompt: tailoringPrompt(cv, row.jobText), step: 'tailor-resume', feature: 'G7', dataDir, date });
-    const tailored = res.text.trim();
-    if (tailored && keptOnlyOriginal(tailored, cv) && !factCheck(tailored, { cv }).length) text = tailored;
+    const tailored = String(res?.text ?? '').trim();
+    const sections = sectionOrder(tailored);
+    if (sections) order = sections;
+    else if (tailored && keptOnlyOriginal(tailored, cv) && !factCheck(tailored, { cv }).length) text = tailored;
   }
   let lastProblems = [];
-  for (const attempt of [text, cv]) {
+  const attempts = [{ text, order }, { text: cv, order: DEFAULT_ORDER }];
+  for (const [i, attempt] of attempts.entries()) {
     mkdirSync(outDir, { recursive: true });
     const cvFile = join(outDir, 'cv.md');
-    writeFileSync(cvFile, attempt);
-    const built = build({ root, cvFile, outDir, order: DEFAULT_ORDER, runner: deps.runner });
-    lastProblems = built.code === 0 ? await checker(built) : [`render: ${built.error ?? 'PDF render failed'}`];
-    if (!lastProblems.length) return { ok: true, path: built.pdf, tailored: attempt !== cv };
-    if (attempt === cv) break;
+    writeFileSync(cvFile, attempt.text);
+    const built = await build({ root, cvFile, outDir, order: attempt.order, runner: deps.runner, config: deps.config ?? null });
+    // A refused browser slot is not a resume fault: nothing was rendered, so there is nothing to rebuild.
+    if (built?.code === EXIT_WAIT) return { ok: false, flags: [`resume not rendered: ${built.error}`] };
+    if (built?.pdf && (built.code ?? 0) === 0) {
+      const res = await checker(built);
+      lastProblems = Array.isArray(res) ? res : res?.problems ?? [];
+      if (!lastProblems.length) return { ok: true, path: built.pdf, tailored: i === 0 && (attempt.text !== cv || attempt.order !== DEFAULT_ORDER) };
+    } else lastProblems = [`render: ${built?.error ?? 'PDF render failed'}`];
+    if (i === 0 && !full) break;
   }
   return { ok: false, flags: lastProblems.map((p) => `resume failed ATS check ${p}`) };
+}
+
+// A tailoring reply that is only a reordering of the template's section names, one per line, or null.
+function sectionOrder(text) {
+  const lines = text.split('\n').map((l) => l.replace(/^[#\s*-]+/, '').trim()).filter(Boolean);
+  const known = new Set(DEFAULT_ORDER);
+  return lines.length === DEFAULT_ORDER.length && lines.every((l) => known.has(l)) && new Set(lines).size === lines.length ? lines : null;
 }
 
 // Adds jd=<file> to the row's note in pipeline.md under the pipeline lock.
@@ -144,42 +173,57 @@ async function noteJd(dataDir, url, token) {
 }
 
 const reviewWith = (deps, { cv, agent, dataDir, date }) => async (plan) => {
-  const res = await (deps.headless ?? runHeadless)({ agent, prompt: buildReviewPrompt({ cv, posting: plan.jobText, resume: plan.resumeText ?? '', cover: plan.letter ?? '' }), step: 'review', feature: 'H2', dataDir, date });
+  const res = await (deps.headless ?? runHeadless)({ agent, prompt: buildReviewPrompt({ cv, posting: plan.jobText, resume: plan.resumeText ?? '', cover: plan.letter ?? (plan.cover && existsSync(plan.cover) ? readFileSync(plan.cover, 'utf8') : '') }), step: 'review', feature: 'H2', dataDir, date });
   const ok = /VERDICT:\s*CLEAN/.test(res.text);
   return { ok, notes: ok ? [] : res.text.split('\n').filter((l) => /^UNGROUNDED|^EDIT/.test(l)).slice(0, 3) };
 };
 
-/** One plan per ranked row. deps: fieldsFor(row), fetchJob(row), headless, buildResume, atsCheck, runner. */
+// The letter for a form with a cover slot. writeCover returns a path, or { path, flags | flagged } (cover.mjs writeCover).
+async function coverFor({ row, jobText, ctx, agent }) {
+  const res = await (ctx.writeCover ?? writeCover)({
+    cv: ctx.cv, posting: jobText, answers: ctx.answers ?? {}, company: row.company, role: row.role ?? row.title, presets: ctx.presets ?? ctx.config?.presets ?? [],
+    signature: ctx.candidate?.full_name ?? '', dataDir: ctx.dataDir, date: ctx.today, agent, headless: ctx.headless ?? runHeadless,
+  });
+  const path = typeof res === 'string' ? res : res?.path ?? null;
+  const flags = typeof res === 'string' ? [] : res?.flags ?? (res?.flagged ? [String(res.flagged)] : []);
+  return path && !flags.length ? { path, flags } : { path: null, flags: flags.length ? flags : ['cover letter could not be written'] };
+}
+
+/**
+ * One plan per ranked row. row = { url, company, role, score, track, jobText? }.
+ * ctx = { root, dataDir, today, batchId?, item?, form: { url, fields }, answers, candidate, cv, presets, config?,
+ *         headless?, writeCover?, buildResume?, atsCheck?, fetchJob?, runner?, outDir? }.
+ * Returns { batchId, item, url, link, company, role, score, track, fields, unknown, blocked, uploads, cover, resume, jd,
+ * selfCheck, flags, inBatch }. flags and inBatch cover the resume and letter gates; the self-check result is reported in
+ * selfCheck, and fillPlans batches an item only when inBatch and selfCheck.ok are both true.
+ */
 export async function planRow(row, ctx) {
-  const { paths, config, answers, candidate, cv, date, deps, outDir } = ctx;
-  const agent = config.agent ?? 'claude';
-  const guarded = guardPosting(String(await (deps.fetchJob ?? (() => ''))(row)));
+  const { root, dataDir, today, answers, candidate, cv } = ctx;
+  const agent = ctx.config?.agent ?? 'claude';
+  const role = row.role ?? row.title;
+  const posting = row.jobText ?? (ctx.fetchJob ? await ctx.fetchJob(row) : '');
+  const guarded = guardPosting(String(posting ?? ''));
   const jobText = guarded.text.slice(0, JD_CHARS);
-  const form = mapForm(await deps.fieldsFor(row), { url: row.url, dataDir: paths.dataDir, learnedOn: isOn('T3') });
-  const { fields, unknown } = resolveFields(form, { answers, candidate });
+  const form = mapForm(ctx.form?.fields ?? [], { url: row.url, dataDir, learnedOn: isOn('T3') });
+  const { fields, unknown, blocked } = resolveFields({ url: row.url, fields: form.fields }, { answers, candidate });
+  const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
   const full = (row.score ?? 0) >= FULL_PATH_SCORE;
-  const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root: paths.root, full, deps, date, dataDir: paths.dataDir, agent });
+  const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root, full, deps: ctx, date: today, dataDir, agent });
   if (!resume.ok) flags.push(...resume.flags);
-  let letter = null;
-  if (form.hasCoverSlot) {
-    const cover = await writeCover({ cv, posting: jobText, answers, company: row.company, role: row.title, presets: config.presets ?? [], signature: candidate.full_name ?? '', dataDir: paths.dataDir, date, agent, headless: deps.headless ?? runHeadless });
-    if (cover.ok) {
-      letter = cover.text;
-      writeFileSync(join(outDir, 'cover.txt'), `${letter}\n`);
-    } else flags.push(...cover.flags);
-  }
-  const jd = saveJd(paths.dataDir, row.url, guarded.text);
-  await noteJd(paths.dataDir, row.url, jd);
-  const uploads = fields.filter((f) => f.slot).map((f) => ({ selector: f.selector, path: f.slot === 'resume' ? resume.path : letter ? join(outDir, 'cover.txt') : null })).filter((u) => u.path);
+  const cover = form.hasCoverSlot ? await coverFor({ row, jobText, ctx, agent }) : { path: null, flags: [] };
+  flags.push(...cover.flags);
+  const jd = saveJd(dataDir, row.url, guarded.text);
+  await noteJd(dataDir, row.url, jd);
+  const uploads = fields.filter((f) => f.slot && f.selector).map((f) => ({ selector: f.selector, path: f.slot === 'resume' ? resume.path : cover.path })).filter((u) => u.path);
   const check = await checkAndReview(
-    { company: row.company, role: row.title, fields: fields.filter((f) => !f.slot), letter, resumeText: parseCv(cv).sections.map((s) => s.items.map((i) => i.text).join(' ')).join(' '), jobText },
-    { reviewerOn: config.reviewer === 'on', t8On: isOn('T8'), review: reviewWith(deps, { cv, agent, dataDir: paths.dataDir, date }) },
+    { company: row.company, role, fields: fields.filter((f) => !f.slot && f.key !== SENSITIVE_KEY), cover: cover.path, resumeText: parseCv(cv).sections.map((s) => s.items.map((i) => i.text).join(' ')).join(' '), jobText },
+    { reviewerOn: ctx.config?.reviewer === 'on', t8On: isOn('T8'), review: reviewWith(ctx, { cv, agent, dataDir, date: today }) },
   );
   return {
-    url: row.url, link: row.url, company: row.company, role: row.title, score: row.score, track: row.track,
-    fields: check.plan.fields, unknown, uploads, letter: check.plan.letter, jd: jdFileName(row.url),
-    selfCheck: { ok: check.ok, fixed: check.fixed, flags: check.flags }, flags: [...flags, ...check.flags],
+    batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, score: row.score, track: row.track,
+    fields: check.plan.fields, unknown, blocked, uploads, cover: cover.path, resume: resume.ok ? resume.path : null, jd,
+    selfCheck: { ok: check.ok, fixed: check.fixed, flags: check.flags }, flags, inBatch: flags.length === 0,
   };
 }
 
@@ -188,18 +232,30 @@ function defaultRows(paths, n) {
   return res.code === 0 ? JSON.parse(res.stdout || '[]') : [];
 }
 
+const previewOf = (plan) => {
+  if (!plan.cover || !existsSync(plan.cover)) return 'no cover letter slot';
+  return readFileSync(plan.cover, 'utf8').split('\n').find((l) => l.length > 40) ?? '';
+};
+
+/** deps: fieldsFor(row) -> raw form fields, fetchJob(row), headless, writeCover, buildResume, atsCheck, runner. */
 export async function fillPlans({ paths, rows, today, deps = {}, say = console.log }) {
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
-  const ctxBase = { paths, config, answers: readProfileAnswers(paths.root) ?? {}, candidate: readCandidate(paths.root), cv: readFileSync(join(paths.root, 'cv.md'), 'utf8'), date: today, deps };
+  const ctxBase = {
+    ...deps, root: paths.root, dataDir: paths.dataDir, today, config, presets: config.presets ?? [],
+    answers: readProfileAnswers(paths.root) ?? {}, candidate: readCandidate(paths.root), cv: readFileSync(join(paths.root, 'cv.md'), 'utf8'),
+  };
   const ready = [];
   for (const [i, row] of rows.entries()) {
     const outDir = join(paths.dataDir, 'fill-plans', `${today}-work`, String(i + 1));
     mkdirSync(outDir, { recursive: true });
-    const plan = await planRow(row, { ...ctxBase, outDir });
-    for (const f of plan.flags) say(`fill-plan: ${row.company} | ${row.title}: flagged: ${f}`);
-    if (!plan.flags.length) ready.push(plan);
+    const form = { url: row.url, fields: (await (deps.fieldsFor ?? (() => []))(row)) ?? [] };
+    const plan = await planRow(row, { ...ctxBase, form, item: i + 1, outDir });
+    const label = `${row.company} | ${plan.role}`;
+    for (const f of [...plan.flags, ...plan.selfCheck.flags]) say(`fill-plan: ${label}: flagged: ${f}`);
+    for (const b of plan.blocked) say(`fill-plan: ${label}: blocked-on-user: "${b}" is a field you fill yourself; it is never filled for you`);
+    if (plan.inBatch && plan.selfCheck.ok) ready.push(plan);
   }
-  const ids = writeBatches(paths.dataDir, { date: today, kind: 'apply', items: ready.map((p) => ({ company: p.company, role: p.role, score: p.score, preview: p.letter ? p.letter.split('\n').find((l) => l.length > 40) ?? '' : 'no cover letter slot', link: p.link })) });
+  const ids = writeBatches(paths.dataDir, { date: today, kind: 'apply', items: ready.map((p) => ({ company: p.company, role: p.role, score: p.score, preview: previewOf(p), link: p.link })) });
   let offset = 0;
   for (const id of ids) {
     updateBatch(paths.dataDir, id, (b) => {
