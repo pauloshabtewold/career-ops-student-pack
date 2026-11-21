@@ -179,13 +179,14 @@ test('N3 a password field is skipped as blocked-on-user and the rest of the form
   assert.ok(!calls.some((c) => String(c.params.expression ?? '').includes('fake-secret-1')));
 });
 
-test('M6 ruling: a first-person claim grounded only by the posting is flagged; a statement about the company is not', () => {
+test('M6 ruling (r4): a claim grounded only by the posting is flagged, and so is a company statement naming a tool the cv lacks', () => {
   const cv = '# Jordan Testwell\n- Software Intern, Example Robotics: built a Python scheduling tool\nSkills: Python, SQL\n';
   const posting = 'Wingtip Data uses Tableau and wants 3+ years of SQL. The Analytics Platform team ships weekly.';
   const src = { cv, answers: {}, posting, company: 'Wingtip Data', role: 'Data Analyst Intern' };
   assert.deepEqual(check('I built Tableau dashboards.', src).map((x) => x.toLowerCase()), ['tableau']);
-  assert.deepEqual(check('Your team uses Tableau.', src), []);
-  assert.deepEqual(check('Wingtip Data uses Tableau.', src), []);
+  assert.deepEqual(check('Your team uses Tableau.', src), ['Tableau']);
+  assert.deepEqual(check('Wingtip Data uses Tableau.', src), ['Tableau']);
+  assert.deepEqual(check('Wingtip Data uses Python.', src), []);
   assert.deepEqual(check('I have 3 years of SQL.', src), ['3']);
   assert.deepEqual(check('I joined the Analytics Platform team.', src), ['Analytics Platform']);
   assert.deepEqual(check('I want to join Wingtip Data as a Data Analyst Intern.', src), []);
