@@ -1,6 +1,6 @@
 // lib/fact-gate.mjs check(): the posting grounds nothing about the student. Posting words and known tools absent from
 // cv.md are flagged anywhere in the letter, the company and role pass only as names in fixed contexts, and quantities
-// need cv.md. Fake data only.
+// need cv.md. SYNTHETIC FIXTURE: fake data only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { check } from '../../lib/fact-gate.mjs';
