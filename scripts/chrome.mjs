@@ -10,9 +10,11 @@
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
 // only after budget.mjs check passes for the approved item, and logs apply.submit only when the page confirms it.
 // Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (budget.mjs
-// refused, the filled tab is gone or changed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
+// refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
+// changed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
 // user (budget.mjs exit 5 passed through, a password or sensitive field left for the student, a form that refused the
-// submit, a submit with no confirmation, or a confirmed submit that could not be logged), 6 CAPTCHA or bot check
+// submit or a submit with no new confirmation, both added to finish these yourself, or a confirmed submit that could not
+// be logged), 6 CAPTCHA or bot check
 // (finish it yourself), 7 automation Chrome not running or its profile held by a Chrome this CLI did not record.
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -354,19 +356,33 @@ const VISIBLE_CHALLENGE = `(() => {
 
 export const detectCaptcha = (client, sessionId) => evaluate(client, sessionId, VISIBLE_CHALLENGE);
 
-// What the page shows after the submit click: a challenge, a confirmation, a form that refused the submit (invalid or
-// error-marked fields), or nothing decisive yet ('waiting').
-const outcomeCheck = (beforeUrl, selector) => `(() => {
+// Confirmation and sign-in wording, counted on the page before and after the click: only wording the click added counts,
+// since a job description can already say "Thank you for applying".
+const CONFIRM_SRC = String.raw`thank you for (applying|your application)|application (has been |was )?(received|submitted)|we('ve| have) received your application|successfully submitted`;
+const SIGNIN_SRC = String.raw`\bsign in\b|\blog in\b|\bcreate (an |your )?account\b|forgot (your )?password`;
+const SIGNS = `const text = document.body ? document.body.innerText : '';
+  const count = (src) => (text.match(new RegExp(src, 'gi')) || []).length;
+  const signs = { confirm: count(${JSON.stringify(CONFIRM_SRC)}), signin: count(${JSON.stringify(SIGNIN_SRC)}), password: document.querySelectorAll('input[type=password]').length };`;
+export const PAGE_SIGNS = `(() => { ${SIGNS} return signs; })()`;
+const NO_SIGNS = Object.freeze({ confirm: 0, signin: 0, password: 0 });
+const signsOf = (v) => (v && typeof v === 'object' ? { ...NO_SIGNS, ...v } : NO_SIGNS);
+
+// What the page shows after the submit click, checked in this order: a challenge, a form that refused the submit
+// (invalid or error-marked fields), a sign-in or create-account page (a new password field or new sign-in wording: not a
+// confirmation), confirmation wording the click added, or nothing decisive yet ('waiting'). A page that merely changed
+// is never a confirmation. before is PAGE_SIGNS read just before the click.
+export const outcomeCheck = (before) => `(() => {
   const challenge = ${VISIBLE_CHALLENGE};
   if (challenge) return { state: 'captcha', detail: challenge };
-  const text = document.body ? document.body.innerText : '';
-  if (/thank you for (applying|your application)|application (has been |was )?(received|submitted)|we('ve| have) received your application|successfully submitted/i.test(text)) return { state: 'confirmed', detail: 'confirmation text' };
   const seen = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const labelOf = (el) => { const l = (el.id && document.querySelector('label[for="' + CSS.escape(el.id) + '"]')) || el.closest('label'); return ((l && l.innerText) || el.name || el.id || 'a field').trim(); };
   const bad = [...document.querySelectorAll('input, select, textarea')].filter((el) => !el.disabled && el.type !== 'hidden' && (el.matches(':invalid') || el.getAttribute('aria-invalid') === 'true'));
   const alerts = [...document.querySelectorAll('[role=alert], .error, .field-error, .invalid-feedback')].filter((el) => seen(el) && el.innerText.trim());
   if (bad.length || alerts.length) return { state: 'invalid', detail: [...bad.map(labelOf), ...alerts.map((el) => el.innerText.trim().slice(0, 80))].slice(0, 5).join('; ') };
-  if (location.href !== ${JSON.stringify(beforeUrl)} && !document.querySelector(${JSON.stringify(selector)})) return { state: 'confirmed', detail: 'the form page was replaced' };
+  ${SIGNS}
+  const before = ${JSON.stringify(signsOf(before))};
+  if (signs.password > before.password || signs.signin > before.signin) return { state: 'unconfirmed', detail: 'the submit led to a sign-in or create-account page' };
+  if (signs.confirm > before.confirm) return { state: 'confirmed', detail: 'confirmation text' };
   return { state: 'waiting' }; })()`;
 
 const siteOf = (url) => {
@@ -379,11 +395,15 @@ const siteOf = (url) => {
 
 const CHECK_YES = /^(yes|y|true|on|1|checked)$/i;
 const CHECK_NO = /^(no|n|false|off|0|unchecked|decline)$/i;
+const DECLINE_LABEL = /decline|prefer not|do not wish|don'?t wish|choose not|not to (self[- ]?)?identify|rather not/i;
 
 // A checkbox answer as true or false; null when the value is neither a yes nor a no ("No" must never tick a box).
-export function checkboxState(value) {
+// "decline" ticks a box whose label is itself the decline choice ("I do not wish to self-identify") and leaves any other
+// box unticked.
+export function checkboxState(value, label = '') {
   if (typeof value === 'boolean') return value;
   const text = String(value ?? '').trim();
+  if (/^decline$/i.test(text) && DECLINE_LABEL.test(String(label))) return true;
   if (CHECK_YES.test(text)) return true;
   if (CHECK_NO.test(text)) return false;
   return null;
@@ -393,7 +413,7 @@ async function fillField(client, sessionId, field) {
   if (field.type === 'select' || field.type === 'select-one') return selectOption(client, sessionId, field.selector, field.value);
   if (field.type === 'radio') return chooseRadio(client, sessionId, field.selector, field.value);
   if (field.type === 'checkbox') {
-    const state = checkboxState(field.value);
+    const state = checkboxState(field.value, field.label);
     return state === null ? false : setChecked(client, sessionId, field.selector, state);
   }
   // A page script may only set a file input to the empty string, so a file goes through the DOM domain.
@@ -497,7 +517,9 @@ export function resolveSubmitPlan(dataDir, batchId, item) {
   if (!line) return { problem: `batch ${batchId} has no item ${item}` };
   if (!line.plan || !existsSync(line.plan)) return { problem: `no fill plan for item ${item} of batch ${batchId}` };
   const plan = { ...JSON.parse(readFileSync(line.plan, 'utf8')), batchId, item, planFile: line.plan };
-  if ((plan.link ?? plan.url) !== line.link) return { problem: `the fill plan for item ${item} is for ${plan.link ?? plan.url}, not the approved ${line.link}` };
+  if ((plan.link ?? plan.url) !== line.link) return { problem: `the fill plan for item ${item} is for ${plan.link ?? plan.url}, not the approved ${line.link}`, refused: true };
+  // A job on finish these yourself is the student's now (they may have sent it by hand), so automation never submits it.
+  if ((batch.finishYourself ?? []).some((f) => f.link === line.link)) return { problem: `item ${item} of batch ${batchId} is on finish these yourself (${line.link})`, refused: true };
   return { plan };
 }
 
@@ -513,11 +535,11 @@ const OUTCOME_TRIES = 20;
 
 // Polls the page after the click until it shows a decision; a navigation in progress makes evaluate throw, which is
 // only a reason to look again. 'unconfirmed' when nothing decisive shows within the wait.
-async function submitOutcome(client, sessionId, beforeUrl, selector, wait) {
+async function submitOutcome(client, sessionId, before, wait) {
   for (let i = 0; i < OUTCOME_TRIES; i++) {
     await wait(OUTCOME_POLL_MS);
     try {
-      const res = await evaluate(client, sessionId, outcomeCheck(beforeUrl, selector));
+      const res = await evaluate(client, sessionId, outcomeCheck(before));
       if (res && res.state && res.state !== 'waiting') return res;
     } catch {
       // the page is navigating; read it again on the next poll
@@ -540,10 +562,11 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
   const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
+  const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
   if (pending.code !== 0) return { state: 'pending-failed', res: pending };
   if (!(await click(client, page.sessionId, selector))) return { state: 'clicked', outcome: { state: 'unconfirmed', detail: 'the button was gone at the click' } };
-  const outcome = await submitOutcome(client, page.sessionId, before, selector, wait);
+  const outcome = await submitOutcome(client, page.sessionId, signs, wait);
   // A screenshot is taken only here, to prove what the submit showed; every other read is text. A failed screenshot
   // never stops the outcome from being handled and logged.
   try {
@@ -563,7 +586,7 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   const found = resolveSubmitPlan(dataDir, flags.batchId, flags.item);
   if (found.problem) {
     say(`chrome: ${found.problem}; nothing was clicked`);
-    return EXIT.usage;
+    return found.refused ? EXIT.refused : EXIT.usage;
   }
   const { plan } = found;
   const scoreArgs = ['--score', String(plan.score ?? 0), '--batch', '1', ...(plan.track ? ['--track', plan.track] : [])];
@@ -612,11 +635,13 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     return EXIT.captcha;
   }
   if (outcome.state === 'invalid') {
-    say(`chrome: item ${flags.item} of ${flags.batchId} was not submitted: the form refused it (${outcome.detail || 'a field error'}). It is not logged as submitted; tell the student which field to fix and finish it in the open tab.`);
+    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link, reason: `form refused: ${outcome.detail || 'a field error'}` });
+    say(`chrome: item ${flags.item} of ${flags.batchId} was not submitted: the form refused it (${outcome.detail || 'a field error'}). It is not logged as submitted and is on finish these yourself; tell the student which field to fix and finish it in the open tab (${link}).`);
     return EXIT.needsUser;
   }
   if (outcome.state !== 'confirmed') {
-    say(`chrome: item ${flags.item} of ${flags.batchId}: the submit was clicked but the page showed no confirmation, so it is not logged as submitted; its pending row keeps it from being clicked again. Ask the student to check the open tab.`);
+    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link, reason: `clicked, not confirmed: ${outcome.detail || 'no confirmation shown'}` });
+    say(`chrome: item ${flags.item} of ${flags.batchId}: the submit was clicked but the page showed no confirmation (${outcome.detail || 'nothing decisive'}), so it is not logged as submitted and is on finish these yourself; its pending row keeps it from being clicked again. Ask the student to check the open tab (${link}).`);
     return EXIT.needsUser;
   }
   const log = budgetCall(paths, 'log', action, plan, plan.track ? ['--track', plan.track, '--target', plan.url] : ['--target', plan.url], deps.runner);

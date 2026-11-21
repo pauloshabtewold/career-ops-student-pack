@@ -227,3 +227,135 @@ test('N2 readFormFields escapes a name with a quote in the [name=...] selector i
   const [field] = await readFormFields(client, 'S1');
   assert.equal(field.selector, '[name="answer\\"1"]');
 });
+
+// A page whose scripts really run: every Runtime.evaluate executes in a vm against a fake document. The submit button's
+// click swaps in the after page. before/after = { text, password: n, href, invalid: [labels] }.
+function vmTab({ before, after }) {
+  const state = { page: { password: 0, invalid: [], ...before } };
+  const location = { get href() {
+    return state.page.href ?? 'https://x.test/form';
+  } };
+  const field = (value) => ({ value, type: 'text', tagName: 'INPUT' });
+  const button = { tagName: 'BUTTON', type: 'submit', autocomplete: '', click: () => {
+    state.page = { password: 0, invalid: [], ...after };
+  } };
+  const document = {
+    get body() {
+      return { innerText: state.page.text };
+    },
+    querySelector: (sel) => (sel === '#first_name' ? field('Jordan') : sel.includes('[type=submit]') ? (state.page.button === false ? null : button) : null),
+    querySelectorAll: (sel) => {
+      if (sel === 'input[type=password]') return Array.from({ length: state.page.password }, () => ({}));
+      if (sel === 'input, select, textarea') return state.page.invalid.map((name) => ({ name, id: '', disabled: false, type: 'text', matches: () => true, getAttribute: () => null, closest: () => null }));
+      return [];
+    },
+  };
+  const CSS = { escape: (s) => String(s) };
+  const send = async (method, params = {}) => {
+    if (method === 'Target.getTargets') return { targetInfos: [{ targetId: 'T1', type: 'page', url: 'https://x.test/form' }] };
+    if (method === 'Target.attachToTarget') return { sessionId: 'S1' };
+    if (method === 'Page.captureScreenshot') return { data: '' };
+    if (method !== 'Runtime.evaluate') return {};
+    return { result: { value: runInNewContext(params.expression, { document, location, CSS, getComputedStyle: () => ({}) }) } };
+  };
+  return { send };
+}
+
+async function submitOn(d, id, pages) {
+  const r = fakeRunner();
+  const p = { ...plan(d, TAB), batchId: id, link: link(1) };
+  const clicked = await clickSubmit(vmTab(pages), { plan: p, paths: { packRoot: W, root: d, dataDir: d }, item: 1, runner: r.run, wait: noWait });
+  const lines = [];
+  const code = afterClick({ clicked, plan: p, paths: { packRoot: W, root: d, dataDir: d }, flags: { batchId: id, item: 1 }, action: 'apply.submit', dataDir: d, deps: { runner: r.run }, say: (l) => lines.push(l) });
+  return { code, clicked, calls: r.calls, text: lines.join('\n'), finish: readBatch(d, id).finishYourself };
+}
+
+test('S-A confirmation text already on the page before the click never confirms; only wording the click added does', async () => {
+  const d = tmp();
+  try {
+    const id = batchWithPlans(d, 1);
+    const desc = 'Data Intern at Example Robotics. Thank you for applying to Example Robotics! Submit below.';
+    const stale = await submitOn(d, id, { before: { text: desc }, after: { text: desc } });
+    assert.equal(stale.clicked.outcome.state, 'unconfirmed');
+    assert.equal(stale.code, EXIT.needsUser);
+    assert.deepEqual(stale.calls, ['log apply.pending'], 'not logged as submitted');
+    assert.ok(stale.finish.some((f) => f.link === link(1) && /clicked, not confirmed/.test(f.reason)), 'on finish these yourself');
+
+    const d2 = tmp();
+    try {
+      const id2 = batchWithPlans(d2, 1);
+      const fresh = await submitOn(d2, id2, { before: { text: desc }, after: { text: `${desc}\nThank you for applying. We have received your application.`, href: 'https://x.test/done' } });
+      assert.equal(fresh.clicked.outcome.state, 'confirmed');
+      assert.equal(fresh.code, EXIT.ok);
+      assert.deepEqual(fresh.calls, ['log apply.pending', 'log apply.submit']);
+    } finally {
+      rmSync(d2, { recursive: true, force: true });
+    }
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('S-A a submit that lands on a sign-in or create-account page, or a page with only a new address, is unconfirmed', async () => {
+  const cases = [
+    { text: 'Sign in to continue. Email Password Forgot your password?', password: 1, href: 'https://x.test/login', button: false },
+    { text: 'Create an account to finish your application. Thank you for applying!', password: 1, href: 'https://x.test/signup', button: false },
+    { text: 'Welcome. Your dashboard.', href: 'https://x.test/home', button: false },
+  ];
+  for (const after of cases) {
+    const d = tmp();
+    try {
+      const id = batchWithPlans(d, 1);
+      const res = await submitOn(d, id, { before: { text: 'Data Intern application form. First name.' }, after });
+      assert.equal(res.clicked.outcome.state, 'unconfirmed', after.text);
+      assert.equal(res.code, EXIT.needsUser);
+      assert.deepEqual(res.calls, ['log apply.pending'], 'never logged as submitted');
+      assert.ok(res.finish.some((f) => f.link === link(1)), 'on finish these yourself');
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  }
+});
+
+test('S-A a field error is reported before any confirmation wording; S-B the refused item goes to finish these yourself', async () => {
+  const d = tmp();
+  try {
+    const id = batchWithPlans(d, 1);
+    const res = await submitOn(d, id, { before: { text: 'Form.' }, after: { text: 'Thank you for applying! School is required.', invalid: ['school'] } });
+    assert.equal(res.clicked.outcome.state, 'invalid');
+    assert.equal(res.code, EXIT.needsUser);
+    assert.deepEqual(res.calls, ['log apply.pending']);
+    assert.ok(res.finish.some((f) => f.link === link(1) && /form refused: school/.test(f.reason)), JSON.stringify(res.finish));
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('NIT a plan for another link exits 3, and a job on finish these yourself is never submitted by automation', async () => {
+  const { main } = await import('../../scripts/chrome.mjs');
+  const d = tmp();
+  try {
+    const id = batchWithPlans(d, 2);
+    const r = fakeRunner();
+    const b = readBatch(d, id);
+    writeFileSync(b.items[0].plan, JSON.stringify({ url: link(9), link: link(9), company: 'Other' }));
+    const lines = [];
+    const argv = (n) => ['submit', '--batch-id', id, '--item', String(n), '--root', d, '--data-dir', d];
+    assert.equal(await main(argv(1), { runner: r.run, say: (l) => lines.push(l) }), EXIT.refused);
+    // Approved, then a CAPTCHA before the click: the job stays numbered but is the student's now.
+    updateBatch(d, id, (x) => ({ ...x, approved: { items: [1, 2], words: 'approve all' } }));
+    addFinishYourself(d, id, { company: 'Example Co 2', role: 'Data Intern', link: link(2) });
+    assert.equal(await main(argv(2), { runner: r.run, say: (l) => lines.push(l) }), EXIT.refused);
+    assert.match(lines.join('\n'), /finish these yourself/);
+    assert.deepEqual(r.calls, [], 'no budget call, nothing clicked');
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('NIT "decline" ticks a checkbox that is itself the decline choice and leaves any other box unticked', () => {
+  assert.equal(checkboxState('decline', 'I do not wish to self-identify'), true);
+  assert.equal(checkboxState('decline', 'I prefer not to answer'), true);
+  assert.equal(checkboxState('decline', 'I am a protected veteran'), false);
+  assert.equal(checkboxState('No', 'I do not wish to self-identify'), false);
+});

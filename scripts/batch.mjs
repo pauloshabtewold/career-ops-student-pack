@@ -55,19 +55,22 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   return 0;
 }
 
-// One batch's items with their send state, then its finish-these-yourself jobs with their direct links.
+// One batch's items with their send state, then its finish-these-yourself jobs with their direct links and reasons. An
+// apply.pending row with no send row is a click the page never confirmed: the application may or may not have gone out.
 function sayBatchStatus(batch, id, rows, say) {
-  const sent = new Set(rows.filter((r) => SEND_ACTIONS.has(r.action) && detailValue(r.detail, 'batch') === id).map((r) => Number(detailValue(r.detail, 'item'))));
+  const itemsWith = (pred) => new Set(rows.filter((r) => pred(r) && detailValue(r.detail, 'batch') === id).map((r) => Number(detailValue(r.detail, 'item'))));
+  const sent = itemsWith((r) => SEND_ACTIONS.has(r.action));
+  const pending = itemsWith((r) => r.action === 'apply.pending');
   const approved = new Set(batch.approved?.items ?? []);
   batch.items.forEach((it, i) => {
     const n = i + 1;
-    const state = sent.has(n) ? 'submitted' : approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval';
+    const state = sent.has(n) ? 'submitted' : pending.has(n) ? `clicked, not confirmed: check ${it.link}` : approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval';
     say(`${n}. ${it.company} | ${it.role} | ${state}`);
   });
   const finish = batch.finishYourself ?? [];
   if (finish.length) {
     say('Finish these yourself:');
-    for (const f of finish) say(`  ${f.company} | ${f.role} | ${f.link}`);
+    for (const f of finish) say(`  ${f.company} | ${f.role} | ${f.link}${f.reason ? ` (${f.reason})` : ''}`);
   }
 }
 
