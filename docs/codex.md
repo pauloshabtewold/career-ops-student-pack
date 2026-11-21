@@ -57,9 +57,9 @@ The call runs once per 20 rows of your daily triage budget. The digest carries t
 
 With `mailbox.schedule` on and `agent: codex`, the schedule runs the unattended inbox pass as one `codex exec` call with the Gmail app enabled and its 11 write tools disabled one by one, in an empty folder and with your own config ignored. The run's tool calls are audited, and one outside the Gmail read tools discards the answer. Part A of the interview runs `node student/scripts/inbox-pass.mjs --check --agent codex`; when that check fails, Part D shows the inbox pass off and says it runs only in sessions. On Windows the same pass runs from Task Scheduler through `codex` or `claude.cmd`; the Part A check and `node student/scripts/schedule.mjs verify` on that computer are what prove it there.
 
-## What stays Claude-only
+## Browser steps
 
-The browser steps (applying, the Handshake pass, LinkedIn outreach) use Claude in Chrome. Codex has the ChatGPT in-app browser on macOS only. On Windows, and wherever no browser tool exists, Codex stops and tells you to do the step by hand or in Claude Code.
+Codex drives the same automation Chrome as Claude Code through `node student/scripts/chrome.mjs` in its shell: `open`, `read <url>`, `fill --plan <file>` and `submit --batch-id <id> --item <n>`. The profile, the one-time sign-ins and the batch approval rules are the same for both agents ([chrome.md](chrome.md)). Claude Code may also use Claude in Chrome. The ChatGPT in-app browser (macOS only) is a fallback when the automation Chrome cannot start; where neither works, Codex stops and tells you to do the step by hand or in Claude Code.
 
 ## Needs a real account
 

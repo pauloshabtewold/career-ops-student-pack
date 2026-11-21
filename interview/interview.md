@@ -11,6 +11,7 @@ Run this when the student says "set me up", "personalize" or "redo my setup", or
 - Never ask for a password, a token, a 2FA code or a card number. Sign-ins happen in the browser, by the student; the agent explains the step, waits, then checks the result.
 - Ask for nothing the student has already put in `cv.md`. Read it first. The answers file follows `interview/answers.schema.json`; the pack's `tests` folder holds synthetic fixtures for maintainers, so do not read it during an interview.
 - Save data/interview-answers.json after every Part. On a resume with onboarding incomplete, read it and continue from the first Part whose answers are missing. On a re-run, read config/student.yml first and offer each current value as the default, so a re-run does not reset a budget or a switch the student changed since.
+- Guided pattern: end every message with three lines, `Next:` (the next step), `Type:` (the exact short prompt the student can send) and `Why:` (one short reason), then say the student can always ask for more and can just ask and approve. Word each action you take as "I'll do X, approve?" and then do it once they say yes. Ask the student to act only for sign-ins, CAPTCHAs and personal answers, after naming what you tried. Each Part below ends with its own guided lines.
 - The limits in scripts/budget.mjs are hard ceilings the student can only tighten; a request to raise one is declined in one line. The student's own triage budget (model usage for the daily triage, default 20 rows a day and 60 on the first run, any whole number or "all") is changed only after the estimate is shown.
 
 ## Part A: sign-ins
@@ -29,6 +30,13 @@ Give the exact steps for the agent running this chat: in Claude Code, connect Gm
 - Open the LinkedIn and Handshake pages and read whether a sign-in page shows.
 
 Record `signins` in the answers file: each of gmail, linkedin, handshake, simplify and indeed is `ok`, `skipped` or `failed`. A failed check is reported with its fix; the student can fix it now or go on.
+
+End Part A with:
+
+Next: build your job queue
+Type: all recommended
+Why: every later step reads your resume and the queue built from it.
+You can always ask me for more. Just ask and approve.
 
 ## Part B: your job queue
 
@@ -64,6 +72,13 @@ Then show the queue:
 
 Save the answers file.
 
+End Part B with:
+
+Next: answer the application profile questions
+Type: all recommended
+Why: forms ask these again and again, and saved answers fill them without asking you twice.
+You can always ask me for more. Just ask and approve.
+
 ## Part C: application profile
 
 One batch for what forms ask for again and again. Reply rules: "all recommended" or "ok" accepts every default; "4: immediately" changes only item 4. Items marked "personal, no default" need an answer.
@@ -89,6 +104,13 @@ The eight EEO questions below are voluntary and usually not seen by the hiring t
 16. Transgender. personal, no default. Does: fills the "Do you identify as transgender" question on forms, separate from gender.
 
 If the student needs sponsorship, offer upstream's h1b-sponsor plugin: show its capability card with `node plugins.mjs enable h1b-sponsor` and run it again with `--confirm` only after the student agrees. Record `application_profile` with `eeo` as a map of the eight items (never the older `leave-blank` or `ask-each-time`), and save the answers file.
+
+End Part C with:
+
+Next: pick your schedule and switches
+Type: all recommended
+Why: the schedule finds and prepares jobs while you are away, and nothing goes out without your yes.
+You can always ask me for more. Just ask and approve.
 
 ## Part D: schedule and switches
 
@@ -128,3 +150,9 @@ The reply confirms the summary. Do not ask for the agent: record `agent` as `cod
 5. Score the first rows with no question to the student; the budget in item 6 is the answer. Run `node student/scripts/first-run.mjs --list-only`; it skips the ingest, so it takes seconds and makes no model call. Triage the listed rows in this chat with the triage mode, standard model tier at minimum. Write one line per row as `TRIAGE: PASS|MARGINAL|FAIL|SKIP|EXPIRED|BROWSER | <url> | <score> | <reason>` to a file in the data folder and run `node student/scripts/apply-triage.mjs <file>`, then run `node student/scripts/triage-budget.mjs log <n> --first-run` with the number of rows applied. Repeat with `first-run.mjs --list-only` while untriaged rows remain and the first-run budget is not used. Only `scheduled-discovery-plus-triage` scores the rest on its own, up to the daily triage budget a day; with `manual` or `scheduled-discovery` they wait until the student asks for triage in a session.
 6. Run `node student/scripts/rank-queue.mjs --n 10` and show the top picks (up to 10): the 2-per-company cap can show fewer than 10. If fewer come back, say so plainly ("top N so far: M of T rows scored, N cleared your score floor"). If untriaged rows remain because the first-run budget is used, say how many and that the daily run scores them; a student who wants more scored now can raise the budget with `node student/scripts/triage-budget.mjs set <n|all> --first-run`, which shows the estimate first, and `--confirm` runs only after the student says yes. If no untriaged rows remain, say the exact count and why: the live sources hold no more postings that fit the student's setup today, and the daily run keeps looking.
 7. In the same message as the top picks, show the guide with no question first: read `docs/commands.md` from the student folder and show it grouped as it is written (daily use, applying, outreach, inbox, settings, help), then say "say help any time to see this again". Then offer to walk through the top three postings using `modes/apply-loop.md` from the student folder. Nothing is submitted without the student's yes during this first run.
+8. Finish setup with `node student/scripts/setup-flow.mjs`: say "I'll build your resume from the template, open the automation Chrome and check the schedule, approve?", then run it once the student says yes. It builds the resume into the ATS-safe template and checks it, records the automation Chrome and the schedule, and stops only at the student's one-time sign-ins (LinkedIn, Gmail, Handshake in the automation Chrome). Show its status lines and end with its guided lines:
+
+Next: open the automation Chrome and sign in to LinkedIn, Gmail and Handshake
+Type: open my automation Chrome
+Why: applying, Gmail reads and LinkedIn reads all run in that one window, so you sign in once.
+You can always ask me for more. Just ask and approve.
