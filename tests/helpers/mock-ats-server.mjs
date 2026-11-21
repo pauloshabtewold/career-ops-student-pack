@@ -1,6 +1,9 @@
 // Local Greenhouse-style mock application form for the Chrome e2e tests: 127.0.0.1 on a random port, fake content only.
 // GET /greenhouse/form?job=N serves the form for job N (job 1 when absent), and GET / serves the job-1 form; &captcha=1 adds a reCAPTCHA-style widget that
 // loads nothing from the network. POST /greenhouse/submit?job=N records { job: N } and answers with a confirmation page.
+// Variants, all off by default: &badge=1 adds only an invisible reCAPTCHA badge (as most real Greenhouse forms carry),
+// &submitcaptcha=1 makes the submit answer with a visible challenge page and record nothing, &required=1 adds a
+// required "School" field no plan fills, so the browser's own validation blocks the submit.
 // This is the only place a real Submit click may ever land.
 import { createServer } from 'node:http';
 
@@ -13,14 +16,20 @@ const jobOf = (url) => {
 
 const field = (id, label, input) => `<p><label for="${id}">${label}</label> ${input}</p>`;
 
-export function formHtml(job, { captcha = false } = {}) {
+const BADGE =
+  '<div class="g-recaptcha" data-sitekey="fake-site-key-0000" data-size="invisible"><div class="grecaptcha-badge" style="width:256px;height:60px;position:fixed;bottom:14px;right:14px">' +
+  '<iframe title="reCAPTCHA" src="about:blank#size=invisible" width="256" height="60"></iframe></div></div>';
+
+export function formHtml(job, { captcha = false, badge = false, submitCaptcha = false, required = false } = {}) {
   const widget = captcha
     ? '<div class="g-recaptcha" id="recaptcha" data-sitekey="fake-site-key-0000"><iframe title="reCAPTCHA" src="about:blank" width="304" height="78"></iframe></div>'
-    : '';
+    : badge
+      ? BADGE
+      : '';
   return [
     '<!doctype html><html><head><meta charset="utf-8"><title>Mock Greenhouse</title></head><body>',
     `<h1>${FORM_TEXT}</h1><p>Job ${job}: Software Engineering Intern at Example Robotics</p>`,
-    `<form id="application_form" method="post" action="/greenhouse/submit?job=${job}" enctype="multipart/form-data">`,
+    `<form id="application_form" method="post" action="/greenhouse/submit?job=${job}${submitCaptcha ? '&challenge=1' : ''}" enctype="multipart/form-data">`,
     field('first_name', 'First Name', '<input id="first_name" name="first_name" type="text" required>'),
     field('last_name', 'Last Name', '<input id="last_name" name="last_name" type="text" required>'),
     field('email', 'Email', '<input id="email" name="email" type="email" required>'),
@@ -33,6 +42,7 @@ export function formHtml(job, { captcha = false } = {}) {
       '<select id="work_auth" name="work_auth"><option value="">Select...</option><option value="Yes">Yes</option><option value="No">No</option></select>',
     ),
     field('question_fav', 'What is your favorite fake board game?', '<input id="question_fav" name="question_fav" type="text">'),
+    required ? field('school', 'School', '<input id="school" name="school" type="text" required>') : '',
     widget,
     '<button id="submit_app" type="submit">Submit Application</button>',
     '</form></body></html>',
@@ -46,12 +56,18 @@ export async function startMockAts() {
     const job = jobOf(url);
     if (req.method === 'GET' && (url.pathname === '/greenhouse/form' || url.pathname === '/')) {
       res.setHeader('content-type', 'text/html; charset=utf-8');
-      res.end(formHtml(job, { captcha: url.searchParams.get('captcha') === '1' }));
+      const on = (k) => url.searchParams.get(k) === '1';
+      res.end(formHtml(job, { captcha: on('captcha'), badge: on('badge'), submitCaptcha: on('submitcaptcha'), required: on('required') }));
       return;
     }
     if (req.method === 'POST' && url.pathname === '/greenhouse/submit') {
       req.resume();
       req.on('end', () => {
+        if (url.searchParams.get('challenge') === '1') {
+          res.setHeader('content-type', 'text/html; charset=utf-8');
+          res.end('<!doctype html><html><body><h1>One more step</h1><p>Please verify you are human.</p><iframe title="hCaptcha challenge" src="about:blank" width="400" height="300"></iframe></body></html>');
+          return;
+        }
         records.push({ job });
         res.setHeader('content-type', 'text/html; charset=utf-8');
         res.end(`<!doctype html><html><body><h1>Application received</h1><p>Job ${job}</p></body></html>`);

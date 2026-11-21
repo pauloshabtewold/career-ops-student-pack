@@ -6,25 +6,28 @@
 // Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close
 //        chrome.mjs fill --plan FILE | submit --batch-id ID --item N   [--root R] [--data-dir D]
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
-// as blocked-on-user and the fill exits 5 after the rest is filled); a CAPTCHA or bot check stops it and moves the
-// job to the batch's finish-yourself list. submit clicks only after budget.mjs check passes for the approved item.
-// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage, 3 refused (password field, or budget.mjs refused the submit),
-// 4 wait (browser slot or budget.mjs wait), 5 needs the user (budget.mjs exit 5 passed through, a sensitive field left
-// for the student, or a submit that clicked but could not be logged), 6 CAPTCHA or bot check (finish it yourself), 7 automation Chrome not running or its profile
-// held by a Chrome this CLI did not record.
+// as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
+// the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
+// only after budget.mjs check passes for the approved item, and logs apply.submit only when the page confirms it.
+// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (budget.mjs
+// refused, the filled tab is gone or changed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
+// user (budget.mjs exit 5 passed through, a password or sensitive field left for the student, a form that refused the
+// submit, a submit with no confirmation, or a confirmed submit that could not be logged), 6 CAPTCHA or bot check
+// (finish it yourself), 7 automation Chrome not running or its profile held by a Chrome this CLI did not record.
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { SENSITIVE_KEY } from '../lib/ats-fields.mjs';
-import { addFinishYourself } from '../lib/batch-file.mjs';
-import { attachTo, click, describeField, evaluate, readText, openPage, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
+import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
+import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { isSensitive } from '../lib/profile-answers.mjs';
 import { isPidAlive, withLock } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
+import { writeAtomic } from '../lib/tsv.mjs';
 import { which } from '../lib/which.mjs';
 
 export const STATE_FILE = '.chrome-automation';
@@ -334,14 +337,37 @@ async function cmdClose({ dataDir, config, deps, say }) {
 // Password fields stay with the student: type=password or a password autocomplete hint.
 export const isPasswordField = (info) => info?.type === 'password' || /(current|new)-password/.test(info?.autocomplete ?? '');
 
-const CAPTCHA_CHECK = `(() => {
-  const frames = [...document.querySelectorAll('iframe')].map((f) => f.src || '').join(' ');
-  if (/recaptcha|hcaptcha|turnstile|challenges\\.cloudflare|arkoselabs|funcaptcha/i.test(frames)) return 'captcha frame';
-  if (document.querySelector('.g-recaptcha, .h-captcha, .cf-turnstile, [data-sitekey]')) return 'captcha widget';
+// A challenge the student must solve: a visible CAPTCHA frame or widget, or a bot-check page. An invisible reCAPTCHA or
+// hCaptcha badge (Greenhouse and Lever embed one on most forms) is not a challenge, so the form is still filled.
+const VISIBLE_CHALLENGE = `(() => {
+  const RE = /recaptcha|hcaptcha|turnstile|challenges\\.cloudflare|arkoselabs|funcaptcha/i;
+  const invisible = (el) => Boolean(el.closest('.grecaptcha-badge, [data-size="invisible"]')) || /[?&#]size=invisible/.test(el.getAttribute('src') || '');
+  const shown = (el) => { const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) return false;
+    if (el.checkVisibility) return el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+    const st = getComputedStyle(el); return st.visibility !== 'hidden' && st.display !== 'none' && Number(st.opacity) > 0; };
+  for (const f of document.querySelectorAll('iframe')) {
+    if (RE.test((f.getAttribute('src') || '') + ' ' + (f.title || '')) && !invisible(f) && shown(f)) return 'captcha frame';
+  }
+  for (const w of document.querySelectorAll('.g-recaptcha, .h-captcha, .cf-turnstile, [data-sitekey]')) if (!invisible(w) && shown(w)) return 'captcha widget';
   const text = document.body ? document.body.innerText : '';
   return /verify (that )?you are (a )?human|are you a robot|unusual traffic/i.test(text) ? 'bot check text' : null; })()`;
 
-export const detectCaptcha = (client, sessionId) => evaluate(client, sessionId, CAPTCHA_CHECK);
+export const detectCaptcha = (client, sessionId) => evaluate(client, sessionId, VISIBLE_CHALLENGE);
+
+// What the page shows after the submit click: a challenge, a confirmation, a form that refused the submit (invalid or
+// error-marked fields), or nothing decisive yet ('waiting').
+const outcomeCheck = (beforeUrl, selector) => `(() => {
+  const challenge = ${VISIBLE_CHALLENGE};
+  if (challenge) return { state: 'captcha', detail: challenge };
+  const text = document.body ? document.body.innerText : '';
+  if (/thank you for (applying|your application)|application (has been |was )?(received|submitted)|we('ve| have) received your application|successfully submitted/i.test(text)) return { state: 'confirmed', detail: 'confirmation text' };
+  const seen = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const labelOf = (el) => { const l = (el.id && document.querySelector('label[for="' + CSS.escape(el.id) + '"]')) || el.closest('label'); return ((l && l.innerText) || el.name || el.id || 'a field').trim(); };
+  const bad = [...document.querySelectorAll('input, select, textarea')].filter((el) => !el.disabled && el.type !== 'hidden' && (el.matches(':invalid') || el.getAttribute('aria-invalid') === 'true'));
+  const alerts = [...document.querySelectorAll('[role=alert], .error, .field-error, .invalid-feedback')].filter((el) => seen(el) && el.innerText.trim());
+  if (bad.length || alerts.length) return { state: 'invalid', detail: [...bad.map(labelOf), ...alerts.map((el) => el.innerText.trim().slice(0, 80))].slice(0, 5).join('; ') };
+  if (location.href !== ${JSON.stringify(beforeUrl)} && !document.querySelector(${JSON.stringify(selector)})) return { state: 'confirmed', detail: 'the form page was replaced' };
+  return { state: 'waiting' }; })()`;
 
 const siteOf = (url) => {
   try {
@@ -351,9 +377,25 @@ const siteOf = (url) => {
   }
 };
 
+const CHECK_YES = /^(yes|y|true|on|1|checked)$/i;
+const CHECK_NO = /^(no|n|false|off|0|unchecked|decline)$/i;
+
+// A checkbox answer as true or false; null when the value is neither a yes nor a no ("No" must never tick a box).
+export function checkboxState(value) {
+  if (typeof value === 'boolean') return value;
+  const text = String(value ?? '').trim();
+  if (CHECK_YES.test(text)) return true;
+  if (CHECK_NO.test(text)) return false;
+  return null;
+}
+
 async function fillField(client, sessionId, field) {
   if (field.type === 'select' || field.type === 'select-one') return selectOption(client, sessionId, field.selector, field.value);
-  if (field.type === 'checkbox' || field.type === 'radio') return setChecked(client, sessionId, field.selector, Boolean(field.value));
+  if (field.type === 'radio') return chooseRadio(client, sessionId, field.selector, field.value);
+  if (field.type === 'checkbox') {
+    const state = checkboxState(field.value);
+    return state === null ? false : setChecked(client, sessionId, field.selector, state);
+  }
   // A page script may only set a file input to the empty string, so a file goes through the DOM domain.
   if (field.type === 'file') {
     await setFileInputFiles(client, sessionId, field.selector, [String(field.value)]);
@@ -362,7 +404,14 @@ async function fillField(client, sessionId, field) {
   return setValue(client, sessionId, field.selector, field.value);
 }
 
-// Fills one plan; returns { code, filled, problems }. The tab stays open for submit.
+const TEXT_TYPES = new Set(['text', 'email', 'tel', 'url', 'number', 'textarea', 'search', '']);
+const pageUrl = async (client, sessionId) => {
+  const href = await evaluate(client, sessionId, 'location.href');
+  return typeof href === 'string' ? href : null;
+};
+
+// Fills one plan; returns { code, filled, problems, tab }. The tab stays open for submit, and tab = { targetId, url,
+// sentinel } names it, so submit clicks in this exact tab and checks that it still holds the filled form.
 export async function fillPlan(client, plan, { dataDir }) {
   const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
   const { sessionId } = page;
@@ -374,10 +423,12 @@ export async function fillPlan(client, plan, { dataDir }) {
   const problems = [];
   const blocked = [];
   let filled = 0;
+  let sentinel = null;
   for (const field of (plan.fields ?? []).filter((f) => f.selector)) {
     const info = await describeField(client, sessionId, field.selector);
     if (isPasswordField(info)) {
-      return { code: EXIT.refused, filled, problems: [`refused: ${field.label || field.selector} is a password field; sign-ins stay with you`] };
+      blocked.push(`blocked-on-user: ${field.label || field.selector} is a password field; sign-ins stay with you, nothing was typed there`);
+      continue;
     }
     // SSN, card and bank fields are never typed, whatever value the plan carries; the student fills them.
     if (field.key === SENSITIVE_KEY || isSensitive({ label: field.label, name: field.name, autocomplete: info?.autocomplete ?? field.autocomplete })) {
@@ -385,8 +436,10 @@ export async function fillPlan(client, plan, { dataDir }) {
       continue;
     }
     if (field.value === undefined || field.value === null || field.value === '') continue;
-    if (await fillField(client, sessionId, field)) filled++;
-    else problems.push(`could not fill ${field.label || field.selector}`);
+    if (await fillField(client, sessionId, field)) {
+      filled++;
+      if (!sentinel && TEXT_TYPES.has(String(field.type ?? '').toLowerCase())) sentinel = { selector: field.selector, value: String(field.value) };
+    } else problems.push(`could not fill ${field.label || field.selector}`);
   }
   for (const up of plan.uploads ?? []) {
     if (up.selector && up.path) {
@@ -394,7 +447,8 @@ export async function fillPlan(client, plan, { dataDir }) {
       filled++;
     }
   }
-  return { code: blocked.length ? EXIT.needsUser : EXIT.ok, filled, problems: [...problems, ...blocked] };
+  const tab = { targetId: page.targetId, url: await pageUrl(client, sessionId), sentinel };
+  return { code: blocked.length ? EXIT.needsUser : EXIT.ok, filled, problems: [...problems, ...blocked], tab };
 }
 
 async function cmdFill({ dataDir, flags, deps, say }) {
@@ -407,7 +461,11 @@ async function cmdFill({ dataDir, flags, deps, say }) {
   }
   const res = await withBrowser(live.port, (client) => fillPlan(client, plan, { dataDir }), deps);
   for (const p of res.problems) say(`chrome: ${p}`);
-  if (res.code === EXIT.ok || res.code === EXIT.needsUser) say(`chrome: filled ${res.filled} field(s) on ${siteOf(plan.url)}`);
+  if (res.code === EXIT.ok || res.code === EXIT.needsUser) {
+    // The filled tab is recorded in the plan file submit reads.
+    writeAtomic(flags.plan, `${JSON.stringify({ ...plan, tab: res.tab }, null, 2)}\n`);
+    say(`chrome: filled ${res.filled} field(s) on ${siteOf(plan.url)}`);
+  }
   return res.code;
 }
 
@@ -426,6 +484,23 @@ export function planFor(dataDir, batchId, item) {
   return { ...JSON.parse(readFileSync(file, 'utf8')), batchId, item, planFile: file };
 }
 
+// The plan behind the numbered line the student approved. Item numbers follow the batch page, which renumbers when a
+// CAPTCHA moves a job out before approval, so the plan is found through the batch JSON (its item's plan file) and its
+// link must equal that line's link. Returns { plan } or { problem }; a batch with no JSON gives { plan, unverified }.
+export function resolveSubmitPlan(dataDir, batchId, item) {
+  const batch = readBatch(dataDir, batchId);
+  if (!batch) {
+    const plan = planFor(dataDir, batchId, item);
+    return plan ? { plan, unverified: true } : { problem: `no fill plan for item ${item} of batch ${batchId}` };
+  }
+  const line = batch.items?.[item - 1];
+  if (!line) return { problem: `batch ${batchId} has no item ${item}` };
+  if (!line.plan || !existsSync(line.plan)) return { problem: `no fill plan for item ${item} of batch ${batchId}` };
+  const plan = { ...JSON.parse(readFileSync(line.plan, 'utf8')), batchId, item, planFile: line.plan };
+  if ((plan.link ?? plan.url) !== line.link) return { problem: `the fill plan for item ${item} is for ${plan.link ?? plan.url}, not the approved ${line.link}` };
+  return { plan };
+}
+
 export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit' });
 
 // budget.mjs exit codes keep their meaning here: 4 wait, 5 needs the user (another track at the company); any other
@@ -433,21 +508,50 @@ export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit' });
 export const budgetExit = (code) => (code === 4 ? EXIT.wait : code === 5 ? EXIT.needsUser : EXIT.refused);
 
 const SUBMIT_SELECTOR = 'button[type=submit], input[type=submit]';
+const OUTCOME_POLL_MS = 500;
+const OUTCOME_TRIES = 20;
 
-// On the page: CAPTCHA check, then the button, then the pending row, then the click. The pending row is logged before the
-// click so a click whose apply.submit log later fails still leaves the item used; budget.mjs approvedItem counts it.
-async function clickSubmit(client, { plan, paths, item, runner }) {
-  const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
+// Polls the page after the click until it shows a decision; a navigation in progress makes evaluate throw, which is
+// only a reason to look again. 'unconfirmed' when nothing decisive shows within the wait.
+async function submitOutcome(client, sessionId, beforeUrl, selector, wait) {
+  for (let i = 0; i < OUTCOME_TRIES; i++) {
+    await wait(OUTCOME_POLL_MS);
+    try {
+      const res = await evaluate(client, sessionId, outcomeCheck(beforeUrl, selector));
+      if (res && res.state && res.state !== 'waiting') return res;
+    } catch {
+      // the page is navigating; read it again on the next poll
+    }
+  }
+  return { state: 'unconfirmed' };
+}
+
+// On the page: the filled tab by its recorded id (never a fresh or look-alike tab), its address and a filled value, the
+// CAPTCHA check and the button, then the pending row, the click and the page's answer. The pending row is logged before
+// the click so a click whose apply.submit log later fails still leaves the item used; budget.mjs refuses a second
+// pending row for the same item under the action-log lock.
+export async function clickSubmit(client, { plan, paths, item, runner, wait = sleep }) {
+  const page = await attachById(client, plan.tab?.targetId);
+  if (!page) return { state: 'no-tab' };
+  const before = await pageUrl(client, page.sessionId);
+  if (!before || before !== plan.tab.url) return { state: 'tab-moved', detail: before };
+  const s = plan.tab.sentinel;
+  if (s && (await readValue(client, page.sessionId, s.selector)) !== s.value) return { state: 'not-filled', detail: s.selector };
   if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
   const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
   const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
   if (pending.code !== 0) return { state: 'pending-failed', res: pending };
-  if (!(await click(client, page.sessionId, selector))) return { state: 'no-button' };
-  // A screenshot is taken only here, to prove what the submit showed; every other read is text.
-  await new Promise((r) => setTimeout(r, 1500));
-  writeFileSync(join(dirname(plan.planFile), `${item}-submitted.png`), await screenshot(client, page.sessionId));
-  return { state: 'clicked' };
+  if (!(await click(client, page.sessionId, selector))) return { state: 'clicked', outcome: { state: 'unconfirmed', detail: 'the button was gone at the click' } };
+  const outcome = await submitOutcome(client, page.sessionId, before, selector, wait);
+  // A screenshot is taken only here, to prove what the submit showed; every other read is text. A failed screenshot
+  // never stops the outcome from being handled and logged.
+  try {
+    writeFileSync(join(dirname(plan.planFile), `${item}-submitted.png`), await screenshot(client, page.sessionId));
+  } catch {
+    outcome.screenshot = 'failed';
+  }
+  return { state: 'clicked', outcome };
 }
 
 const childLine = (res) => (res.stdout || res.stderr || '').trim().split('\n')[0] || `exit ${res.code}`;
@@ -456,46 +560,71 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('submit needs --batch-id ID --item N');
   const action = SUBMIT_KINDS[flags.kind ?? 'apply'];
   if (!action) throw new UsageError(`--kind must be one of ${Object.keys(SUBMIT_KINDS).join(', ')}`);
-  const plan = planFor(dataDir, flags.batchId, flags.item);
-  if (!plan) {
-    say(`chrome: no fill plan for item ${flags.item} of batch ${flags.batchId}`);
+  const found = resolveSubmitPlan(dataDir, flags.batchId, flags.item);
+  if (found.problem) {
+    say(`chrome: ${found.problem}; nothing was clicked`);
     return EXIT.usage;
   }
+  const { plan } = found;
   const scoreArgs = ['--score', String(plan.score ?? 0), '--batch', '1', ...(plan.track ? ['--track', plan.track] : [])];
   const check = budgetCall(paths, 'check', action, plan, scoreArgs, deps.runner);
   if (check.code !== 0) {
     say(`chrome: budget.mjs said ${childLine(check)} (exit ${check.code}); nothing was clicked`);
     return budgetExit(check.code);
   }
+  if (found.unverified) {
+    say(`chrome: batch ${flags.batchId} has no batch file, so item ${flags.item} cannot be matched to the approved line; nothing was clicked`);
+    return EXIT.refused;
+  }
   const live = await liveState(dataDir, deps);
   if (!live) {
     say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
     return EXIT.notRunning;
   }
-  const clicked = await withBrowser(live.port, (client) => clickSubmit(client, { plan, paths, item: flags.item, runner: deps.runner }), deps);
+  const clicked = await withBrowser(live.port, (client) => clickSubmit(client, { plan, paths, item: flags.item, runner: deps.runner, wait: deps.wait }), deps);
   return afterClick({ clicked, plan, paths, flags, action, dataDir, deps, say });
 }
 
-function afterClick({ clicked, plan, paths, flags, action, dataDir, deps, say }) {
+const REFILL = (plan) => `fill it again with node student/scripts/chrome.mjs fill --plan ${plan.planFile}, then submit`;
+
+export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps = {}, say }) {
+  const link = plan.link ?? plan.url;
+  const stops = {
+    'no-tab': () => `the tab filled for item ${flags.item} is gone; ${REFILL(plan)}`,
+    'tab-moved': () => `the tab filled for item ${flags.item} now shows ${clicked.detail ?? 'another page'}; ${REFILL(plan)}`,
+    'not-filled': () => `the tab for item ${flags.item} no longer holds its filled ${clicked.detail}; ${REFILL(plan)}`,
+    'no-button': () => 'no submit button found',
+    'pending-failed': () => `budget.mjs refused or could not record the pending submit (${childLine(clicked.res)})`,
+  };
+  if (stops[clicked.state]) {
+    say(`chrome: ${stops[clicked.state]()}; nothing was clicked`);
+    return EXIT.refused;
+  }
   if (clicked.state === 'captcha') {
-    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link: plan.link ?? plan.url });
-    say(`chrome: blocked: ${siteOf(plan.url)} shows a CAPTCHA; added to finish these yourself`);
+    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link });
+    say(`chrome: blocked: ${siteOf(plan.url)} shows a CAPTCHA; added to finish these yourself; nothing was clicked`);
     return EXIT.captcha;
   }
-  if (clicked.state === 'no-button') {
-    say('chrome: no submit button found; nothing was clicked');
-    return EXIT.refused;
+  const outcome = clicked.outcome ?? { state: 'unconfirmed' };
+  if (outcome.state === 'captcha') {
+    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link, reason: 'CAPTCHA on submit' });
+    say(`chrome: item ${flags.item} of ${flags.batchId} was not submitted: ${siteOf(plan.url)} showed a CAPTCHA after the click; added to finish these yourself (${link})`);
+    return EXIT.captcha;
   }
-  if (clicked.state === 'pending-failed') {
-    say(`chrome: budget.mjs could not record the pending submit (${childLine(clicked.res)}); nothing was clicked`);
-    return EXIT.refused;
+  if (outcome.state === 'invalid') {
+    say(`chrome: item ${flags.item} of ${flags.batchId} was not submitted: the form refused it (${outcome.detail || 'a field error'}). It is not logged as submitted; tell the student which field to fix and finish it in the open tab.`);
+    return EXIT.needsUser;
+  }
+  if (outcome.state !== 'confirmed') {
+    say(`chrome: item ${flags.item} of ${flags.batchId}: the submit was clicked but the page showed no confirmation, so it is not logged as submitted; its pending row keeps it from being clicked again. Ask the student to check the open tab.`);
+    return EXIT.needsUser;
   }
   const log = budgetCall(paths, 'log', action, plan, plan.track ? ['--track', plan.track, '--target', plan.url] : ['--target', plan.url], deps.runner);
   if (log.code !== 0) {
     say(`chrome: item ${flags.item} of ${flags.batchId} was submitted but budget.mjs log ${action} failed (${childLine(log)}); its pending row keeps it from being submitted again. Tell the student before any other submit today.`);
     return EXIT.needsUser;
   }
-  say(`chrome: submitted item ${flags.item} of ${flags.batchId}`);
+  say(`chrome: submitted item ${flags.item} of ${flags.batchId} (${outcome.detail})`);
   return EXIT.ok;
 }
 
