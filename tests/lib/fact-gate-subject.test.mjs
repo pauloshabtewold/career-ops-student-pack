@@ -31,3 +31,12 @@ test('a real cv-grounded claim passes, with or without "I"', () => {
   assert.deepEqual(check('A Python scheduling tool built at Example Robotics is the closest match to the Data Analyst Intern role.', SRC), []);
   assert.deepEqual(check('I want to join Acme as a Data Analyst Intern.', SRC), []);
 });
+
+test('the role title grounds only as the target role name; a claim to have held it needs the title in cv.md', () => {
+  const claims = ['I worked as a Data Analyst Intern at Example Robotics.', 'As a former Data Analyst Intern, I know weekly reporting.', 'My time as Data Analyst Intern taught me Python.'];
+  for (const s of claims) assert.deepEqual(check(s, SRC), ['Data Analyst Intern'], s);
+  const held = { ...SRC, cv: `${CV}- Data Analyst Intern, Example Robotics, Jun 2025 - Aug 2025\n` };
+  for (const s of claims) assert.deepEqual(check(s, held), [], s);
+  assert.deepEqual(check('I am applying for the Data Analyst Intern role.', SRC), []);
+  assert.deepEqual(check('I would love to work as a Data Analyst Intern at Acme.', SRC), []);
+});
