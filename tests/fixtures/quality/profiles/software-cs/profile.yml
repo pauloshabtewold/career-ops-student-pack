@@ -1,0 +1,25 @@
+# SYNTHETIC FIXTURE: invented student for the quality baseline.
+first_name: Jordan
+last_name: Testwell
+full_name: Jordan Testwell
+email: jordan.testwell@example.edu
+phone: 415-555-0140
+location: Austin, TX
+school: Northfield Example University
+degree: B.S.
+major: Computer Science
+graduation: 2028-05
+gpa: "3.6"
+work_authorization: "Yes"
+needs_sponsorship: "No"
+start_date: 2027-06-01
+willing_to_relocate: "Yes"
+linkedin_url: https://www.linkedin.example.com/in/jordan-testwell
+github_url: https://github.example.com/jordantestwell
+portfolio_url: https://testwell.example.com
+current_employer: Example Robotics Co
+pronouns: they/them
+referral_source: University career center
+eeo_gender: Decline to self-identify
+eeo_veteran: Decline to self-identify
+eeo_disability: Decline to self-identify

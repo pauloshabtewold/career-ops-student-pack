@@ -1,0 +1,20 @@
+[
+  {
+    "contact": {
+      "name": "Sam Contact1",
+      "role": "Alumnus, Capital Example University",
+      "company": "Example Policy Co 9"
+    },
+    "context": "Graduated from Capital Example University four years ago and works on the team.",
+    "goal": "Ask for a 15-minute chat about the team."
+  },
+  {
+    "contact": {
+      "name": "Sam Contact2",
+      "role": "Recruiter",
+      "company": "Example Policy Co 1"
+    },
+    "context": "Posted about hiring interns this summer.",
+    "goal": "Ask for a 15-minute chat about the team."
+  }
+]

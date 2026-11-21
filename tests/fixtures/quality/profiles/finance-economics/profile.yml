@@ -1,0 +1,25 @@
+# SYNTHETIC FIXTURE: invented student for the quality baseline.
+first_name: Riley
+last_name: Fakeham
+full_name: Riley Fakeham
+email: riley.fakeham@example.edu
+phone: 415-555-0141
+location: Chicago, IL
+school: Lakeside Example College
+degree: B.A.
+major: Economics
+graduation: 2027-12
+gpa: "3.5"
+work_authorization: "Yes"
+needs_sponsorship: "No"
+start_date: 2027-06-01
+willing_to_relocate: "Yes"
+linkedin_url: https://www.linkedin.example.com/in/riley-fakeham
+github_url: https://github.example.com/rileyfakeham
+portfolio_url: https://fakeham.example.com
+current_employer: Example Credit Union
+pronouns: she/her
+referral_source: University career center
+eeo_gender: Decline to self-identify
+eeo_veteran: Decline to self-identify
+eeo_disability: Decline to self-identify

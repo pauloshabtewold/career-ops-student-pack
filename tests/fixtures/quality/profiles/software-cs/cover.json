@@ -1,0 +1,29 @@
+[
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/001",
+      "company": "Example Software Co 1",
+      "title": "Software Engineering Intern",
+      "text": "Software Engineering Intern at Example Software Co 1. Location: Remote. Build and test backend services in Python and Go. Pair with a mentor, write unit tests, ship one feature by the end of summer. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in software engineering."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/006",
+      "company": "Example Software Co 6",
+      "title": "Machine Learning Intern",
+      "text": "Machine Learning Intern at Example Software Co 6. Location: Phoenix, AZ. Train and evaluate small models in PyTorch. Graduate students preferred, strong undergraduates considered. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in software engineering."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/011",
+      "company": "Example Software Co 11",
+      "title": "Security Engineering Intern",
+      "text": "Security Engineering Intern at Example Software Co 11. Location: Denver, CO. Threat modeling and log analysis. Interest in security required, no prior job needed. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in software engineering."
+  }
+]

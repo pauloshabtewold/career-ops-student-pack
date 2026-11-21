@@ -1,0 +1,29 @@
+[
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/016",
+      "company": "Example Finance Co 4",
+      "title": "Accounting Intern",
+      "text": "Accounting Intern at Example Finance Co 4. Location: Austin, TX. Reconciliations and audit preparation. Accounting majors, 3.0 GPA. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in financial analyst."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/021",
+      "company": "Example Finance Co 9",
+      "title": "Corporate Finance Rotational Analyst",
+      "text": "Corporate Finance Rotational Analyst at Example Finance Co 9. Location: Raleigh, NC. Two-year rotation across FP&A, tax and treasury for new graduates. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in financial analyst."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/013",
+      "company": "Example Finance Co 1",
+      "title": "Investment Banking Summer Analyst",
+      "text": "Investment Banking Summer Analyst at Example Finance Co 1. Location: Raleigh, NC. Financial modeling, pitch books, 80-hour weeks during live deals. Juniors only. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in financial analyst."
+  }
+]

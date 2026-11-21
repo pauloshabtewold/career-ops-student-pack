@@ -1,0 +1,18 @@
+[
+  {
+    "thread": {
+      "from": "Sam Contact1",
+      "company": "Example Policy Co 9",
+      "your_first_message": "Hi, I am a student interested in your team and would value a short chat.",
+      "their_reply": "Thanks for reaching out! Happy to chat. What times work for you next week?"
+    }
+  },
+  {
+    "thread": {
+      "from": "Sam Contact2",
+      "company": "Example Policy Co 1",
+      "your_first_message": "Hi, I am a student interested in your team and would value a short chat.",
+      "their_reply": "Appreciate the note. Our intern roles are posted on the careers page; could you tell me which team interests you most?"
+    }
+  }
+]

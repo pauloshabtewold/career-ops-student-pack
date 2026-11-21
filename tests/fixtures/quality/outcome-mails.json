@@ -1,0 +1,122 @@
+[
+  {
+    "subject": "Update on your application",
+    "from": "recruiting@employer1.example.com",
+    "text": "Thank you for applying to the Data Analyst role. After careful review we have decided to move forward with other candidates. We wish you the best.",
+    "label": "rejection"
+  },
+  {
+    "subject": "Your application status",
+    "from": "recruiting@employer2.example.com",
+    "text": "We appreciate your interest in Example Employer 2. Unfortunately the Software Engineering Intern position has been filled and we will not be moving forward.",
+    "label": "rejection"
+  },
+  {
+    "subject": "Regarding the Financial Analyst role",
+    "from": "recruiting@employer3.example.com",
+    "text": "Hi, thanks for your time. The team has chosen candidates whose experience more closely matches the role. We will keep your resume on file.",
+    "label": "rejection"
+  },
+  {
+    "subject": "Application update from Example Employer 4",
+    "from": "recruiting@employer4.example.com",
+    "text": "We regret to inform you that you were not selected for the next round for Nurse Resident.",
+    "label": "rejection"
+  },
+  {
+    "subject": "Thank you from Example Employer 5",
+    "from": "recruiting@employer5.example.com",
+    "text": "This was a competitive cycle and we cannot offer you a place in the Policy Analyst program this year.",
+    "label": "rejection"
+  },
+  {
+    "subject": "Interview invitation: Data Analyst",
+    "from": "recruiting@employer6.example.com",
+    "text": "We would like to invite you to a 30-minute phone interview for the Data Analyst role. Please pick a time using the scheduling link.",
+    "label": "interview"
+  },
+  {
+    "subject": "Next steps with Example Employer 7",
+    "from": "recruiting@employer7.example.com",
+    "text": "Congratulations, you have moved to the technical interview stage for Software Engineering Intern. Reply with three times that work next week.",
+    "label": "interview"
+  },
+  {
+    "subject": "Schedule your video interview",
+    "from": "recruiting@employer8.example.com",
+    "text": "The hiring manager for Financial Analyst would like to meet you over video. Please confirm Tuesday or Thursday afternoon.",
+    "label": "interview"
+  },
+  {
+    "subject": "Superday invitation",
+    "from": "recruiting@employer9.example.com",
+    "text": "You are invited to our final-round Superday for Nurse Resident on campus. Details and agenda attached.",
+    "label": "interview"
+  },
+  {
+    "subject": "Quick chat about Policy Analyst?",
+    "from": "recruiting@employer10.example.com",
+    "text": "I am the recruiter for Policy Analyst at Example Employer 10. Do you have 20 minutes this week for an initial call?",
+    "label": "interview"
+  },
+  {
+    "subject": "Offer of employment: Data Analyst",
+    "from": "recruiting@employer11.example.com",
+    "text": "We are delighted to offer you the Data Analyst position at Example Employer 11. Your offer letter with salary and start date is attached; please sign by Friday.",
+    "label": "offer"
+  },
+  {
+    "subject": "Your offer from Example Employer 12",
+    "from": "recruiting@employer12.example.com",
+    "text": "Congratulations! We are pleased to extend an offer for the Software Engineering Intern internship at 28 dollars per hour.",
+    "label": "offer"
+  },
+  {
+    "subject": "Welcome to the team",
+    "from": "recruiting@employer13.example.com",
+    "text": "On behalf of Example Employer 13, I am happy to confirm your offer for Financial Analyst. Please review the attached letter and accept in the portal.",
+    "label": "offer"
+  },
+  {
+    "subject": "Formal offer letter",
+    "from": "recruiting@employer14.example.com",
+    "text": "Following your interviews we would like to offer you the role of Nurse Resident. Benefits summary and start date are enclosed.",
+    "label": "offer"
+  },
+  {
+    "subject": "We received your application",
+    "from": "recruiting@employer15.example.com",
+    "text": "Thank you for applying to Policy Analyst at Example Employer 15. This is an automatic confirmation; our team will review your materials.",
+    "label": "other"
+  },
+  {
+    "subject": "Complete your profile",
+    "from": "recruiting@employer16.example.com",
+    "text": "Your candidate profile at Example Employer 16 is 60 percent complete. Log in to add your work history.",
+    "label": "other"
+  },
+  {
+    "subject": "Jobs you may like",
+    "from": "recruiting@employer17.example.com",
+    "text": "Based on your search, here are 5 new roles similar to Software Engineering Intern.",
+    "label": "other"
+  },
+  {
+    "subject": "Assessment reminder",
+    "from": "recruiting@employer18.example.com",
+    "text": "Reminder: your online assessment for Financial Analyst expires in 3 days. Click the link to start.",
+    "label": "other"
+  },
+  {
+    "subject": "Career fair this Thursday",
+    "from": "recruiting@employer19.example.com",
+    "text": "Example Employer 19 will be at the spring career fair. Stop by booth 12 to meet recruiters.",
+    "label": "other"
+  },
+  {
+    "subject": "Password reset",
+    "from": "recruiting@employer20.example.com",
+    "text": "A password reset was requested for your Example Employer 20 candidate account. Ignore this email if it was not you.",
+    "label": "other"
+  }
+]

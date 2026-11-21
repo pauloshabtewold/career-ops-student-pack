@@ -1,0 +1,25 @@
+# SYNTHETIC FIXTURE: invented student for the quality baseline.
+first_name: Morgan
+last_name: Exampleton
+full_name: Morgan Exampleton
+email: morgan.exampleton@example.edu
+phone: 415-555-0143
+location: Raleigh, NC
+school: Capital Example University
+degree: B.A.
+major: Political Science
+graduation: 2027-05
+gpa: "3.4"
+work_authorization: "Yes"
+needs_sponsorship: "No"
+start_date: 2027-06-01
+willing_to_relocate: "Yes"
+linkedin_url: https://www.linkedin.example.com/in/morgan-exampleton
+github_url: https://github.example.com/morganexampleton
+portfolio_url: https://exampleton.example.com
+current_employer: Example County Library
+pronouns: she/her
+referral_source: University career center
+eeo_gender: Decline to self-identify
+eeo_veteran: Decline to self-identify
+eeo_disability: Decline to self-identify

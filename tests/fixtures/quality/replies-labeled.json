@@ -1,0 +1,202 @@
+[
+  {
+    "text": "Sure, happy to help. What kind of role are you looking for?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Thanks so much, enjoy the rest of your week.",
+    "label": "thanks"
+  },
+  {
+    "text": "Which location would you prefer, Denver or Remote?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Not interested, thanks.",
+    "label": "no"
+  },
+  {
+    "text": "Do you need sponsorship? I want to point you to the right program.",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Unsubscribe.",
+    "label": "no"
+  },
+  {
+    "text": "Got it, thanks for letting me know.",
+    "label": "thanks"
+  },
+  {
+    "text": "Thanks for connecting at the career fair!",
+    "label": "thanks"
+  },
+  {
+    "text": "Do you have a portfolio or GitHub I can look at?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Please remove me from your outreach list.",
+    "label": "no"
+  },
+  {
+    "text": "Have you already applied, or should I flag you to the recruiter first?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Please stop messaging me on this platform.",
+    "label": "no"
+  },
+  {
+    "text": "Thank you, great to connect.",
+    "label": "thanks"
+  },
+  {
+    "text": "Please do not send further messages.",
+    "label": "no"
+  },
+  {
+    "text": "Cheers, thanks for the follow-up.",
+    "label": "thanks"
+  },
+  {
+    "text": "Would Thursday at 3 work for a call?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Great, thanks for confirming.",
+    "label": "thanks"
+  },
+  {
+    "text": "Could you send me your resume as a PDF?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "I do not take coffee chats, sorry.",
+    "label": "no"
+  },
+  {
+    "text": "Thanks for the note, good luck with your search!",
+    "label": "thanks"
+  },
+  {
+    "text": "I do not know anyone on that team, sorry I cannot help.",
+    "label": "no"
+  },
+  {
+    "text": "Nice to meet you too. Thanks for connecting.",
+    "label": "thanks"
+  },
+  {
+    "text": "Can you tell me a bit more about your background in analytics?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Received, thank you.",
+    "label": "thanks"
+  },
+  {
+    "text": "I am not on that team, but I know the manager. Want an intro?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Please do not contact me again.",
+    "label": "no"
+  },
+  {
+    "text": "Happy to talk. Should we use Zoom or a phone call?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "No thank you.",
+    "label": "no"
+  },
+  {
+    "text": "Thanks for the update, congrats on the offer!",
+    "label": "thanks"
+  },
+  {
+    "text": "Much appreciated, good luck this semester.",
+    "label": "thanks"
+  },
+  {
+    "text": "Are you open to the fall co-op instead of summer?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "We are not hiring interns this year.",
+    "label": "no"
+  },
+  {
+    "text": "What drew you to policy work in particular?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "I am not the right person and cannot pass this along.",
+    "label": "no"
+  },
+  {
+    "text": "Thanks! Glad the article was helpful.",
+    "label": "thanks"
+  },
+  {
+    "text": "Thank you for sharing the article.",
+    "label": "thanks"
+  },
+  {
+    "text": "What school are you at and when do you graduate?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Sorry, I am not able to help with referrals.",
+    "label": "no"
+  },
+  {
+    "text": "Is next Monday morning good for a coffee chat?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Our team has no openings and I cannot refer you.",
+    "label": "no"
+  },
+  {
+    "text": "Appreciate you reaching out. Best of luck!",
+    "label": "thanks"
+  },
+  {
+    "text": "I am on leave and will not be able to assist.",
+    "label": "no"
+  },
+  {
+    "text": "Thanks, I will keep an eye out for your application.",
+    "label": "thanks"
+  },
+  {
+    "text": "I can refer you. Which job id did you apply to?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "Thanks for the thank-you note!",
+    "label": "thanks"
+  },
+  {
+    "text": "What questions do you have about the internship?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "I no longer work at that company, so I cannot help.",
+    "label": "no"
+  },
+  {
+    "text": "Which of our two analyst openings interests you more?",
+    "label": "needs-answer"
+  },
+  {
+    "text": "We filled all positions for the season, so I will pass.",
+    "label": "no"
+  },
+  {
+    "text": "Thank you for the kind words.",
+    "label": "thanks"
+  }
+]
