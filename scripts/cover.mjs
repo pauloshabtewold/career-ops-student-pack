@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { clean } from '../lib/clean-text.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { check as factCheck } from '../lib/fact-gate.mjs';
+import { check as factCheck, retryTerms, stripInvisible } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { readProfileAnswers } from '../lib/profile-answers.mjs';
@@ -80,9 +80,12 @@ export async function writeCover({ cv, posting, answers, company, role, presets,
   const sources = { cv, answers, posting, company, role };
   let missing = [];
   for (let attempt = 0; attempt < 2; attempt++) {
-    const retryNote = missing.length ? `Your last paragraph named things the CV does not state (${missing.join(', ')}). Leave them out.` : '';
+    // The note names only the flagged terms, never grammar or common words, so the model is not told to drop "is".
+    const terms = retryTerms(missing);
+    const retryNote = !missing.length ? '' : terms.length ? `Your last paragraph named things the CV does not state (${terms.join(', ')}). Leave them out.` : 'Your last paragraph named things the CV does not state. Use only facts stated in the CV.';
     const res = await headless({ agent, prompt: paragraphPrompt({ cv, posting, company, role, words, retryNote }), step: 'cover', feature: 'M8', dataDir, date });
-    const paragraph = capWords(clean(res.text), words);
+    // Invisible characters are removed so the checked paragraph is the paragraph written.
+    const paragraph = capWords(clean(stripInvisible(res.text)), words);
     missing = factCheck(paragraph, sources);
     if (!missing.length) {
       const text = clean(fillBase(readBase(familyFor(presets)), { company, role, paragraph, signature }));
