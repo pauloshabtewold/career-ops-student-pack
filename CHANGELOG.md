@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.7.0 (2026-11-21)
+
+- Merge branch 'claude/v2-p0'
+- Support career-ops 1.40.0 (#42)
+
+### Details
+
 - Quality baseline harness: every agent call has a 6 minute timeout and one retry, `capture --resume` runs only the calls not yet recorded, Codex rows record the model id from the codex header, and a Codex arm that keeps failing is parked so the Claude arms, noise and freeze still finish.
 - M-001 (P0 Chrome spike): `scripts/chrome.mjs open|status|read|close` drives a dedicated automation Chrome profile (`data/chrome-automation`, DevTools on 127.0.0.1 only) through `lib/cdp.mjs` on Node's built-in WebSocket; a browser slot command (`BROWSER_SLOT_CMD` or `browser.slot_cmd`) runs before every launch and any non-zero exit means wait (exit 4); `tools/schedule-probe.mjs` proves with a one-shot launchd or Task Scheduler job whether a scheduled run reaches that Chrome and records `chrome_in_schedule`; the probe writes its dated evidence line to `data/chrome-probe.log` and leaves `chrome_in_schedule` unset when the automation Chrome was not open; `close` waits until the Chrome it started has exited, and `open` names the profile when a Chrome it did not record holds it; config gains `chrome_in_schedule`, `browser.automation_profile` and `browser.slot_cmd`; `docs/chrome.md` and the spike record `docs/chrome-spike.md`.
 - Support career-ops 1.40.0: `compat.json` upstream.max is 1.40.0 and `docs/preset-audit.md` is re-counted for every preset against it. MetLife has no readable board and is watch-only in accounting, finance-economics and statistics-math-actuarial; Shield AI moved to Ashby in software-cs and engineering-mech-elec.
