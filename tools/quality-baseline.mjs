@@ -4,9 +4,10 @@
 // outreach first messages, reply suggestions and form-field mapping from the shipped mode text) on five fake profiles and
 // a fixed posting sample through claude -p --output-format json and codex exec --json, then repeats the whole capture
 // once as an A/A arm so the noise between two identical runs is known.
-// Usage: quality-baseline.mjs capture [--replace] [--base <tag>] | noise | freeze [--replace] | verify
-// Exit codes follow the pack convention: 0 ok, 2 usage, 3 refused (drift, overwrite, changed hash), 5 blocked-on-user
-// (budget or quota stop).
+// Usage: quality-baseline.mjs capture [--replace | --resume] [--base <tag>] | noise | freeze [--replace] | verify
+// Exit codes follow the pack convention: 0 ok, 1 calls failed (capture --resume runs only the missing ones), 2 usage,
+// 3 refused (drift, overwrite, changed hash), 5 blocked-on-user (budget or quota stop, or a parked agent arm).
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
@@ -26,7 +27,7 @@ export const FIXTURES = join('tests', 'fixtures', 'quality');
 export const BASELINE = join(FIXTURES, 'baseline');
 export const PROFILES = ['software-cs', 'finance-economics', 'nursing', 'policy-government', 'mis-business-analytics'];
 export const ARMS = ['A', 'AA'];
-export const EXIT = Object.freeze({ ok: 0, usage: 2, refused: 3, blocked: 5 });
+export const EXIT = Object.freeze({ ok: 0, failed: 1, usage: 2, refused: 3, blocked: 5 });
 // Files the harness itself owns or writes; any other difference from the release tag means the baseline would not be
 // a measure of the shipped version.
 const NOT_PRODUCT = [/^tools\//, /^tests\//, /^lib\/quality-bars\.mjs$/, /^docs\/quality-gate\.md$/, /^docs\/chrome-spike\.md$/];
@@ -41,6 +42,13 @@ const STOP_FACTOR = 1.5;
 // Written by capture with the hash of every captured file, rewritten by freeze with the bar files and the frozen bars.
 const MANIFEST = 'manifest.json';
 const QUOTA_RE = /rate.?limit|quota|usage limit|too many requests|\b429\b/i;
+const SIGN_IN_RE = /not logged in|please (sign|log) in|login required|\bunauthori[sz]ed\b|\b401\b/i;
+// One agent call may take this long before it is killed and retried once. The slowest call of the first real capture
+// took 3 min 18 s and a typical one 5 to 25 s; one Codex call hung for 1 h 56 min. Below the shipped AGENT_TIMEOUT_MS
+// (15 min) so a hung call costs minutes, not the run.
+export const CALL_TIMEOUT_MS = 6 * 60 * 1000;
+// A Codex arm whose calls fail this many times in a row, each after its retry, is parked so the other arms still finish.
+const CODEX_PARK_AFTER = 2;
 const MAX_BUFFER = 64 * 1024 * 1024;
 const DRAFT_STEPS = [
   { step: 'cover', mode: 'apply-loop.md', file: 'cover.json', ask: 'Write the short cover letter for this posting.' },
@@ -56,6 +64,18 @@ export class BlockedError extends Error {
     super(`blocked-on-user ${reason}`);
     this.name = 'BlockedError';
     this.exitCode = EXIT.blocked;
+  }
+}
+
+// One call that still failed after its retry. signIn marks an agent asking for a sign-in, which parks its arm at once.
+export class CallFailedError extends Error {
+  constructor(agent, reason, { signIn = false } = {}) {
+    super(`${agent} call failed: ${reason}`);
+    this.name = 'CallFailedError';
+    this.agent = agent;
+    this.reason = reason;
+    this.signIn = signIn;
+    this.exitCode = EXIT.failed;
   }
 }
 
@@ -149,38 +169,51 @@ export function parseCodexJsonl(stdout) {
 
 const codexArgs = (cwd, effort, json) => ['-a', 'never', 'exec', ...(json ? ['--json'] : []), '--ephemeral', '--skip-git-repo-check', ...CODEX_EXTRA_FLAGS, '-s', 'read-only', ...CODEX_DISABLED_FEATURES.flatMap((f) => ['--disable', f]), '-c', `model_reasoning_effort=${effort}`, '-C', cwd, '-'];
 
-// codex exec --json names no model, so the resolved id comes once per process from the plain-text header of a one-word
-// call made with the same flags.
+// The model line of the header plain codex exec prints on stderr (codex-cli 0.169: "model: <id>"); null when absent.
+export const codexHeaderModel = (text) => /^model:\s*(\S+)/m.exec(String(text ?? ''))?.[1] ?? null;
+
+// codex exec --json names no model, so the resolved id comes once per process from the stderr header of a one-word call
+// made with the same flags. When no header can be read, the cli version and reasoning effort name the model instead.
 const codexModels = new Map();
-function codexModel(agentPath, effort) {
+function codexModel(agentPath, effort, timeoutMs) {
   const key = `${agentPath}\n${effort}`;
   if (!codexModels.has(key)) {
-    const text = withTempDir('quality-baseline-', (cwd) => runText(agentPath, codexArgs(cwd, effort, false), { cwd, input: 'Reply with the word ok.', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER }));
-    codexModels.set(key, /^model:\s*(\S+)/m.exec(text)?.[1] ?? 'unknown');
+    const r = withTempDir('quality-baseline-', (cwd) => spawnSync(agentPath, codexArgs(cwd, effort, false), { cwd, input: 'Reply with the word ok.', encoding: 'utf8', timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: MAX_BUFFER }));
+    let model = codexHeaderModel(`${r.stderr ?? ''}\n${r.stdout ?? ''}`);
+    if (!model) {
+      const v = spawnSync(agentPath, ['--version'], { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL' });
+      const version = String(v.stdout ?? '').trim();
+      model = version ? `${version.replace(/\s+/g, '-')} effort=${effort}` : null;
+    }
+    if (!model) return 'unknown';
+    codexModels.set(key, model);
   }
   return codexModels.get(key);
 }
 
-// Runs one call and returns { text, model, usage, error }; a failed process returns its output as error instead of throwing.
-function runAgent(agentPath, args, cwd, prompt, parse) {
+// Runs one call with a timeout and returns { text, model, usage, error, timedOut }; a failed or killed process returns
+// its output as error instead of throwing.
+function runAgent(agentPath, args, cwd, prompt, parse, timeoutMs) {
   try {
-    return parse(runText(agentPath, args, { cwd, input: prompt, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER }));
+    return parse(runText(agentPath, args, { cwd, input: prompt, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, timeout: timeoutMs, killSignal: 'SIGKILL' }));
   } catch (err) {
-    return { text: '', model: null, usage: null, error: `${err.stderr ?? ''} ${err.stdout ?? ''} ${err.message ?? ''}`.trim() };
+    const timedOut = err.code === 'ETIMEDOUT' || err.signal === 'SIGKILL';
+    const error = `${timedOut ? `timed out after ${timeoutMs} ms ` : ''}${err.stderr ?? ''} ${err.stdout ?? ''} ${err.message ?? ''}`.trim();
+    return { text: '', model: null, usage: null, error, timedOut };
   }
 }
 
 // The default runner mirrors the shipped triage lockdown: no tools, project settings only, empty temp folder.
-export function defaultRunner({ agent, agentPath, prompt, model }) {
+export function defaultRunner({ agent, agentPath, prompt, model, timeoutMs = CALL_TIMEOUT_MS }) {
   return withTempDir('quality-baseline-', (cwd) => {
     if (agent === 'claude') {
       const settings = join(PACK_ROOT, 'templates', 'triage-claude-settings.json');
       const args = ['-p', '--output-format', 'json', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', settings, '--model', model ?? 'sonnet'];
-      return runAgent(agentPath, args, cwd, prompt, parseClaudeJson);
+      return runAgent(agentPath, args, cwd, prompt, parseClaudeJson, timeoutMs);
     }
     const effort = model ?? 'medium';
-    const res = runAgent(agentPath, codexArgs(cwd, effort, true), cwd, prompt, parseCodexJsonl);
-    if (!res.error && res.model === 'unknown') res.model = codexModel(agentPath, effort);
+    const res = runAgent(agentPath, codexArgs(cwd, effort, true), cwd, prompt, parseCodexJsonl, timeoutMs);
+    if (!res.error && res.model === 'unknown') res.model = codexModel(agentPath, effort, timeoutMs);
     return res;
   });
 }
@@ -235,24 +268,64 @@ export function planCalls({ root, profiles = PROFILES }) {
 
 const CALL_HEADER = ['arm', 'agent', 'profile', 'step', 'n', 'model', 'input', 'cache_read', 'cache_write', 'output'];
 
-// One runner call behind the meter: a quota or rate-limit failure becomes a BlockedError, any other failure is thrown.
+// One runner attempt; a thrown runner error reads as a failed attempt.
+function attempt(runner, call) {
+  try {
+    return runner({ timeoutMs: CALL_TIMEOUT_MS, ...call });
+  } catch (err) {
+    return { error: `${err.stderr ?? ''} ${err.message ?? ''}` };
+  }
+}
+
+// One runner call behind the meter, retried once on a timeout or any other failure that is not a quota stop or a sign-in
+// prompt. A quota or rate-limit failure becomes a BlockedError; a call still failing after its retry, or asking for a
+// sign-in, becomes a CallFailedError.
 function meteredCall({ runner, meter, call }) {
   meter.before();
-  let res;
-  try {
-    res = runner(call);
-  } catch (err) {
-    res = { error: `${err.stderr ?? ''} ${err.message ?? ''}` };
-  }
-  const failed = res.error || (typeof res.status === 'number' && res.status !== 0);
-  if (failed) {
-    const text = `${res.error ?? ''} ${res.stderr ?? ''} ${res.stdout ?? ''}`.trim();
+  let text = '';
+  for (let tries = 1; tries <= 2; tries++) {
+    const res = attempt(runner, call);
+    const failed = res.error || (typeof res.status === 'number' && res.status !== 0);
+    if (!failed) {
+      const usage = normalizeUsage(res.usage);
+      meter.add(usage);
+      return { text: String(res.text ?? ''), model: res.model ?? 'unknown', usage };
+    }
+    text = `${res.error ?? ''} ${res.stderr ?? ''} ${res.stdout ?? ''}`.trim();
     if (QUOTA_RE.test(text)) throw new BlockedError(`${call.agent} quota or rate limit: ${text.slice(0, 160)}`);
-    throw new Error(`${call.agent} call failed: ${text.slice(0, 300)}`);
+    if (SIGN_IN_RE.test(text)) throw new CallFailedError(call.agent, `asks for a sign-in: ${text.slice(0, 160)}`, { signIn: true });
   }
-  const usage = normalizeUsage(res.usage);
-  meter.add(usage);
-  return { text: String(res.text ?? ''), model: res.model ?? 'unknown', usage };
+  throw new CallFailedError(call.agent, text.slice(0, 300));
+}
+
+const callKey = (arm, agent, profile, step, n) => [arm, agent, profile, step, String(n)].join('\t');
+
+// Keys of every call row already in the baseline whose model is known. A row with the model unknown is dropped from its
+// calls.tsv, so resume runs that call again and records the resolved id.
+export function recordedCalls(out) {
+  const keys = new Set();
+  const spent = { claude: 0, codex: 0 };
+  if (!existsSync(out)) return { keys, spent };
+  for (const arm of ARMS) {
+    const armDir = join(out, arm);
+    if (!existsSync(armDir)) continue;
+    for (const agent of readdirSync(armDir)) {
+      if (!existsSync(join(armDir, agent)) || !statSync(join(armDir, agent)).isDirectory()) continue;
+      for (const profile of readdirSync(join(armDir, agent))) {
+        const file = join(armDir, agent, profile, 'calls.tsv');
+        if (!existsSync(file)) continue;
+        const [head, ...rows] = readFileSync(file, 'utf8').split('\n').filter(Boolean);
+        const kept = rows.filter((row) => row.split('\t')[5] !== 'unknown');
+        if (kept.length !== rows.length) writeFileSync(file, [head, ...kept].map((l) => `${l}\n`).join(''));
+        for (const row of kept) {
+          const [a, g, p, step, n, , ...usage] = row.split('\t');
+          keys.add(callKey(a, g, p, step, n));
+          if (g in spent) spent[g] += usage.reduce((sum, v) => sum + (Number(v) || 0), 0);
+        }
+      }
+    }
+  }
+  return { keys, spent };
 }
 
 // Appends one call row to the calls.tsv of its arm, agent and profile folder, so each profile's usage sits beside its outputs.
@@ -262,59 +335,102 @@ function appendRow(dir, row) {
   writeFileSync(file, `${head}${row.join('\t')}\n`);
 }
 
-function runArm({ arm, agent, agentPath, calls, runner, meter, out }) {
+// Runs the calls of one arm and agent not yet recorded. Returns { missed, parked }: missed counts calls that failed after
+// their retry; parked holds the reason the arm stopped (a sign-in prompt, or CODEX_PARK_AFTER Codex failures in a row).
+// A Claude call failing after its retry is thrown.
+function runArm({ arm, agent, agentPath, calls, runner, meter, out, done }) {
+  let missed = 0;
+  let streak = 0;
   for (const c of calls) {
-    const res = meteredCall({ runner, meter, call: { agent, agentPath, prompt: c.prompt } });
+    if (done.has(callKey(arm, agent, c.profile, c.step, c.n))) continue;
+    let res;
+    try {
+      res = meteredCall({ runner, meter, call: { agent, agentPath, prompt: c.prompt } });
+    } catch (err) {
+      if (!(err instanceof CallFailedError)) throw err;
+      if (err.signIn) return { missed: missed + 1, parked: err.reason };
+      if (agent !== 'codex') throw err;
+      missed++;
+      streak++;
+      if (streak >= CODEX_PARK_AFTER) return { missed, parked: `${streak} calls in a row failed after a retry; last: ${err.reason}` };
+      continue;
+    }
+    streak = 0;
     const dir = join(out, arm, agent, c.profile);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${c.step}-${c.n}.txt`), res.text);
     const u = res.usage;
     appendRow(dir, [arm, agent, c.profile, c.step, c.n, res.model, u.input, u.cache_read, u.cache_write, u.output]);
   }
+  return { missed, parked: null };
 }
 
-// Runs both arms for every resolved agent; each call's row is written as it lands so a stop keeps what was captured.
-function captureArms({ calls, resolve, runner, meters, out, run }) {
+// Runs both arms for every resolved agent; each call's row is written as it lands so a stop keeps what was captured. A
+// parked agent is skipped in the later arms and named in run.parked and run.blocked. Returns the count of missed calls.
+function captureArms({ calls, resolve, runner, meters, out, run, done }) {
+  let missed = 0;
   for (const arm of ARMS) {
     for (const agent of ['claude', 'codex']) {
+      if (run.parked.includes(agent)) continue;
       const agentPath = resolve(agent);
       if (!agentPath) {
         if (arm === 'A') run.blocked.push(`blocked-on-user ${agent} not found; that arm was not captured`);
         continue;
       }
-      runArm({ arm, agent, agentPath, calls, runner, meter: meters[agent], out });
+      const res = runArm({ arm, agent, agentPath, calls, runner, meter: meters[agent], out, done });
+      missed += res.missed;
+      if (res.parked) {
+        run.parked.push(agent);
+        run.blocked.push(`${agent}: ${res.parked}`);
+      }
     }
   }
+  return missed;
 }
 
-// Refuses an overwrite without --replace and any product file that differs from the release tag; returns the tag or null.
-function captureBase({ root, out, replace, base, git, say }) {
-  if (existsSync(join(out, 'run.json')) && !replace) {
-    say(`quality-baseline: ${relative(root, out)} exists; pass --replace to capture again`);
+// Refuses an overwrite without --replace or --resume and any product file that differs from the release tag; returns
+// the tag or null. A resume keeps the tag of the run it continues and refuses a different --base.
+function captureBase({ root, out, replace, resume, prior, base, git, say }) {
+  if (prior && !replace && !resume) {
+    say(`quality-baseline: ${relative(root, out)} exists; pass --replace to capture again or --resume to finish it`);
     return null;
   }
-  const tag = base ?? git(['describe', '--tags', '--abbrev=0']).trim();
+  if (prior && resume && base && base !== prior.base) {
+    say(`quality-baseline: --resume continues the capture of ${prior.base}, not ${base}`);
+    return null;
+  }
+  const tag = (resume ? prior?.base : null) ?? base ?? git(['describe', '--tags', '--abbrev=0']).trim();
   const drift = productDrift({ git, base: tag });
   for (const f of drift) say(`quality-baseline: product file differs from ${tag}: ${f}`);
   return drift.length ? null : tag;
 }
 
 // Runs the planned triage, draft, form and mail calls for every profile in both arms and writes outputs under BASELINE.
-// Returns EXIT.refused on an existing baseline or product drift, EXIT.blocked on a budget or quota stop.
-export async function capture({ root = PACK_ROOT, replace = false, base, git = gitIn(root), runner = defaultRunner, resolve = resolveAgentPath, say = console.log, profiles = PROFILES }) {
+// With resume, the run of an existing run.json continues: its base and commit stay, every call already recorded is
+// skipped and the meters start from the recorded usage. Returns EXIT.refused on an existing baseline (without replace
+// or resume) or product drift, EXIT.blocked on a budget or quota stop or a parked arm, EXIT.failed when calls are missing.
+export async function capture({ root = PACK_ROOT, replace = false, resume = false, base, git = gitIn(root), runner = defaultRunner, resolve = resolveAgentPath, say = console.log, profiles = PROFILES }) {
+  if (replace && resume) throw new UsageError('pass --replace or --resume, not both');
   const out = join(root, BASELINE);
-  const tag = captureBase({ root, out, replace, base, git, say });
+  const prior = existsSync(join(out, 'run.json')) ? readJson(join(out, 'run.json')) : null;
+  const tag = captureBase({ root, out, replace, resume, prior, base, git, say });
   if (!tag) return EXIT.refused;
   const calls = [...planCalls({ root, profiles }), ...planMailCalls({ root })];
   const est = estimate({ profiles });
   say(`quality-baseline estimate: claude ${est.claude} tokens, codex ${est.codex} tokens, opus judge ${est.judge} tokens`);
   if (replace) rmSync(out, { recursive: true, force: true });
-  const run = { status: 'incomplete', base: tag, release_tag: git(['describe', '--tags', '--abbrev=0']).trim(), commit: git(['rev-parse', 'HEAD']).trim(), started: new Date().toISOString(), estimate: est, blocked: [] };
+  const head = git(['rev-parse', 'HEAD']).trim();
+  const fresh = { base: tag, release_tag: git(['describe', '--tags', '--abbrev=0']).trim(), commit: head, started: new Date().toISOString() };
+  const kept = resume && prior ? { base: prior.base, release_tag: prior.release_tag, commit: prior.commit, started: prior.started, resumed: [...(prior.resumed ?? []), { at: new Date().toISOString(), commit: head }] } : fresh;
+  const run = { status: 'incomplete', ...kept, estimate: est, blocked: [], parked: [] };
+  const recorded = resume ? recordedCalls(out) : { keys: new Set(), spent: { claude: 0, codex: 0 } };
   writeJson(join(out, 'run.json'), run);
   const meters = { claude: createMeter(est.claude), codex: createMeter(est.codex) };
+  for (const agent of Object.keys(meters)) meters[agent].add({ input: recorded.spent[agent] });
   const spent = () => ({ claude: meters.claude.spent, codex: meters.codex.spent });
+  let missed;
   try {
-    captureArms({ calls, resolve, runner, meters, out, run });
+    missed = captureArms({ calls, resolve, runner, meters, out, run, done: recorded.keys });
   } catch (err) {
     if (!(err instanceof BlockedError)) throw err;
     run.blocked.push(err.message);
@@ -322,11 +438,20 @@ export async function capture({ root = PACK_ROOT, replace = false, base, git = g
     say(err.message);
     return EXIT.blocked;
   }
-  writeJson(join(out, 'run.json'), { ...run, status: 'complete', finished: new Date().toISOString(), spent: spent() });
+  const parkedOnly = missed > 0 && run.parked.length > 0;
+  if (missed > 0 && !parkedOnly) {
+    writeJson(join(out, 'run.json'), { ...run, spent: spent() });
+    say(`quality-baseline: ${missed} calls failed after a retry; run capture --resume to run only the missing ones`);
+    return EXIT.failed;
+  }
+  const status = run.parked.length ? 'partial' : 'complete';
+  writeJson(join(out, 'run.json'), { ...run, status, finished: new Date().toISOString(), spent: spent() });
   writeJson(join(out, MANIFEST), { frozen: null, captured_commit: run.commit, base_tag: run.base, release_tag: run.release_tag, files: hashTree(root) });
   for (const b of run.blocked) say(b);
   say(`quality-baseline: captured ${calls.length} calls per arm and agent into ${relative(root, out)}; real usage claude ${meters.claude.spent}, codex ${meters.codex.spent} tokens`);
-  return EXIT.ok;
+  if (!run.parked.length) return EXIT.ok;
+  say(`blocked-on-user ${run.parked.join(' and ')} arm parked (reason in run.json blocked); every other arm is captured`);
+  return EXIT.blocked;
 }
 
 // Top-N urls by score from TRIAGE lines.
@@ -410,10 +535,10 @@ export function labelAccuracy(out, arm, agent, step, items) {
 
 // Labeled-mail base and noise. The base is the best agent's arm-A accuracy, because a rule lever replaces whichever agent
 // the student runs; the noise is the widest A/AA gap of one agent.
-export function mailBase({ root, out }) {
+export function mailBase({ root, out, skip = [] }) {
   const base = {};
   const spread = {};
-  const agents = existsSync(join(out, 'A')) ? readdirSync(join(out, 'A')) : [];
+  const agents = existsSync(join(out, 'A')) ? readdirSync(join(out, 'A')).filter((a) => !skip.includes(a)) : [];
   for (const step of MAIL_STEPS) {
     const items = fixtureItems(root, step.file);
     for (const agent of agents) {
@@ -495,29 +620,36 @@ function aaValues(acc, mail) {
 export async function noise({ root = PACK_ROOT, runner = defaultRunner, resolve = resolveAgentPath, say = console.log, seed = String(Date.now()), profiles = PROFILES }) {
   const out = join(root, BASELINE);
   const run = existsSync(join(out, 'run.json')) ? readJson(join(out, 'run.json')) : null;
-  if (run?.status !== 'complete') {
+  if (run?.status !== 'complete' && run?.status !== 'partial') {
     say('quality-baseline: no complete capture; run capture first');
     return EXIT.refused;
   }
+  // A parked arm holds a partial A run and no A/A repeat, so it has no A/A spread to measure.
+  const parked = run.parked ?? [];
+  for (const agent of parked) say(`quality-baseline: ${agent} arm parked in capture; noise measures the other arms`);
   const est = estimate({ profiles }).judge;
   say(`quality-baseline noise estimate: opus judge ${est} tokens`);
   const meter = createMeter(est);
   const ctx = { root, out, runner, claudePath: resolve('claude'), meter, seed, forms: readJson(join(root, FIXTURES, 'forms.json')), postings: readJson(join(root, FIXTURES, 'postings.json')).length };
   const acc = { overlaps: [], notWorse: 0, pairs: 0, formSpread: 0, scamSpread: 0, invented: 0, verdicts: [] };
   try {
-    for (const agent of readdirSync(join(out, 'A'))) {
+    for (const agent of readdirSync(join(out, 'A')).filter((a) => !parked.includes(a))) {
       for (const profile of profiles) {
         measureArms({ ...ctx, agent, profile, acc });
         judgePairs({ ...ctx, agent, profile, acc });
       }
     }
   } catch (err) {
+    if (err instanceof CallFailedError) {
+      say(`quality-baseline: judge ${err.message}; run noise again`);
+      return EXIT.failed;
+    }
     if (!(err instanceof BlockedError)) throw err;
     say(err.message);
     return EXIT.blocked;
   }
-  const mail = mailBase({ root, out });
-  writeJson(join(out, 'noise.json'), { seed, pairs: acc.pairs, judge_tokens: meter.spent, values: aaValues(acc, mail), base: mail.base, overlaps: acc.overlaps, verdicts: acc.verdicts });
+  const mail = mailBase({ root, out, skip: parked });
+  writeJson(join(out, 'noise.json'), { seed, parked, pairs: acc.pairs, judge_tokens: meter.spent, values: aaValues(acc, mail), base: mail.base, overlaps: acc.overlaps, verdicts: acc.verdicts });
   say(`quality-baseline: noise.json written (${acc.pairs} judged pairs, seed ${seed}, judge usage ${meter.spent} tokens)`);
   return EXIT.ok;
 }
@@ -611,9 +743,9 @@ export async function verify({ root = PACK_ROOT, say = console.log }) {
 
 // Dispatches capture, noise, freeze or verify.
 export async function main(argv = process.argv.slice(2), deps = {}) {
-  const { command, flags } = parseArgs(argv, { commands: ['capture', 'noise', 'freeze', 'verify'], flags: { replace: 'boolean', base: 'string' } });
+  const { command, flags } = parseArgs(argv, { commands: ['capture', 'noise', 'freeze', 'verify'], flags: { replace: 'boolean', resume: 'boolean', base: 'string' } });
   const root = flags.root ?? PACK_ROOT;
-  const opts = { root, replace: Boolean(flags.replace), base: flags.base, git: gitIn(root), ...deps };
+  const opts = { root, replace: Boolean(flags.replace), resume: Boolean(flags.resume), base: flags.base, git: gitIn(root), ...deps };
   return { capture, noise, freeze, verify }[command](opts);
 }
 

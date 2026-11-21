@@ -84,6 +84,13 @@ constants. It sums real usage after every call and stops before the next one, ex
 when real usage passes 1.5 times the estimate or a runner reports a quota or rate-limit error. A stopped capture stays
 marked incomplete.
 
+Each agent call is killed after 6 minutes and tried once more after a timeout or any failure that is not a quota stop.
+`capture --resume` finishes a stopped capture: it keeps the base and commit in `run.json`, skips every call already
+recorded in `calls.tsv` (a row whose model is unknown runs again) and counts the recorded usage toward the stop rule.
+When two Codex calls in a row still fail after their retry, or an agent asks for a sign-in, that arm is parked: the
+other arms finish, `run.json` is marked partial with a `codex: <reason>` blocked entry, capture exits 5, and `noise`
+measures only the arms that were not parked.
+
 ## Pinning
 
 This file and `lib/quality-bars.mjs` are written once more by `freeze` and then pinned by sha256 in the baseline
