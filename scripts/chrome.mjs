@@ -1,59 +1,245 @@
-// Stub so the M-001 tests fail on behaviour; M-001 replaces every body.
-import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+#!/usr/bin/env node
+// The automation Chrome: a dedicated --user-data-dir in the career-ops data folder that the student signs in to once
+// (LinkedIn, Gmail, Handshake), driven over the DevTools port by lib/cdp.mjs. Chrome 136+ refuses remote debugging on the
+// default profile, and a separate profile keeps the student's everyday browsing out of reach, so the default profile is
+// never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
+// Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close   [--root R] [--data-dir D]
+// Exit codes: 0 ok, 2 usage, 4 waiting for a browser slot, 7 automation Chrome not running. 5 stays the pack's "needs the
+// user" code, so a caller never mistakes a stopped browser for a question to the student.
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isMain, runCli } from '../lib/args.mjs';
+import { join } from 'node:path';
+import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
+import { readText, openPage, withBrowser } from '../lib/cdp.mjs';
+import { loadStudentConfig } from '../lib/config.mjs';
+import { isPidAlive } from '../lib/dir-lock.mjs';
+import { resolvePaths } from '../lib/paths.mjs';
+import { which } from '../lib/which.mjs';
 
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
 export const EXIT = Object.freeze({ ok: 0, usage: 2, wait: 4, notRunning: 7 });
+const PORT_WAIT_MS = 20 * 1000;
+const SLOT_TIMEOUT_MS = 60 * 1000;
 
-const todo = () => {
-  throw new Error('not implemented');
-};
-
+// Splits a command string into argv without a shell: double or single quotes group words, and a leading ~ is HOME.
 export function splitCommand(text, home = homedir()) {
-  return todo(text, home);
+  const words = [...String(text).matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+  return words.map((w, i) => (i === 0 && (w === '~' || w.startsWith('~/')) ? join(home, w.slice(1)) : w));
 }
+
+// The environment wins so one shell can override; config is the fallback that launchd, Task Scheduler and Codex shells
+// can read, since none of them carries the student's shell variables.
 export function resolveSlotCommand({ env = process.env, config = null } = {}) {
-  return todo(env, config);
+  const fromEnv = String(env.BROWSER_SLOT_CMD ?? '').trim();
+  if (fromEnv) return fromEnv;
+  const fromConfig = String(config?.browser?.slot_cmd ?? '').trim();
+  return fromConfig || null;
 }
+
+// Runs the configured browser-slot command without a shell and returns its exit status; 1 when it cannot start.
 export function runSlotCommand(command, { run = spawnSync, home = homedir() } = {}) {
-  return todo(command, run, home);
+  const [cmd, ...args] = splitCommand(command, home);
+  const res = run(cmd, args, { stdio: 'ignore', timeout: SLOT_TIMEOUT_MS, windowsHide: true });
+  if (res.error) return 1;
+  return typeof res.status === 'number' ? res.status : 1;
 }
+
+// Per-platform install locations; Linux relies on PATH.
 export function chromeCandidates({ platform = process.platform, env = process.env, home = homedir() } = {}) {
-  return todo(platform, env, home);
+  if (platform === 'darwin') {
+    const app = ['Google Chrome.app', 'Contents', 'MacOS', 'Google Chrome'];
+    return [join('/Applications', ...app), join(home, 'Applications', ...app)];
+  }
+  if (platform === 'win32') {
+    const tail = join('Google', 'Chrome', 'Application', 'chrome.exe');
+    return [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean).map((base) => join(base, tail));
+  }
+  return [];
 }
+
+// First existing listed Chrome path. On Linux falls back to PATH names; null when nothing is found.
 export function findChrome({ platform = process.platform, env = process.env, home = homedir(), exists = existsSync } = {}) {
-  return todo(platform, env, home, exists);
+  const listed = chromeCandidates({ platform, env, home }).find((p) => exists(p));
+  if (listed) return listed;
+  if (platform === 'darwin' || platform === 'win32') return null;
+  for (const name of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
+    const found = which(name, { env, platform });
+    if (found) return found;
+  }
+  return null;
 }
+
+// Parsed state file, or null when it is missing or unreadable.
 export function readState(dataDir) {
-  return todo(dataDir);
+  const file = join(dataDir, STATE_FILE);
+  if (!existsSync(file)) return null;
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
 }
+
+// 0600 because the port is a key to a signed-in browser.
 export function writeState(dataDir, state) {
-  return todo(dataDir, state);
+  mkdirSync(dataDir, { recursive: true });
+  const file = join(dataDir, STATE_FILE);
+  writeFileSync(file, `${JSON.stringify(state)}\n`, { mode: 0o600 });
+  chmodSync(file, 0o600);
 }
+
+// True when the debugging port answers /json/version within 3 seconds.
 export async function reachable(port, { fetchFn = fetch } = {}) {
-  return todo(port, fetchFn);
+  if (!port) return false;
+  try {
+    const res = await fetchFn(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
+
+// A recorded instance counts only when its own PID is alive and its port answers; anything else is stale.
 export async function liveState(dataDir, deps = {}) {
-  return todo(dataDir, deps);
+  const state = readState(dataDir);
+  if (!state) return null;
+  const alive = (deps.isAlive ?? isPidAlive)(state.pid);
+  return alive && (await reachable(state.port, deps)) ? state : null;
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Chrome writes the port it picked for --remote-debugging-port=0 on the first line of DevToolsActivePort.
+async function waitForPort(profile, { now = Date.now, wait = sleep } = {}) {
+  const file = join(profile, 'DevToolsActivePort');
+  const until = now() + PORT_WAIT_MS;
+  while (now() < until) {
+    if (existsSync(file)) {
+      const port = Number(readFileSync(file, 'utf8').split('\n')[0]);
+      if (Number.isInteger(port) && port > 0) return port;
+    }
+    await wait(200);
+  }
+  return null;
+}
+
+// Chrome flags: dedicated profile directory, debugging port bound to loopback only.
 export function launchArgs(profile, { headless = false } = {}) {
-  return todo(profile, headless);
+  return [
+    `--user-data-dir=${profile}`,
+    '--remote-debugging-port=0',
+    '--remote-debugging-address=127.0.0.1',
+    '--no-first-run',
+    '--no-default-browser-check',
+    ...(headless ? ['--headless=new'] : []),
+  ];
 }
+
+// Profile directory from config.browser.automation_profile, else the default under dataDir.
 export function profilePath(config, dataDir) {
-  return todo(config, dataDir);
+  return String(config?.browser?.automation_profile ?? '').trim() || join(dataDir, PROFILE_DIR);
 }
-const cmdOpen = async () => todo();
-const cmdStatus = async () => todo();
-const cmdRead = async () => todo();
-const cmdClose = async () => todo();
+
+async function cmdOpen({ dataDir, config, flags, deps, say }) {
+  const slot = resolveSlotCommand({ env: deps.env ?? process.env, config });
+  if (!slot) say('chrome: no browser slot command set');
+  const live = await liveState(dataDir, deps);
+  if (live) {
+    say(`chrome: ready ${live.profile ?? profilePath(config, dataDir)}`);
+    return EXIT.ok;
+  }
+  if (slot) {
+    const code = (deps.runSlot ?? runSlotCommand)(slot);
+    if (code !== 0) {
+      say(`chrome: waiting for a browser slot (hook exit ${code})`);
+      return EXIT.wait;
+    }
+  }
+  const binary = (deps.findChrome ?? findChrome)({ env: deps.env ?? process.env });
+  if (!binary) {
+    say('chrome: Google Chrome was not found; install Chrome, then run this again');
+    return EXIT.notRunning;
+  }
+  const profile = profilePath(config, dataDir);
+  mkdirSync(profile, { recursive: true });
+  rmSync(join(profile, 'DevToolsActivePort'), { force: true });
+  const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless) }), { detached: true, stdio: 'ignore', windowsHide: true });
+  child.unref?.();
+  const port = await waitForPort(profile, deps);
+  if (!port) {
+    say('chrome: Chrome started but opened no DevTools port within 20 seconds');
+    return EXIT.notRunning;
+  }
+  writeState(dataDir, { port, pid: child.pid, profile, started: new Date().toISOString() });
+  say(`chrome: ready ${profile}`);
+  return EXIT.ok;
+}
+
+async function cmdStatus({ dataDir, flags, deps, say }) {
+  const live = await liveState(dataDir, deps);
+  const out = { reachable: live ? 'yes' : 'no', port: live?.port ?? null, profile: live?.profile ?? null };
+  say(flags.json ? JSON.stringify(out) : `reachable ${out.reachable}${live ? ` port ${live.port}` : ''}`);
+  return EXIT.ok;
+}
+
+async function cmdRead({ dataDir, positionals, deps, say }) {
+  const url = positionals[0];
+  if (!url) throw new UsageError('read needs a url');
+  const live = await liveState(dataDir, deps);
+  if (!live) {
+    say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
+    return EXIT.notRunning;
+  }
+  const text = await withBrowser(live.port, async (client) => {
+    const { sessionId, targetId } = await openPage(client, url);
+    try {
+      return await readText(client, sessionId);
+    } finally {
+      await client.send('Target.closeTarget', { targetId }).catch(() => {});
+    }
+  }, deps);
+  say(text);
+  return EXIT.ok;
+}
+
+// Stops only the PID this CLI recorded, never anything found by name, and only while that PID is alive and its port
+// still answers: the state file outlives a crash or reboot, after which the recorded PID can belong to another process.
+async function cmdClose({ dataDir, deps, say }) {
+  const state = await liveState(dataDir, deps);
+  if (state?.pid) {
+    try {
+      (deps.kill ?? process.kill)(state.pid);
+    } catch {
+      // already gone between the check and the kill
+    }
+  }
+  rmSync(join(dataDir, STATE_FILE), { force: true });
+  say('chrome: closed');
+  return EXIT.ok;
+}
+
 export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, close: cmdClose };
 export const COMMANDS = Object.keys(HANDLERS);
 export const FLAGS = { headless: 'boolean' };
+
+// Config is optional: status must work before setup has written config/student.yml.
+async function readConfig(root) {
+  try {
+    return await loadStudentConfig({ root });
+  } catch {
+    return null;
+  }
+}
+
+// Parses argv, loads optional config, and dispatches to the command handler.
 export async function main(argv = process.argv.slice(2), deps = {}) {
-  return todo(argv, deps);
+  const { command, positionals, flags } = parseArgs(argv, { commands: COMMANDS, flags: FLAGS });
+  const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
+  const config = await readConfig(paths.root);
+  const say = deps.say ?? ((line) => console.log(line));
+  return HANDLERS[command]({ dataDir: paths.dataDir, paths, config, flags, positionals, deps, say });
 }
 
 if (isMain(import.meta.url)) await runCli(() => main());
