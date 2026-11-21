@@ -61,6 +61,15 @@ const PHONE_RE = /(?<![\w.-])(?:\+?1[ .-]?)?\(?([2-9]\d{2})\)?[ .-](\d{3})[ .-](
 export const SYNTHETIC_MARKER = 'SYNTHETIC FIXTURE';
 const RESUME_SECTIONS = [/^#+\s*(work\s+)?experience\b/im, /^#+\s*education\b/im, /^#+\s*(skills|projects)\b/im];
 
+// A token of SHORT_TOKEN_MAX characters or fewer also sits inside ordinary words, so it counts only as a whole word
+// (an address or domain part like "x.edu" still counts); longer tokens count anywhere.
+const SHORT_TOKEN_MAX = 3;
+const WORD_CHAR = /[a-z0-9]/;
+function insideWord(lower, idx, token) {
+  if (token.length > SHORT_TOKEN_MAX) return false;
+  return WORD_CHAR.test(lower[idx - 1] ?? '') || WORD_CHAR.test(lower[idx + token.length] ?? '');
+}
+
 const TEXT_SIZE_LIMIT = 2 * 1024 * 1024;
 
 // A fixture that shows even one resume section is resume-shaped; elsewhere two sections are needed
@@ -90,7 +99,9 @@ export function scanText(relPath, text) {
     let idx = lower.indexOf(token);
     while (idx !== -1) {
       // Report the line but not the token: CI logs are public too.
-      findings.push({ file: relPath, line: lineOf(idx), rule: 'blocked-token', detail: `blocked token #${BLOCKED_TOKENS.indexOf(token) + 1}` });
+      if (!insideWord(lower, idx, token)) {
+        findings.push({ file: relPath, line: lineOf(idx), rule: 'blocked-token', detail: `blocked token #${BLOCKED_TOKENS.indexOf(token) + 1}` });
+      }
       idx = lower.indexOf(token, idx + token.length);
     }
   }

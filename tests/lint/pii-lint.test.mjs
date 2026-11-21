@@ -51,3 +51,11 @@ test('M-001-S12 untracked file with a non-example email exits 1; clean tree exit
 test('CLI exits 2 on unknown flag', () => {
   assert.equal(spawnSync(process.execPath, [cli, '--bogus'], { encoding: 'utf8' }).status, 2);
 });
+
+test('a short blocked token counts only as a whole word', () => {
+  const short = String.fromCharCode(115, 99, 117);
+  assert.ok(scanText('a.md', `school ${short}`).some((f) => f.rule === 'blocked-token'));
+  assert.ok(scanText('a.md', `mail x@${short}.edu`).some((f) => f.rule === 'blocked-token'));
+  assert.equal(scanText('a.md', 'a short discussion').filter((f) => f.rule === 'blocked-token').length, 0);
+});
+
