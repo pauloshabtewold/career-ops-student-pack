@@ -3,24 +3,30 @@
 // (LinkedIn, Gmail, Handshake), driven over the DevTools port by lib/cdp.mjs. Chrome 136+ refuses remote debugging on the
 // default profile, and a separate profile keeps the student's everyday browsing out of reach, so the default profile is
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
-// Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close   [--root R] [--data-dir D]
-// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage, 4 waiting for a browser slot, 7 automation Chrome not running
-// or its profile held by a Chrome this CLI did not record. 5 stays the pack's "needs the
-// user" code, so a caller never mistakes a stopped browser for a question to the student.
+// Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close
+//        chrome.mjs fill --plan FILE | submit --batch-id ID --item N   [--root R] [--data-dir D]
+// fill types into the form by field map and never into a password field; a CAPTCHA or bot check stops it and moves the
+// job to the batch's finish-yourself list. submit clicks only after budget.mjs check passes for the approved item.
+// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage, 3 refused (password field, or budget.mjs refused the submit),
+// 4 wait (browser slot or budget.mjs wait), 5 needs the user (budget.mjs exit 5 passed through, or a submit that clicked
+// but could not be logged), 6 CAPTCHA or bot check (finish it yourself), 7 automation Chrome not running or its profile
+// held by a Chrome this CLI did not record.
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { readText, openPage, withBrowser } from '../lib/cdp.mjs';
+import { addFinishYourself } from '../lib/batch-file.mjs';
+import { attachTo, click, describeField, evaluate, readText, openPage, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { isPidAlive, withLock } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { runResult } from '../lib/run.mjs';
 import { which } from '../lib/which.mjs';
 
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
-export const EXIT = Object.freeze({ ok: 0, stuck: 1, usage: 2, wait: 4, notRunning: 7 });
+export const EXIT = Object.freeze({ ok: 0, stuck: 1, usage: 2, refused: 3, wait: 4, needsUser: 5, captcha: 6, notRunning: 7 });
 const PORT_WAIT_MS = 20 * 1000;
 const SLOT_TIMEOUT_MS = 60 * 1000;
 // A second open waits out the first one's slot command and port wait, then finds its Chrome live and reuses it.
@@ -322,9 +328,164 @@ async function cmdClose({ dataDir, config, deps, say }) {
   return EXIT.ok;
 }
 
-export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, close: cmdClose };
+// Password fields stay with the student: type=password or a password autocomplete hint.
+export const isPasswordField = (info) => info?.type === 'password' || /(current|new)-password/.test(info?.autocomplete ?? '');
+
+const CAPTCHA_CHECK = `(() => {
+  const frames = [...document.querySelectorAll('iframe')].map((f) => f.src || '').join(' ');
+  if (/recaptcha|hcaptcha|turnstile|challenges\\.cloudflare|arkoselabs|funcaptcha/i.test(frames)) return 'captcha frame';
+  if (document.querySelector('.g-recaptcha, .h-captcha, .cf-turnstile, [data-sitekey]')) return 'captcha widget';
+  const text = document.body ? document.body.innerText : '';
+  return /verify (that )?you are (a )?human|are you a robot|unusual traffic/i.test(text) ? 'bot check text' : null; })()`;
+
+export const detectCaptcha = (client, sessionId) => evaluate(client, sessionId, CAPTCHA_CHECK);
+
+const siteOf = (url) => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+};
+
+async function fillField(client, sessionId, field) {
+  if (field.type === 'select' || field.type === 'select-one') return selectOption(client, sessionId, field.selector, field.value);
+  if (field.type === 'checkbox' || field.type === 'radio') return setChecked(client, sessionId, field.selector, Boolean(field.value));
+  return setValue(client, sessionId, field.selector, field.value);
+}
+
+// Fills one plan; returns { code, filled, problems }. The tab stays open for submit.
+export async function fillPlan(client, plan, { dataDir }) {
+  const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
+  const { sessionId } = page;
+  const blocked = await detectCaptcha(client, sessionId);
+  if (blocked) {
+    if (plan.batchId) addFinishYourself(dataDir, plan.batchId, { company: plan.company, role: plan.role, link: plan.link ?? plan.url, reason: blocked });
+    return { code: EXIT.captcha, filled: 0, problems: [`blocked: ${siteOf(plan.url)} shows a ${blocked}; added to finish these yourself`] };
+  }
+  const problems = [];
+  let filled = 0;
+  for (const field of (plan.fields ?? []).filter((f) => f.selector && f.value !== undefined && f.value !== null && f.value !== '')) {
+    if (isPasswordField(await describeField(client, sessionId, field.selector))) {
+      return { code: EXIT.refused, filled, problems: [`refused: ${field.label || field.selector} is a password field; sign-ins stay with you`] };
+    }
+    if (await fillField(client, sessionId, field)) filled++;
+    else problems.push(`could not fill ${field.label || field.selector}`);
+  }
+  for (const up of plan.uploads ?? []) {
+    if (up.selector && up.path) {
+      await setFileInputFiles(client, sessionId, up.selector, [up.path]);
+      filled++;
+    }
+  }
+  return { code: EXIT.ok, filled, problems };
+}
+
+async function cmdFill({ dataDir, flags, deps, say }) {
+  if (!flags.plan) throw new UsageError('fill needs --plan FILE');
+  const plan = JSON.parse(readFileSync(flags.plan, 'utf8'));
+  const live = await liveState(dataDir, deps);
+  if (!live) {
+    say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
+    return EXIT.notRunning;
+  }
+  const res = await withBrowser(live.port, (client) => fillPlan(client, plan, { dataDir }), deps);
+  for (const p of res.problems) say(`chrome: ${p}`);
+  if (res.code === EXIT.ok) say(`chrome: filled ${res.filled} field(s) on ${siteOf(plan.url)}`);
+  return res.code;
+}
+
+// The budget check runs as a child process with the same --batch-id and --item that the log records after the click.
+export function budgetCall(paths, verb, action, plan, extra = [], runner = runResult) {
+  const args = [join(paths.packRoot, 'scripts', 'budget.mjs'), verb, action, '--company', plan.company, '--batch-id', plan.batchId, '--item', String(plan.item), '--root', paths.root, '--data-dir', paths.dataDir, ...extra];
+  return runner(process.execPath, args, { cwd: paths.root });
+}
+
+// The fill plan fill-plan.mjs wrote for one batch item: data/fill-plans/<batchId>/<item>.json.
+export const planFile = (dataDir, batchId, item) => join(dataDir, 'fill-plans', batchId, `${item}.json`);
+
+export function planFor(dataDir, batchId, item) {
+  const file = planFile(dataDir, batchId, item);
+  if (!existsSync(file)) return null;
+  return { ...JSON.parse(readFileSync(file, 'utf8')), batchId, item, planFile: file };
+}
+
+export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit' });
+
+// budget.mjs exit codes keep their meaning here: 4 wait, 5 needs the user (another track at the company); any other
+// non-zero is a refusal.
+export const budgetExit = (code) => (code === 4 ? EXIT.wait : code === 5 ? EXIT.needsUser : EXIT.refused);
+
+const SUBMIT_SELECTOR = 'button[type=submit], input[type=submit]';
+
+// On the page: CAPTCHA check, then the button, then the pending row, then the click. The pending row is logged before the
+// click so a click whose apply.submit log later fails still leaves the item used; budget.mjs approvedItem counts it.
+async function clickSubmit(client, { plan, paths, item, runner }) {
+  const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
+  if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
+  const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
+  if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
+  const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
+  if (pending.code !== 0) return { state: 'pending-failed', res: pending };
+  if (!(await click(client, page.sessionId, selector))) return { state: 'no-button' };
+  // A screenshot is taken only here, to prove what the submit showed; every other read is text.
+  await new Promise((r) => setTimeout(r, 1500));
+  writeFileSync(join(dirname(plan.planFile), `${item}-submitted.png`), await screenshot(client, page.sessionId));
+  return { state: 'clicked' };
+}
+
+const childLine = (res) => (res.stdout || res.stderr || '').trim().split('\n')[0] || `exit ${res.code}`;
+
+async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
+  if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('submit needs --batch-id ID --item N');
+  const action = SUBMIT_KINDS[flags.kind ?? 'apply'];
+  if (!action) throw new UsageError(`--kind must be one of ${Object.keys(SUBMIT_KINDS).join(', ')}`);
+  const plan = planFor(dataDir, flags.batchId, flags.item);
+  if (!plan) {
+    say(`chrome: no fill plan for item ${flags.item} of batch ${flags.batchId}`);
+    return EXIT.usage;
+  }
+  const scoreArgs = ['--score', String(plan.score ?? 0), '--batch', '1', ...(plan.track ? ['--track', plan.track] : [])];
+  const check = budgetCall(paths, 'check', action, plan, scoreArgs, deps.runner);
+  if (check.code !== 0) {
+    say(`chrome: budget.mjs said ${childLine(check)} (exit ${check.code}); nothing was clicked`);
+    return budgetExit(check.code);
+  }
+  const live = await liveState(dataDir, deps);
+  if (!live) {
+    say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
+    return EXIT.notRunning;
+  }
+  const clicked = await withBrowser(live.port, (client) => clickSubmit(client, { plan, paths, item: flags.item, runner: deps.runner }), deps);
+  return afterClick({ clicked, plan, paths, flags, action, dataDir, deps, say });
+}
+
+function afterClick({ clicked, plan, paths, flags, action, dataDir, deps, say }) {
+  if (clicked.state === 'captcha') {
+    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link: plan.link ?? plan.url });
+    say(`chrome: blocked: ${siteOf(plan.url)} shows a CAPTCHA; added to finish these yourself`);
+    return EXIT.captcha;
+  }
+  if (clicked.state === 'no-button') {
+    say('chrome: no submit button found; nothing was clicked');
+    return EXIT.refused;
+  }
+  if (clicked.state === 'pending-failed') {
+    say(`chrome: budget.mjs could not record the pending submit (${childLine(clicked.res)}); nothing was clicked`);
+    return EXIT.refused;
+  }
+  const log = budgetCall(paths, 'log', action, plan, plan.track ? ['--track', plan.track, '--target', plan.url] : ['--target', plan.url], deps.runner);
+  if (log.code !== 0) {
+    say(`chrome: item ${flags.item} of ${flags.batchId} was submitted but budget.mjs log ${action} failed (${childLine(log)}); its pending row keeps it from being submitted again. Tell the student before any other submit today.`);
+    return EXIT.needsUser;
+  }
+  say(`chrome: submitted item ${flags.item} of ${flags.batchId}`);
+  return EXIT.ok;
+}
+
+export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, close: cmdClose, fill: cmdFill, submit: cmdSubmit };
 export const COMMANDS = Object.keys(HANDLERS);
-export const FLAGS = { headless: 'boolean' };
+export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string' };
 
 // Config is optional: status must work before setup has written config/student.yml.
 async function readConfig(root) {

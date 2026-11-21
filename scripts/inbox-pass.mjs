@@ -18,12 +18,14 @@ import {
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig, parseConfig } from '../lib/config.mjs';
+import { normalizeUsage, parseCodex } from '../lib/headless.mjs';
 import { stepRunners } from '../lib/ingest.mjs';
 import { ALERT_DOMAINS } from '../lib/mail-classify.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
+import { append as appendLedger, ledgerRow } from '../lib/usage-ledger.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { oneLine } from '../lib/text.mjs';
 import { effectiveLimits } from './budget.mjs';
@@ -69,9 +71,9 @@ export function buildPrompt({ epoch, assessmentDomains = [], companies = [], che
     `Run these Gmail searches in this order and stop collecting after ${MESSAGE_CAP} messages in total:`,
     ...searches.map((q, i) => `${i + 1}. ${q}`),
     `${searches.length + 1}. ${alertSearch}  (job alerts)`,
-    'Read a message body only for job alert senders, to find each job title, company, location and the job id shown in the job link text; do not open the link. For every other message use the sender, subject and snippet from the search result.',
-    `Answer with only one JSON object and no other text: {"messages":[{"id":"...","from":"...","subject":"...","snippet":"at most ${SNIPPET_CHARS} characters","date":"...","jobs":[{"title":"","company":"","location":"","job_id":"","site":""}]}],"not_read":N}`,
-    `Give jobs only for job alert senders. not_read is the number of matching messages you did not read because of the ${MESSAGE_CAP}-message cap.`,
+    'Read a message body only for job alert senders, to find each job title, company, location, the job id shown in the job link text and the link target (href) of each job link. Copy link targets as text; never open or follow one. For every other message use the sender, subject and snippet from the search result.',
+    `Answer with only one JSON object and no other text: {"messages":[{"id":"...","from":"...","subject":"...","snippet":"at most ${SNIPPET_CHARS} characters","date":"...","jobs":[{"title":"","company":"","location":"","job_id":"","site":"","link":""}],"links":["..."]}],"not_read":N}`,
+    `Give jobs and links only for job alert senders; links lists every job link target in the body, in order. not_read is the number of matching messages you did not read because of the ${MESSAGE_CAP}-message cap.`,
   ].join('\n');
 }
 
@@ -161,6 +163,19 @@ export function parseAnswer(text) {
   return null;
 }
 
+// Real token usage of the pass through lib/headless.mjs's parsers: claude's stream-json result event carries usage and
+// modelUsage; codex reports usage on turn.completed events. Returns the ledger token columns plus model, or null when
+// the run reported none (recorded as unmeasured).
+export function passUsage(agent, stdout) {
+  if (agent === 'claude') {
+    const result = parseLines(stdout).filter((e) => e.type === 'result').pop();
+    const usage = normalizeUsage(result?.usage);
+    return usage && { ...usage, model: Object.keys(result.modelUsage ?? {}).join(',') || null };
+  }
+  const { usage } = parseCodex(stdout);
+  return usage && { ...usage, model: null };
+}
+
 // ---- failures ----
 
 const FLAG_REJECTED = /unknown option|unexpected argument|unrecognized (?:option|argument)|invalid option/i;
@@ -238,6 +253,11 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   });
   const timeout = Math.max(1000, Math.min(AGENT_TIMEOUT_MS, deadline - now()));
   const run = callAgent({ agent, agentPath, prompt, config, packRoot: paths.packRoot, runner, platform, timeout });
+  if (!check) {
+    const { model = null, ...tokens } = passUsage(agent, run.stdout) ?? {};
+    const usage = Object.keys(tokens).length ? tokens : null;
+    await appendLedger(paths.dataDir, ledgerRow({ date: today, step: 'inbox', feature: 'M13', agent, model: model ?? (agent === 'claude' ? 'sonnet' : 'codex'), rows: 1, usage }));
+  }
 
   // The audit comes first: a run that touched anything but Gmail read tools is thrown away whatever else it did.
   const audit = auditRun(agent, run.stdout);

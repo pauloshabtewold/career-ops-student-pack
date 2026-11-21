@@ -30,6 +30,13 @@ export const queueAnswers = (over = {}) => ({
   ...over,
 });
 
+// Learned form questions as the answer bank stores them (normalized question text -> answer). Fake values only.
+export const QUESTIONS_FAKE = Object.freeze({ 'why do you want to work here': 'Fake reason about the team', 'are you over 18': 'Yes' });
+
+// A profile.yml text whose application_answers block carries a questions map.
+export const profileWithQuestions = (questions = QUESTIONS_FAKE) =>
+  ['candidate:', '  full_name: "Pat Existing"', 'application_answers:', '  work_authorization: Old auth', '  questions:', ...Object.entries(questions).map(([q, a]) => `    "${q}": "${a}"`), ''].join('\n');
+
 // A complete final-stage answers file with the eeo map.
 export const finalAnswers = (over = {}) => {
   const base = persona();

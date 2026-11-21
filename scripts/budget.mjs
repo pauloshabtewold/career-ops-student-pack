@@ -3,6 +3,8 @@
 // CEILINGS is frozen and nothing reads the environment: config limits can only tighten a ceiling, and every
 // clamp of a looser value is logged. compat.json carries this file's SHA-256 (scripts/compat-hash.mjs).
 // Model-usage triage is not a ceiling here: the student owns that budget (lib/triage-budget.mjs).
+// Every irreversible send kind also needs its item in a batch the student approved: `log batch.approve` records the
+// approval in the student's words, and a check of a send kind passes only for a listed item not yet sent (approvedItem).
 // Exit codes: 0 ok, 2 usage, 3 refused, 4 wait, 5 needs the user.
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -44,6 +46,7 @@ export const CEILINGS = deepFreeze({
   first_week_submit_per_session: down(3, 'count', 'session'),
   first_week_days: down(7, 'days', 'once'),
   batch_size: down(3, 'count', 'batch'),
+  approval_batch_max: down(10, 'count', 'batch'),
   score_floor: up(3.5, 'score', 'submit'),
   per_company_per_day: down(2, 'count', 'day'),
   jd_browser_per_session: down(10, 'count', 'session'),
@@ -86,9 +89,14 @@ const CHECKABLE = [
   'apply.jd_browser',
 ];
 // Events recorded as they happen; they are not budgeted and carry no gap.
-const OBSERVED = ['linkedin.accept', 'apply.track-confirm', 'apply.policy'];
+// apply.pending is logged by chrome.mjs right before a submit click, so an item stays used even when the apply.submit log
+// after the click fails.
+const OBSERVED = ['linkedin.accept', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending'];
+// Send kinds whose check needs a logged, unused approved batch item.
+const SEND_KINDS = ['apply.submit'];
 const APPROVAL_RE = /^(send|submit) (all|\d+(,\s*\d+)*)$/;
-const NEEDS_APPROVAL = [...LINKEDIN_SENDS, 'apply.submit'];
+// apply.submit carries --batch-id and --item instead of approval words; its approval is the logged batch.approve.
+const NEEDS_APPROVAL = [...LINKEDIN_SENDS];
 const EXIT = { ok: 0, refused: 3, wait: 4, 'needs-user': 5 };
 
 const groupOf = (action) => (action.startsWith('linkedin.') ? 'linkedin' : action.startsWith('handshake.') ? 'handshake' : null);
@@ -254,6 +262,32 @@ function gapOrOk({ group, rows, nowMs, remainingFrom }) {
   return result('ok', 'within budget', { remaining: remainingFrom.length ? Math.min(...remainingFrom) : null });
 }
 
+const listOf = (text) => String(text ?? '').split(',').map((n) => Number(n.trim())).filter(Number.isInteger);
+
+// True only when a logged batch.approve for batchId lists item and no send or pending row was logged yet for that batch-id
+// and item. One function serves every send kind, so an approval is spent once in total, across kinds.
+export function approvedItem(rows, batchId, item) {
+  if (!batchId || !Number.isInteger(item)) return false;
+  const approved = rows.some((r) => r.action === 'batch.approve' && detailValue(r.detail, 'batch') === batchId && listOf(detailValue(r.detail, 'items')).includes(item));
+  const used = rows.some((r) => (SEND_KINDS.includes(r.action) || r.action === 'apply.pending') && detailValue(r.detail, 'batch') === batchId && Number(detailValue(r.detail, 'item')) === item);
+  return approved && !used;
+}
+
+// A missing approval refuses this one item only: it is marked unlogged so it does not write a budget.refusal row that
+// would stop every other approved item for the rest of the day.
+function approvalRefusal({ action, args = {}, history = [] }) {
+  if (!SEND_KINDS.includes(action) || args.recheck) return null;
+  const refuse = (reason) => result('refused', reason, { period: 'day', unlogged: true });
+  if (!args.batchId || !Number.isInteger(args.item)) return refuse(`${action} needs --batch-id and --item from an approved batch`);
+  return approvedItem(history, args.batchId, args.item) ? null : refuse(`item ${args.item} of batch ${args.batchId} has no unused logged approval`);
+}
+
+// The CLI check: a send kind first needs its approved, unused batch item, then the ceilings decide. evaluate() stays the
+// ceiling decision alone.
+export function evaluateCheck(opts) {
+  return approvalRefusal(opts) ?? evaluate(opts);
+}
+
 /** Decides one action. history is the action-log rows; gaps are drawn at log time, not here. */
 export function evaluate({ action, args = {}, history = [], config = {}, session = '', now = createClock({ timezone: config.timezone }).now() }) {
   const ctx = makeContext({ action, args, history, config, session, now });
@@ -312,7 +346,8 @@ function submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refu
 // ---------------------------------------------------------------------------------------------------------
 // CLI
 
-const FLAGS = { target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string' };
+// --batch is the integer fill-session size; --batch-id names an approval batch and --item its numbered line.
+const FLAGS = { target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string', 'batch-id': 'string', item: 'int', items: 'string' };
 const COMMANDS = ['check', 'log', 'session-start', 'status', 'warning', 'due-withdrawals'];
 
 function sessionFile(dataDir) {
@@ -342,7 +377,7 @@ function argsFrom(flags, recheck = false) {
     score = Number(flags.score);
     if (!Number.isFinite(score)) throw new UsageError(`--score expects a number, got "${flags.score}"`);
   }
-  return { target: flags.target, company: flags.company, track: flags.track, length: flags.length, batch: flags.batch, score, search: flags.search, pending: flags.pending, tier: flags.tier, recheck };
+  return { target: flags.target, company: flags.company, track: flags.track, length: flags.length, batch: flags.batch, score, search: flags.search, pending: flags.pending, tier: flags.tier, batchId: flags.batchId, item: flags.item, recheck };
 }
 
 async function logClamps(file, config, clock, session, history) {
@@ -427,6 +462,9 @@ function actionFrom({ command, positionals, flags }) {
   if (command === 'log' && NEEDS_APPROVAL.includes(action) && !APPROVAL_RE.test(flags.approval ?? '')) {
     throw new UsageError(`${action} needs --approval like "send all" or "submit 1,2"`);
   }
+  if (command === 'log' && SEND_KINDS.includes(action) && (!flags.batchId || !Number.isInteger(flags.item))) {
+    throw new UsageError(`${action} needs --batch-id and --item of the approved batch item`);
+  }
   return action;
 }
 
@@ -438,6 +476,8 @@ async function logAllowed({ action, now, env, res }) {
     details.push(`next_allowed=${new Date(now.getTime() + drawGapMs(config, rng)).toISOString()}`);
   }
   if (flags.track) details.push(`track=${flags.track}`);
+  if (flags.batchId) details.push(`batch=${flags.batchId}`);
+  if (Number.isInteger(flags.item)) details.push(`item=${flags.item}`);
   const searchId = flags.search ?? flags.target ?? '';
   if (action === 'handshake.page') details.push(`search=${searchId}`);
   await write([
@@ -459,14 +499,16 @@ async function cmdCheckLog(env) {
   const all = [...history, ...fresh.map((r) => ({ ...r, ms: Date.parse(r.ts) }))];
   const now = clock.now();
 
+  if (command === 'log' && action === 'batch.approve') return logBatchApprove(env);
   if (command === 'log' && OBSERVED.includes(action)) {
-    await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail: flags.track ? `track=${flags.track}` : '' })]);
+    const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`].filter(Boolean).join(';');
+    await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail })]);
     console.log(`logged ${action}`);
     return 0;
   }
 
-  const res = evaluate({ action, args: argsFrom(flags, command === 'log'), history: all, config, session, now });
-  if (res.status === 'refused' && !res.repeat) {
+  const res = evaluateCheck({ action, args: argsFrom(flags, command === 'log'), history: all, config, session, now });
+  if (res.status === 'refused' && !res.repeat && !res.unlogged) {
     const scope = res.scope ?? action;
     await write([mkRow('budget.refusal', { target: scope, detail: `period=${res.period ?? 'day'};reason=${res.reason}` })]);
   }
@@ -475,6 +517,23 @@ async function cmdCheckLog(env) {
     return EXIT[res.status];
   }
   return logAllowed({ action, now, env, res });
+}
+
+// The student's approval of one batch: the batch id, the approved item numbers and their own words.
+async function logBatchApprove({ flags, config, write, mkRow }) {
+  const items = listOf(flags.items);
+  if (!flags.batchId || !items.length || !String(flags.approval ?? '').trim()) {
+    throw new UsageError('batch.approve needs --batch-id, --items like "1,2,4" and --approval with the student\'s words');
+  }
+  const { values } = effectiveLimits(config);
+  if (items.length > values.approval_batch_max) {
+    console.log(`refused: ${items.length} items exceed approval_batch_max of ${values.approval_batch_max}`);
+    return EXIT.refused;
+  }
+  const detail = `batch=${flags.batchId};items=${items.join(',')}`;
+  await write([mkRow('batch.approve', { approval: flags.approval, detail })]);
+  console.log(`logged batch.approve ${flags.batchId}: items ${items.join(',')}`);
+  return 0;
 }
 
 const COMMAND_HANDLERS = { warning: cmdWarning, 'due-withdrawals': cmdDueWithdrawals, 'session-start': cmdSessionStart, status: cmdStatus };

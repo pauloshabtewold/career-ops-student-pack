@@ -33,8 +33,8 @@ async function fixture() {
     act('2026-10-16T15:00:00.000Z', 'linkedin.accept'),
     act('2026-10-17T15:00:00.000Z', 'linkedin.accept', { company: COMPANY_B }),
     act('2026-10-17T16:00:00.000Z', 'linkedin.message'),
-    act('2026-10-14T16:00:00.000Z', 'apply.submit'),
-    act('2026-10-15T16:00:00.000Z', 'apply.submit', { company: COMPANY_B }),
+    act('2026-10-14T16:00:00.000Z', 'apply.submit', { detail: 'track=swe-intern;batch=2026-10-14-apply-1;item=1' }),
+    act('2026-10-15T16:00:00.000Z', 'apply.submit', { company: COMPANY_B, detail: 'batch=2026-10-15-apply-1;item=2' }),
     act('2026-10-16T16:00:00.000Z', 'apply.submit'),
     // week 2026-W43 (Oct 19 to 25)
     act('2026-10-19T15:00:00.000Z', 'linkedin.message'),

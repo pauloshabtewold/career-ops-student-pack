@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as yaml from 'js-yaml';
-import { mergeProfileAnswers, ProfileParseError } from '../../lib/profile-answers.mjs';
-import { apply, finalAnswers, EEO_FAKE, scratch } from '../helpers/profile-harness.mjs';
+import { learn, mergeProfileAnswers, ProfileParseError } from '../../lib/profile-answers.mjs';
+import { apply, finalAnswers, EEO_FAKE, QUESTIONS_FAKE, profileWithQuestions, scratch } from '../helpers/profile-harness.mjs';
 
 const BEFORE = ['# my own profile, hand edited', 'candidate:', '  full_name: "Pat Existing"', '  email: pat.existing@example.edu', ''].join('\n');
 const OLD_BLOCK = ['application_answers:', '  work_authorization: Old auth', '  custom_note: keep me', '  eeo:', '    gender: old-gender', '    pronouns: old-pron'].join('\n');
@@ -96,4 +96,20 @@ for (const [label, text] of [
 test('extra check: mergeProfileAnswers throws ProfileParseError for text that does not parse or holds two application_answers keys', () => {
   assert.throws(() => mergeProfileAnswers('candidate: [unclosed\n', { start_date: 'immediately' }), ProfileParseError);
   assert.throws(() => mergeProfileAnswers('application_answers:\n  a: 1\napplication_answers:\n  b: 2\n', { start_date: 'immediately' }), ProfileParseError);
+});
+
+test('final apply keeps the learned questions map and a learn patch adds one question without dropping the others', () => {
+  const r = scratch();
+  try {
+    r.write('config/profile.yml', profileWithQuestions());
+    const res = apply(r, finalAnswers());
+    assert.equal(res.code, 0, res.text);
+    const after = yaml.load(r.read('config/profile.yml')).application_answers;
+    assert.deepEqual(after.questions, QUESTIONS_FAKE);
+    assert.deepEqual(after.eeo, EEO_FAKE);
+    const merged = yaml.load(mergeProfileAnswers(r.read('config/profile.yml'), learn('Do you have a driver\'s license?', 'No'))).application_answers;
+    assert.deepEqual(merged.questions, { ...QUESTIONS_FAKE, 'do you have a driver s license': 'No' });
+  } finally {
+    r.cleanup();
+  }
 });

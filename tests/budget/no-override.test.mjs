@@ -57,12 +57,14 @@ test('M-002-S20 log accepts send or submit approvals with all or item numbers an
   const p = await makePack();
   try {
     assert.equal(run(p, ['log', 'linkedin.message', '--target', 'ex-new', '--company', 'Example Robotics', '--approval', 'send all']).code, 0);
-    assert.equal(run(p, ['log', 'apply.submit', '--target', 'ex-new', '--company', 'Example Robotics', '--track', 'swe-intern', '--approval', 'submit 1,2']).code, 0);
+    assert.equal(run(p, ['log', 'batch.approve', '--batch-id', 'b1', '--items', '1,2', '--approval', 'submit 1,2']).code, 0);
+    assert.equal(run(p, ['log', 'apply.submit', '--target', 'ex-new', '--company', 'Example Robotics', '--track', 'swe-intern', '--batch-id', 'b1', '--item', '1']).code, 0);
     const rows = await readLog(p);
-    assert.equal(rows.length, 2);
-    assert.deepEqual(rows.map((r) => r.action), ['linkedin.message', 'apply.submit']);
+    assert.equal(rows.length, 3);
+    assert.deepEqual(rows.map((r) => r.action), ['linkedin.message', 'batch.approve', 'apply.submit']);
     assert.equal(rows[0].approval, 'send all');
     assert.equal(rows[1].approval, 'submit 1,2');
+    assert.match(rows[2].detail, /batch=b1;item=1/);
   } finally {
     p.cleanup();
   }
@@ -73,6 +75,20 @@ test('M-002-S20 log of a non-send action needs no approval', async () => {
   try {
     assert.equal(run(p, ['log', 'linkedin.profile_view', '--target', 'ex-new']).code, 0);
     assert.equal((await readLog(p)).length, 1);
+  } finally {
+    p.cleanup();
+  }
+});
+
+test('a submit check with a logged approved item passes and the same item after its submit refuses', async () => {
+  const p = await makePack();
+  try {
+    const check = ['check', 'apply.submit', '--company', 'Example Robotics', '--track', 'swe-intern', '--score', '4.2', '--batch', '1', '--batch-id', 'b2', '--item', '1'];
+    assert.equal(run(p, check).code, 3, 'no approval logged yet');
+    assert.equal(run(p, ['log', 'batch.approve', '--batch-id', 'b2', '--items', '1', '--approval', 'approve all']).code, 0);
+    assert.equal(run(p, check).code, 0);
+    assert.equal(run(p, ['log', 'apply.submit', '--target', 'ex-b2', '--company', 'Example Robotics', '--track', 'swe-intern', '--batch-id', 'b2', '--item', '1']).code, 0);
+    assert.equal(run(p, check).code, 3, 'the item was already used');
   } finally {
     p.cleanup();
   }

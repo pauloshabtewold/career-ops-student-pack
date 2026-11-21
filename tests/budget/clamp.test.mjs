@@ -82,3 +82,15 @@ test('M-002-S18 CLI enforces a tighter configured limit', async () => {
     p.cleanup();
   }
 });
+
+test('a configured approval_batch_max above 10 is clamped and a batch.approve of 11 items exits 3', async () => {
+  const p = await makePack({ config: 'limits:\n  approval_batch_max: 25\n' });
+  try {
+    const items = Array.from({ length: 11 }, (_, i) => i + 1).join(',');
+    assert.equal(run(p, ['log', 'batch.approve', '--batch-id', 'b1', '--items', items, '--approval', 'approve all']).code, 3);
+    assert.equal(run(p, ['log', 'batch.approve', '--batch-id', 'b1', '--items', '1,2,3,4,5,6,7,8,9,10', '--approval', 'approve all']).code, 0);
+    assert.equal((await readLog(p)).filter((r) => r.action === 'batch.approve').length, 1);
+  } finally {
+    p.cleanup();
+  }
+});
