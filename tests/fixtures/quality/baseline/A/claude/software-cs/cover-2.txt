@@ -1,0 +1,10 @@
+Dear Hiring Team at Example Software Co 6,
+
+I am a Computer Science student at Northfield Example University (B.S., expected May 2028, GPA 3.6), and I am applying for the Machine Learning Intern role. I know the posting prefers graduate students, and I hope you will consider me as an undergraduate.
+
+I have built a churn prediction model in Python that reached 0.81 AUC on a class dataset, so I have hands-on experience training and evaluating a model. I have not yet worked with PyTorch, and I would be glad to learn it on the job. This past summer I interned at Example Robotics Co, where I wrote unit tests for a telemetry service in Python. That taught me to write code that others can rely on. I have also built a course scheduler web app with a REST API using Node and PostgreSQL, and I am comfortable with Python, Java, SQL, Git, and Docker.
+
+I would welcome the chance to contribute to your team and learn from it. Thank you for your time and consideration.
+
+Sincerely,
+Jordan Testwell

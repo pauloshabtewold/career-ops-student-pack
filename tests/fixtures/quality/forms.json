@@ -1,0 +1,207 @@
+[
+  {
+    "id": "greenhouse-basic",
+    "title": "Greenhouse-style application",
+    "fields": [
+      {
+        "id": "first_name",
+        "label": "First Name"
+      },
+      {
+        "id": "last_name",
+        "label": "Last Name"
+      },
+      {
+        "id": "email",
+        "label": "Email"
+      },
+      {
+        "id": "phone",
+        "label": "Phone"
+      },
+      {
+        "id": "school",
+        "label": "School"
+      },
+      {
+        "id": "favorite_color",
+        "label": "What is your favorite color?"
+      }
+    ],
+    "expected": {
+      "first_name": "first_name",
+      "last_name": "last_name",
+      "email": "email",
+      "phone": "phone",
+      "school": "school",
+      "favorite_color": "unknown"
+    }
+  },
+  {
+    "id": "workday-eligibility",
+    "title": "Workday-style eligibility page",
+    "fields": [
+      {
+        "id": "auth",
+        "label": "Are you legally authorized to work in the United States?",
+        "type": "select",
+        "options": [
+          "Yes",
+          "No"
+        ]
+      },
+      {
+        "id": "sponsor",
+        "label": "Will you now or in the future require sponsorship?",
+        "type": "select",
+        "options": [
+          "Yes",
+          "No"
+        ]
+      },
+      {
+        "id": "start",
+        "label": "Earliest start date"
+      },
+      {
+        "id": "relocate",
+        "label": "Are you willing to relocate?"
+      }
+    ],
+    "expected": {
+      "auth": "work_authorization",
+      "sponsor": "needs_sponsorship",
+      "start": "start_date",
+      "relocate": "willing_to_relocate"
+    }
+  },
+  {
+    "id": "lever-links",
+    "title": "Lever-style links section",
+    "fields": [
+      {
+        "id": "urls[LinkedIn]",
+        "label": "LinkedIn URL"
+      },
+      {
+        "id": "urls[GitHub]",
+        "label": "GitHub URL"
+      },
+      {
+        "id": "urls[Portfolio]",
+        "label": "Portfolio URL"
+      },
+      {
+        "id": "org",
+        "label": "Current company"
+      }
+    ],
+    "expected": {
+      "urls[LinkedIn]": "linkedin_url",
+      "urls[GitHub]": "github_url",
+      "urls[Portfolio]": "portfolio_url",
+      "org": "current_employer"
+    }
+  },
+  {
+    "id": "education",
+    "title": "Education details",
+    "fields": [
+      {
+        "id": "degree",
+        "label": "Degree"
+      },
+      {
+        "id": "major",
+        "label": "Field of study"
+      },
+      {
+        "id": "grad_date",
+        "label": "Graduation date"
+      },
+      {
+        "id": "gpa",
+        "label": "Cumulative GPA"
+      },
+      {
+        "id": "honors",
+        "label": "Honors thesis title"
+      }
+    ],
+    "expected": {
+      "degree": "degree",
+      "major": "major",
+      "grad_date": "graduation",
+      "gpa": "gpa",
+      "honors": "unknown"
+    }
+  },
+  {
+    "id": "eeo-voluntary",
+    "title": "Voluntary self-identification",
+    "fields": [
+      {
+        "id": "gender",
+        "label": "Gender",
+        "type": "select",
+        "options": [
+          "Decline to self-identify"
+        ]
+      },
+      {
+        "id": "veteran",
+        "label": "Veteran status",
+        "type": "select",
+        "options": [
+          "Decline to self-identify"
+        ]
+      },
+      {
+        "id": "disability",
+        "label": "Disability status",
+        "type": "select",
+        "options": [
+          "Decline to self-identify"
+        ]
+      }
+    ],
+    "expected": {
+      "gender": "eeo_gender",
+      "veteran": "eeo_veteran",
+      "disability": "eeo_disability"
+    }
+  },
+  {
+    "id": "contact-location",
+    "title": "Contact and location",
+    "fields": [
+      {
+        "id": "full_name",
+        "label": "Full legal name"
+      },
+      {
+        "id": "city",
+        "label": "Current city"
+      },
+      {
+        "id": "pronouns",
+        "label": "Pronouns (optional)"
+      },
+      {
+        "id": "salary",
+        "label": "Desired salary"
+      },
+      {
+        "id": "referral",
+        "label": "How did you hear about us?"
+      }
+    ],
+    "expected": {
+      "full_name": "full_name",
+      "city": "location",
+      "pronouns": "pronouns",
+      "salary": "unknown",
+      "referral": "referral_source"
+    }
+  }
+]

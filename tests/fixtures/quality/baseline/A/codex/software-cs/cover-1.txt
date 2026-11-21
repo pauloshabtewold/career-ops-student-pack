@@ -1,0 +1,9 @@
+Dear Example Software Co 1 Hiring Team,
+
+I’m applying for the Software Engineering Intern role. I’m studying computer science at Northfield Example University, and last summer I wrote Python unit tests for a telemetry service at Example Robotics Co. I also built a course scheduler with a REST API using Node and PostgreSQL.
+
+I’d bring that testing and backend experience to your team. I’m excited to learn Go, work with a mentor, and take a feature from implementation through testing and release over the summer.
+
+Thank you for considering my application.
+
+Jordan Testwell

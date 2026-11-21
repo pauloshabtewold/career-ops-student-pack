@@ -1,0 +1,25 @@
+{
+  "status": "complete",
+  "base": "fb60e03",
+  "release_tag": "v0.6.1",
+  "commit": "914a544b5bcd966a743ff3084f402376390d08c3",
+  "started": "2026-11-21T10:22:41.969Z",
+  "resumed": [
+    {
+      "at": "2026-11-21T12:58:58.414Z",
+      "commit": "8ce1d96266c8eb37d94eb03fd4635420f331bc29"
+    }
+  ],
+  "estimate": {
+    "claude": 2778400,
+    "codex": 4423000,
+    "judge": 511200
+  },
+  "blocked": [],
+  "parked": [],
+  "finished": "2026-11-21T14:20:33.981Z",
+  "spent": {
+    "claude": 1440035,
+    "codex": 3631840
+  }
+}

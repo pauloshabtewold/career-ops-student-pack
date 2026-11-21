@@ -1,0 +1,1 @@
+Thanks, Sam! I’m most interested in backend engineering, especially teams that build APIs or work on telemetry. I built a REST API for a course scheduler and wrote Python tests for a telemetry service during my internship. Is there a team at Example Software Co 8 you’d suggest I look into?

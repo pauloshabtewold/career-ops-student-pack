@@ -1,0 +1,20 @@
+TRIAGE: PASS | https://jobs.example.com/q/001 | 4.8 | Remote paid-presumed SWE intern, Python/Go backend, fits early-career goals
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 0.8 | Housing policy role in Chicago, not software/data/ML and not in allowed locations
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 2.8 | ML intern fits interests but Phoenix, AZ is not an allowed location and no remote option; grad students preferred
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.4 | Campaign canvassing in Atlanta, not tech and wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 2.6 | Security engineering intern is tech-adjacent but Denver, CO is not an allowed location
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 2.5 | SQL/Python data analyst fits loosely but Columbus, OH is not allowed and it is analyst, not engineering
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 0.8 | Accounting intern for accounting majors, not a software/data/ML role despite Austin location
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 1.8 | Remote supply chain analyst using Excel/Power BI, not software/data engineering/ML
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 0.6 | Corporate finance rotation in Raleigh, not tech and wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.4 | Marketing coordinator needing 2 years experience in Phoenix, not tech and wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.2 | Missing CNA certificate or nursing student status, Chicago, not tech
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.1 | Requires a real estate license the student lacks; commission-only so not a paid role; Denver
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 0.3 | Public health nursing internship in Atlanta, not tech and wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 2.9 | Frontend intern is a fine fit for skills but Denver, CO is not an allowed location
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 0.6 | Nonprofit program assistant in Columbus, not tech and wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 1.5 | SRE II requires 3+ years production experience, excluded by student rules
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 1.3 | Remote communications intern, not software/data/ML; pay not stated
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 0.5 | Investment banking analyst for juniors only, Raleigh; student graduates 2028 and is not tech-aligned
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 2.2 | SAP ERP systems intern is IT-adjacent but Phoenix, AZ is not allowed
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 0.6 | Treasury/FX finance intern in Chicago, not tech and wrong location

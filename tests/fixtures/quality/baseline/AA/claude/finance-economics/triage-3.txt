@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.3 | Principal Architect in Columbus, OH; 15 years experience and people management, not early-career, not a target field or location.
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 1.0 | IT project coordination in Raleigh, NC; not a finance/research role and not in Chicago or Remote.
+TRIAGE: PASS | https://jobs.example.com/q/017 | 4.5 | Entry-level credit risk analyst, Remote; matches credit role target, no CPA or commission requirement.
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 2.5 | Chicago, IL 2027 graduate analyst program, but technology consulting rather than finance/economics, 50% travel, and 2027 start may precede Dec 2027 graduation.
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.1 | Chief Financial Officer is an executive role requiring 20 years of experience, in Phoenix, AZ.
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 0.3 | Graphic design intern in Atlanta, GA; unrelated field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 0.2 | Pediatric Nurse Resident in Denver, CO; requires an RN license the student will not hold, and is unrelated to finance.
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.0 | Customer success in Columbus, OH; not a finance/research role and not in a target location.
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 0.2 | Home health aide in Austin, TX; unrelated field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.2 | Senior Staff Engineer in Columbus, OH requiring 10+ years; not early-career or target field.
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 2.0 | Education policy research assistant in Raleigh, NC; research-adjacent but not economic/finance and not in target location.
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 1.5 | Remote new-grad cloud support; location and level fit but not a finance, credit, or economic research role.
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 2.3 | Grants coordinator in Chicago, IL; location fits and entry-level but administrative, not finance/research analyst work.
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 2.8 | Financial analyst intern matches field, but located in Phoenix, AZ (not Chicago or Remote).
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 1.5 | Product operations intern in Atlanta, GA; not finance and not in a target location.
+TRIAGE: FAIL | https://jobs.example.com/q/019 | 3.2 | Economic research assistant matches interest, but located in Denver, CO with no remote option stated.
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 0.2 | Warehouse associate in Columbus, OH; unrelated field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 0.3 | Nursing student extern in Austin, TX requiring BSN enrollment; unrelated field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 0.8 | Mechanical engineering intern, Remote; location fits but unrelated to finance/economics.
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 0.2 | Clinic nurse in Raleigh, NC requiring an RN license the student will not hold; unrelated field and location.

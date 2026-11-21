@@ -1,0 +1,1 @@
+{"auth":"work_authorization","sponsor":"needs_sponsorship","start":"start_date","relocate":"willing_to_relocate"}

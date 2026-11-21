@@ -1,0 +1,20 @@
+[
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/026",
+      "company": "Example Nursing Co 4",
+      "title": "Patient Care Technician",
+      "text": "Patient Care Technician at Example Nursing Co 4. Location: Chicago, IL. Vitals, mobility and patient comfort. CNA certificate or nursing student. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in new-graduate RN residencies."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/031",
+      "company": "Example Nursing Co 9",
+      "title": "Public Health Nursing Intern",
+      "text": "Public Health Nursing Intern at Example Nursing Co 9. Location: Hybrid, Atlanta, GA. County health department internship, outreach and screening events. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in new-graduate RN residencies."
+  }
+]

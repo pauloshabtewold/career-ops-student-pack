@@ -1,0 +1,20 @@
+[
+  {
+    "contact": {
+      "name": "Sam Contact1",
+      "role": "Alumnus, Riverbend Example University",
+      "company": "Example Nursing Co 6"
+    },
+    "context": "Graduated from Riverbend Example University four years ago and works on the team.",
+    "goal": "Ask for a 15-minute chat about the team."
+  },
+  {
+    "contact": {
+      "name": "Sam Contact2",
+      "role": "Recruiter",
+      "company": "Example Nursing Co 3"
+    },
+    "context": "Posted about hiring interns this summer.",
+    "goal": "Ask for a 15-minute chat about the team."
+  }
+]

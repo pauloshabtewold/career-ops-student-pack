@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.3 | ANOMALY: Columbus role requires 15 years of experience and people management.
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 2.8 | ANOMALY: IT project duties fit, but the role is in Raleigh and targets recent graduates.
+TRIAGE: MARGINAL | https://jobs.example.com/q/017 | 3.6 | ANOMALY: Remote entry-level role with risk dashboards and SQL exposure. Pay and internship status are unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 2.0 | ANOMALY: Chicago program targets 2027 graduates. The student graduates in 2028.
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.1 | ANOMALY: Phoenix executive role requires 20 years of finance leadership.
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 1.4 | ANOMALY: Hybrid Atlanta design internship requires an Adobe Creative Suite portfolio.
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 1.2 | ANOMALY: Denver nurse residency requires nursing licensure the student will lack.
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.8 | ANOMALY: Columbus customer onboarding role falls outside the target analyst tracks.
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 0.9 | ANOMALY: Austin personal care role is off track and requires a driver's license.
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.4 | ANOMALY: Columbus engineering role requires 10+ years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 2.3 | ANOMALY: Data work has some overlap, but the Raleigh role targets recent graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 2.5 | ANOMALY: Remote technical support role targets new graduates and has limited analyst overlap.
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 1.7 | ANOMALY: Chicago grants role focuses on administrative reporting deadlines.
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 2.9 | ANOMALY: Excel reporting and forecasting fit, but the internship is in Phoenix and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 3.1 | ANOMALY: Metrics and A/B test analysis fit, but the internship is hybrid in Atlanta and pay is unspecified.
+TRIAGE: MARGINAL | https://jobs.example.com/q/019 | 3.8 | ANOMALY: Denver role offers survey data cleaning and charting. Pay and internship status are unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 0.7 | ANOMALY: Columbus warehouse role focuses on picking and packing orders.
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 1.0 | ANOMALY: Austin externship requires rising-senior standing in a BSN program.
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 2.1 | ANOMALY: Remote internship focuses on mechanical design and test rigs.
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 0.8 | ANOMALY: Raleigh clinic role requires an RN license the student will lack.

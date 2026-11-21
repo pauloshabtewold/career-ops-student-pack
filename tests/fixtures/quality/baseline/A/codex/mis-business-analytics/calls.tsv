@@ -1,0 +1,16 @@
+arm	agent	profile	step	n	model	input	cache_read	cache_write	output
+A	codex	mis-business-analytics	triage	1	gpt-6.2-sol	10322	2688	0	1133
+A	codex	mis-business-analytics	triage	2	gpt-6.2-sol	3898	9088	0	873
+A	codex	mis-business-analytics	triage	3	gpt-6.2-sol	3883	9088	0	1168
+A	codex	mis-business-analytics	cover	1	gpt-6.2-sol	3586	9088	0	141
+A	codex	mis-business-analytics	cover	2	gpt-6.2-sol	3578	9088	0	133
+A	codex	mis-business-analytics	outreach	1	gpt-6.2-sol	2794	9088	0	53
+A	codex	mis-business-analytics	outreach	2	gpt-6.2-sol	2777	9088	0	60
+A	codex	mis-business-analytics	reply	1	gpt-6.2-sol	2800	9088	0	54
+A	codex	mis-business-analytics	reply	2	gpt-6.2-sol	2794	9088	0	169
+A	codex	mis-business-analytics	form	1	gpt-6.2-sol	3670	9088	0	53
+A	codex	mis-business-analytics	form	2	gpt-6.2-sol	10095	2688	0	47
+A	codex	mis-business-analytics	form	3	gpt-6.2-sol	3635	9088	0	50
+A	codex	mis-business-analytics	form	4	gpt-6.2-sol	3655	9088	0	46
+A	codex	mis-business-analytics	form	5	gpt-6.2-sol	10083	2688	0	39
+A	codex	mis-business-analytics	form	6	gpt-6.2-sol	3656	9088	0	48

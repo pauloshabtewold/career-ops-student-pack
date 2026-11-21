@@ -1,0 +1,3 @@
+Thanks, Sam! I'm a CS student at Northfield Example University (B.S., graduating May 2028). I've interned at Example Robotics Co, writing Python tests for a telemetry service, and I've built a course scheduler web app with Node and PostgreSQL.
+
+I haven't applied to a specific role yet. I'm most interested in software engineering internships on your team. If there's an opening that fits, I'd be glad to send my resume and apply through the right link. Would it be okay to send the resume here, or is there a better way to get it to you?

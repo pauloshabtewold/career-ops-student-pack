@@ -1,0 +1,20 @@
+[
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/044",
+      "company": "Example Analytics Co 2",
+      "title": "Data Analyst, New Grad",
+      "text": "Data Analyst, New Grad at Example Analytics Co 2. Location: Columbus, OH. SQL and Python reporting for the operations team. Entry level. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in business analyst."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/049",
+      "company": "Example Analytics Co 7",
+      "title": "Supply Chain Analyst",
+      "text": "Supply Chain Analyst at Example Analytics Co 7. Location: Remote. Inventory models and vendor scorecards in Excel and Power BI. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in business analyst."
+  }
+]

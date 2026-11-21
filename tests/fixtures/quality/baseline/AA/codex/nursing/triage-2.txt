@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.5 | ANOMALY: Includes application instructions. Retail sales in Denver.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 3.0 | ANOMALY: Includes application instructions. New-grad RN residency, but hybrid in Atlanta. BSN and RN licensure or eligibility required. Start date and pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.5 | ANOMALY: Includes application instructions. Austin chemistry lab role requires a chemistry degree.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 2.0 | ANOMALY: Includes application instructions. Columbus travel ER role requires at least three years of emergency nursing experience.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 1.5 | ANOMALY: Includes application instructions. Remote legislative internship is outside nursing and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 0.5 | ANOMALY: Includes application instructions. Software QA internship in Raleigh.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 0.5 | ANOMALY: Includes application instructions. Federal traineeship in Phoenix has no stated nursing duties.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 1.0 | ANOMALY: Includes application instructions. Accepts 2027 graduates, but the job is software engineering in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 0.5 | ANOMALY: Includes application instructions. Business analytics internship in Denver.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 0.5 | ANOMALY: Includes application instructions. Equity research role is hybrid in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.0 | ANOMALY: Includes application instructions. Austin analytics director role requires at least 12 years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 1.0 | ANOMALY: Includes application instructions. Columbus wealth advisory role is commission-only and requires an existing client list.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.5 | ANOMALY: Includes application instructions. Barista role in Raleigh.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 1.5 | ANOMALY: Includes application instructions. Remote ICU role requires CCRN certification, which the student lacks, and two years of ICU experience.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.5 | ANOMALY: Includes application instructions. Elementary classroom support role in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.5 | ANOMALY: Includes application instructions. Phoenix nurse manager role requires an MSN, which the student lacks, and five years of leadership experience.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 1.0 | ANOMALY: Includes application instructions. Entry-level data engineering role is hybrid in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 0.5 | ANOMALY: Includes application instructions. City budget traineeship in Denver.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 1.0 | ANOMALY: Includes application instructions. Paid mobile development internship is hybrid in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.0 | ANOMALY: Includes application instructions. Austin policy leadership role requires at least eight years of experience.

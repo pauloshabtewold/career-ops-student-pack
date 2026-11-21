@@ -1,0 +1,16 @@
+arm	agent	profile	step	n	model	input	cache_read	cache_write	output
+A	claude	nursing	triage	1	claude-sonnet-5-5	2	649	6082	1256
+A	claude	nursing	triage	2	claude-sonnet-5-5	2	649	5991	1248
+A	claude	nursing	triage	3	claude-sonnet-5-5	2	649	6012	1337
+A	claude	nursing	cover	1	claude-sonnet-5-5	2	649	4926	335
+A	claude	nursing	cover	2	claude-sonnet-5-5	2	649	4923	665
+A	claude	nursing	outreach	1	claude-sonnet-5-5	2	649	3794	123
+A	claude	nursing	outreach	2	claude-sonnet-5-5	2	649	3776	114
+A	claude	nursing	reply	1	claude-sonnet-5-5	2	649	3793	154
+A	claude	nursing	reply	2	claude-sonnet-5-5	2	649	3782	173
+A	claude	nursing	form	1	claude-sonnet-5-5	2	649	4992	51
+A	claude	nursing	form	2	claude-sonnet-5-5	2	649	5040	54
+A	claude	nursing	form	3	claude-sonnet-5-5	2	649	4969	67
+A	claude	nursing	form	4	claude-sonnet-5-5	2	649	4974	44
+A	claude	nursing	form	5	claude-sonnet-5-5	2	649	5005	40
+A	claude	nursing	form	6	claude-sonnet-5-5	2	649	4981	51

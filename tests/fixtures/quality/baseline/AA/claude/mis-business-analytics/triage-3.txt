@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.2 | Principal Architect needing 15 years and people management; Columbus, OH; not early-career
+TRIAGE: MARGINAL | https://jobs.example.com/q/045 | 3.6 | IT project coordination fits and recent grads welcome, but Raleigh, NC is not Denver/Remote; pay not stated
+TRIAGE: PASS | https://jobs.example.com/q/017 | 4.0 | Entry-level credit risk analyst, Remote, SQL helpful; analyst fit, pay not stated
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 2.4 | Program for 2027 graduates (student graduates 2028), Chicago, travel up to 50%
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.1 | CFO executive role needing 20 years; director-level or above
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 0.8 | Graphic design intern needing a portfolio; wrong field and Atlanta hybrid
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 0.5 | Pediatric Nurse Resident requires an RN license the student will not hold; nursing is outside target roles
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.8 | Customer success onboarding is not a target role; Columbus, OH
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 0.4 | Home health aide, wrong field; Austin, TX; driver license required
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.1 | Senior Staff Engineer requiring 10+ years; Columbus, OH
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 2.3 | Policy research assistant with data pulls is loosely related, but Raleigh, NC and not a target role
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 3.2 | Remote new-grad IT support role; not analyst/ERP track and the student graduates 2028, not now
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 2.2 | Grants coordinator is admin work, Chicago, 1 year experience preferred
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 3.3 | Financial analyst intern with Excel work fits partially, but Phoenix, AZ is outside Denver/Remote
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 3.4 | Product ops intern analyzing funnel metrics fits well, but Atlanta hybrid is outside Denver/Remote
+TRIAGE: PASS | https://jobs.example.com/q/019 | 4.1 | Economic research assistant cleaning data in Stata/R, Denver, CO; data analyst fit, pay not stated
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 0.4 | Warehouse associate, wrong field; Columbus, OH
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 0.8 | Nursing extern for BSN students, wrong field; Austin, TX
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 1.5 | Mechanical engineering intern, wrong field, though Remote
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 0.4 | Clinic Nurse requires an RN license the student will not hold; Raleigh, NC; wrong field

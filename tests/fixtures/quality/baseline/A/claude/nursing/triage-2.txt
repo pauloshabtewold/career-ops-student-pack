@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.3 | Retail sales in Denver, not a nursing or patient care role, wrong location, part-time weekends
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 3.2 | New grad RN residency fits, but requires BSN and RN license (or eligible); student graduates 2027-05 and the RN license is missing at start; Atlanta hybrid is not Columbus or Remote
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.4 | Chemistry lab technician in Austin, not nursing or patient care, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.5 | Travel ER nurse requires 3+ years emergency experience and an RN license the student lacks, though in Columbus
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 0.7 | Remote legislative internship, not a nursing or patient care role, pay not stated
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 0.3 | QA automation intern in Raleigh, not nursing, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 0.3 | Federal Pathways intern in Phoenix, not nursing, requires US citizenship, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 0.3 | Software engineer new grad in Chicago, not nursing, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 0.3 | Business analyst intern in Denver, not nursing, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 0.3 | Equity research in Atlanta, not nursing, CFA preferred, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.1 | Director role requiring 12+ years, management, Austin, not nursing
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.4 | Commission-only wealth management in Columbus, unpaid base and not nursing
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.3 | Barista in Raleigh, not a patient care role, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.3 | ICU RN requires 2 years ICU experience, CCRN certification and RN license the student lacks
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.6 | Teacher assistant in Chicago, not nursing or patient care, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.1 | Nurse manager role requiring MSN, 5 years leadership and RN license, management and Phoenix
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 0.3 | Junior data engineer in Chicago, not nursing, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 0.3 | Budget analyst trainee in Denver, not nursing, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 0.4 | Mobile developer intern in Atlanta, not nursing, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.1 | Senior policy leadership role requiring 8+ years, Austin, not nursing

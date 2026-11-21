@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.3 | Columbus principal architect role requires 15 years of experience and people management.
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 3.0 | Jira and project coordination fit, but the Raleigh role targets recent graduates.
+TRIAGE: MARGINAL | https://jobs.example.com/q/017 | 3.6 | Remote entry-level role with dashboard work and SQL. Internship status and pay are unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 2.4 | Chicago consulting program targets 2027 graduates, a year before the student graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.2 | Phoenix executive role requires 20 years of finance leadership.
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 1.5 | Atlanta hybrid design internship requires an Adobe Creative Suite portfolio.
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 0.8 | Denver pediatric nurse residency requires an RN license the student will not hold.
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.7 | Columbus entry-level role focuses on customer onboarding.
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 0.9 | Austin personal-care role requires a driver's license and falls outside the target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.4 | Columbus senior engineering role requires 10+ years of distributed systems experience.
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 2.6 | Research data work is relevant, but the Raleigh role targets recent graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 2.7 | Remote cloud support role targets new graduates and focuses on customer troubleshooting.
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 2.0 | Chicago role focuses on grant administration and reporting deadlines.
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 3.2 | Excel reporting and forecasting fit, but the internship is in Phoenix and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 3.3 | Funnel analysis and A/B test reporting fit, but the internship is hybrid in Atlanta and pay is unspecified.
+TRIAGE: MARGINAL | https://jobs.example.com/q/019 | 3.8 | Denver role includes survey data cleaning in Stata or R. Internship status and pay are unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 0.5 | Columbus warehouse role centers on picking and packing orders.
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 0.7 | Austin externship requires rising-senior standing in a BSN program, which the student lacks.
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 2.2 | Remote internship focuses on mechanical design and test rigs.
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 0.6 | Raleigh clinic nurse role requires an RN license the student will not hold.

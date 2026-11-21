@@ -1,0 +1,12 @@
+Dear Hiring Team,
+
+I am writing to apply for the Corporate Finance Rotational Analyst role at Example Finance Co 9. I am completing a B.A. in Economics at Lakeside Example College (expected December 2027, GPA 3.5), and a two-year rotation across FP&A, tax and treasury fits my interest in becoming a financial analyst.
+
+My coursework and projects have given me hands-on practice with the tools this work depends on. I built a discounted cash flow model of a fictional retailer in Excel, and I ran a regression study of rent and transit access in R. As a research assistant in the economics department, I cleaned survey data in Stata. My skills include Excel, Stata, R, SQL basics and financial modeling.
+
+As a teller intern at Example Credit Union in 2026, I balanced drawers and explained account products to customers. That work taught me to be accurate with numbers and to explain financial details clearly, which I expect to matter when moving between FP&A, tax and treasury teams.
+
+I would welcome the chance to bring this foundation to a rotational program where I can keep learning across several parts of corporate finance. Thank you for your time and consideration.
+
+Sincerely,
+Riley Fakeham

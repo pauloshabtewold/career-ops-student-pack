@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 0.8 | Software engineering internship, not nursing or patient care; remote location fits but role does not match wants.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 0.4 | Policy analyst role in Chicago; not nursing and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 0.3 | Machine learning internship in Phoenix; not nursing, wrong location, prefers graduate students.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.2 | Campaign field organizer in Atlanta; not nursing, wrong location, evenings and weekends.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 0.3 | Security engineering internship in Denver; not nursing and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 1.2 | Data analyst new grad role in Columbus fits location but is not nursing or patient care.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 0.3 | Accounting internship in Austin; accounting majors only, wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 0.8 | Supply chain analyst, remote fits but not a nursing or patient care role.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 0.2 | Finance rotational program for new graduates in Raleigh; not nursing, wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.1 | Marketing coordinator in Phoenix requiring 2 years of experience; wrong field, location and experience.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 3.2 | Patient care technician matches wanted role and accepts nursing students, but Chicago is outside Columbus/Remote and the CNA certificate is an alternative, not a hard requirement.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.0 | Commission-only real estate role requiring a license the student will not hold; unpaid base, wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 3.0 | Public health nursing internship is relevant to nursing, but Atlanta hybrid is outside Columbus/Remote and pay is not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 0.3 | Frontend developer internship in Denver; not nursing and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.0 | Nonprofit program assistant in Columbus fits location but is not nursing or patient care.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 0.0 | SRE II requiring 3+ years of experience in Austin; wrong field, experience and location.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 0.8 | Communications internship, remote fits but not nursing or patient care.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 0.0 | Investment banking summer analyst for juniors only in Raleigh; wrong field, eligibility and location.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 0.3 | ERP systems analyst internship in Phoenix; not nursing and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 0.3 | Treasury analyst internship in Chicago; not nursing and wrong location.

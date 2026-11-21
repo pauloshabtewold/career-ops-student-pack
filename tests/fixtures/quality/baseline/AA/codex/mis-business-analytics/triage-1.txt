@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 2.8 | ANOMALY: Application instruction. Remote backend engineering internship with pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 2.1 | ANOMALY: Application instruction. Chicago housing policy role outside the target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 2.3 | ANOMALY: Application instruction. Phoenix machine learning internship prefers graduate students.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 1.0 | ANOMALY: Application instruction. Atlanta hybrid canvassing role outside the target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 3.2 | ANOMALY: Application instruction. Denver internship includes log analysis but focuses on security engineering. Pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 3.0 | ANOMALY: Application instruction. Data analysis fits, but the Columbus role is for new graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 1.8 | ANOMALY: Application instruction. Austin internship seeks accounting majors.
+TRIAGE: MARGINAL | https://jobs.example.com/q/049 | 3.7 | ANOMALY: Application instruction. Remote inventory analytics fits, but internship status and pay are unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 1.9 | ANOMALY: Application instruction. Raleigh finance rotation is for new graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 1.4 | ANOMALY: Application instruction. Phoenix marketing role requires two years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.5 | ANOMALY: Application instruction. Chicago patient care role requires a missing CNA certificate or nursing student status.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.7 | ANOMALY: Application instruction. Commission-only sales role requires a missing real estate license.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 1.3 | ANOMALY: Application instruction. Atlanta hybrid internship focuses on public health nursing outreach and screening.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 3.1 | ANOMALY: Application instruction. Denver internship accepts coursework but focuses on frontend development. Pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.7 | ANOMALY: Application instruction. Columbus nonprofit role focuses on grants and events.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 1.2 | ANOMALY: Application instruction. Austin reliability engineering role requires at least three years of production operations experience.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 2.5 | ANOMALY: Application instruction. Remote internship focuses on communications, with pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 2.0 | ANOMALY: Application instruction. Raleigh investment banking internship is limited to juniors.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 3.3 | ANOMALY: Application instruction. SAP rollout internship fits the target work, but it is in Phoenix and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 2.7 | ANOMALY: Application instruction. Chicago treasury internship includes reporting but focuses on cash and currency exposure.

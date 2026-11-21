@@ -1,0 +1,26 @@
+[
+  {
+    "thread": {
+      "from": "Sam Contact1",
+      "company": "Example Software Co 3",
+      "your_first_message": "Hi, I am a student interested in your team and would value a short chat.",
+      "their_reply": "Thanks for reaching out! Happy to chat. What times work for you next week?"
+    }
+  },
+  {
+    "thread": {
+      "from": "Sam Contact2",
+      "company": "Example Software Co 8",
+      "your_first_message": "Hi, I am a student interested in your team and would value a short chat.",
+      "their_reply": "Appreciate the note. Our intern roles are posted on the careers page; could you tell me which team interests you most?"
+    }
+  },
+  {
+    "thread": {
+      "from": "Sam Contact3",
+      "company": "Example Software Co 5",
+      "your_first_message": "Hi, I am a student interested in your team and would value a short chat.",
+      "their_reply": "Great to hear from a fellow student. Can you send your resume and the role you applied to?"
+    }
+  }
+]

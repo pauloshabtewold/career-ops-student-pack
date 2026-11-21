@@ -1,0 +1,362 @@
+[
+  {
+    "url": "https://jobs.example.com/q/001",
+    "company": "Example Software Co 1",
+    "title": "Software Engineering Intern",
+    "text": "Software Engineering Intern at Example Software Co 1. Location: Remote. Build and test backend services in Python and Go. Pair with a mentor, write unit tests, ship one feature by the end of summer. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/034",
+    "company": "Example Policy Co 2",
+    "title": "Policy Analyst, Entry Level",
+    "text": "Policy Analyst, Entry Level at Example Policy Co 2. Location: Chicago, IL. Write memos on housing policy, summarize public comment, Excel and clear writing. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/006",
+    "company": "Example Software Co 6",
+    "title": "Machine Learning Intern",
+    "text": "Machine Learning Intern at Example Software Co 6. Location: Phoenix, AZ. Train and evaluate small models in PyTorch. Graduate students preferred, strong undergraduates considered. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/039",
+    "company": "Example Policy Co 7",
+    "title": "Campaign Field Organizer",
+    "text": "Campaign Field Organizer at Example Policy Co 7. Location: Hybrid, Atlanta, GA. Canvassing and volunteer recruitment, evenings and weekends. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/011",
+    "company": "Example Software Co 11",
+    "title": "Security Engineering Intern",
+    "text": "Security Engineering Intern at Example Software Co 11. Location: Denver, CO. Threat modeling and log analysis. Interest in security required, no prior job needed. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/044",
+    "company": "Example Analytics Co 2",
+    "title": "Data Analyst, New Grad",
+    "text": "Data Analyst, New Grad at Example Analytics Co 2. Location: Columbus, OH. SQL and Python reporting for the operations team. Entry level. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/016",
+    "company": "Example Finance Co 4",
+    "title": "Accounting Intern",
+    "text": "Accounting Intern at Example Finance Co 4. Location: Austin, TX. Reconciliations and audit preparation. Accounting majors, 3.0 GPA. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/049",
+    "company": "Example Analytics Co 7",
+    "title": "Supply Chain Analyst",
+    "text": "Supply Chain Analyst at Example Analytics Co 7. Location: Remote. Inventory models and vendor scorecards in Excel and Power BI. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/021",
+    "company": "Example Finance Co 9",
+    "title": "Corporate Finance Rotational Analyst",
+    "text": "Corporate Finance Rotational Analyst at Example Finance Co 9. Location: Raleigh, NC. Two-year rotation across FP&A, tax and treasury for new graduates. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/054",
+    "company": "Example Other Co 4",
+    "title": "Marketing Coordinator",
+    "text": "Marketing Coordinator at Example Other Co 4. Location: Phoenix, AZ. Plan events and manage the newsletter, 2 years of experience. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/026",
+    "company": "Example Nursing Co 4",
+    "title": "Patient Care Technician",
+    "text": "Patient Care Technician at Example Nursing Co 4. Location: Chicago, IL. Vitals, mobility and patient comfort. CNA certificate or nursing student. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/059",
+    "company": "Example Other Co 9",
+    "title": "Real Estate Agent",
+    "text": "Real Estate Agent at Example Other Co 9. Location: Denver, CO. Commission-only, license required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/031",
+    "company": "Example Nursing Co 9",
+    "title": "Public Health Nursing Intern",
+    "text": "Public Health Nursing Intern at Example Nursing Co 9. Location: Hybrid, Atlanta, GA. County health department internship, outreach and screening events. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/003",
+    "company": "Example Software Co 3",
+    "title": "Frontend Developer Intern",
+    "text": "Frontend Developer Intern at Example Software Co 3. Location: Denver, CO. React and TypeScript work on an internal dashboard. Course projects count as experience. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/036",
+    "company": "Example Policy Co 4",
+    "title": "Program Assistant, Nonprofit",
+    "text": "Program Assistant, Nonprofit at Example Policy Co 4. Location: Columbus, OH. Coordinate grants and events for a civic education nonprofit. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/008",
+    "company": "Example Software Co 8",
+    "title": "Site Reliability Engineer II",
+    "text": "Site Reliability Engineer II at Example Software Co 8. Location: Austin, TX. On-call rotation, Kubernetes, 3+ years in production operations required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/041",
+    "company": "Example Policy Co 9",
+    "title": "Communications Intern, City Hall",
+    "text": "Communications Intern, City Hall at Example Policy Co 9. Location: Remote. Draft press releases and social posts for the mayor's office. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/013",
+    "company": "Example Finance Co 1",
+    "title": "Investment Banking Summer Analyst",
+    "text": "Investment Banking Summer Analyst at Example Finance Co 1. Location: Raleigh, NC. Financial modeling, pitch books, 80-hour weeks during live deals. Juniors only. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/046",
+    "company": "Example Analytics Co 4",
+    "title": "ERP Systems Analyst Intern",
+    "text": "ERP Systems Analyst Intern at Example Analytics Co 4. Location: Phoenix, AZ. Support an SAP rollout, test configurations, document processes. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/018",
+    "company": "Example Finance Co 6",
+    "title": "Treasury Analyst Intern",
+    "text": "Treasury Analyst Intern at Example Finance Co 6. Location: Chicago, IL. Cash positioning and FX exposure reports for a manufacturer. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/051",
+    "company": "Example Other Co 1",
+    "title": "Retail Sales Associate",
+    "text": "Retail Sales Associate at Example Other Co 1. Location: Denver, CO. Part-time store role, weekends required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/023",
+    "company": "Example Nursing Co 1",
+    "title": "Registered Nurse, New Graduate Residency",
+    "text": "Registered Nurse, New Graduate Residency at Example Nursing Co 1. Location: Hybrid, Atlanta, GA. Twelve-month residency on a medical-surgical unit. BSN and RN license (or eligible) required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/056",
+    "company": "Example Other Co 6",
+    "title": "Lab Technician, Chemistry",
+    "text": "Lab Technician, Chemistry at Example Other Co 6. Location: Austin, TX. Prepare samples and maintain lab equipment. Chemistry degree. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/028",
+    "company": "Example Nursing Co 6",
+    "title": "Travel Nurse, ER",
+    "text": "Travel Nurse, ER at Example Nursing Co 6. Location: Columbus, OH. 13-week contracts, 3+ years of emergency nursing required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/033",
+    "company": "Example Policy Co 1",
+    "title": "Legislative Intern",
+    "text": "Legislative Intern at Example Policy Co 1. Location: Remote. Research bills, draft constituent letters and attend hearings for a state senator's office. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/005",
+    "company": "Example Software Co 5",
+    "title": "QA Automation Intern",
+    "text": "QA Automation Intern at Example Software Co 5. Location: Raleigh, NC. Write Playwright tests and triage flaky builds with the release team. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/038",
+    "company": "Example Policy Co 6",
+    "title": "Federal Pathways Intern",
+    "text": "Federal Pathways Intern at Example Policy Co 6. Location: Phoenix, AZ. Student trainee position in a federal agency. US citizenship required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/010",
+    "company": "Example Software Co 10",
+    "title": "Software Engineer, New Grad",
+    "text": "Software Engineer, New Grad at Example Software Co 10. Location: Chicago, IL. Full-time role for 2027 graduates. Java services, code review, design docs. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/043",
+    "company": "Example Analytics Co 1",
+    "title": "Business Analyst Intern",
+    "text": "Business Analyst Intern at Example Analytics Co 1. Location: Denver, CO. Gather requirements, write user stories, build Tableau dashboards. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/015",
+    "company": "Example Finance Co 3",
+    "title": "Equity Research Associate",
+    "text": "Equity Research Associate at Example Finance Co 3. Location: Hybrid, Atlanta, GA. Cover a sector, build models, write notes. CFA Level I preferred. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/048",
+    "company": "Example Analytics Co 6",
+    "title": "Director of Analytics",
+    "text": "Director of Analytics at Example Analytics Co 6. Location: Austin, TX. Lead a team of 20 analysts. 12+ years required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/020",
+    "company": "Example Finance Co 8",
+    "title": "Wealth Management Associate",
+    "text": "Wealth Management Associate at Example Finance Co 8. Location: Columbus, OH. Commission-only advisor role, bring your own client list. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/053",
+    "company": "Example Other Co 3",
+    "title": "Barista",
+    "text": "Barista at Example Other Co 3. Location: Raleigh, NC. Morning shifts, customer service. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/025",
+    "company": "Example Nursing Co 3",
+    "title": "ICU Registered Nurse",
+    "text": "ICU Registered Nurse at Example Nursing Co 3. Location: Remote. Requires 2 years of ICU experience and CCRN certification. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/058",
+    "company": "Example Other Co 8",
+    "title": "Teacher Assistant",
+    "text": "Teacher Assistant at Example Other Co 8. Location: Chicago, IL. Support a third-grade classroom. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/030",
+    "company": "Example Nursing Co 8",
+    "title": "Nurse Manager",
+    "text": "Nurse Manager at Example Nursing Co 8. Location: Phoenix, AZ. Lead a 40-bed unit. MSN and 5 years of leadership required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/002",
+    "company": "Example Software Co 2",
+    "title": "Junior Data Engineer",
+    "text": "Junior Data Engineer at Example Software Co 2. Location: Chicago, IL. Maintain SQL pipelines and dbt models. Entry level, new graduates welcome. Hybrid. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/035",
+    "company": "Example Policy Co 3",
+    "title": "Budget Analyst Trainee",
+    "text": "Budget Analyst Trainee at Example Policy Co 3. Location: Denver, CO. City budget office trainee, revenue forecasting and program reviews. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/007",
+    "company": "Example Software Co 7",
+    "title": "Mobile Developer Intern",
+    "text": "Mobile Developer Intern at Example Software Co 7. Location: Hybrid, Atlanta, GA. Kotlin and Swift features for a consumer app. Summer, paid, relocation help. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/040",
+    "company": "Example Policy Co 8",
+    "title": "Deputy Director of Policy",
+    "text": "Deputy Director of Policy at Example Policy Co 8. Location: Austin, TX. Senior role, 8+ years of policy leadership. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/012",
+    "company": "Example Software Co 12",
+    "title": "Principal Architect",
+    "text": "Principal Architect at Example Software Co 12. Location: Columbus, OH. Own the technical roadmap. 15 years of experience and people management required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/045",
+    "company": "Example Analytics Co 3",
+    "title": "IT Project Coordinator",
+    "text": "IT Project Coordinator at Example Analytics Co 3. Location: Raleigh, NC. Track project plans in Jira and run stand-ups. Recent graduates welcome. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/017",
+    "company": "Example Finance Co 5",
+    "title": "Credit Risk Analyst, Entry Level",
+    "text": "Credit Risk Analyst, Entry Level at Example Finance Co 5. Location: Remote. Score loan applications, maintain risk dashboards, SQL helpful. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/050",
+    "company": "Example Analytics Co 8",
+    "title": "Technology Consulting Analyst",
+    "text": "Technology Consulting Analyst at Example Analytics Co 8. Location: Chicago, IL. Client-facing analyst program for 2027 graduates, travel up to 50%. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/022",
+    "company": "Example Finance Co 10",
+    "title": "Chief Financial Officer",
+    "text": "Chief Financial Officer at Example Finance Co 10. Location: Phoenix, AZ. Executive role. 20 years of finance leadership required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/055",
+    "company": "Example Other Co 5",
+    "title": "Graphic Design Intern",
+    "text": "Graphic Design Intern at Example Other Co 5. Location: Hybrid, Atlanta, GA. Adobe Creative Suite portfolio required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/027",
+    "company": "Example Nursing Co 5",
+    "title": "Pediatric Nurse Resident",
+    "text": "Pediatric Nurse Resident at Example Nursing Co 5. Location: Denver, CO. New-grad program on a children's hospital unit, night shift. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/060",
+    "company": "Example Other Co 10",
+    "title": "Customer Success Associate",
+    "text": "Customer Success Associate at Example Other Co 10. Location: Columbus, OH. Onboard small-business customers to a SaaS tool, entry level. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/032",
+    "company": "Example Nursing Co 10",
+    "title": "Home Health Aide",
+    "text": "Home Health Aide at Example Nursing Co 10. Location: Austin, TX. Personal care visits. Driver license required. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/004",
+    "company": "Example Software Co 4",
+    "title": "Senior Staff Engineer",
+    "text": "Senior Staff Engineer at Example Software Co 4. Location: Columbus, OH. Lead platform architecture. Requires 10+ years of distributed systems experience. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/037",
+    "company": "Example Policy Co 5",
+    "title": "Research Assistant, Think Tank",
+    "text": "Research Assistant, Think Tank at Example Policy Co 5. Location: Raleigh, NC. Literature reviews and data pulls for education policy research. Recent graduates. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/009",
+    "company": "Example Software Co 9",
+    "title": "Cloud Support Associate",
+    "text": "Cloud Support Associate at Example Software Co 9. Location: Remote. New-grad role helping customers with networking and storage questions. Training provided. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/042",
+    "company": "Example Policy Co 10",
+    "title": "Grants Coordinator",
+    "text": "Grants Coordinator at Example Policy Co 10. Location: Chicago, IL. Track federal grant reporting deadlines, 1 year of admin experience preferred. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/014",
+    "company": "Example Finance Co 2",
+    "title": "Financial Analyst Intern",
+    "text": "Financial Analyst Intern at Example Finance Co 2. Location: Phoenix, AZ. Budget variance reports in Excel, monthly close support, forecasting. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/047",
+    "company": "Example Analytics Co 5",
+    "title": "Product Operations Intern",
+    "text": "Product Operations Intern at Example Analytics Co 5. Location: Hybrid, Atlanta, GA. Analyze funnel metrics and run A/B test readouts. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/019",
+    "company": "Example Finance Co 7",
+    "title": "Economic Research Assistant",
+    "text": "Economic Research Assistant at Example Finance Co 7. Location: Denver, CO. Clean survey data in Stata or R, draft charts for policy briefs. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/052",
+    "company": "Example Other Co 2",
+    "title": "Warehouse Associate",
+    "text": "Warehouse Associate at Example Other Co 2. Location: Columbus, OH. Pick and pack orders, lift 50 pounds. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/024",
+    "company": "Example Nursing Co 2",
+    "title": "Nursing Student Extern",
+    "text": "Nursing Student Extern at Example Nursing Co 2. Location: Austin, TX. Summer externship for rising seniors in a BSN program. Shadow RNs on day shift. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/057",
+    "company": "Example Other Co 7",
+    "title": "Mechanical Engineering Intern",
+    "text": "Mechanical Engineering Intern at Example Other Co 7. Location: Remote. SolidWorks modeling and test rig builds. Equal opportunity employer. Apply through the company careers site."
+  },
+  {
+    "url": "https://jobs.example.com/q/029",
+    "company": "Example Nursing Co 7",
+    "title": "Clinic Nurse, Community Health",
+    "text": "Clinic Nurse, Community Health at Example Nursing Co 7. Location: Raleigh, NC. Vaccination clinics and patient education. New graduates with an RN license welcome. Equal opportunity employer. Apply through the company careers site."
+  }
+]

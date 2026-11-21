@@ -1,0 +1,16 @@
+arm	agent	profile	step	n	model	input	cache_read	cache_write	output
+A	claude	mis-business-analytics	triage	1	claude-sonnet-5-5	2	649	6076	1442
+A	claude	mis-business-analytics	triage	2	claude-sonnet-5-5	2	649	5997	1515
+A	claude	mis-business-analytics	triage	3	claude-sonnet-5-5	2	649	5971	1405
+A	claude	mis-business-analytics	cover	1	claude-sonnet-5-5	2	649	4940	344
+A	claude	mis-business-analytics	cover	2	claude-sonnet-5-5	2	649	4940	358
+A	claude	mis-business-analytics	outreach	1	claude-sonnet-5-5	2	649	3820	138
+A	claude	mis-business-analytics	outreach	2	claude-sonnet-5-5	2	649	3797	89
+A	claude	mis-business-analytics	reply	1	claude-sonnet-5-5	2	649	3824	107
+A	claude	mis-business-analytics	reply	2	claude-sonnet-5-5	2	649	3815	123
+A	claude	mis-business-analytics	form	1	claude-sonnet-5-5	2	649	4999	51
+A	claude	mis-business-analytics	form	2	claude-sonnet-5-5	2	649	5041	51
+A	claude	mis-business-analytics	form	3	claude-sonnet-5-5	2	649	4971	67
+A	claude	mis-business-analytics	form	4	claude-sonnet-5-5	2	649	4980	48
+A	claude	mis-business-analytics	form	5	claude-sonnet-5-5	2	649	5011	42
+A	claude	mis-business-analytics	form	6	claude-sonnet-5-5	2	649	4984	51

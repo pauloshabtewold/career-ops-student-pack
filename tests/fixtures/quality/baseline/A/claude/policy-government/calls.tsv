@@ -1,0 +1,16 @@
+arm	agent	profile	step	n	model	input	cache_read	cache_write	output
+A	claude	policy-government	triage	1	claude-sonnet-5-5	2	649	6080	1430
+A	claude	policy-government	triage	2	claude-sonnet-5-5	2	649	5991	1285
+A	claude	policy-government	triage	3	claude-sonnet-5-5	2	649	6012	1341
+A	claude	policy-government	cover	1	claude-sonnet-5-5	2	649	4943	337
+A	claude	policy-government	cover	2	claude-sonnet-5-5	2	649	4935	328
+A	claude	policy-government	outreach	1	claude-sonnet-5-5	2	649	3807	105
+A	claude	policy-government	outreach	2	claude-sonnet-5-5	2	649	3788	108
+A	claude	policy-government	reply	1	claude-sonnet-5-5	2	649	3802	226
+A	claude	policy-government	reply	2	claude-sonnet-5-5	2	649	3811	122
+A	claude	policy-government	form	1	claude-sonnet-5-5	2	649	4997	51
+A	claude	policy-government	form	2	claude-sonnet-5-5	2	649	5033	54
+A	claude	policy-government	form	3	claude-sonnet-5-5	2	649	4978	67
+A	claude	policy-government	form	4	claude-sonnet-5-5	2	649	4976	44
+A	claude	policy-government	form	5	claude-sonnet-5-5	2	649	5010	42
+A	claude	policy-government	form	6	claude-sonnet-5-5	2	649	4977	51

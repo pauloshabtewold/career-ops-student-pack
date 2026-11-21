@@ -59,3 +59,11 @@ audit:
   require_triage: false
   keyword_match: word
   duplicate_reason: first
+# yes when a scheduled run reaches the automation Chrome (tools/schedule-probe.mjs decides); no keeps Chrome steps for
+# when Chrome is open. unset until the probe or setup runs.
+chrome_in_schedule: unset
+browser:
+  # Empty means <data>/chrome-automation.
+  automation_profile: ""
+  # Command run before every automation Chrome launch; any non-zero exit means wait. BROWSER_SLOT_CMD overrides it.
+  slot_cmd: ""

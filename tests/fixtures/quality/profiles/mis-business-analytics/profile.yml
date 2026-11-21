@@ -1,0 +1,25 @@
+# SYNTHETIC FIXTURE: invented student for the quality baseline.
+first_name: Avery
+last_name: Mocklin
+full_name: Avery Mocklin
+email: avery.mocklin@example.edu
+phone: 415-555-0144
+location: Denver, CO
+school: Prairie Example State University
+degree: B.B.A.
+major: Management Information Systems
+graduation: 2028-05
+gpa: "3.3"
+work_authorization: "Yes"
+needs_sponsorship: "No"
+start_date: 2027-06-01
+willing_to_relocate: "Yes"
+linkedin_url: https://www.linkedin.example.com/in/avery-mocklin
+github_url: https://github.example.com/averymocklin
+portfolio_url: https://mocklin.example.com
+current_employer: Example Logistics Inc
+pronouns: he/him
+referral_source: University career center
+eeo_gender: Decline to self-identify
+eeo_veteran: Decline to self-identify
+eeo_disability: Decline to self-identify

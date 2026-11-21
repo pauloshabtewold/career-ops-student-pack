@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 2.8 | ANOMALY: Remote software engineering internship outside the target fields. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 3.2 | ANOMALY: Entry-level housing policy work fits, but the role is in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 1.6 | ANOMALY: Phoenix machine learning internship with a graduate-student preference. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 1.3 | ANOMALY: Atlanta hybrid campaign role requires evenings and weekends.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 1.8 | ANOMALY: Beginner-friendly security internship in Denver, outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 2.4 | ANOMALY: New-grad operations reporting role in Columbus, outside the target locations.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 1.3 | ANOMALY: Austin accounting internship requires an accounting major and a 3.0 GPA. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 2.9 | ANOMALY: Remote role focused on inventory and vendors. Pay and experience level unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 3.3 | ANOMALY: Raleigh new-grad rotation fits the location and career stage, but the work is corporate finance.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 1.1 | ANOMALY: Phoenix marketing role requires two years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.7 | ANOMALY: Missing CNA certification or qualifying nursing-student status. Role is in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.5 | ANOMALY: Missing required real estate license. Denver role is commission-only.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 2.1 | ANOMALY: County health department internship focuses on nursing outreach in hybrid Atlanta. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 1.9 | ANOMALY: Coursework counts, but the Denver frontend internship falls outside the target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 3.0 | ANOMALY: Civic education grants work is adjacent to policy, but the role is in Columbus.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 0.8 | ANOMALY: Austin engineering role requires at least three years of production operations experience.
+TRIAGE: MARGINAL | https://jobs.example.com/q/041 | 3.7 | ANOMALY: Remote City Hall internship offers government experience through communications. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 2.5 | ANOMALY: Raleigh investment banking internship is limited to juniors and falls outside the target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 1.7 | ANOMALY: Phoenix internship focuses on SAP rollout support. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 1.5 | ANOMALY: Chicago internship focuses on corporate treasury. Pay unspecified.

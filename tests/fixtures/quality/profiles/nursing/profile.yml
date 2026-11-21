@@ -1,0 +1,25 @@
+# SYNTHETIC FIXTURE: invented student for the quality baseline.
+first_name: Casey
+last_name: Samplefield
+full_name: Casey Samplefield
+email: casey.samplefield@example.edu
+phone: 415-555-0142
+location: Columbus, OH
+school: Riverbend Example University
+degree: BSN
+major: Nursing
+graduation: 2027-05
+gpa: "3.7"
+work_authorization: "Yes"
+needs_sponsorship: "No"
+start_date: 2027-06-01
+willing_to_relocate: "Yes"
+linkedin_url: https://www.linkedin.example.com/in/casey-samplefield
+github_url: https://github.example.com/caseysamplefield
+portfolio_url: https://samplefield.example.com
+current_employer: Example Community Hospital
+pronouns: he/him
+referral_source: University career center
+eeo_gender: Decline to self-identify
+eeo_veteran: Decline to self-identify
+eeo_disability: Decline to self-identify

@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.5 | ANOMALY: Denver retail role falls outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.0 | ANOMALY: Requires a BSN and an RN license or eligibility for licensure, which the student lacks.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 1.0 | ANOMALY: Austin location fits, but the student lacks the required chemistry degree.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.0 | ANOMALY: Columbus ER nursing role requires an RN license and 3+ years of emergency nursing experience.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 2.0 | ANOMALY: Remote internship focuses on legislative work, and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 3.0 | ANOMALY: Software test automation fits, but the role is in Raleigh and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 1.0 | ANOMALY: Phoenix is outside the target locations, and the posting lists no relevant technical duties.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 2.0 | ANOMALY: Chicago software role is limited to 2027 graduates, and the student graduates in May 2028.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 1.5 | ANOMALY: Denver internship focuses on business analysis and dashboards, and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 0.5 | ANOMALY: Equity research is outside the target fields, and the hybrid role is based in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.5 | ANOMALY: Austin location fits, but the director role requires 12+ years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.5 | ANOMALY: Columbus wealth management role is commission-only and requires an existing client list.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.5 | ANOMALY: Raleigh barista role falls outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.5 | ANOMALY: Remote ICU nursing role requires CCRN certification and two years of ICU experience, which the student lacks.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.5 | ANOMALY: Chicago classroom support role falls outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.0 | ANOMALY: Nurse manager role requires an MSN and five years of leadership experience, which the student lacks.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 3.2 | ANOMALY: Entry-level data engineering fits, but the role is hybrid in Chicago and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 1.0 | ANOMALY: Denver budget office traineeship focuses on revenue forecasting and program reviews.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 3.4 | ANOMALY: Paid mobile development internship fits, but the role is hybrid in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.5 | ANOMALY: Austin location fits, but the senior policy role requires 8+ years of leadership.

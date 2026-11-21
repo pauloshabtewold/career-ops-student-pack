@@ -1,0 +1,29 @@
+[
+  {
+    "contact": {
+      "name": "Sam Contact1",
+      "role": "Alumnus, Northfield Example University",
+      "company": "Example Software Co 3"
+    },
+    "context": "Graduated from Northfield Example University four years ago and works on the team.",
+    "goal": "Ask for a 15-minute chat about the team."
+  },
+  {
+    "contact": {
+      "name": "Sam Contact2",
+      "role": "Recruiter",
+      "company": "Example Software Co 8"
+    },
+    "context": "Posted about hiring interns this summer.",
+    "goal": "Ask for a 15-minute chat about the team."
+  },
+  {
+    "contact": {
+      "name": "Sam Contact3",
+      "role": "Alumnus, Northfield Example University",
+      "company": "Example Software Co 5"
+    },
+    "context": "Graduated from Northfield Example University four years ago and works on the team.",
+    "goal": "Ask for a 15-minute chat about the team."
+  }
+]

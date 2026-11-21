@@ -1,0 +1,681 @@
+{
+  "seed": "1795270846809",
+  "parked": [],
+  "pairs": 72,
+  "judge_tokens": 324704,
+  "values": {
+    "OVERLAP_MIN": 0.8,
+    "INVENTED_FACTS_MAX": 2,
+    "JUDGE_NOT_WORSE_MIN": 0.5555555555555556,
+    "FORM_ACCURACY": 0,
+    "CLASSIFY_ACCURACY": 0,
+    "REPLY_SORT_ACCURACY": 0.020000000000000018,
+    "SCAM_FP_MAX": 0
+  },
+  "base": {
+    "CLASSIFY_ACCURACY": 1,
+    "REPLY_SORT_ACCURACY": 1
+  },
+  "overlaps": [
+    1,
+    0.8,
+    0.9,
+    1,
+    0.8,
+    0.9,
+    0.8,
+    0.8,
+    0.9,
+    0.9
+  ],
+  "verdicts": [
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "cover-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "cover-3.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "outreach-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 2,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "outreach-2.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "outreach-3.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 1,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "reply-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "reply-2.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "software-cs",
+      "file": "reply-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "cover-1.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "cover-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "outreach-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "outreach-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "outreach-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 1,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "reply-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "reply-2.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "finance-economics",
+      "file": "reply-3.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "nursing",
+      "file": "cover-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "nursing",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "nursing",
+      "file": "outreach-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "nursing",
+      "file": "outreach-2.txt",
+      "aa_first": true,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "nursing",
+      "file": "reply-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "nursing",
+      "file": "reply-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "policy-government",
+      "file": "cover-1.txt",
+      "aa_first": false,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "policy-government",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "policy-government",
+      "file": "outreach-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 1,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "policy-government",
+      "file": "outreach-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 1,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "policy-government",
+      "file": "reply-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "policy-government",
+      "file": "reply-2.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "mis-business-analytics",
+      "file": "cover-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "mis-business-analytics",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "mis-business-analytics",
+      "file": "outreach-1.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "mis-business-analytics",
+      "file": "outreach-2.txt",
+      "aa_first": true,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "mis-business-analytics",
+      "file": "reply-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "claude",
+      "profile": "mis-business-analytics",
+      "file": "reply-2.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "cover-1.txt",
+      "aa_first": true,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "cover-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "outreach-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "outreach-2.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "outreach-3.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 1,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "reply-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "reply-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "software-cs",
+      "file": "reply-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "cover-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "cover-2.txt",
+      "aa_first": false,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "cover-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "outreach-1.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "outreach-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "outreach-3.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "reply-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "reply-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "finance-economics",
+      "file": "reply-3.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 2,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "nursing",
+      "file": "cover-1.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "nursing",
+      "file": "cover-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "nursing",
+      "file": "outreach-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "nursing",
+      "file": "outreach-2.txt",
+      "aa_first": false,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "nursing",
+      "file": "reply-1.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "nursing",
+      "file": "reply-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "policy-government",
+      "file": "cover-1.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "policy-government",
+      "file": "cover-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "policy-government",
+      "file": "outreach-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "policy-government",
+      "file": "outreach-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "policy-government",
+      "file": "reply-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "policy-government",
+      "file": "reply-2.txt",
+      "aa_first": true,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "mis-business-analytics",
+      "file": "cover-1.txt",
+      "aa_first": true,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "mis-business-analytics",
+      "file": "cover-2.txt",
+      "aa_first": false,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "mis-business-analytics",
+      "file": "outreach-1.txt",
+      "aa_first": true,
+      "verdict": "1",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "mis-business-analytics",
+      "file": "outreach-2.txt",
+      "aa_first": true,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "mis-business-analytics",
+      "file": "reply-1.txt",
+      "aa_first": false,
+      "verdict": "tie",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    },
+    {
+      "agent": "codex",
+      "profile": "mis-business-analytics",
+      "file": "reply-2.txt",
+      "aa_first": false,
+      "verdict": "2",
+      "invented_facts": 0,
+      "model": "claude-opus-5-5"
+    }
+  ]
+}

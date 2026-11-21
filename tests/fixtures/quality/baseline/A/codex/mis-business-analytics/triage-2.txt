@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 1.6 | ANOMALY: Denver retail sales role falls outside the target internships.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.5 | ANOMALY: Missing the required BSN and RN licensure or eligibility.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.8 | ANOMALY: Missing the required chemistry degree, and the job is in Austin.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.4 | ANOMALY: Columbus travel nursing role requires 3+ years of emergency nursing experience.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 2.9 | ANOMALY: Remote internship focuses on legislative work, and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 2.3 | ANOMALY: Raleigh internship focuses on QA automation, and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 1.9 | ANOMALY: Phoenix student trainee role lists no analytics duties or pay.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 0.9 | ANOMALY: Chicago software role is for 2027 graduates, and the student graduates in 2028.
+TRIAGE: MARGINAL | https://jobs.example.com/q/043 | 3.9 | ANOMALY: Denver business analyst internship matches the target work, but pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 2.0 | ANOMALY: Financial modeling offers some overlap, but the Atlanta role is outside the target locations.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.6 | ANOMALY: Austin analytics director role requires 12+ years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.7 | ANOMALY: Columbus commission-only advisor role requires bringing a client list.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 1.1 | ANOMALY: Raleigh customer service role falls outside the target work and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.6 | ANOMALY: Missing the required CCRN certification and two years of ICU experience.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 1.2 | ANOMALY: Chicago classroom support role falls outside the target work and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.3 | ANOMALY: Missing the required MSN and five years of leadership experience.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 2.6 | ANOMALY: SQL and dbt duties overlap with analytics, but the entry-level role is hybrid in Chicago.
+TRIAGE: MARGINAL | https://jobs.example.com/q/035 | 3.6 | ANOMALY: Denver trainee role includes revenue forecasting and program reviews, but pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 2.5 | ANOMALY: Paid internship focuses on mobile development and is hybrid in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.2 | ANOMALY: Austin deputy director role requires 8+ years of policy leadership.

@@ -1,0 +1,9 @@
+Dear Hiring Team,
+
+I’m applying for the Security Engineering Intern role at Example Software Co 11. I’m studying computer science at Northfield Example University and want to learn how security engineers identify risks in software and investigate them through log analysis.
+
+As a software intern at Example Robotics Co, I wrote Python unit tests for a telemetry service. At my campus IT help desk, I troubleshoot laptop and network issues. I’d bring that experience testing software and diagnosing problems to your team while building my skills in threat modeling and log analysis.
+
+Thank you for considering my application.
+
+Jordan Testwell

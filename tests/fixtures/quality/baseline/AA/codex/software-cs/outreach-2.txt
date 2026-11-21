@@ -1,0 +1,1 @@
+Hi Sam, I saw your post about summer internships at Example Software Co 8. I’m a CS student and spent last summer writing Python tests for a robotics telemetry service. Would you have 15 minutes to chat about the team and what interns work on?

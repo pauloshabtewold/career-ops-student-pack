@@ -1,0 +1,9 @@
+Dear Example Analytics Co 2 Hiring Team,
+
+I’m writing to apply for the Data Analyst, New Grad role. I’m pursuing a B.B.A. in Management Information Systems at Prairie Example State University, with an expected graduation date of May 2028. I’m interested in using data to understand how a business operates and where it can improve.
+
+As an operations intern at Example Logistics Inc., I built a weekly Power BI report on late shipments. I also built a Tableau dashboard to visualize campus dining wait times. I’d welcome the opportunity to bring my SQL and reporting skills to your operations team and develop my Python reporting skills.
+
+Thank you for considering my application.
+
+Avery Mocklin

@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.5 | ANOMALY: Contains application instructions. Software management role requires 15 years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 1.0 | ANOMALY: Contains application instructions. IT project coordination in Raleigh falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/017 | 2.2 | ANOMALY: Contains application instructions. Remote and entry-level, but the work is in credit risk.
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 1.2 | ANOMALY: Contains application instructions. Open to 2027 graduates, but the role is in technology consulting in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.0 | ANOMALY: Contains application instructions. Phoenix finance executive role requires 20 years of leadership.
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 0.8 | ANOMALY: Contains application instructions. Hybrid Atlanta design internship requires an Adobe portfolio.
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 3.2 | ANOMALY: Contains application instructions. New-grad pediatric nurse residency is in Denver, and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 2.0 | ANOMALY: Contains application instructions. Columbus entry-level role is in software customer success.
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 1.5 | ANOMALY: Contains application instructions. Austin home health aide role falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.7 | ANOMALY: Contains application instructions. Columbus software engineering role requires 10 or more years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 1.1 | ANOMALY: Contains application instructions. Raleigh education policy research role falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 2.3 | ANOMALY: Contains application instructions. Remote new-grad role is in cloud support.
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 0.9 | ANOMALY: Contains application instructions. Chicago grants administration role falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 0.8 | ANOMALY: Contains application instructions. Phoenix finance internship falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 0.9 | ANOMALY: Contains application instructions. Hybrid Atlanta product operations internship falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/019 | 0.8 | ANOMALY: Contains application instructions. Denver economics research role falls outside the target roles and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 1.6 | ANOMALY: Contains application instructions. Columbus warehouse role falls outside the target roles.
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 3.0 | ANOMALY: Contains application instructions. Nursing externship is in Austin, and the summer cohort year and pay are unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 1.8 | ANOMALY: Contains application instructions. Remote internship is in mechanical engineering.
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 2.4 | ANOMALY: Contains application instructions. Raleigh clinic role requires an RN license and gives no start date.

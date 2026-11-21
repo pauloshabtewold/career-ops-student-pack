@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.5 | ANOMALY: Application instruction. Denver retail role.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.5 | ANOMALY: Application instruction. Missing BSN and RN licensure or eligibility.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 1.0 | ANOMALY: Application instruction. Requires a chemistry degree the student will lack.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.5 | ANOMALY: Application instruction. Requires 3+ years of emergency nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 2.0 | ANOMALY: Application instruction. Remote policy internship with pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 2.9 | ANOMALY: Application instruction. QA automation internship in Raleigh with pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 1.0 | ANOMALY: Application instruction. Phoenix federal traineeship with no software focus stated.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 2.0 | ANOMALY: Application instruction. Chicago role targets 2027 graduates. Student graduates in 2028.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 1.5 | ANOMALY: Application instruction. Denver internship focuses on business analysis and dashboards.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 1.0 | ANOMALY: Application instruction. Atlanta equity research role.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 1.0 | ANOMALY: Application instruction. Austin director role requires 12+ years.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.5 | ANOMALY: Application instruction. Columbus commission-only advisor role requires a client list.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.5 | ANOMALY: Application instruction. Raleigh food service role.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.5 | ANOMALY: Application instruction. Missing CCRN certification and required ICU experience.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.5 | ANOMALY: Application instruction. Chicago classroom support role.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.5 | ANOMALY: Application instruction. Missing MSN and five years of leadership experience.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 3.2 | ANOMALY: Application instruction. Entry-level data engineering fits, but the role is hybrid in Chicago and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 1.0 | ANOMALY: Application instruction. Denver traineeship focuses on municipal budgeting.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 3.4 | ANOMALY: Application instruction. Paid mobile development internship requires hybrid work in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 1.0 | ANOMALY: Application instruction. Austin policy role requires 8+ years of leadership.

@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 2.9 | ANOMALY: Remote internship focused on backend engineering.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 2.0 | ANOMALY: Chicago-based policy research and writing role.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 1.8 | ANOMALY: Phoenix-based machine learning internship with a graduate-student preference.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.8 | ANOMALY: Atlanta-based canvassing and volunteer recruitment.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 3.4 | ANOMALY: Denver internship includes log analysis, but focuses on security engineering. Pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 3.2 | ANOMALY: SQL reporting fits, but this is a new-grad role in Columbus.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 1.3 | ANOMALY: Austin internship targets accounting majors.
+TRIAGE: MARGINAL | https://jobs.example.com/q/049 | 3.7 | ANOMALY: Remote analytics work with Excel and Power BI. Internship status and pay unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 1.6 | ANOMALY: Raleigh-based finance rotation for new graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 1.1 | ANOMALY: Phoenix marketing role asks for two years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.5 | ANOMALY: Student lacks the CNA certificate and the alternative nursing-student eligibility.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.4 | ANOMALY: Missing required real estate license. Sales role is commission-only.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 0.9 | ANOMALY: Atlanta-based nursing outreach and screening internship.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 3.1 | ANOMALY: Denver internship accepts coursework and involves dashboards, but duties center on frontend development.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.7 | ANOMALY: Columbus-based grants and events role.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 1.0 | ANOMALY: Austin reliability engineering role requires three years of production operations experience.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 2.3 | ANOMALY: Remote internship focuses on press releases and social media.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 1.9 | ANOMALY: Raleigh-based investment banking internship with junior-only eligibility.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 3.3 | ANOMALY: SAP rollout duties fit the ERP internship goal, but the role is in Phoenix and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 2.4 | ANOMALY: Chicago-based treasury internship focuses on cash and currency exposure reporting.

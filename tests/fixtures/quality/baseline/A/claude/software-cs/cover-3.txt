@@ -1,0 +1,12 @@
+Dear Hiring Team,
+
+I am a Computer Science student at Northfield Example University (B.S., expected May 2028), and I am applying for the Security Engineering Intern role at Example Software Co 11. Your focus on threat modeling and log analysis matches the direction I want to take my software engineering skills.
+
+This past summer I interned at Example Robotics Co, where I wrote unit tests for a telemetry service in Python. That work taught me to read how a system behaves, which is also the core of log analysis. As a student worker on my campus IT help desk, I fixed laptop and network tickets, so I am used to diagnosing problems methodically and explaining them clearly. I have also built a course scheduler web app with a REST API in Node and PostgreSQL, and a churn model in Python, which gave me practice with data and with how web services are put together.
+
+I work in Python, Java, SQL, Git, React, and Docker. I have not held a dedicated security role, and I understand this internship is open to people at that stage. I would like to learn threat modeling and log analysis from your team and contribute where I can.
+
+Thank you for your consideration.
+
+Sincerely,
+Jordan Testwell

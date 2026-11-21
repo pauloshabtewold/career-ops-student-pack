@@ -1,0 +1,16 @@
+arm	agent	profile	step	n	model	input	cache_read	cache_write	output
+A	codex	policy-government	triage	1	gpt-6.2-sol	13221	0	0	774
+A	codex	policy-government	triage	2	gpt-6.2-sol	12982	0	0	892
+A	codex	policy-government	triage	3	gpt-6.2-sol	10279	2688	0	999
+A	codex	policy-government	cover	1	gpt-6.2-sol	3592	9088	0	128
+A	codex	policy-government	cover	2	gpt-6.2-sol	3583	9088	0	131
+A	codex	policy-government	outreach	1	gpt-6.2-sol	2792	9088	0	49
+A	codex	policy-government	outreach	2	gpt-6.2-sol	2779	9088	0	62
+A	codex	policy-government	reply	1	gpt-6.2-sol	9193	2688	0	116
+A	codex	policy-government	reply	2	gpt-6.2-sol	2802	9088	0	57
+A	codex	policy-government	form	1	gpt-6.2-sol	3663	9088	0	53
+A	codex	policy-government	form	2	gpt-6.2-sol	12776	0	0	47
+A	codex	policy-government	form	3	gpt-6.2-sol	12724	0	0	50
+A	codex	policy-government	form	4	gpt-6.2-sol	3650	9088	0	46
+A	codex	policy-government	form	5	gpt-6.2-sol	3676	9088	0	39
+A	codex	policy-government	form	6	gpt-6.2-sol	3651	9088	0	48

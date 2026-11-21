@@ -1,0 +1,20 @@
+[
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/034",
+      "company": "Example Policy Co 2",
+      "title": "Policy Analyst, Entry Level",
+      "text": "Policy Analyst, Entry Level at Example Policy Co 2. Location: Chicago, IL. Write memos on housing policy, summarize public comment, Excel and clear writing. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in policy analyst."
+  },
+  {
+    "posting": {
+      "url": "https://jobs.example.com/q/039",
+      "company": "Example Policy Co 7",
+      "title": "Campaign Field Organizer",
+      "text": "Campaign Field Organizer at Example Policy Co 7. Location: Hybrid, Atlanta, GA. Canvassing and volunteer recruitment, evenings and weekends. Equal opportunity employer. Apply through the company careers site."
+    },
+    "why": "Fits the student's interest in policy analyst."
+  }
+]
