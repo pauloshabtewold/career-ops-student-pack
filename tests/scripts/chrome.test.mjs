@@ -4,11 +4,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { delimiter, dirname, join } from 'node:path';
 import { readState, writeState } from '../../scripts/chrome.mjs';
 import { PACK_ROOT, makeRoot } from '../helpers/script-harness.mjs';
+import { LOG_HEADER, TZ, row, run as runBudget } from '../helpers/budget-harness.mjs';
+import { appendTsv, readTsv } from '../../lib/tsv.mjs';
 
 const CHROME = join(PACK_ROOT, 'scripts', 'chrome.mjs');
 const NODE_DIR = dirname(process.execPath);
@@ -191,6 +193,141 @@ test('M-001-S23-osdr chrome.mjs read with no automation Chrome running exits 7 a
     const out = await runChrome(['read', `http://127.0.0.1:${await closedPort()}/page`], r);
     assert.notEqual(out.code, 5, out.stdout + out.stderr);
     assert.equal(out.code, 7, out.stdout + out.stderr);
+  } finally {
+    r.cleanup();
+  }
+});
+
+// M-002 chrome.mjs fill and submit paths, still with no browser: fill runs through a fake CDP client and submit stops
+// at the budget check. Fill plan shape (ruling): { batchId, item, url, company, role, track, score, fields: [{ selector,
+// label, type, value }] }, stored for submit at data/fill-plans/<batchId>/<item>.json. Batch items (ruling):
+// { company, role, score, preview, link }.
+const LOCAL_TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const SUBMIT_BATCH = '2026-11-03-apply-1';
+
+function fakeCdp({ captcha = false } = {}) {
+  const calls = [];
+  const send = async (method, params = {}, sessionId) => {
+    calls.push({ method, params, sessionId });
+    if (method === 'Target.getTargets') return { targetInfos: [] };
+    if (method === 'Target.createTarget') return { targetId: 'T-fake-1' };
+    if (method === 'Target.attachToTarget') return { sessionId: 'S-fake-1' };
+    if (method === 'Page.navigate') return { frameId: 'F-fake-1' };
+    if (method === 'Runtime.evaluate') {
+      const expr = String(params.expression ?? '');
+      if (/captcha/i.test(expr)) return { result: { type: 'boolean', value: captcha } };
+      return { result: { type: 'object', value: { tag: 'input', tagName: 'INPUT', type: 'text', autocomplete: '', value: '' } } };
+    }
+    return {};
+  };
+  const waitFor = () => {
+    const p = Promise.resolve({});
+    p.cancel = () => {};
+    return p;
+  };
+  return { send, waitFor, close: () => {}, opened: Promise.resolve(), calls };
+}
+
+async function outcomeOf(fn) {
+  try {
+    const r = await fn();
+    if (typeof r === 'number') return { code: r, text: '' };
+    return { code: r?.code ?? r?.exit, text: JSON.stringify(r ?? null) };
+  } catch (err) {
+    return { code: Number.isInteger(err?.exitCode) ? err.exitCode : 1, text: String(err?.message ?? err) };
+  }
+}
+
+function submitPlan(r, item, over = {}) {
+  const dir = join(r.data, 'fill-plans', SUBMIT_BATCH);
+  mkdirSync(dir, { recursive: true });
+  const plan = { batchId: SUBMIT_BATCH, item, url: `https://boards.greenhouse.io/examplerobotics/jobs/${2000 + item}`, company: 'Example Robotics', role: 'Software Engineering Intern', track: 'swe-intern', score: 4.2, fields: [], ...over };
+  writeFileSync(join(dir, `${item}.json`), JSON.stringify(plan));
+  return plan;
+}
+
+const pack = (r) => ({ root: r.root, dataDir: r.data });
+const logRows = async (r) => (existsSync(join(r.data, 'action-log.tsv')) ? (await readTsv(join(r.data, 'action-log.tsv'))).rows : []);
+
+// M-002-S38-osdr
+test('M-002-S38-osdr chrome.mjs fill on a page with a CAPTCHA widget exits 6 and the job moves from the unapproved batch items to its finish-yourself list', async () => {
+  const { fillPlan } = await import('../../scripts/chrome.mjs');
+  const { writeBatches, listBatches } = await import('../../lib/batch-file.mjs');
+  const r = makeRoot();
+  try {
+    const link = (n) => `https://boards.greenhouse.io/examplerobotics/jobs/${3000 + n}`;
+    writeBatches(r.data, {
+      date: '2026-11-03',
+      kind: 'apply',
+      items: [1, 2, 3].map((n) => ({ company: `Example Co ${n}`, role: 'Data Intern', score: 4.1, preview: `Fake preview ${n}.`, link: link(n) })),
+    });
+    const ids = listBatches(r.data).map((b) => (typeof b === 'string' ? b : b.id));
+    assert.equal(ids.length, 1);
+    const plan = { batchId: ids[0], item: 2, url: link(2), company: 'Example Co 2', role: 'Data Intern', fields: [{ selector: '#email', label: 'Email', type: 'text', value: 'casey.sample@example.com' }] };
+    const client = fakeCdp({ captcha: true });
+    const res = await outcomeOf(() => fillPlan(client, plan, { dataDir: r.data }));
+    assert.equal(res.code, 6, res.text);
+    assert.ok(!client.calls.some((c) => c.method.startsWith('Input.') || String(c.params.expression ?? '').includes('casey.sample@example.com')), 'nothing typed');
+
+    const text = readFileSync(join(r.data, 'batches', `${ids[0]}.md`), 'utf8');
+    const lines = text.split('\n');
+    const head = lines.findIndex((l) => /finish/i.test(l) && /^#+\s/.test(l));
+    assert.ok(head >= 0, text);
+    const numbered = lines.slice(0, head).filter((l) => /^\s*\d+[.)]\s/.test(l));
+    assert.ok(lines.slice(head).some((l) => l.includes(link(2))), `finish-yourself list holds the job link:\n${text}`);
+    assert.ok(!numbered.some((l) => l.includes(link(2))), `the job left the numbered items:\n${text}`);
+    assert.equal(numbered.length, 2, text);
+    assert.ok(numbered.some((l) => l.includes(link(1))) && numbered.some((l) => l.includes(link(3))), text);
+  } finally {
+    r.cleanup();
+  }
+});
+
+// M-002-S39-osdr
+test('M-002-S39-osdr chrome.mjs submit passes a budget.mjs check exit 5 through as exit 5 and prints the budget line while a check exit 4 stays 4', async () => {
+  const { budgetExit, EXIT } = await import('../../scripts/chrome.mjs');
+  assert.equal(typeof budgetExit, 'function', 'chrome.mjs exports budgetExit');
+  assert.equal(budgetExit(4), 4);
+  assert.equal(budgetExit(5), 5);
+  assert.equal(budgetExit(3), 3);
+  assert.equal(budgetExit(2), 3);
+  assert.equal(budgetExit(1), 3);
+  assert.equal(EXIT.captcha, 6);
+
+  const r = makeRoot();
+  try {
+    const earlier = new Date(Date.now() - 3 * 24 * 3600 * 1000);
+    await appendTsv(join(r.data, 'action-log.tsv'), LOG_HEADER, [
+      row({ ts: earlier, action: 'apply.submit', target: 'ex-old', company: 'Example Robotics', session: 's0', detail: 'track=ml-newgrad' }),
+    ]);
+    const approved = runBudget(pack(r), ['log', 'batch.approve', '--batch-id', SUBMIT_BATCH, '--items', '1,2', '--approval', 'approve all'], { today: LOCAL_TODAY });
+    assert.equal(approved.code, 0, approved.stdout + approved.stderr);
+    submitPlan(r, 1);
+    const before = (await logRows(r)).length;
+    const out = await runChrome(['submit', '--batch-id', SUBMIT_BATCH, '--item', '1'], r);
+    assert.equal(out.code, 5, out.stdout + out.stderr);
+    assert.match(out.stdout + out.stderr, /ml-newgrad/, 'the budget line naming the existing track is printed');
+    assert.equal((await logRows(r)).length, before, 'nothing logged, nothing clicked');
+  } finally {
+    r.cleanup();
+  }
+});
+
+// M-002-S40-osdr
+test('M-002-S40-osdr a second submit of an item whose apply.pending row was logged exits 3 because that row counts as used', async () => {
+  const r = makeRoot();
+  try {
+    const approved = runBudget(pack(r), ['log', 'batch.approve', '--batch-id', SUBMIT_BATCH, '--items', '1,2', '--approval', 'approve all'], { today: LOCAL_TODAY });
+    assert.equal(approved.code, 0, approved.stdout + approved.stderr);
+    const pend = runBudget(pack(r), ['log', 'apply.pending', '--batch-id', SUBMIT_BATCH, '--item', '1', '--target', 'ex-new', '--company', 'Example Robotics'], { today: LOCAL_TODAY });
+    assert.equal(pend.code, 0, pend.stdout + pend.stderr);
+    submitPlan(r, 1);
+    const before = await logRows(r);
+    const out = await runChrome(['submit', '--batch-id', SUBMIT_BATCH, '--item', '1'], r);
+    assert.equal(out.code, 3, out.stdout + out.stderr);
+    const after = await logRows(r);
+    assert.equal(after.length, before.length, 'no second apply.pending and no apply.submit row');
+    assert.ok(!after.some((x) => x.action === 'apply.submit'));
   } finally {
     r.cleanup();
   }
