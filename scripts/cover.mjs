@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Cover letter for one posting: the role-family base from templates/cover with the company, role and signature filled
 // by code, plus one tailored paragraph (90 words at most) from the model at the mid tier. Every paragraph passes the
-// fact gate (claims about the student only from cv.md and the application answers; the posting grounds only what the
-// letter says about the company) and the writing-rule cleanup; a fact-gate
+// fact gate (skills, tools, numbers and titles only from cv.md and the application answers; the posting grounds
+// nothing but the company and role names) and the writing-rule cleanup; a fact-gate
 // failure is regenerated once and then flagged, never sent.
 // Usage: cover.mjs --posting FILE --company NAME --role TITLE [--out FILE] [--cv FILE] [--root R]
 // Exit 0 letter written, 1 flagged (the reason is printed), 2 usage.
@@ -52,7 +52,8 @@ export function fillBase(base, { company, role, paragraph, signature }) {
 export function paragraphPrompt({ cv, posting, company, role, words = PARAGRAPH_WORDS, retryNote = '' }) {
   return [
     `Write one paragraph of a cover letter for the ${role} role at ${company}, at most ${words} words.`,
-    'Use only facts stated in the CV below. Never add an employer, title, number, date, tool or skill the CV does not state.',
+    'Use only facts stated in the CV below. Name only skills, tools, numbers and titles the CV states; never name a posting tool the CV lacks, even as something the company uses.',
+    'Mention the company and role only by name (at, join or apply to the company; the role by its title).',
     'Plain words, straight quotes, no dashes as punctuation, no greeting and no sign-off. Reply with the paragraph only.',
     retryNote,
     '',
