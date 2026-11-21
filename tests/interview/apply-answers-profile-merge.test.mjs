@@ -136,3 +136,32 @@ test('M-002 profile-answers learn refuses SSN, card and bank questions and leave
     r.cleanup();
   }
 });
+
+// Sign-in secrets never reach the answer bank either: learn refuses password, passcode and PIN questions, and a
+// type=password or password-autocomplete field is sensitive whatever its label, so fill-plan never lists it as a question.
+test('M-002 learn refuses password, passcode and PIN questions and type=password fields are sensitive', async () => {
+  const { isSensitive } = await import('../../lib/profile-answers.mjs');
+  const { resolveFields } = await import('../../scripts/fill-plan.mjs');
+  for (const q of ['Password', 'Verify New Password', 'Create a passcode', 'PIN']) {
+    assert.equal(isSensitive(q), true, q);
+    assert.throws(() => learn(q, 'fake-secret-0'), /never saved/, q);
+  }
+  assert.equal(isSensitive({ label: 'Choose one', type: 'password' }), true, 'type=password');
+  assert.equal(isSensitive({ label: 'Choose one', autocomplete: 'new-password' }), true, 'new-password autocomplete');
+  assert.equal(isSensitive('Pinterest profile'), false);
+  const res = resolveFields({ url: 'https://acme.wd5.myworkdayjobs.com/x/job/1', fields: [{ label: 'Choose one', name: 'pw', type: 'password' }, { label: 'Verify New Password', name: 'pw2', type: 'text' }] }, { answers: {}, candidate: {} });
+  assert.deepEqual(res.unknown, [], 'a password field is never an unknown question');
+  assert.deepEqual(res.blocked, ['Choose one', 'Verify New Password']);
+});
+
+test('M-002 camelCase names and passport or driver license numbers are sensitive; a yes/no license question is not', async () => {
+  const { isSensitive } = await import('../../lib/profile-answers.mjs');
+  assert.equal(isSensitive({ label: '', name: 'cardNumber' }), true);
+  assert.equal(isSensitive({ label: '', name: 'routingNumber' }), true);
+  assert.equal(isSensitive({ label: '', name: 'bankAccountNumber' }), true);
+  assert.equal(isSensitive('Passport number'), true);
+  assert.equal(isSensitive("Driver's license number"), true);
+  assert.equal(isSensitive('Drivers license no.'), true);
+  assert.equal(isSensitive("Do you have a driver's license?"), false);
+  assert.equal(isSensitive('Do you hold a valid passport?'), false);
+});

@@ -7,7 +7,9 @@
 // Usage: fill-plan.mjs [--rows FILE] [--fields-dir DIR] [--n N] [--root R] [--data-dir D] [--today YYYY-MM-DD]
 //   --rows: JSON array of ranked rows (default: rank-queue.mjs --json); --fields-dir: <url-key-file>.json form fields
 //   per row when the automation Chrome is not used.
-// Exit 0 always for a finished run (flags are printed); 2 usage.
+// Exit 0 for a finished run (flags are printed); 4 when the browser slot refused a resume render (the run stops there
+// and writes no batch, so a scheduled caller retries later); 2 usage.
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
@@ -21,7 +23,7 @@ import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { jdFileName, save as saveJd } from '../lib/jd-store.mjs';
-import { isOn } from '../lib/levers.mjs';
+import { isOn, readOverrides } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { extractPdfText } from '../lib/pdf-text.mjs';
 import { formatRow, getSection, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
@@ -136,7 +138,7 @@ async function resumeFor({ row, cv, outDir, root, full, deps, date, dataDir, age
     writeFileSync(cvFile, attempt.text);
     const built = await build({ root, cvFile, outDir, order: attempt.order, runner: deps.runner, config: deps.config ?? null });
     // A refused browser slot is not a resume fault: nothing was rendered, so there is nothing to rebuild.
-    if (built?.code === EXIT_WAIT) return { ok: false, flags: [`resume not rendered: ${built.error}`] };
+    if (built?.code === EXIT_WAIT) return { ok: false, wait: true, flags: [`resume not rendered: ${built.error}`] };
     if (built?.pdf && (built.code ?? 0) === 0) {
       const res = await checker(built);
       lastProblems = Array.isArray(res) ? res : res?.problems ?? [];
@@ -204,13 +206,16 @@ export async function planRow(row, ctx) {
   const posting = row.jobText ?? (ctx.fetchJob ? await ctx.fetchJob(row) : '');
   const guarded = guardPosting(String(posting ?? ''));
   const jobText = guarded.text.slice(0, JD_CHARS);
-  const form = mapForm(ctx.form?.fields ?? [], { url: row.url, dataDir, learnedOn: isOn('T3') });
+  const overrides = readOverrides(root);
+  const form = mapForm(ctx.form?.fields ?? [], { url: row.url, dataDir, learnedOn: isOn('T3', { overrides }) });
   const { fields, unknown, blocked } = resolveFields({ url: row.url, fields: form.fields }, { answers, candidate });
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
   const full = (row.score ?? 0) >= FULL_PATH_SCORE;
   const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root, full, deps: ctx, date: today, dataDir, agent });
   if (!resume.ok) flags.push(...resume.flags);
+  // A refused browser slot stops the run before any model call for the letter.
+  if (resume.wait) return { batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, wait: true, flags, unknown, blocked, selfCheck: { ok: false, fixed: [], flags: [] }, inBatch: false };
   const cover = form.hasCoverSlot ? await coverFor({ row, jobText, ctx, agent }) : { path: null, flags: [] };
   flags.push(...cover.flags);
   const jd = saveJd(dataDir, row.url, guarded.text);
@@ -218,8 +223,10 @@ export async function planRow(row, ctx) {
   const uploads = fields.filter((f) => f.slot && f.selector).map((f) => ({ selector: f.selector, path: f.slot === 'resume' ? resume.path : cover.path })).filter((u) => u.path);
   const check = await checkAndReview(
     { company: row.company, role, fields: fields.filter((f) => !f.slot && f.key !== SENSITIVE_KEY), cover: cover.path, resumeText: parseCv(cv).sections.map((s) => s.items.map((i) => i.text).join(' ')).join(' '), jobText },
-    { reviewerOn: ctx.config?.reviewer === 'on', t8On: isOn('T8'), review: reviewWith(ctx, { cv, agent, dataDir, date: today }) },
+    { reviewerOn: ctx.config?.reviewer === 'on', t8On: isOn('T8', { overrides }), review: reviewWith(ctx, { cv, agent, dataDir, date: today }) },
   );
+  // The uploaded letter is the fixed one the self-check reports.
+  if (cover.path && check.plan.letter && check.plan.letter !== readFileSync(cover.path, 'utf8')) writeFileSync(cover.path, check.plan.letter);
   return {
     batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, score: row.score, track: row.track,
     fields: check.plan.fields, unknown, blocked, uploads, cover: cover.path, resume: resume.ok ? resume.path : null, jd,
@@ -245,12 +252,18 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
     answers: readProfileAnswers(paths.root) ?? {}, candidate: readCandidate(paths.root), cv: readFileSync(join(paths.root, 'cv.md'), 'utf8'),
   };
   const ready = [];
+  // One work folder per run: a second run on the same day never overwrites a resume an earlier batch still uploads.
+  const runDir = join(paths.dataDir, 'fill-plans', `${today}-run-${deps.runId ?? randomUUID().slice(0, 8)}`);
   for (const [i, row] of rows.entries()) {
-    const outDir = join(paths.dataDir, 'fill-plans', `${today}-work`, String(i + 1));
+    const outDir = join(runDir, String(i + 1));
     mkdirSync(outDir, { recursive: true });
     const form = { url: row.url, fields: (await (deps.fieldsFor ?? (() => []))(row)) ?? [] };
     const plan = await planRow(row, { ...ctxBase, form, item: i + 1, outDir });
     const label = `${row.company} | ${plan.role}`;
+    if (plan.wait) {
+      say(`fill-plan: waiting for a browser slot (${plan.flags.join('; ')}); no batch written, run fill-plan again later`);
+      return { code: EXIT_WAIT, ids: [], ready: 0, flagged: 0, unknown: [] };
+    }
     for (const f of [...plan.flags, ...plan.selfCheck.flags]) say(`fill-plan: ${label}: flagged: ${f}`);
     for (const b of plan.blocked) say(`fill-plan: ${label}: blocked-on-user: "${b}" is a field you fill yourself; it is never filled for you`);
     if (plan.inBatch && plan.selfCheck.ok) ready.push(plan);
@@ -274,7 +287,7 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
   const unknown = [...new Set(ready.flatMap((p) => p.unknown))];
   say(`fill-plan: ${ready.length} of ${rows.length} ready in ${ids.length} batch(es)${ids.length ? `: ${ids.join(', ')}` : ''}`);
   if (unknown.length) say(`fill-plan: questions to answer once: ${unknown.join(' | ')}`);
-  return { ids, ready: ready.length, flagged: rows.length - ready.length, unknown };
+  return { code: 0, ids, ready: ready.length, flagged: rows.length - ready.length, unknown };
 }
 
 async function main() {
@@ -288,8 +301,7 @@ async function main() {
     const file = flags.fieldsDir ? join(flags.fieldsDir, jdFileName(row.url).replace(/\.txt$/, '.json')) : null;
     return file && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : [];
   };
-  await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor } });
-  return 0;
+  return (await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor } })).code;
 }
 
 if (isMain(import.meta.url)) await runCli(main);

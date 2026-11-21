@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Cover letter for one posting: the role-family base from templates/cover with the company, role and signature filled
 // by code, plus one tailored paragraph (90 words at most) from the model at the mid tier. Every paragraph passes the
-// fact gate (nothing absent from cv.md, the application answers or the posting) and the writing-rule cleanup; a fact-gate
+// fact gate (claims about the student only from cv.md and the application answers; the posting grounds only what the
+// letter says about the company) and the writing-rule cleanup; a fact-gate
 // failure is regenerated once and then flagged, never sent.
 // Usage: cover.mjs --posting FILE --company NAME --role TITLE [--out FILE] [--cv FILE] [--root R]
 // Exit 0 letter written, 1 flagged (the reason is printed), 2 usage.
@@ -75,7 +76,7 @@ export const coverPath = (dataDir, company, role) => join(dataDir, 'covers', `${
 
 /** Returns { ok, path, text, flags }; a passing letter is written to out (default coverPath). headless is lib/headless.mjs runHeadless (injected by tests). */
 export async function writeCover({ cv, posting, answers, company, role, presets, signature, dataDir, date, agent = 'claude', headless = runHeadless, words = PARAGRAPH_WORDS, out = null }) {
-  const sources = { cv, answers, posting, extra: [company, role] };
+  const sources = { cv, answers, posting, company, role };
   let missing = [];
   for (let attempt = 0; attempt < 2; attempt++) {
     const retryNote = missing.length ? `Your last paragraph named things the CV does not state (${missing.join(', ')}). Leave them out.` : '';
