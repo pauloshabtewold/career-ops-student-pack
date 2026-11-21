@@ -98,6 +98,7 @@ test('M-001-S15-osdr the Chrome e2e harness skips outside CI with the reason no 
     const env = { ...process.env, [ROOT_ENV]: emptyRoot };
     delete env.CI;
     delete env.BROWSER_SLOT_CMD;
+    delete env.NODE_TEST_CONTEXT; // Node refuses a nested node --test run while this is inherited
     const out = spawnSync(process.execPath, ['--test', '--test-reporter=tap', '--test-name-pattern=M-001-S1-osdr', THIS_FILE], { cwd: PACK_ROOT, env, encoding: 'utf8', timeout: 60000 });
     assert.equal(out.status, 0, out.stdout + out.stderr);
     assert.match(out.stdout, /# SKIP no browser slot command configured/);
