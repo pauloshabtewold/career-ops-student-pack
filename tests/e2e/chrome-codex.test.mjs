@@ -2,7 +2,9 @@
 // form text. Skips name the missing piece: the codex binary, CAREER_OPS_AGENT_E2E, or a browser slot.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { AGENT_TIMEOUT_MS, resolveAgentPath } from '../../lib/agent.mjs';
 import { gate, openChrome, stopAll } from '../helpers/chrome-harness.mjs';
 import { PACK_ROOT, makeRoot } from '../helpers/script-harness.mjs';
@@ -24,6 +26,18 @@ function runCodex(codex, prompt) {
 
 // M-001-S16-osdr
 test('M-001-S16-osdr [e2e] Codex reads a page through chrome.mjs', async (t) => {
+  // The CLI the Codex prompt calls: read without a URL is a usage error and launches nothing.
+  const usage = makeRoot();
+  try {
+    const env = { ...process.env };
+    delete env.BROWSER_SLOT_CMD;
+    const out = spawnSync(process.execPath, [join(PACK_ROOT, 'scripts', 'chrome.mjs'), 'read', '--root', usage.root, '--data-dir', usage.data], { cwd: PACK_ROOT, env, encoding: 'utf8', timeout: 30000 });
+    assert.equal(out.status, 2, out.stdout + out.stderr);
+    assert.equal(existsSync(join(usage.data, '.chrome-automation')) || existsSync(join(usage.data, 'chrome-automation')), false, 'no Chrome launched');
+  } finally {
+    usage.cleanup();
+  }
+
   const codex = resolveAgentPath('codex');
   if (!codex) return t.skip('codex binary not resolved by resolveAgentPath');
   if (process.env.CAREER_OPS_AGENT_E2E !== '1') return t.skip('CAREER_OPS_AGENT_E2E is unset');
