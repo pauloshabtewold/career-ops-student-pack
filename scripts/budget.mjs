@@ -6,15 +6,17 @@
 // Every irreversible send kind also needs its item in a batch the student approved: `log batch.approve` records the
 // approval in the student's words, and a check of a send kind passes only for a listed item not yet sent (approvedItem).
 // Exit codes: 0 ok, 2 usage, 3 refused, 4 wait, 5 needs the user.
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { parseArgs, runCli, UsageError, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { parseConfig, ConfigError, deepFreeze } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
-import { appendAction, readActionLog, detailValue } from '../lib/action-log.mjs';
+import { LOG_HEADER, appendAction, readActionLog, detailValue } from '../lib/action-log.mjs';
+import { withLock } from '../lib/dir-lock.mjs';
+import { escapeCell } from '../lib/tsv.mjs';
 
 const entry = (value, unit, tighten, period) => ({ value, unit, tighten, period });
 const down = (value, unit, period) => entry(value, unit, 'down', period);
@@ -308,8 +310,17 @@ function companyCap(rows, args, limit, cap) {
   return cap(limit, contacted.size, `targets contacted at ${args.company}`);
 }
 
+// A submit is an apply.submit row, or an apply.pending row with no apply.submit for its batch item: a click whose log
+// never ran still counts against every submit cap. The item being checked or logged now is not counted twice.
+const itemKey = (r) => `${detailValue(r.detail, 'batch')}#${detailValue(r.detail, 'item')}`;
+function submitRows(rows, args) {
+  const logged = new Set(rows.filter((r) => r.action === 'apply.submit').map(itemKey));
+  const current = `${args.batchId}#${args.item}`;
+  return rows.filter((r) => r.action === 'apply.submit' || (r.action === 'apply.pending' && !logged.has(itemKey(r)) && itemKey(r) !== current));
+}
+
 function submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refuse }) {
-  const submits = rows.filter((r) => r.action === 'apply.submit');
+  const submits = submitRows(rows, args);
   const company = (args.company ?? '').toLowerCase();
   const sameCompany = submits.filter((r) => (r.company ?? '').toLowerCase() === company);
   if (args.batch > L.batch_size) return refuse(`batch of ${args.batch} exceeds ${L.batch_size}`);
@@ -500,6 +511,7 @@ async function cmdCheckLog(env) {
   const now = clock.now();
 
   if (command === 'log' && action === 'batch.approve') return logBatchApprove(env);
+  if (command === 'log' && action === 'apply.pending') return logPending(env);
   if (command === 'log' && OBSERVED.includes(action)) {
     const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`].filter(Boolean).join(';');
     await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail })]);
@@ -517,6 +529,30 @@ async function cmdCheckLog(env) {
     return EXIT[res.status];
   }
   return logAllowed({ action, now, env, res });
+}
+
+// apply.pending is a compare-and-set: under the action-log lock the fresh rows must still hold an approved, unused item,
+// so two submits of one item (a retry after a timeout, a scheduled run beside a session) never both get to click.
+async function logPending({ flags, file, mkRow }) {
+  if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('apply.pending needs --batch-id and --item of the approved batch item');
+  if (flags.dryRun) {
+    console.log('logged apply.pending (dry run)');
+    return 0;
+  }
+  mkdirSync(dirname(file), { recursive: true });
+  return withLock(file, async () => {
+    const rows = await readActionLog(file);
+    if (!approvedItem(rows, flags.batchId, flags.item)) {
+      console.log(`refused: item ${flags.item} of batch ${flags.batchId} has no unused logged approval`);
+      return EXIT.refused;
+    }
+    const detail = [flags.track && `track=${flags.track}`, `batch=${flags.batchId}`, `item=${flags.item}`].filter(Boolean).join(';');
+    const row = mkRow('apply.pending', { target: flags.target ?? '', company: flags.company ?? '', detail });
+    if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
+    appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
+    console.log('logged apply.pending');
+    return 0;
+  });
 }
 
 // The student's approval of one batch: the batch id, the approved item numbers and their own words.
