@@ -149,7 +149,8 @@ test('close sends SIGKILL when the recorded Chrome ignores SIGTERM for the exit 
   try {
     writeState(r.data, { pid: FAKE_PID, port: FAKE_PORT });
     const proc = fakeProcess({ diesOn: 'SIGKILL' });
-    const { code, out } = await run(['close'], r, { ...proc, ...fakeClock(), fetchFn: ok });
+    // platform pinned: on win32 the fallback is taskkill /T (tests/scripts/chrome-close-win.test.mjs)
+    const { code, out } = await run(['close'], r, { ...proc, ...fakeClock(), fetchFn: ok, platform: 'darwin' });
     assert.equal(code, 0, out);
     assert.deepEqual(proc.signals, ['SIGTERM', 'SIGKILL']);
     assert.equal(readState(r.data), null);

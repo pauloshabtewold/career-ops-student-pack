@@ -8,7 +8,7 @@
 // or its profile held by a Chrome this CLI did not record. 5 stays the pack's "needs the
 // user" code, so a caller never mistakes a stopped browser for a question to the student.
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
@@ -97,14 +97,19 @@ export function writeState(dataDir, state) {
 }
 
 // True when the debugging port answers /json/version within 3 seconds.
+// Two tries: a Chrome still busy right after its first launch (fresh profile, slow CI runner) can miss one 3 s probe. A
+// closed port refuses at once, so a dead instance costs no wait.
 export async function reachable(port, { fetchFn = fetch } = {}) {
   if (!port) return false;
-  try {
-    const res = await fetchFn(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(3000) });
-    return res.ok;
-  } catch {
-    return false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchFn(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) return true;
+    } catch {
+      // timed out or refused; try once more
+    }
   }
+  return false;
 }
 
 // A recorded instance counts only when its own PID is alive and its port answers; anything else is stale.
@@ -173,17 +178,20 @@ export async function stopChrome(pid, deps = {}) {
   return waitGone(pid, KILL_WAIT_MS, deps);
 }
 
-// Windows keeps <profile>/lockfile open until the last Chrome child exits; deleting it succeeds only then. Bounded, so a
-// stuck child never hangs close. Other platforms release the profile with the browser process.
-async function waitProfileReleased(profile, { platform = process.platform, now = Date.now, wait = sleep, remove = rmSync } = {}) {
-  if (platform !== 'win32') return;
-  const until = now() + KILL_WAIT_MS;
+// Windows keeps profile files open until the last Chrome child exits, and refuses to rename a folder while any file in it
+// is open: a rename and rename back succeeding means the profile is free. Bounded, so a stuck child never hangs close.
+// Other platforms release the profile with the browser process.
+async function waitProfileReleased(profile, { platform = process.platform, now = Date.now, wait = sleep, rename = renameSync } = {}) {
+  if (platform !== 'win32' || !existsSync(profile)) return;
+  const probe = `${profile}.closing`;
+  const until = now() + EXIT_WAIT_MS;
   while (now() < until) {
     try {
-      remove(join(profile, 'lockfile'), { force: true });
+      rename(profile, probe);
+      rename(probe, profile);
       return;
     } catch {
-      await wait(200);
+      await wait(250);
     }
   }
 }
