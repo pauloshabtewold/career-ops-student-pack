@@ -354,6 +354,11 @@ const siteOf = (url) => {
 async function fillField(client, sessionId, field) {
   if (field.type === 'select' || field.type === 'select-one') return selectOption(client, sessionId, field.selector, field.value);
   if (field.type === 'checkbox' || field.type === 'radio') return setChecked(client, sessionId, field.selector, Boolean(field.value));
+  // A page script may only set a file input to the empty string, so a file goes through the DOM domain.
+  if (field.type === 'file') {
+    await setFileInputFiles(client, sessionId, field.selector, [String(field.value)]);
+    return true;
+  }
   return setValue(client, sessionId, field.selector, field.value);
 }
 

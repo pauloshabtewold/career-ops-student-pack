@@ -2,7 +2,8 @@
 // The student's one-page batches: list them, show one, record the approval in their own words, and see what went out.
 // approve parses the reply ("approve all", "all except 3, 7", "submit 1,3", "send all") and logs it through
 // budget.mjs log batch.approve, which every send kind checks before it acts.
-// Usage: batch.mjs list | show <id> | approve <id> "<words>" | status <id>   [--root R] [--data-dir D] [--today D]
+// Usage: batch.mjs list | show <id> | approve <id> "<words>" | status [<id>]   [--root R] [--data-dir D] [--today D]
+// status without an id shows every batch.
 // Exit codes follow the pack convention: 0 ok, 2 usage (including no such batch), 3 refused, 4 wait and 5 needs the user
 // (a reply the grammar cannot read, so the student is asked again); budget.mjs 3, 4 and 5 pass through unchanged.
 import { join } from 'node:path';
@@ -53,10 +54,8 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   return 0;
 }
 
-async function cmdStatus({ paths, positionals, say }) {
-  const batch = mustRead(paths.dataDir, positionals[0]);
-  const id = positionals[0];
-  const rows = await readActionLog(join(paths.dataDir, 'action-log.tsv'));
+// One batch's items with their send state, then its finish-these-yourself jobs with their direct links.
+function sayBatchStatus(batch, id, rows, say) {
   const sent = new Set(rows.filter((r) => SEND_ACTIONS.has(r.action) && detailValue(r.detail, 'batch') === id).map((r) => Number(detailValue(r.detail, 'item'))));
   const approved = new Set(batch.approved?.items ?? []);
   batch.items.forEach((it, i) => {
@@ -64,7 +63,26 @@ async function cmdStatus({ paths, positionals, say }) {
     const state = sent.has(n) ? 'submitted' : approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval';
     say(`${n}. ${it.company} | ${it.role} | ${state}`);
   });
-  for (const f of batch.finishYourself ?? []) say(`finish yourself: ${f.company} | ${f.role} | ${f.link}`);
+  const finish = batch.finishYourself ?? [];
+  if (finish.length) {
+    say('Finish these yourself:');
+    for (const f of finish) say(`  ${f.company} | ${f.role} | ${f.link}`);
+  }
+}
+
+async function cmdStatus({ paths, positionals, say }) {
+  const rows = await readActionLog(join(paths.dataDir, 'action-log.tsv'));
+  const id = positionals[0];
+  if (id) {
+    sayBatchStatus(mustRead(paths.dataDir, id), id, rows, say);
+    return 0;
+  }
+  const ids = listBatches(paths.dataDir);
+  if (!ids.length) say('batch: no batches yet');
+  for (const each of ids) {
+    say(`${each}:`);
+    sayBatchStatus(readBatch(paths.dataDir, each), each, rows, say);
+  }
   return 0;
 }
 
