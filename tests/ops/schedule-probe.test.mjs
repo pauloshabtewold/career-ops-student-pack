@@ -43,8 +43,7 @@ async function runProbe(r, scheduler) {
   return { value, config, added };
 }
 
-// M-001-S18-osdr
-test('M-001-S18-osdr schedule-probe with a fake scheduler writes chrome_in_schedule yes and the evidence line when the probe file says reachable', async () => {
+async function reachableCase() {
   const r = makeRoot();
   try {
     writeFileSync(join(r.data, '.chrome-probe.json'), JSON.stringify({ reachable: 'no' }));
@@ -59,10 +58,9 @@ test('M-001-S18-osdr schedule-probe with a fake scheduler writes chrome_in_sched
   } finally {
     r.cleanup();
   }
-});
+}
 
-// M-001-S18-osdr
-test('M-001-S18-osdr schedule-probe writes chrome_in_schedule no when the probe file is missing after the wait, and removes the job', async () => {
+async function missingFileCase() {
   const r = makeRoot();
   try {
     // A stale reachable file from an earlier run must not count for this one.
@@ -78,10 +76,9 @@ test('M-001-S18-osdr schedule-probe writes chrome_in_schedule no when the probe 
   } finally {
     r.cleanup();
   }
-});
+}
 
-// M-001-S18-osdr
-test('M-001-S18-osdr schedule-probe removes the job and writes no when install throws', async () => {
+async function installThrowsCase() {
   const r = makeRoot();
   try {
     const scheduler = fakeScheduler(null);
@@ -102,4 +99,11 @@ test('M-001-S18-osdr schedule-probe removes the job and writes no when install t
   } finally {
     r.cleanup();
   }
+}
+
+// M-001-S18-osdr
+test('M-001-S18-osdr schedule-probe with a fake scheduler writes chrome_in_schedule yes and the evidence line when the probe file says reachable and no when it is missing after the wait, removing the job each time', async () => {
+  await reachableCase();
+  await missingFileCase();
+  await installThrowsCase();
 });

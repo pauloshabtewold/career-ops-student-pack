@@ -292,31 +292,21 @@ test('M-001-S11-osdr capture in a temp git repo exits 3 naming lib/config.mjs wh
 });
 
 // M-001-S19-osdr
-test('M-001-S19-osdr capture stops before the next call and exits 5 with blocked-on-user when usage passes 1.5 times the estimate', async () => {
-  const p = await packRepo();
-  try {
-    const fake = fakeRunner({ usage: { input_tokens: 5e9, output_tokens: 5e9 } });
-    const out = sayer();
-    const code = await codeOf(p.tool.capture({ root: p.dir, runner: fake.runner, resolve, say: out.say }), p.tool, out.lines);
-    assert.equal(code, 5);
-    assert.equal(fake.calls.length, 1, 'stopped before the second call');
-    assert.match(out.lines.join('\n'), /blocked-on-user \S/);
-  } finally {
-    p.cleanup();
-  }
-});
-
-// M-001-S19-osdr
-test('M-001-S19-osdr capture stops before the next call and exits 5 with blocked-on-user when the runner reports a quota error', async () => {
-  const p = await packRepo();
-  try {
-    const fake = fakeRunner({ fail: (call) => quotaReply(call.agent) });
-    const out = sayer();
-    const code = await codeOf(p.tool.capture({ root: p.dir, runner: fake.runner, resolve, say: out.say }), p.tool, out.lines);
-    assert.equal(code, 5);
-    assert.equal(fake.calls.length, 1, 'stopped before the second call');
-    assert.match(out.lines.join('\n'), /blocked-on-user \S/);
-  } finally {
-    p.cleanup();
+test('M-001-S19-osdr capture stops before the next call and exits 5 with blocked-on-user when usage passes 1.5 times the estimate or the runner reports a quota error', async () => {
+  const cases = [
+    ['usage over 1.5 times the estimate', fakeRunner({ usage: { input_tokens: 5e9, output_tokens: 5e9 } })],
+    ['quota error', fakeRunner({ fail: (call) => quotaReply(call.agent) })],
+  ];
+  for (const [label, fake] of cases) {
+    const p = await packRepo();
+    try {
+      const out = sayer();
+      const code = await codeOf(p.tool.capture({ root: p.dir, runner: fake.runner, resolve, say: out.say }), p.tool, out.lines);
+      assert.equal(code, 5, label);
+      assert.equal(fake.calls.length, 1, `${label}: stopped before the second call`);
+      assert.match(out.lines.join('\n'), /blocked-on-user \S/, label);
+    } finally {
+      p.cleanup();
+    }
   }
 });
