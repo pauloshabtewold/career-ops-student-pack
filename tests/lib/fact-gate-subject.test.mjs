@@ -1,4 +1,4 @@
-// lib/fact-gate.mjs check(): the posting grounds nothing about the student. Posting words and known tools absent from
+// lib/fact-gate.mjs check(): the posting grounds nothing about the student. Skill-like posting terms and known tools absent from
 // cv.md are flagged anywhere in the letter, the company and role pass only as names in fixed contexts, and quantities
 // need cv.md. SYNTHETIC FIXTURE: fake data only.
 import { test } from 'node:test';
@@ -473,4 +473,195 @@ test('r5: honest letters against realistic postings flag only the by-design "lea
     assert.equal(flaggedSentences.length, L.flagged, `${L.company}: ${JSON.stringify(flaggedSentences)}`);
     for (const s of flaggedSentences) assert.match(s, /\blearn\b/, s);
   }
+});
+
+// Review r5 (round 6 ruling): four realistic postings, drafter-style invented claims and honest letters. Risk words are
+// skill-like terms only (known tech, proper terms, requirement-section terms); titles after "as a", "served as" and the
+// like need the cv phrase; "years of" is a quantity; a relative clause after the company is still scanned for a claim.
+const CV6 = `# Jordan Sample
+jordan.sample@example.com | Example City
+## Education
+- B.S. Information Systems, Example University, expected May 2026. Coursework: Statistics, Database Systems, Business Analytics
+## Experience
+- Operations Intern, Example Logistics (June 2025 - August 2025): wrote SQL queries to track shipment delays for the warehouse team; built Excel reports with pivot tables for the operations manager; automated a weekly data pull with a Python script
+## Projects
+- Class project: analyzed public taxi trip data in Python and presented findings to the class
+## Skills
+Python, SQL, Excel
+`;
+const P6 = {
+  nw: { company: 'Northwind Health', role: 'Data Analyst Intern', posting: `Data Analyst Intern, Summer 2026
+Northwind Health is a regional healthcare network serving patients across the state. Our analytics team helps clinicians and leaders make better decisions with data.
+Responsibilities:
+- Build and maintain Tableau dashboards that track patient wait times and clinic capacity
+- Write SQL against our Snowflake data warehouse and help maintain dbt models
+- Explore data in Looker and present findings to stakeholders every week
+- Document data definitions and support data quality checks
+Qualifications:
+- Pursuing a bachelor's degree in statistics, information systems, or a related field
+- Experience with SQL and Excel; familiarity with Tableau, dbt or Looker is a plus
+- Strong communication skills and attention to detail
+This is a paid 10-week internship. Northwind Health is an equal opportunity employer.` },
+  ct: { company: 'Contoso Retail', role: 'Business Intelligence Intern', posting: `Business Intelligence Intern
+Contoso Retail operates 120 stores and a growing online business. The BI team turns sales, inventory and customer data into insights for merchandising and store operations.
+What you'll do:
+- Build Power BI reports and write DAX measures for weekly sales reviews
+- Prepare data in Azure Data Factory and Alteryx workflows
+- Partner with merchandising to analyze promotions and inventory trends
+- Automate recurring reports and reduce manual work
+What we look for:
+- Coursework in analytics, information systems, or business
+- Strong Excel skills; SQL experience preferred; Power BI or Alteryx a plus
+- Curious, organized, and able to explain numbers in plain language
+Paid hybrid internship in Example City, 12 weeks.` },
+  fb: { company: 'Fabrikam', role: 'Marketing Analytics Intern', posting: `Marketing Analytics Intern
+Fabrikam is a consumer electronics brand. Our marketing team uses data to understand customers and improve campaigns.
+You will:
+- Track campaign performance in Google Analytics and HubSpot
+- Pull customer data from Salesforce and build segments for email campaigns
+- Design and analyze A/B tests with the growth team
+- Report weekly results using Mixpanel and Excel
+You have:
+- Interest in marketing and data
+- Excel skills; SQL or Python a plus
+- Google Analytics certification preferred
+- Clear writing and a team-first attitude` },
+  ts: { company: 'Tailspin Freight', role: 'Operations Analyst Intern', posting: `Operations Analyst Intern
+Tailspin Freight moves goods for retailers across North America. The operations analytics group improves on-time delivery and warehouse efficiency.
+Responsibilities:
+- Pull shipment data from SAP and analyze carrier performance
+- Build Excel models and VBA macros to automate reporting
+- Run analyses in R and support Lean Six Sigma projects
+- Track project tasks in Jira and present recommendations to managers
+Requirements:
+- Pursuing a degree in supply chain, industrial engineering, information systems or related field
+- Advanced Excel; SQL is a plus
+- Lean Six Sigma Yellow Belt or Green Belt certification is a plus
+- Strong problem-solving and communication skills` },
+};
+const src6 = (k, extra = '') => ({ cv: CV6, answers: {}, ...P6[k], posting: P6[k].posting + extra });
+
+const INVENTED6 = [
+  ['nw', 'At Example Logistics, I built Tableau dashboards to track shipment delays.'],
+  ['nw', 'I have two years of experience writing SQL queries.'],
+  ['nw', 'My Python script cut report preparation time by 30%.'],
+  ['nw', 'I also maintained dbt models for the warehouse team.'],
+  ['nw', 'As a data analyst at Example Logistics, I wrote SQL queries to track shipment delays.'],
+  ['nw', "Northwind Health's analytics team, where I volunteered last year, showed me how data improves patient care."],
+  ['ct', 'I am proficient in Power BI and wrote DAX measures for weekly reviews.'],
+  ['ct', 'My automated reports saved the operations manager about five hours each week.'],
+  ['ct', 'I reduced manual reporting work by half with a Python script.'],
+  ['ct', 'As a business intelligence intern at Example Logistics, I built Excel reports.'],
+  ['ct', 'I prepared data in Alteryx workflows during my internship.'],
+  ['ct', 'I have experience with Azure from my coursework.'],
+  ['fb', 'I earned my Google Analytics certification last spring.'],
+  ['fb', 'I designed and analyzed A/B tests for email campaigns.'],
+  ['fb', 'I pulled customer data from Salesforce to build segments.'],
+  ['fb', 'I tracked campaign performance in HubSpot for a student club.'],
+  ['fb', 'I hold a data analytics certification and use Excel daily.'],
+  ['ts', 'I am Lean Six Sigma Green Belt certified.'],
+  ['ts', 'I built VBA macros to automate the weekly report.'],
+  ['ts', 'I pulled shipment data from SAP to analyze carrier performance.'],
+  ['ts', 'I ran regression analyses in R for my statistics course.'],
+  ['ts', 'My SQL analysis helped improve on-time delivery by 12 percent.'],
+  ['ts', 'I led a team of interns on the shipment delay project.'],
+  ['ts', 'I served as the lead analyst for shipment delays at Example Logistics.'],
+  ['ts', 'As an operations analyst at Example Logistics, I tracked shipment delays.'],
+  ['nw', 'I have years of experience with SQL and Excel.'],
+  ['nw', 'I bring over a year of hands-on SQL experience.'],
+  ['ct', 'During my internship I supported Contoso Retail on an inventory project.'],
+  ['fb', 'I am a certified Google Analytics user.'],
+  ['ts', 'I tracked project tasks in Jira during my internship.'],
+  // Variants from the review.
+  ['nw', 'I worked as a data analyst at Example Logistics.'],
+  ['nw', 'In my role as an analyst, I wrote SQL queries.'],
+  ['nw', 'I was a data analyst intern at Example Logistics.'],
+  ['nw', 'As a junior analyst, I built Excel reports.'],
+  ['nw', 'I worked as a business analyst last summer.'],
+  ['nw', 'My title was Data Analyst at Example Logistics.'],
+  ['nw', 'I was hired as a business analyst.'],
+  ['nw', 'I managed a team of five.'],
+  ['nw', 'I bring several years of Python experience.'],
+  ['nw', 'I have many years of Excel experience.'],
+  ['nw', 'I have a few years of Excel.'],
+  ['nw', 'Having volunteered with Northwind Health, I know your patients.'],
+  ['nw', 'Northwind Health, where I interned last summer, is my top choice.'],
+  ['nw', 'Northwind Health, who hired me last year, is a great employer.'],
+  ['nw', 'I loved my summer at Northwind Health.'],
+  ['nw', 'Northwind Health has been my employer since 2024.'],
+];
+
+test('r6: every drafter-style invented claim against the four realistic postings is flagged', () => {
+  const leaks = INVENTED6.filter(([k, s]) => check(s, src6(k)).length === 0).map(([, s]) => s);
+  assert.deepEqual(leaks, []);
+});
+
+test('r6: exact items for titles, counts of years, relative clauses and slash terms', () => {
+  for (const [k, s, want] of [
+    ['nw', 'As a data analyst at Example Logistics, I wrote SQL queries to track shipment delays.', ['data analyst']],
+    ['ts', 'I served as the lead analyst for shipment delays at Example Logistics.', ['lead analyst']],
+    ['ts', 'As an operations analyst at Example Logistics, I tracked shipment delays.', ['operations analyst']],
+    ['ts', 'I led a team of interns on the shipment delay project.', ['led a team']],
+    ['nw', 'I have years of experience with SQL and Excel.', ['years of']],
+    ['nw', 'I bring several years of Python experience.', ['several years of']],
+    ['nw', "Northwind Health's analytics team, where I volunteered last year, showed me how data improves patient care.", ['Northwind Health']],
+    ['fb', 'I designed and analyzed A/B tests for email campaigns.', ['A/B']],
+    ['nw', 'I have 2-3 years of SQL work.', ['2-3']],
+  ]) assert.deepEqual(check(s, src6(k)), want, s);
+  // Grounded by the cv: the title phrase held, a span of years, a team the cv says was led.
+  const cv = `${CV6}- Data Analyst, Example Bank (2021-2024): led a team of 3 analysts; SQL, 3 years\n`;
+  for (const s of ['As a data analyst at Example Bank, I wrote SQL.', 'I led a team of analysts.', 'I have years of experience with SQL.']) assert.deepEqual(check(s, { ...src6('nw'), cv }), [], s);
+});
+
+test('r6: wish and apply frames, held titles and filler modifiers pass the title check', () => {
+  for (const [k, s] of [
+    ['nw', 'As an operations intern at Example Logistics, I wrote SQL queries.'],
+    ['nw', 'As a summer intern at Example Logistics, I built Excel reports.'],
+    ['nw', 'I want to work as a data analyst after I graduate.'],
+    ['nw', 'I hope to grow as an analyst on your team.'],
+    ['nw', 'As an aspiring data analyst, I enjoy clean data.'],
+    ['nw', 'As the hiring manager, you know what the team needs.'],
+    ['nw', 'I would love to start my career as a data analyst.'],
+    ['nw', 'I am excited to apply as a junior analyst.'],
+    ['nw', 'I see the work as a chance to learn.'],
+    ['nw', 'I hope to lead a team someday.'],
+    ['ct', 'The work I want to do as a Business Intelligence Intern is exactly this.'],
+  ]) assert.deepEqual(check(s, src6(k)), [], s);
+});
+
+test('r6: narrative posting words are not risk words; requirement-section and proper terms are', () => {
+  for (const [k, s] of [
+    ['ct', 'I care about inventory and recurring reports.'],
+    ['fb', 'I enjoy reading about marketing campaigns.'],
+    ['nw', 'I want to give clinicians data they can trust.'],
+    ['ts', 'On-time delivery matters to every warehouse team.'],
+    ['ct', 'I can explain numbers in plain language.'],
+  ]) assert.deepEqual(check(s, src6(k)), [], s);
+  assert.deepEqual(check('I studied industrial engineering.', src6('ts')), ['industrial']);
+  assert.deepEqual(check('I am a Lean practitioner.', src6('ts')), ['Lean']);
+  assert.deepEqual(check('I built pipelines in Azure Data Factory.', src6('ct')), ['Azure Data Factory']);
+  assert.deepEqual(check('I tracked events in Mixpanel.', src6('fb')), ['Mixpanel']);
+});
+
+test('r6: used, using, doing and going reduce to their base forms', () => {
+  const extra = ' Tools used include Excel. You will be using data daily. We are doing great work. Owing to growth we are going fast.';
+  for (const s of ['I used SQL to track shipment delays.', 'I enjoy using Python to automate reports.', 'I like doing careful work.', 'I am going to bring the same care.']) assert.deepEqual(check(s, src6('nw', extra)), [], s);
+  assert.deepEqual(retryTerms(['using', 'Tableau', 'plain language']), ['Tableau']);
+});
+
+const HONEST6 = [
+  ['nw', 'I am excited to apply for the Data Analyst Intern role at Northwind Health because I want my work with data to help people. Last summer, as an Operations Intern at Example Logistics, I wrote SQL queries to track shipment delays for the warehouse team and built Excel reports with pivot tables for the operations manager. I also automated a weekly data pull with a Python script, which freed up time for analysis instead of copying numbers. In a class project I analyzed public taxi trip data in Python and presented my findings to the class, which taught me to explain results in plain terms. My coursework in Statistics and Database Systems at Example University has given me a solid base, and I would bring the same care and curiosity to your analytics team.'],
+  ['ct', "Contoso Retail's focus on turning sales and inventory data into clear decisions is exactly the kind of work I want to do as a Business Intelligence Intern. During my internship at Example Logistics, I built Excel reports with pivot tables for the operations manager and wrote SQL queries to track shipment delays. When the same data pull came up every week, I automated it with a Python script so the team could spend more time on what the numbers meant. I am studying Information Systems at Example University, where courses in Business Analytics and Database Systems have shaped how I approach a problem: start with the question, check the data, then explain the answer simply. I would welcome the chance to join Contoso Retail and help automate recurring reports for your team."],
+  ['fb', "I am applying for the Marketing Analytics Intern position at Fabrikam because I enjoy using data to understand what people want. At Example Logistics last summer, I wrote SQL queries and built Excel reports that helped the operations manager see where shipments were running late. I learned to keep reports simple and to check every number before sharing it. In a class project, I analyzed public taxi trip data in Python and presented my findings, and I found that a clear chart often matters more than a complex model. I am pursuing a B.S. in Information Systems at Example University, and I am eager to bring my Excel, SQL and Python skills to Fabrikam's marketing team and learn how great campaigns are measured."],
+  ['ts', 'I am applying for the Operations Analyst Intern role at Tailspin Freight because I have already seen how much good data matters in moving goods on time. As an Operations Intern at Example Logistics last summer, I wrote SQL queries to track shipment delays for the warehouse team and built Excel reports with pivot tables for the operations manager. I also automated a weekly data pull with a Python script, which made the reports faster to prepare. My Information Systems coursework at Example University, including Statistics and Database Systems, gave me the foundation for that work. I would be glad to bring my SQL, Excel and Python skills to Tailspin Freight and keep learning from your operations analytics group.'],
+  ['nw', 'My internship at Example Logistics taught me that a clear report can change how a team works. As an Operations Intern, I wrote SQL queries to track shipment delays and built Excel reports with pivot tables that the operations manager used to follow up with the warehouse team. To save time each week, I automated a recurring data pull with a Python script. At Example University I study Information Systems, and my Statistics and Database Systems courses taught me to check my work and document what I find. I would love to join Northwind Health as the Data Analyst Intern and help your analytics team give clinicians data they can trust.'],
+  ['ct', 'I would love to join Contoso Retail as the Business Intelligence Intern. Last summer at Example Logistics, I built Excel reports with pivot tables for the operations manager and wrote SQL queries to track shipment delays for the warehouse team. I noticed the same data pull took time every week, so I automated it with a Python script. In a class project, I analyzed public taxi trip data in Python and presented my findings to the class, which taught me to explain numbers in plain language. My Information Systems and Business Analytics coursework at Example University has prepared me to learn quickly and to work carefully with data.'],
+];
+
+test('r6: honest letters against the four realistic postings pass on the first draft, in well under 10 ms each', () => {
+  for (const [k, p] of HONEST6) assert.deepEqual(check(p, src6(k)), [], p.slice(0, 60));
+  const long = { ...src6('nw'), posting: P6.nw.posting.repeat(8).slice(0, 6000) };
+  const t0 = performance.now();
+  for (let i = 0; i < 50; i++) check(HONEST6[0][1], long);
+  assert.ok((performance.now() - t0) / 50 < 10, 'average check time under 10 ms');
 });
