@@ -4,7 +4,6 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
-- Quality baseline harness: every agent call has a 6 minute timeout and one retry, `capture --resume` runs only the calls not yet recorded, Codex rows record the model id from the codex header, and a Codex arm that keeps failing is parked so the Claude arms, noise and freeze still finish.
 - Support career-ops 1.40.0: `compat.json` upstream.max is 1.40.0 and `docs/preset-audit.md` is re-counted for every preset against it. MetLife has no readable board and is watch-only in accounting, finance-economics and statistics-math-actuarial; Shield AI moved to Ashby in software-cs and engineering-mech-elec.
 - The canary opens its failure issue again when the test job fails, and the setup tests follow `compat.json` upstream.max instead of a fixed version.
 - The daily triage reads robots.txt and keeps the same-host request gap (or a longer Crawl-delay) before career-ops 1.40.0's `fetch-jd.mjs` fetches a posting on a careers site that is not a public ATS board, and skips the fetch when robots.txt refuses or cannot be read; a posting `fetch-jd.mjs` reports closed (exit 3, `CLOSED_POSTING`) gets an EXPIRED verdict without an agent call, and a board the scan reports as `partial` no longer counts as failed in the digest.
