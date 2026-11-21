@@ -166,8 +166,26 @@ export async function stopChrome(pid, deps = {}) {
   };
   signal('SIGTERM');
   if (await waitGone(pid, EXIT_WAIT_MS, deps)) return true;
-  signal('SIGKILL');
+  // On Windows process.kill ends only the browser process; its renderer, GPU and utility children keep the profile files
+  // open, so the whole tree goes.
+  if ((deps.platform ?? process.platform) === 'win32') (deps.run ?? spawnSync)('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  else signal('SIGKILL');
   return waitGone(pid, KILL_WAIT_MS, deps);
+}
+
+// Windows keeps <profile>/lockfile open until the last Chrome child exits; deleting it succeeds only then. Bounded, so a
+// stuck child never hangs close. Other platforms release the profile with the browser process.
+async function waitProfileReleased(profile, { platform = process.platform, now = Date.now, wait = sleep, remove = rmSync } = {}) {
+  if (platform !== 'win32') return;
+  const until = now() + KILL_WAIT_MS;
+  while (now() < until) {
+    try {
+      remove(join(profile, 'lockfile'), { force: true });
+      return;
+    } catch {
+      await wait(200);
+    }
+  }
 }
 
 // Chrome writes the port it picked for --remote-debugging-port=0 on the first line of DevToolsActivePort.
@@ -281,11 +299,15 @@ async function cmdRead({ dataDir, positionals, deps, say }) {
 // is kept while that Chrome is still running, so a later close can still stop it.
 async function cmdClose({ dataDir, config, deps, say }) {
   const state = readState(dataDir);
-  if (state?.pid && (await recordedChromeAlive(state, state.profile ?? profilePath(config, dataDir), deps))) {
-    if (!(await stopChrome(state.pid, deps))) {
+  const profile = state?.profile ?? profilePath(config, dataDir);
+  if (state?.pid && (await recordedChromeAlive(state, profile, deps))) {
+    // Browser.close first: Chrome shuts every child down and flushes the profile; signals are the fallback.
+    if (state.port) await withBrowser(state.port, (client) => client.send('Browser.close').catch(() => {}), deps).catch(() => {});
+    if (!(await waitGone(state.pid, EXIT_WAIT_MS, deps)) && !(await stopChrome(state.pid, deps))) {
       say(`chrome: Chrome (PID ${state.pid}) did not exit; run close again`);
       return EXIT.stuck;
     }
+    await waitProfileReleased(profile, deps);
   }
   rmSync(join(dataDir, STATE_FILE), { force: true });
   say('chrome: closed');
