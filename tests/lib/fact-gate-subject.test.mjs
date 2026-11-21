@@ -102,7 +102,7 @@ test('fuzz: adversarial paraphrases of invented skills, numbers and titles are a
     'The company uses Tableau, and I have 2 years of it.',
     'Acme uses Snowflake, used daily by the person writing this.',
     'You can count on Tableau fluency from day one.',
-    'Acme’s next intern knows Tableau.',
+    'Acme\u2019s next intern knows Tableau.',
     'I held the title of Data Analyst Intern at Example Robotics.',
     'I served as a Tableau Developer Intern last summer.',
   ];
