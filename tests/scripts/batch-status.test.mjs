@@ -36,3 +36,20 @@ test('S-B status shows a pending row with no submit as clicked, not confirmed, a
     r.cleanup();
   }
 });
+
+test('NIT r2: an approved item moved to finish these yourself with no pending row shows its finish reason', async () => {
+  const r = makeRoot();
+  try {
+    const [id] = writeBatches(r.data, { date: '2026-11-03', kind: 'apply', items: [1, 2].map((n) => ({ company: `Example Co ${n}`, role: 'Data Intern', score: 4.1, preview: 'Fake.', link: link(n) })) });
+    updateBatch(r.data, id, (b) => ({ ...b, approved: { items: [1, 2], words: 'approve all' } }));
+    addFinishYourself(r.data, id, { company: 'Example Co 1', role: 'Data Intern', link: link(1), reason: 'captcha frame' });
+    const lines = [];
+    assert.equal(await main(['status', id, '--root', r.root, '--data-dir', r.data], { say: (l) => lines.push(l) }), 0);
+    const text = lines.join('\n');
+    assert.ok(text.includes('1. Example Co 1 | Data Intern | on finish these yourself: captcha frame'), text);
+    assert.ok(!/1\. Example Co 1 [^\n]*approved, waiting/.test(text), text);
+    assert.match(text, /2\. Example Co 2 \| Data Intern \| approved, waiting/);
+  } finally {
+    r.cleanup();
+  }
+});

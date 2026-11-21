@@ -62,9 +62,11 @@ function sayBatchStatus(batch, id, rows, say) {
   const sent = itemsWith((r) => SEND_ACTIONS.has(r.action));
   const pending = itemsWith((r) => r.action === 'apply.pending');
   const approved = new Set(batch.approved?.items ?? []);
+  const finishReason = new Map((batch.finishYourself ?? []).map((f) => [f.link, f.reason]));
   batch.items.forEach((it, i) => {
     const n = i + 1;
-    const state = sent.has(n) ? 'submitted' : pending.has(n) ? `clicked, not confirmed: check ${it.link}` : approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval';
+    const finish = finishReason.has(it.link) ? `on finish these yourself${finishReason.get(it.link) ? `: ${finishReason.get(it.link)}` : ''}` : null;
+    const state = sent.has(n) ? 'submitted' : pending.has(n) ? `clicked, not confirmed: check ${it.link}` : finish ?? (approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval');
     say(`${n}. ${it.company} | ${it.role} | ${state}`);
   });
   const finish = batch.finishYourself ?? [];

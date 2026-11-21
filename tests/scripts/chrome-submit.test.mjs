@@ -7,7 +7,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { afterClick, clickSubmit, checkboxState, fillPlan, resolveSubmitPlan, EXIT } from '../../scripts/chrome.mjs';
+import { afterClick, clickSubmit, checkboxState, fillPlan, outcomeCheck, resolveSubmitPlan, EXIT } from '../../scripts/chrome.mjs';
+import { LockTimeoutError } from '../../lib/dir-lock.mjs';
 import { writeBatches, updateBatch, addFinishYourself, readBatch } from '../../lib/batch-file.mjs';
 import { readFormFields } from '../../lib/cdp.mjs';
 import { check } from '../../lib/fact-gate.mjs';
@@ -358,4 +359,35 @@ test('NIT "decline" ticks a checkbox that is itself the decline choice and leave
   assert.equal(checkboxState('decline', 'I prefer not to answer'), true);
   assert.equal(checkboxState('decline', 'I am a protected veteran'), false);
   assert.equal(checkboxState('No', 'I do not wish to self-identify'), false);
+});
+
+test('NIT r2: a missing or partial before-click count makes the outcome unconfirmed, never a confirmation', () => {
+  const document = { body: { innerText: 'Thank you for applying. We have received your application.' }, querySelector: () => null, querySelectorAll: () => [] };
+  const outcome = (before) => runInNewContext(outcomeCheck(before), { document, CSS: { escape: String }, getComputedStyle: () => ({}) });
+  for (const before of [undefined, null, {}, { confirm: 0 }, 'x']) assert.equal(outcome(before).state, 'unconfirmed', JSON.stringify(before));
+  assert.equal(outcome({ confirm: 0, signin: 0, password: 0 }).state, 'confirmed', 'control: a read count of zero still lets new wording confirm');
+});
+
+test('NIT r2: a held batch lock after the click exits 5 with a clear line instead of throwing', () => {
+  const d = tmp();
+  try {
+    const id = batchWithPlans(d, 1);
+    const locked = () => {
+      throw new LockTimeoutError(join(d, 'batch.lock'), null);
+    };
+    for (const outcome of [{ state: 'unconfirmed', detail: 'nothing decisive' }, { state: 'invalid', detail: 'School' }, { state: 'captcha', detail: 'captcha frame' }]) {
+      const r = fakeRunner();
+      const lines = [];
+      const code = afterClick({ clicked: { state: 'clicked', outcome }, plan: { ...plan(d, TAB), batchId: id, link: link(1) }, paths: { packRoot: W, root: d, dataDir: d }, flags: { batchId: id, item: 1 }, action: 'apply.submit', dataDir: d, deps: { runner: r.run, addFinishYourself: locked }, say: (l) => lines.push(l) });
+      assert.equal(code, EXIT.needsUser, outcome.state);
+      assert.deepEqual(r.calls, [], 'nothing logged as submitted');
+      assert.match(lines.join('\n'), /batch file stayed locked.*not logged as submitted.*check the open tab/, outcome.state);
+    }
+    const other = () => {
+      throw new Error('disk full');
+    };
+    assert.throws(() => afterClick({ clicked: { state: 'clicked', outcome: { state: 'unconfirmed' } }, plan: { ...plan(d, TAB), batchId: id, link: link(1) }, paths: {}, flags: { batchId: id, item: 1 }, action: 'apply.submit', dataDir: d, deps: { addFinishYourself: other }, say: () => {} }), /disk full/);
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
 });

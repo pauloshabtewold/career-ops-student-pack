@@ -26,7 +26,7 @@ import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
 import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { isSensitive } from '../lib/profile-answers.mjs';
-import { isPidAlive, withLock } from '../lib/dir-lock.mjs';
+import { LockTimeoutError, isPidAlive, withLock } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
@@ -364,13 +364,14 @@ const SIGNS = `const text = document.body ? document.body.innerText : '';
   const count = (src) => (text.match(new RegExp(src, 'gi')) || []).length;
   const signs = { confirm: count(${JSON.stringify(CONFIRM_SRC)}), signin: count(${JSON.stringify(SIGNIN_SRC)}), password: document.querySelectorAll('input[type=password]').length };`;
 export const PAGE_SIGNS = `(() => { ${SIGNS} return signs; })()`;
-const NO_SIGNS = Object.freeze({ confirm: 0, signin: 0, password: 0 });
-const signsOf = (v) => (v && typeof v === 'object' ? { ...NO_SIGNS, ...v } : NO_SIGNS);
+// The page signs, or null when the read gave no number for one of them.
+const signsOf = (v) => (v && typeof v === 'object' && ['confirm', 'signin', 'password'].every((k) => Number.isFinite(v[k])) ? { confirm: v.confirm, signin: v.signin, password: v.password } : null);
 
 // What the page shows after the submit click, checked in this order: a challenge, a form that refused the submit
 // (invalid or error-marked fields), a sign-in or create-account page (a new password field or new sign-in wording: not a
 // confirmation), confirmation wording the click added, or nothing decisive yet ('waiting'). A page that merely changed
-// is never a confirmation. before is PAGE_SIGNS read just before the click.
+// is never a confirmation. before is PAGE_SIGNS read just before the click; when it could not be read, no wording can be
+// shown to be new, so the outcome is unconfirmed.
 export const outcomeCheck = (before) => `(() => {
   const challenge = ${VISIBLE_CHALLENGE};
   if (challenge) return { state: 'captcha', detail: challenge };
@@ -379,8 +380,9 @@ export const outcomeCheck = (before) => `(() => {
   const bad = [...document.querySelectorAll('input, select, textarea')].filter((el) => !el.disabled && el.type !== 'hidden' && (el.matches(':invalid') || el.getAttribute('aria-invalid') === 'true'));
   const alerts = [...document.querySelectorAll('[role=alert], .error, .field-error, .invalid-feedback')].filter((el) => seen(el) && el.innerText.trim());
   if (bad.length || alerts.length) return { state: 'invalid', detail: [...bad.map(labelOf), ...alerts.map((el) => el.innerText.trim().slice(0, 80))].slice(0, 5).join('; ') };
-  ${SIGNS}
   const before = ${JSON.stringify(signsOf(before))};
+  if (!before) return { state: 'unconfirmed', detail: 'the page wording before the click could not be read' };
+  ${SIGNS}
   if (signs.password > before.password || signs.signin > before.signin) return { state: 'unconfirmed', detail: 'the submit led to a sign-in or create-account page' };
   if (signs.confirm > before.confirm) return { state: 'confirmed', detail: 'confirmation text' };
   return { state: 'waiting' }; })()`;
@@ -608,6 +610,19 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   return afterClick({ clicked, plan, paths, flags, action, dataDir, deps, say });
 }
 
+// Adds a clicked job to finish these yourself. When the batch file stays locked, says so and returns false, so the caller
+// exits 5 instead of throwing; the pending row still keeps the job from being clicked again.
+function finishAfterClick(addFinish, dataDir, flags, entry, say) {
+  try {
+    addFinish(dataDir, flags.batchId, entry);
+    return true;
+  } catch (err) {
+    if (!(err instanceof LockTimeoutError)) throw err;
+    say(`chrome: item ${flags.item} of ${flags.batchId}: the submit was clicked (${entry.reason}) but the batch file stayed locked, so it could not be added to finish these yourself and is not logged as submitted; its pending row keeps it from being clicked again. Ask the student to check the open tab (${entry.link}).`);
+    return false;
+  }
+}
+
 const REFILL = (plan) => `fill it again with node student/scripts/chrome.mjs fill --plan ${plan.planFile}, then submit`;
 
 export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps = {}, say }) {
@@ -629,18 +644,20 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     return EXIT.captcha;
   }
   const outcome = clicked.outcome ?? { state: 'unconfirmed' };
+  const addFinish = deps.addFinishYourself ?? addFinishYourself;
+  const finish = (reason) => finishAfterClick(addFinish, dataDir, flags, { company: plan.company, role: plan.role, link, reason }, say);
   if (outcome.state === 'captcha') {
-    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link, reason: 'CAPTCHA on submit' });
+    if (!finish('CAPTCHA on submit')) return EXIT.needsUser;
     say(`chrome: item ${flags.item} of ${flags.batchId} was not submitted: ${siteOf(plan.url)} showed a CAPTCHA after the click; added to finish these yourself (${link})`);
     return EXIT.captcha;
   }
   if (outcome.state === 'invalid') {
-    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link, reason: `form refused: ${outcome.detail || 'a field error'}` });
+    if (!finish(`form refused: ${outcome.detail || 'a field error'}`)) return EXIT.needsUser;
     say(`chrome: item ${flags.item} of ${flags.batchId} was not submitted: the form refused it (${outcome.detail || 'a field error'}). It is not logged as submitted and is on finish these yourself; tell the student which field to fix and finish it in the open tab (${link}).`);
     return EXIT.needsUser;
   }
   if (outcome.state !== 'confirmed') {
-    addFinishYourself(dataDir, flags.batchId, { company: plan.company, role: plan.role, link, reason: `clicked, not confirmed: ${outcome.detail || 'no confirmation shown'}` });
+    if (!finish(`clicked, not confirmed: ${outcome.detail || 'no confirmation shown'}`)) return EXIT.needsUser;
     say(`chrome: item ${flags.item} of ${flags.batchId}: the submit was clicked but the page showed no confirmation (${outcome.detail || 'nothing decisive'}), so it is not logged as submitted and is on finish these yourself; its pending row keeps it from being clicked again. Ask the student to check the open tab (${link}).`);
     return EXIT.needsUser;
   }
