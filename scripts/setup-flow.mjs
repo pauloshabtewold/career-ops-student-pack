@@ -12,9 +12,10 @@ import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { listBatches, readBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig, writeConfigKey } from '../lib/config.mjs';
-import { isOn } from '../lib/levers.mjs';
+import { isOn, readOverrides } from '../lib/levers.mjs';
 import { SIGN_IN_SITES, guidedFooter, nextStep } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { matchQuestion, normalize, readProfileAnswers } from '../lib/profile-answers.mjs';
 import { runResult } from '../lib/run.mjs';
 import { append, zeroRow } from '../lib/usage-ledger.mjs';
 
@@ -22,9 +23,17 @@ export const STATE_FILE = 'setup-state.json';
 export const CACHE_FILE = '.profile-cache.json';
 
 // Parsed setup state, or an empty sign-in map when no file exists.
+// A missing or unreadable state file reads as nothing done yet, so session-start keeps going and setup-flow redoes the
+// steps.
 export function readSetupState(dataDir) {
   const file = join(dataDir, STATE_FILE);
-  return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : { signins: {} };
+  if (!existsSync(file)) return { signins: {} };
+  try {
+    const state = JSON.parse(readFileSync(file, 'utf8'));
+    return state && typeof state === 'object' && !Array.isArray(state) ? state : { signins: {} };
+  } catch {
+    return { signins: {} };
+  }
 }
 
 const writeState = (dataDir, state) => {
@@ -54,9 +63,21 @@ export function cachedProfile({ root, dataDir, cacheOn = true }) {
 }
 
 // The pipeline half of the next-step state: batches waiting, finish-yourself items.
-export function pipelineState(dataDir) {
+// Unknown questions are read from the fill plans of batches still waiting for approval; with answers given, a question
+// the answer bank now covers no longer counts.
+export function pipelineState(dataDir, { answers = null } = {}) {
   const batches = listBatches(dataDir).map((id) => readBatch(dataDir, id)).filter(Boolean);
-  return { batchesWaiting: batches.filter((b) => !b.approved && b.items.length).length, finishYourself: batches.reduce((n, b) => n + (b.finishYourself?.length ?? 0), 0) };
+  const waiting = batches.filter((b) => !b.approved && b.items.length);
+  const unknown = new Set();
+  for (const it of waiting.flatMap((b) => b.items)) {
+    if (!it.plan || !existsSync(it.plan)) continue;
+    try {
+      for (const q of JSON.parse(readFileSync(it.plan, 'utf8')).unknown ?? []) if (!answers || matchQuestion(answers, q) === undefined) unknown.add(normalize(q));
+    } catch {
+      // an unreadable plan adds no question
+    }
+  }
+  return { batchesWaiting: waiting.length, unknownQuestions: unknown.size, finishYourself: batches.reduce((n, b) => n + (b.finishYourself?.length ?? 0), 0) };
 }
 
 export const setupComplete = (state) => Boolean(state.installed && state.interview && state.resume && state.chrome && state.schedule && SIGN_IN_SITES.every((s) => state.signins?.[s]));
@@ -112,7 +133,7 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
     ['resume', async () => {
       if (state.resume && existsSync(join(resumeDir, 'resume.pdf'))) return true;
       if (!existsSync(cvFile)) return say('setup: resume waits for cv.md in your career-ops folder'), false;
-      cachedProfile({ root: paths.root, dataDir: paths.dataDir, cacheOn: isOn('T15') });
+      cachedProfile({ root: paths.root, dataDir: paths.dataDir, cacheOn: isOn('T15', { overrides: readOverrides(paths.root) }) });
       const built = await d.buildResume({ root: paths.root, cvFile, outDir: resumeDir, config });
       if (!built?.pdf || (built.code !== undefined && built.code !== 0)) return say(`setup: resume could not be built (${lastLine(built)})`), false;
       const check = await d.atsCheck({ pdf: built.pdf, html: built.html });
@@ -142,7 +163,7 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
 
   const report = [['install', state.installed], ['interview', state.interview], ['resume', state.resume], ['automation Chrome', state.chrome], ...SIGN_IN_SITES.map((s) => [`sign-in ${s}`, Boolean(state.signins[s])]), ['schedule', state.schedule]];
   for (const [name, done] of report) say(`setup ${name}: ${done ? 'done' : 'not yet'}`);
-  const next = nextStep({ setup: state, pipeline: pipelineState(paths.dataDir) });
+  const next = nextStep({ setup: state, pipeline: pipelineState(paths.dataDir, { answers: readProfileAnswers(paths.root) ?? {} }) });
   say('');
   for (const line of guidedFooter(next)) say(line);
   await append(paths.dataDir, zeroRow({ date: today, step: 'setup', feature: 'setup', rows: report.length, source: 'session' }));

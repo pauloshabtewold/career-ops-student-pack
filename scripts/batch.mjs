@@ -48,7 +48,8 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
     say(`batch: budget.mjs refused the approval: ${(logged.stdout || logged.stderr).trim()}`);
     return PASS_THROUGH.has(logged.code) ? logged.code : 1;
   }
-  updateBatch(paths.dataDir, id, (b) => ({ ...b, approved: { items: res.items, words } }));
+  // A later approval adds items: every logged approval stays spendable in budget.mjs, so the page keeps them all.
+  updateBatch(paths.dataDir, id, (b) => ({ ...b, approved: { items: [...new Set([...(b.approved?.items ?? []), ...res.items])].sort((x, y) => x - y), words } }));
   await append(paths.dataDir, zeroRow({ date: today, step: 'batch-approve', feature: 'H3', rows: res.items.length, source: 'session' }));
   say(`batch: approved items ${res.items.join(', ')} of ${id}`);
   return 0;

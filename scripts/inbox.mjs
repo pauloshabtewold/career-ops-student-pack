@@ -159,11 +159,14 @@ function createLookup({ flags, deps, limits }) {
 
 // A message with a jobs array stages one row per job; a message without one stages the single row its subject gave.
 // Rows are never given a LinkedIn, Indeed or Simplify URL: those hosts are aggregators and merge-post would flag them.
-// Handshake jobs without an id take, in order, the ids found in the message's body link targets.
+// Handshake jobs without an id take, in order, the ids found in the message's body link targets, but only when there is
+// exactly one id per id-less job; otherwise position cannot tell which id is whose, and the jobs keep the search fallback.
 function withLinkIds(jobs, c) {
   if (c.label !== 'handshake-alert') return jobs;
   const ids = handshakeIdsIn(c.links ?? []).filter((id) => !jobs.some((j) => j.jobId === id));
-  return jobs.map((j) => (/^\d+$/.test(j.jobId) || !ids.length ? j : { ...j, jobId: ids.shift() }));
+  const idless = jobs.filter((j) => !/^\d+$/.test(j.jobId)).length;
+  if (!ids.length || ids.length !== idless) return jobs;
+  return jobs.map((j) => (/^\d+$/.test(j.jobId) ? j : { ...j, jobId: ids.shift() }));
 }
 
 async function stageAlert(c, env) {

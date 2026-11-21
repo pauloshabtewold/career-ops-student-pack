@@ -11,6 +11,7 @@ import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { verifyAndRestore } from '../lib/integrity.mjs';
 import { isOn, readOverrides } from '../lib/levers.mjs';
+import { readProfileAnswers } from '../lib/profile-answers.mjs';
 import { guidedFooter, nextStep, patternRule } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runText } from '../lib/run.mjs';
@@ -53,13 +54,23 @@ function runBudgetSessionStart({ root, packRoot }) {
   }
 }
 
+// Saved answers for the unknown-question count; an unreadable profile.yml counts every question and never stops the run.
+function answersOf(root) {
+  if (!root) return null;
+  try {
+    return readProfileAnswers(root) ?? {};
+  } catch {
+    return null;
+  }
+}
+
 // The guided tail: a SETUP line while setup is incomplete, then the pattern rule (T14 off) or the Next/Type/Why block
 // (T14 on). oneLine folds the block into a single line, which sessionStart uses to stay within MAX_LINES.
-export function guidedLines({ dataDir, t14On = isOn('T14'), oneLine: fold = false }) {
+export function guidedLines({ dataDir, root = null, t14On = isOn('T14'), oneLine: fold = false }) {
   const setup = readSetupState(dataDir);
   const lines = setupComplete(setup) ? [] : ['SETUP: run node student/scripts/setup-flow.mjs and follow its Next line'];
   if (!t14On) return [...lines, patternRule()];
-  const block = guidedFooter(nextStep({ setup: { ...setup, installed: true, interview: true }, pipeline: pipelineState(dataDir) }));
+  const block = guidedFooter(nextStep({ setup: { ...setup, installed: true, interview: true }, pipeline: pipelineState(dataDir, { answers: answersOf(root) }) }));
   return [...lines, ...(fold ? [block.join(' ')] : block)];
 }
 
@@ -93,7 +104,7 @@ export async function sessionStart({ root, packRoot, dataDir = resolvePaths({ ro
   if (!config || !config.onboarding.complete) tail = ['INTERVIEW: run student/interview/interview.md before anything else'];
   else {
     const on = t14On ?? isOn('T14', { overrides: readOverrides(root) });
-    tail = [`outreach=${config.switches.outreach} handshake=${config.switches.handshake} submission=${config.switches.submission}`, ...guidedLines({ dataDir, t14On: on, oneLine: true })];
+    tail = [`outreach=${config.switches.outreach} handshake=${config.switches.handshake} submission=${config.switches.submission}`, ...guidedLines({ dataDir, root, t14On: on, oneLine: true })];
   }
   const head = problem ? [problem, ...lines] : lines;
   return [...head.slice(0, MAX_LINES - tail.length), ...tail];
