@@ -333,3 +333,12 @@ test('M-004-S7-cdel the suggested Claude settings allow the new read-only studen
     'Bash(node student/scripts/schedule.mjs verify:*)',
   ]) assert.ok(allow.includes(entry), `allow has ${entry}`);
 });
+
+test('setup still ends by sending the student to session-start, which routes an unfinished setup into setup-flow', () =>
+  withPack({ upstreamVersion: MAX }, (p) => {
+    const { runner } = fakeRunner({ head: 'ccc333', tagCommit: 'ccc333' });
+    const lines = run(p, { runner });
+    const next = lines.find((l) => l.startsWith('NEXT:'));
+    assert.ok(next && next.includes('session-start.mjs'), lines.join('\n'));
+    assert.ok(existsSync(join(p.pack, 'scripts', 'setup-flow.mjs')), 'the pack ships the setup flow session-start points to');
+  }));
