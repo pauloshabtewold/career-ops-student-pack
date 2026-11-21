@@ -14,7 +14,11 @@ yourself" list with a direct link, and everything else keeps going.
 - Open: `node student/scripts/chrome.mjs open`. It prints `chrome: ready <profile path>` and reuses a window that is
   already open.
 - Check: `node student/scripts/chrome.mjs status`.
-- Close: `node student/scripts/chrome.mjs close`. It stops only the Chrome it started.
+- Close: `node student/scripts/chrome.mjs close`. It stops only the Chrome it started and waits until that Chrome has
+  exited.
+
+If `open` says another Chrome holds the profile, an automation Chrome window it did not start is still open (for
+example after Chrome restarted itself for an update). Quit that window, then run `open` again.
 
 On a shared or small computer a browser slot command can run first (`browser.slot_cmd` in config/student.yml, or the
 `BROWSER_SLOT_CMD` variable). Any non-zero exit from it means wait, and Chrome does not start.

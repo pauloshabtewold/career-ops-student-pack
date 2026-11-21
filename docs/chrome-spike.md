@@ -1,8 +1,9 @@
 # Chrome spike record (P0)
 
 This file records whether the automation Chrome profile is reachable from each place the pack runs, and which schedule
-mode follows from that. The tests named below produce the evidence; `tools/schedule-probe.mjs` appends its own dated
-line under Schedule evidence each time it runs.
+mode follows from that. The tests named below produce the evidence. `tools/schedule-probe.mjs` appends a dated line to
+`data/chrome-probe.log` in the career-ops data folder each time it runs; maintainer runs copy that line under Schedule
+evidence here.
 
 ## Setup under test
 
@@ -49,7 +50,8 @@ records `no`, the fallback below applies.
 ## Schedule mode
 
 `chrome_in_schedule` in config/student.yml is `yes` when the scheduled probe reached the automation Chrome and `no`
-otherwise. With `no`, the scheduled run triages and drafts only; applying, sending and Gmail reads wait until Chrome is
+when the automation Chrome was open but the scheduled job could not reach it. The key stays unset when the probe job
+could not be installed or the automation Chrome was not open, so open it before running the probe. With `no`, the scheduled run triages and drafts only; applying, sending and Gmail reads wait until Chrome is
 open, and the digest says so with this line:
 
 > Waiting for Chrome: <steps>. Open it with `node student/scripts/chrome.mjs open` and these run next.

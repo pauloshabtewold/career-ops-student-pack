@@ -2,17 +2,22 @@
 // One-shot proof of whether a scheduled run reaches the automation Chrome. A launchd or Task Scheduler job starts in a
 // bare session with a bare PATH, which may not see the student's logged-in Chrome; only a real scheduled job proves it.
 // The probe installs a one-shot job labelled career-ops.chrome-probe that runs `chrome.mjs status --json` into
-// data/.chrome-probe.json, waits up to 90 seconds for that file, removes the job on every exit path, records
-// chrome_in_schedule yes or no in config/student.yml and appends a dated evidence line to docs/chrome-spike.md.
+// data/.chrome-probe.json, waits up to 90 seconds for that file, removes the job on every exit path (Ctrl-C and SIGTERM
+// included), records chrome_in_schedule yes or no in config/student.yml and appends a dated evidence line to
+// data/chrome-probe.log. The key stays unset when the job could not be installed or the automation Chrome was not open,
+// because neither says anything about whether a scheduled run can reach it. The log lives in the data folder because the
+// pack folder is a git clone that update.mjs fast-forwards, and an edited tracked file would block pack updates.
 // Usage: schedule-probe.mjs [--root R] | schedule-probe.mjs child --out FILE
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { constants as osConstants, homedir } from 'node:os';
 import { dirname, join, posix, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { writeConfigKey } from '../lib/config.mjs';
+import { isPidAlive } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
+import { readState } from '../scripts/chrome.mjs';
 
 const PACK_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // Label of the one-shot scheduler job.
@@ -21,6 +26,11 @@ export const PROBE_LABEL = 'career-ops.chrome-probe';
 export const PROBE_FILE = '.chrome-probe.json';
 // How long probe waits for the scheduled child to write its result.
 export const WAIT_MS = 90 * 1000;
+// Dated evidence lines, one per probe run, in dataDir.
+export const EVIDENCE_FILE = 'chrome-probe.log';
+// Windows wrapper in dataDir that holds the full child command line.
+export const PROBE_CMD = '.chrome-probe.cmd';
+const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 
 // Forwarded to the child so its status call reads the same data folder as the probe that installed it.
 const childPaths = ({ root, dataDir }) => [...(root ? ['--root', root] : []), ...(dataDir ? ['--data-dir', dataDir] : [])];
@@ -50,7 +60,7 @@ export function probePlist({ nodePath, packRoot, out, root, dataDir }) {
 }
 
 // The real scheduler, one per platform; tests inject a fake with the same install/remove shape.
-export function systemScheduler({ platform = process.platform, home = homedir() } = {}) {
+export function systemScheduler({ platform = process.platform, home = homedir(), run = runResult } = {}) {
   if (platform === 'darwin') {
     const file = join(home, 'Library', 'LaunchAgents', `${PROBE_LABEL}.plist`);
     const domain = `gui/${process.getuid()}`;
@@ -58,24 +68,31 @@ export function systemScheduler({ platform = process.platform, home = homedir() 
       install({ nodePath, packRoot, out, root, dataDir }) {
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(file, probePlist({ nodePath, packRoot, out, root, dataDir }));
-        return runResult('launchctl', ['bootstrap', domain, file]).code === 0;
+        return run('launchctl', ['bootstrap', domain, file]).code === 0;
       },
       remove() {
-        runResult('launchctl', ['bootout', domain, file]);
+        run('launchctl', ['bootout', domain, file]);
         rmSync(file, { force: true });
       },
     };
   }
+  // schtasks caps /TR at 261 characters, which a full command line with student paths exceeds, so /TR names a short
+  // .cmd wrapper in dataDir instead. %% keeps cmd from expanding a % in a path.
   if (platform === 'win32') {
+    let wrapper = null;
     return {
       install({ nodePath, packRoot, out, root, dataDir }) {
         const start = new Date(Date.now() + 60 * 1000);
         const st = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-        const tr = `"${nodePath}" "${win32.join(packRoot, 'tools', 'schedule-probe.mjs')}" child --out "${out}"${childPaths({ root, dataDir }).map((a) => ` "${a}"`).join('')}`;
-        return runResult('schtasks', ['/Create', '/F', '/SC', 'ONCE', '/ST', st, '/TN', PROBE_LABEL, '/TR', tr]).code === 0;
+        const args = [nodePath, win32.join(packRoot, 'tools', 'schedule-probe.mjs'), 'child', '--out', out, ...childPaths({ root, dataDir })];
+        wrapper = join(dataDir, PROBE_CMD);
+        mkdirSync(dataDir, { recursive: true });
+        writeFileSync(wrapper, `@echo off\r\n${args.map((a) => `"${a}"`).join(' ').replace(/%/g, '%%')}\r\n`);
+        return run('schtasks', ['/Create', '/F', '/SC', 'ONCE', '/ST', st, '/TN', PROBE_LABEL, '/TR', `"${wrapper}"`]).code === 0;
       },
       remove() {
-        runResult('schtasks', ['/Delete', '/F', '/TN', PROBE_LABEL]);
+        run('schtasks', ['/Delete', '/F', '/TN', PROBE_LABEL]);
+        if (wrapper) rmSync(wrapper, { force: true });
       },
     };
   }
@@ -94,32 +111,61 @@ export function readProbe(file) {
   }
 }
 
-// Installs the probe job through scheduler, waits up to WAIT_MS for the child result, and records the outcome.
-export async function probe({ root, dataDir, packRoot = PACK_ROOT, scheduler, now = Date.now, wait = sleep, nodePath = process.execPath, spikeDoc = join(packRoot, 'docs', 'chrome-spike.md'), today = new Date().toISOString().slice(0, 10), say = console.log }) {
+// yes or no from a probe that ran; unset (config untouched) when it says nothing about reach.
+function verdict(installed, result) {
+  if (!installed) return { value: 'unset', why: 'the probe job could not be installed' };
+  if (!result) return { value: 'no', why: 'no probe file within 90 seconds' };
+  if (result.reachable !== 'yes' && result.chrome_open === 'no') {
+    return { value: 'unset', why: 'the automation Chrome was not open; run chrome.mjs open, then the probe again' };
+  }
+  return { value: result.reachable === 'yes' ? 'yes' : 'no', why: `probe file said reachable ${result.reachable}` };
+}
+
+// Installs the probe job through scheduler, waits up to WAIT_MS for the child result, and records the outcome. A signal
+// during the wait would end Node without running finally, so the signal handlers remove the job themselves.
+export async function probe({ root, dataDir, packRoot = PACK_ROOT, scheduler, now = Date.now, wait = sleep, nodePath = process.execPath, spikeDoc = join(dataDir, EVIDENCE_FILE), today = new Date().toISOString().slice(0, 10), say = console.log, proc = process }) {
   const out = join(dataDir, PROBE_FILE);
   rmSync(out, { force: true });
   let result = null;
+  let installed = false;
+  const onSignal = (sig) => {
+    scheduler.remove();
+    proc.exit(128 + (osConstants.signals[sig] ?? 15));
+  };
+  for (const sig of SIGNALS) proc.once(sig, onSignal);
   try {
-    if (scheduler.install({ nodePath, packRoot, out, root, dataDir })) {
+    installed = scheduler.install({ nodePath, packRoot, out, root, dataDir });
+    if (installed) {
       const until = now() + WAIT_MS;
       while (now() < until && !(result = readProbe(out))) await wait(2000);
     }
   } finally {
+    for (const sig of SIGNALS) proc.off(sig, onSignal);
     scheduler.remove();
   }
-  const value = result?.reachable === 'yes' ? 'yes' : 'no';
-  writeConfigKey({ root }, 'chrome_in_schedule', value);
-  const why = result ? `probe file said reachable ${result.reachable}` : 'no probe file within 90 seconds';
+  const { value, why } = verdict(installed, result);
+  if (value !== 'unset') writeConfigKey({ root }, 'chrome_in_schedule', value);
+  mkdirSync(dirname(spikeDoc), { recursive: true });
   appendFileSync(spikeDoc, `- ${today}: scheduled probe ${PROBE_LABEL}: ${why}; chrome_in_schedule ${value}\n`);
   say(`schedule-probe: chrome_in_schedule ${value} (${why})`);
   return value;
 }
 
-// Runs inside the scheduled job: no shell redirection exists there, so the child writes the status itself.
+// Runs inside the scheduled job: no shell redirection exists there, so the child writes the status itself. chrome_open
+// tells "the recorded Chrome is not running" apart from "running but unreachable from this session".
 function child(out, paths) {
   const res = runResult(process.execPath, [join(PACK_ROOT, 'scripts', 'chrome.mjs'), 'status', '--json', ...childPaths(paths)], { timeout: 30 * 1000 });
+  let status;
+  try {
+    status = res.code === 0 ? JSON.parse(res.stdout) : null;
+  } catch {
+    status = null;
+  }
+  status ??= { reachable: 'no', error: res.stderr.trim().slice(0, 200) };
+  const state = readState(resolvePaths(paths).dataDir);
+  const chromeOpen = state && isPidAlive(state.pid) ? 'yes' : 'no';
   mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, res.code === 0 && res.stdout.trim() ? res.stdout : `${JSON.stringify({ reachable: 'no', error: res.stderr.trim().slice(0, 200) })}\n`);
+  writeFileSync(out, `${JSON.stringify({ ...status, chrome_open: chromeOpen })}\n`);
   return 0;
 }
 

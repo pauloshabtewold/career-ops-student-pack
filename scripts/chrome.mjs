@@ -4,24 +4,29 @@
 // default profile, and a separate profile keeps the student's everyday browsing out of reach, so the default profile is
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
 // Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close   [--root R] [--data-dir D]
-// Exit codes: 0 ok, 2 usage, 4 waiting for a browser slot, 7 automation Chrome not running. 5 stays the pack's "needs the
+// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage, 4 waiting for a browser slot, 7 automation Chrome not running
+// or its profile held by a Chrome this CLI did not record. 5 stays the pack's "needs the
 // user" code, so a caller never mistakes a stopped browser for a question to the student.
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { readText, openPage, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { isPidAlive } from '../lib/dir-lock.mjs';
+import { isPidAlive, withLock } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { which } from '../lib/which.mjs';
 
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
-export const EXIT = Object.freeze({ ok: 0, usage: 2, wait: 4, notRunning: 7 });
+export const EXIT = Object.freeze({ ok: 0, stuck: 1, usage: 2, wait: 4, notRunning: 7 });
 const PORT_WAIT_MS = 20 * 1000;
 const SLOT_TIMEOUT_MS = 60 * 1000;
+// A second open waits out the first one's slot command and port wait, then finds its Chrome live and reuses it.
+const OPEN_LOCK_MS = SLOT_TIMEOUT_MS + PORT_WAIT_MS + 30 * 1000;
+const EXIT_WAIT_MS = 10 * 1000;
+const KILL_WAIT_MS = 3 * 1000;
 
 // Splits a command string into argv without a shell: double or single quotes group words, and a leading ~ is HOME.
 export function splitCommand(text, home = homedir()) {
@@ -38,11 +43,12 @@ export function resolveSlotCommand({ env = process.env, config = null } = {}) {
   return fromConfig || null;
 }
 
-// Runs the configured browser-slot command without a shell and returns its exit status; 1 when it cannot start.
+// Runs the configured browser-slot command without a shell and returns its exit status, or the spawn error code (such
+// as ENOENT) when it cannot start, so a misconfigured command is told apart from a busy slot.
 export function runSlotCommand(command, { run = spawnSync, home = homedir() } = {}) {
   const [cmd, ...args] = splitCommand(command, home);
   const res = run(cmd, args, { stdio: 'ignore', timeout: SLOT_TIMEOUT_MS, windowsHide: true });
-  if (res.error) return 1;
+  if (res.error) return res.error.code ?? 1;
   return typeof res.status === 'number' ? res.status : 1;
 }
 
@@ -111,6 +117,59 @@ export async function liveState(dataDir, deps = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Chrome on macOS and Linux keeps a SingletonLock symlink in the profile whose target ends in -<pid> of the Chrome
+// holding it. Windows has no such link, so this returns null there.
+export function profileLockPid(profile) {
+  try {
+    const m = /-(\d+)$/.exec(readlinkSync(join(profile, 'SingletonLock')));
+    return m ? Number(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+// True when a running Chrome owns profile: the SingletonLock PID is alive, or the port in DevToolsActivePort answers.
+async function profileHeld(profile, deps) {
+  const lockPid = profileLockPid(profile);
+  if (lockPid && (deps.isAlive ?? isPidAlive)(lockPid)) return true;
+  const file = join(profile, 'DevToolsActivePort');
+  if (!existsSync(file)) return false;
+  return reachable(Number(readFileSync(file, 'utf8').split('\n')[0]), deps);
+}
+
+// The recorded PID is still our Chrome when it is alive and either its port answers or the profile lock names it; a
+// live PID with neither may have been reused by another process after a crash or reboot.
+async function recordedChromeAlive(state, profile, deps) {
+  if (!(deps.isAlive ?? isPidAlive)(state.pid)) return false;
+  return (await reachable(state.port, deps)) || profileLockPid(profile) === state.pid;
+}
+
+async function waitGone(pid, ms, { now = Date.now, wait = sleep, isAlive = isPidAlive } = {}) {
+  const until = now() + ms;
+  while (isAlive(pid)) {
+    if (now() >= until) return false;
+    await wait(200);
+  }
+  return true;
+}
+
+// SIGTERM first so Chrome flushes the profile, SIGKILL only after the exit wait. Returns once the PID is gone (true) or
+// both waits ran out (false): the profile files stay locked until the process has exited.
+export async function stopChrome(pid, deps = {}) {
+  const kill = deps.kill ?? process.kill;
+  const signal = (sig) => {
+    try {
+      kill(pid, sig);
+    } catch {
+      // already exited
+    }
+  };
+  signal('SIGTERM');
+  if (await waitGone(pid, EXIT_WAIT_MS, deps)) return true;
+  signal('SIGKILL');
+  return waitGone(pid, KILL_WAIT_MS, deps);
+}
+
 // Chrome writes the port it picked for --remote-debugging-port=0 on the first line of DevToolsActivePort.
 async function waitForPort(profile, { now = Date.now, wait = sleep } = {}) {
   const file = join(profile, 'DevToolsActivePort');
@@ -142,7 +201,13 @@ export function profilePath(config, dataDir) {
   return String(config?.browser?.automation_profile ?? '').trim() || join(dataDir, PROFILE_DIR);
 }
 
-async function cmdOpen({ dataDir, config, flags, deps, say }) {
+// Serialized so two callers (Claude Code, Codex, a scheduled run) never launch on the same profile at once.
+async function cmdOpen(ctx) {
+  mkdirSync(ctx.dataDir, { recursive: true });
+  return withLock(join(ctx.dataDir, STATE_FILE), () => openLocked(ctx), { timeoutMs: OPEN_LOCK_MS });
+}
+
+async function openLocked({ dataDir, config, flags, deps, say }) {
   const slot = resolveSlotCommand({ env: deps.env ?? process.env, config });
   if (!slot) say('chrome: no browser slot command set');
   const live = await liveState(dataDir, deps);
@@ -164,12 +229,19 @@ async function cmdOpen({ dataDir, config, flags, deps, say }) {
   }
   const profile = profilePath(config, dataDir);
   mkdirSync(profile, { recursive: true });
+  // Deleting a live instance's DevToolsActivePort would leave it unreachable, and Chrome hands a second launch on the
+  // same profile to that instance, so a held profile is reported instead.
+  if (await profileHeld(profile, deps)) {
+    say(`chrome: a Chrome this command did not record holds the profile ${profile}; quit that Chrome, then run open again`);
+    return EXIT.notRunning;
+  }
   rmSync(join(profile, 'DevToolsActivePort'), { force: true });
   const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless) }), { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref?.();
   const port = await waitForPort(profile, deps);
   if (!port) {
-    say('chrome: Chrome started but opened no DevTools port within 20 seconds');
+    await stopChrome(child.pid, deps);
+    say(`chrome: Chrome started but opened no DevTools port within 20 seconds; stopped it (PID ${child.pid})`);
     return EXIT.notRunning;
   }
   writeState(dataDir, { port, pid: child.pid, profile, started: new Date().toISOString() });
@@ -204,15 +276,15 @@ async function cmdRead({ dataDir, positionals, deps, say }) {
   return EXIT.ok;
 }
 
-// Stops only the PID this CLI recorded, never anything found by name, and only while that PID is alive and its port
-// still answers: the state file outlives a crash or reboot, after which the recorded PID can belong to another process.
-async function cmdClose({ dataDir, deps, say }) {
-  const state = await liveState(dataDir, deps);
-  if (state?.pid) {
-    try {
-      (deps.kill ?? process.kill)(state.pid);
-    } catch {
-      // already gone between the check and the kill
+// Stops only the PID this CLI recorded, never anything found by name, and only while recordedChromeAlive confirms it:
+// the state file outlives a crash or reboot, after which the recorded PID can belong to another process. The state file
+// is kept while that Chrome is still running, so a later close can still stop it.
+async function cmdClose({ dataDir, config, deps, say }) {
+  const state = readState(dataDir);
+  if (state?.pid && (await recordedChromeAlive(state, state.profile ?? profilePath(config, dataDir), deps))) {
+    if (!(await stopChrome(state.pid, deps))) {
+      say(`chrome: Chrome (PID ${state.pid}) did not exit; run close again`);
+      return EXIT.stuck;
     }
   }
   rmSync(join(dataDir, STATE_FILE), { force: true });
