@@ -35,7 +35,8 @@ import { which } from '../lib/which.mjs';
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
 export const EXIT = Object.freeze({ ok: 0, stuck: 1, usage: 2, refused: 3, wait: 4, needsUser: 5, captcha: 6, notRunning: 7 });
-const PORT_WAIT_MS = 20 * 1000;
+// Chrome on an 8 GB machine under load can take well over 20 s to write its DevTools port.
+export const PORT_WAIT_MS = 45 * 1000;
 const SLOT_TIMEOUT_MS = 60 * 1000;
 // A second open waits out the first one's slot command and port wait, then finds its Chrome live and reuses it.
 const OPEN_LOCK_MS = SLOT_TIMEOUT_MS + PORT_WAIT_MS + 30 * 1000;
@@ -211,9 +212,10 @@ async function waitProfileReleased(profile, { platform = process.platform, now =
 }
 
 // Chrome writes the port it picked for --remote-debugging-port=0 on the first line of DevToolsActivePort.
-async function waitForPort(profile, { now = Date.now, wait = sleep } = {}) {
+// portWaitMs overrides PORT_WAIT_MS (tests).
+async function waitForPort(profile, { now = Date.now, wait = sleep, portWaitMs = PORT_WAIT_MS } = {}) {
   const file = join(profile, 'DevToolsActivePort');
-  const until = now() + PORT_WAIT_MS;
+  const until = now() + portWaitMs;
   while (now() < until) {
     if (existsSync(file)) {
       const port = Number(readFileSync(file, 'utf8').split('\n')[0]);
@@ -281,7 +283,7 @@ async function openLocked({ dataDir, config, flags, deps, say }) {
   const port = await waitForPort(profile, deps);
   if (!port) {
     await stopChrome(child.pid, deps);
-    say(`chrome: Chrome started but opened no DevTools port within 20 seconds; stopped it (PID ${child.pid})`);
+    say(`chrome: Chrome started but opened no DevTools port within ${Math.round((deps.portWaitMs ?? PORT_WAIT_MS) / 1000)} seconds; stopped it (PID ${child.pid})`);
     return EXIT.notRunning;
   }
   writeState(dataDir, { port, pid: child.pid, profile, started: new Date().toISOString() });

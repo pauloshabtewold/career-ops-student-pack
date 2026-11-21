@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { main, readState, runSlotCommand, writeState } from '../../scripts/chrome.mjs';
+import { PORT_WAIT_MS, main, readState, runSlotCommand, writeState } from '../../scripts/chrome.mjs';
 import { makeRoot } from '../helpers/script-harness.mjs';
 
 const FAKE_PID = 424242;
@@ -192,4 +192,23 @@ test('S2 close stops a recorded Chrome whose port is silent when the profile Sin
 test('N1 a slot command that cannot start reports its spawn error code', () => {
   assert.equal(runSlotCommand('missing-slot-cmd', { run: () => ({ error: Object.assign(new Error('x'), { code: 'ENOENT' }) }) }), 'ENOENT');
   assert.equal(runSlotCommand('slot', { run: () => ({ status: 3 }) }), 3);
+});
+
+test('open waits 45 seconds for the DevTools port by default and says so; deps.portWaitMs overrides it', async () => {
+  assert.equal(PORT_WAIT_MS, 45 * 1000);
+  for (const [portWaitMs, seconds] of [[undefined, 45], [5000, 5]]) {
+    const r = makeRoot();
+    try {
+      const clock = fakeClock();
+      const start = clock.now();
+      const deps = { findChrome: () => '/fake/chrome', spawn: () => ({ pid: FAKE_PID, unref() {} }), ...fakeProcess(), ...clock, fetchFn: refused };
+      if (portWaitMs) deps.portWaitMs = portWaitMs;
+      const { code, out } = await run(['open'], r, deps);
+      assert.equal(code, 7, out);
+      assert.ok(out.includes(`within ${seconds} seconds`), out);
+      assert.ok(clock.now() - start >= seconds * 1000, 'waited the full port wait');
+    } finally {
+      r.cleanup();
+    }
+  }
 });
