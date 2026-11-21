@@ -258,3 +258,7 @@ test('r4: honest letters flag only the by-design "learn <tool the cv lacks>" sen
   }
 });
 
+test('r4: "with <Company>" is not a name context, so the company as a tool needs the cv', () => {
+  assert.deepEqual(check('I worked with Snowflake daily.', K3), ['Snowflake']);
+  assert.deepEqual(check('I would love to join Snowflake.', K3), []);
+});
