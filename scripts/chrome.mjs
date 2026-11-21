@@ -567,6 +567,8 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
+  // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
+  if (!signs) return { state: 'no-signs' };
   const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
   if (pending.code !== 0) return { state: 'pending-failed', res: pending };
   if (!(await click(client, page.sessionId, selector))) return { state: 'clicked', outcome: { state: 'unconfirmed', detail: 'the button was gone at the click' } };
@@ -634,6 +636,7 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     'tab-moved': () => `the tab filled for item ${flags.item} now shows ${clicked.detail ?? 'another page'}; ${REFILL(plan)}`,
     'not-filled': () => `the tab for item ${flags.item} no longer holds its filled ${clicked.detail}; ${REFILL(plan)}`,
     'no-button': () => 'no submit button found',
+    'no-signs': () => `the page wording for item ${flags.item} could not be read before the click, so a submit could never be confirmed`,
     'pending-failed': () => `budget.mjs refused or could not record the pending submit (${childLine(clicked.res)})`,
   };
   if (stops[clicked.state]) {

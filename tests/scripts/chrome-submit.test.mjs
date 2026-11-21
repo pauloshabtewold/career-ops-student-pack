@@ -53,7 +53,7 @@ test('M1 after a pre-approval CAPTCHA renumbers the page, item 2 resolves to the
 });
 
 // Fake CDP: one page target T1 at url; evaluate answers by expression kind.
-function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.test/form' }], href = 'https://x.test/form', fieldValue = 'Jordan', captcha = null, outcome = { state: 'confirmed', detail: 'confirmation text' } } = {}) {
+function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.test/form' }], href = 'https://x.test/form', fieldValue = 'Jordan', captcha = null, outcome = { state: 'confirmed', detail: 'confirmation text' }, signs = { confirm: 0, signin: 0, password: 0 } } = {}) {
   const calls = [];
   const send = async (method, params = {}) => {
     calls.push({ method, params });
@@ -64,6 +64,7 @@ function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.te
     const e = String(params.expression);
     if (e === 'location.href') return { result: { value: href } };
     if (e.includes('confirmation text')) return { result: { value: outcome } };
+    if (e.includes('return signs;')) return { result: { value: signs } };
     if (e.includes('grecaptcha-badge')) return { result: { value: captcha } };
     if (e.includes("el.type === 'file'")) return { result: { value: fieldValue } };
     if (e.includes('autocomplete: (el.autocomplete')) return { result: { value: { tag: 'button', type: 'submit', autocomplete: '' } } };
@@ -387,6 +388,23 @@ test('NIT r2: a held batch lock after the click exits 5 with a clear line instea
       throw new Error('disk full');
     };
     assert.throws(() => afterClick({ clicked: { state: 'clicked', outcome: { state: 'unconfirmed' } }, plan: { ...plan(d, TAB), batchId: id, link: link(1) }, paths: {}, flags: { batchId: id, item: 1 }, action: 'apply.submit', dataDir: d, deps: { addFinishYourself: other }, say: () => {} }), /disk full/);
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('r4 when the page wording cannot be read before the click, submit refuses (exit 3) before any pending row or click', async () => {
+  const d = tmp();
+  try {
+    const r = fakeRunner();
+    const client = fakeTab({ signs: null });
+    const res = await clickSubmit(client, { plan: plan(d, TAB), paths: { packRoot: W, root: d, dataDir: d }, item: 1, runner: r.run, wait: noWait });
+    assert.equal(res.state, 'no-signs');
+    assert.deepEqual(r.calls, [], 'no budget call, so no pending row');
+    assert.ok(!client.calls.some((c) => String(c.params.expression ?? '').includes('el.click(); return true')), 'nothing clicked');
+    const lines = [];
+    assert.equal(afterClick({ clicked: res, plan: plan(d, TAB), paths: {}, flags: { batchId: 'b1', item: 1 }, action: 'apply.submit', dataDir: d, say: (l) => lines.push(l) }), EXIT.refused);
+    assert.match(lines.join('\n'), /could not be read before the click.*nothing was clicked/);
   } finally {
     rmSync(d, { recursive: true, force: true });
   }
