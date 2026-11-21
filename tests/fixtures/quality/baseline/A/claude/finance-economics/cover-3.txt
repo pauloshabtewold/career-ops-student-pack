@@ -1,0 +1,12 @@
+Dear Hiring Team,
+
+I am applying for the Investment Banking Summer Analyst position at Example Finance Co 1. I am an Economics major at Lakeside Example College (B.A., expected December 2027, GPA 3.5), and I want to build a career as a financial analyst.
+
+The role centers on financial modeling, and that is the work I have practiced most. I built a discounted cash flow model of a fictional retailer in Excel. I also ran a regression study of rent and transit access in R. As a research assistant in the economics department, I cleaned survey data in Stata, which taught me to check inputs carefully before trusting any output. My skills include Excel, Stata, R, SQL basics and financial modeling.
+
+As a teller intern at Example Credit Union in 2026, I balanced drawers and explained account products to members. That work taught me to be accurate with numbers and clear with people who are not specialists.
+
+I would welcome the chance to bring this foundation to your analyst team and to learn how your deals are built. Thank you for your consideration.
+
+Sincerely,
+Riley Fakeham

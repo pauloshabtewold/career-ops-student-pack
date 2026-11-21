@@ -9,13 +9,13 @@ the same numbers as `lib/quality-bars.mjs`, and a test keeps the two equal.
 <!-- bars:start -->
 | Bar | Key | Stated | A/A value | Effective |
 | --- | --- | --- | --- | --- |
-| Triage top-10 overlap with the baseline, at least | OVERLAP_MIN | 0.9 | not measured | 0.9 |
-| Invented facts in any draft, at most | INVENTED_FACTS_MAX | 0 | not measured | 0 |
-| Blind Opus judge says the lever is not worse, share of pairs at least | JUDGE_NOT_WORSE_MIN | 0.9 | not measured | 0.9 |
-| Form-field accuracy drop below the base, at most | FORM_ACCURACY | 0 | not measured | 0 |
-| Outcome classification accuracy drop below the base, at most | CLASSIFY_ACCURACY | 0 | not measured | 0 |
-| Reply sorting accuracy drop below the base, at most | REPLY_SORT_ACCURACY | 0 | not measured | 0 |
-| Scam false positives on legitimate postings, at most | SCAM_FP_MAX | 0.02 | not measured | 0.02 |
+| Triage top-10 overlap with the baseline, at least | OVERLAP_MIN | 0.9 | 0.8 | 0.8 |
+| Invented facts in any draft, at most | INVENTED_FACTS_MAX | 0 | 2 | 0 |
+| Blind Opus judge says the lever is not worse, share of pairs at least | JUDGE_NOT_WORSE_MIN | 0.9 | 0.556 | 0.556 |
+| Form-field accuracy drop below the base, at most | FORM_ACCURACY | 0 | 0 | 0 |
+| Outcome classification accuracy drop below the base, at most | CLASSIFY_ACCURACY | 0 | 0 | 0 |
+| Reply sorting accuracy drop below the base, at most | REPLY_SORT_ACCURACY | 0 | 0.02 | 0.02 |
+| Scam false positives on legitimate postings, at most | SCAM_FP_MAX | 0.02 | 0 | 0.02 |
 <!-- bars:end -->
 
 | Setting | Key | Value |

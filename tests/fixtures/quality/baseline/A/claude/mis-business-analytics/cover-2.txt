@@ -1,0 +1,12 @@
+Dear Hiring Team,
+
+I am applying for the Supply Chain Analyst role at Example Analytics Co 7. I am a Management Information Systems student at Prairie Example State University (expected May 2028), and the mix of inventory modeling and vendor scorecards in Excel and Power BI matches the work I have been doing and want to do more of.
+
+This past summer I was an operations intern at Example Logistics Inc, where I built a weekly Power BI report on late shipments. That gave me hands-on experience turning operational data into something a team could act on each week. I also built a Tableau dashboard on campus dining wait times, and as student government treasurer I tracked a 15,000 dollar budget, which taught me to keep numbers accurate and explain them clearly to others.
+
+I work comfortably in SQL, Excel, Tableau and Power BI, and I have written requirements documents and user stories, so I am used to asking what a stakeholder actually needs before building a report. I would welcome the chance to bring that approach to your team.
+
+Thank you for your time and consideration.
+
+Sincerely,
+Avery Mocklin

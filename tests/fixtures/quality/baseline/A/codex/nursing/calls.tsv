@@ -1,0 +1,16 @@
+arm	agent	profile	step	n	model	input	cache_read	cache_write	output
+A	codex	nursing	triage	1	gpt-6.2-sol	3924	9088	0	852
+A	codex	nursing	triage	2	gpt-6.2-sol	3898	9088	0	984
+A	codex	nursing	triage	3	gpt-6.2-sol	3883	9088	0	914
+A	codex	nursing	cover	1	gpt-6.2-sol	1790	10880	0	128
+A	codex	nursing	cover	2	gpt-6.2-sol	252	12416	0	137
+A	codex	nursing	outreach	1	gpt-6.2-sol	2786	9088	0	67
+A	codex	nursing	outreach	2	gpt-6.2-sol	2773	9088	0	61
+A	codex	nursing	reply	1	gpt-6.2-sol	9184	2688	0	68
+A	codex	nursing	reply	2	gpt-6.2-sol	9183	2688	0	131
+A	codex	nursing	form	1	gpt-6.2-sol	3669	9088	0	53
+A	codex	nursing	form	2	gpt-6.2-sol	1900	10880	0	47
+A	codex	nursing	form	3	gpt-6.2-sol	12726	0	0	50
+A	codex	nursing	form	4	gpt-6.2-sol	3654	9088	0	46
+A	codex	nursing	form	5	gpt-6.2-sol	1888	10880	0	39
+A	codex	nursing	form	6	gpt-6.2-sol	3655	9088	0	48

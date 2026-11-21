@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 1.8 | ANOMALY: Remote software internship outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 0.9 | ANOMALY: Chicago housing policy role outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 0.8 | ANOMALY: Phoenix machine learning internship with a graduate student preference.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.6 | ANOMALY: Hybrid Atlanta campaign role outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 1.0 | ANOMALY: Denver security internship outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 2.1 | ANOMALY: Columbus new-grad role in data analytics.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 0.4 | ANOMALY: Austin internship requires an accounting major.
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 1.6 | ANOMALY: Remote supply chain role outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 1.1 | ANOMALY: Raleigh new-grad rotation in corporate finance.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.3 | ANOMALY: Phoenix marketing role requires two years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 3.2 | ANOMALY: Accepts nursing students, but the role is in Chicago and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.1 | ANOMALY: Missing real estate license for this commission-only Denver role.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 2.6 | ANOMALY: Nursing internship is hybrid in Atlanta and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 1.0 | ANOMALY: Denver frontend internship accepts coursework but is outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.7 | ANOMALY: Columbus nonprofit role focuses on grants and events.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 0.2 | ANOMALY: Austin engineering role requires three years of production experience.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 1.9 | ANOMALY: Remote city communications internship outside nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 0.5 | ANOMALY: Raleigh investment banking internship is restricted to juniors.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 0.8 | ANOMALY: Phoenix internship focuses on SAP systems.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 0.7 | ANOMALY: Chicago treasury internship outside nursing.

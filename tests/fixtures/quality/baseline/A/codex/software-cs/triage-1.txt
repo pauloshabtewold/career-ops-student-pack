@@ -1,0 +1,20 @@
+TRIAGE: MARGINAL | https://jobs.example.com/q/001 | 3.9 | ANOMALY: Includes application instructions. Remote software internship fits, but pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 1.2 | ANOMALY: Includes application instructions. Chicago policy role falls outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 3.2 | ANOMALY: Includes application instructions. ML internship considers undergraduates, but Phoenix is outside the target locations and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.9 | ANOMALY: Includes application instructions. Atlanta campaign organizing falls outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 2.6 | ANOMALY: Includes application instructions. Entry-level security internship is adjacent to software engineering, but Denver is outside the target locations.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 2.3 | ANOMALY: Includes application instructions. SQL and Python reporting is adjacent to data engineering, but Columbus is outside the target locations.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 1.6 | ANOMALY: Includes application instructions. Austin fits, but the internship requires an accounting major.
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 2.4 | ANOMALY: Includes application instructions. Remote fits, but the work centers on supply chain reporting and the career level is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 1.1 | ANOMALY: Includes application instructions. Raleigh finance rotation falls outside the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.8 | ANOMALY: Includes application instructions. Phoenix marketing role requires two years of experience and misses the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.5 | ANOMALY: Includes application instructions. Student lacks the CNA certificate and the role’s alternative qualification of nursing enrollment.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.3 | ANOMALY: Includes application instructions. Student lacks the required real estate license.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 1.0 | ANOMALY: Includes application instructions. Atlanta nursing outreach internship misses the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 3.3 | ANOMALY: Includes application instructions. Frontend internship accepts coursework, but Denver is outside the target locations and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.1 | ANOMALY: Includes application instructions. Columbus nonprofit grants and events role misses the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 2.1 | ANOMALY: Includes application instructions. Austin fits, but the role requires at least three years of production operations experience.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 1.9 | ANOMALY: Includes application instructions. Remote internship fits the location preference, but the work is in communications.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 1.2 | ANOMALY: Includes application instructions. Raleigh investment banking internship misses the target fields and locations.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 2.2 | ANOMALY: Includes application instructions. SAP configuration and testing is adjacent to software, but Phoenix is outside the target locations.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 1.3 | ANOMALY: Includes application instructions. Chicago treasury internship misses the target fields and locations.

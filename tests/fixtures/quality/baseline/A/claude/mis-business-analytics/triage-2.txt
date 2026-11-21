@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 1.0 | Part-time retail sales associate with weekend requirements; not an analyst role and sales-oriented.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.5 | New-grad RN residency in Atlanta requiring a BSN and RN license (or eligibility); the student will not hold an RN license or nursing degree by the start date.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.8 | Chemistry lab technician in Austin, TX requiring a chemistry degree; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.3 | Travel ER nurse in Columbus, OH requiring 3+ years of emergency nursing; missing RN license and experience.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 2.2 | Remote legislative intern is early-career, but it is policy research and letter drafting rather than business or data analysis; pay is not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 1.8 | QA automation intern in Raleigh, NC; not an analyst role and not in Denver or remote.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 1.2 | Federal Pathways intern in Phoenix, AZ requiring US citizenship; wrong location and role is not analyst work.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 1.2 | Full-time new-grad software engineer in Chicago for 2027 graduates; the student graduates 2028, and the role is not analyst work.
+TRIAGE: PASS | https://jobs.example.com/q/043 | 4.8 | Business Analyst Intern in Denver, CO covering requirements, user stories and Tableau dashboards; direct match on role and location. Pay is not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 2.0 | Equity research associate in Atlanta (hybrid) is not an intern or entry-level analyst role in the student's target areas; location is wrong.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.2 | Director role requiring 12+ years of experience and leading 20 analysts, in Austin, TX.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.5 | Commission-only advisor role requiring your own client list; unpaid base and sales-only, in Columbus, OH.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.5 | Barista role in Raleigh, NC; not an analyst role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.3 | Remote ICU RN requiring 2 years of ICU experience and CCRN certification; missing RN license and CCRN credential.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.8 | Teacher assistant in Chicago, IL; unrelated field and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.2 | Nurse Manager requiring an MSN and 5 years of leadership, in Phoenix, AZ; management role with missing credentials.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 3.2 | Entry-level data pipeline role (SQL, dbt) that welcomes new graduates, but it is in Chicago (hybrid), outside Denver and remote, and is data engineering rather than analyst work.
+TRIAGE: MARGINAL | https://jobs.example.com/q/035 | 3.9 | Budget Analyst Trainee in Denver, CO with revenue forecasting and program reviews; analytical and early-career, but it is public-sector budget work rather than business or data analysis, and pay is not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 2.0 | Paid mobile developer internship, but it is software development in Atlanta (hybrid), not analyst work and not in Denver or remote.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.2 | Deputy Director role requiring 8+ years of policy leadership, in Austin, TX.

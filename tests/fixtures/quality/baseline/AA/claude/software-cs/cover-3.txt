@@ -1,0 +1,12 @@
+Dear Hiring Team,
+
+I am applying for the Security Engineering Intern role at Example Software Co 11. I am a computer science student at Northfield Example University (B.S., expected May 2028, GPA 3.6), and the threat modeling and log analysis work in this internship is the kind of software engineering I want to learn more about.
+
+This past summer I was a software intern at Example Robotics Co, where I wrote unit tests for a telemetry service in Python. That work taught me to read how a service behaves and to check it against what it should do, which I expect carries over to analyzing logs. I also built a course scheduler web app with a REST API in Node and PostgreSQL, and a churn model in Python that reached 0.81 AUC on a class dataset. I work in Python, Java, SQL, Git, React and Docker.
+
+Your posting says no prior job experience is needed, only an interest in security. I have that interest and I am ready to learn the practice from your team.
+
+Thank you for your time and consideration.
+
+Sincerely,
+Jordan Testwell

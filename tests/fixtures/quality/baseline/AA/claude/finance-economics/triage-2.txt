@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.3 | Part-time retail sales in Denver; not a finance role or a target location.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.2 | Requires BSN and RN license (or eligible), which the student will not hold; nursing in Atlanta, not finance.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.3 | Chemistry lab technician in Austin; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.1 | Travel ER nurse needing 3+ years of experience and a nursing license; wrong field, not early-career, Columbus.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 1.8 | Remote legislative intern doing policy research; remote location fits, but not a finance, credit or economic research role.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 0.4 | QA automation intern in Raleigh; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 0.8 | Federal Pathways internship in Phoenix requiring US citizenship; not a finance role and not a target location.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 1.5 | Software engineer new grad in Chicago; location fits but wrong field.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 1.5 | Business analyst intern in Denver building dashboards; not finance and not a target location.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 3.2 | Equity research fits finance interest and CFA Level I is only preferred, but Atlanta hybrid is not a target location.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.3 | Director-level executive role needing 12+ years; Austin.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.4 | Commission-only advisor role requiring own client list; Columbus.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.2 | Barista in Raleigh; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.1 | Remote ICU nurse needing 2 years of experience and CCRN certification, which the student will not hold; wrong field.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.8 | Teacher assistant in Chicago; location fits but wrong field.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.1 | Nurse manager needing MSN and 5 years of leadership; executive-level, wrong field, Phoenix.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 2.2 | Entry-level data engineer in Chicago hybrid; location and level fit but technical role, not finance or economic research.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 3.3 | Budget analyst trainee with forecasting is close to financial analysis and early-career, but Denver is not a target location and no remote option is stated.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 0.5 | Mobile developer intern in Atlanta; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.3 | Senior policy leadership role needing 8+ years; executive-level, Austin.

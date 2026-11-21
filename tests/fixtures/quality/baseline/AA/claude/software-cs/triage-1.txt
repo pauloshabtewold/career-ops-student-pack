@@ -1,0 +1,20 @@
+TRIAGE: PASS | https://jobs.example.com/q/001 | 4.8 | Remote SWE intern, Python/Go backend, paid-style internship, entry level, fits wants and location
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 1.0 | Policy analyst in Chicago, not a target field or location
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 2.8 | ML intern is on-target, but Phoenix, AZ is not Austin or Remote and graduate students preferred
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.5 | Campaign organizer in Atlanta, wrong field and location
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 2.5 | Security intern in Denver, CO; off-target location and not a listed focus
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 2.4 | Data analyst new grad in Columbus, OH; wrong location and role is analytics not engineering, and new-grad timing does not fit 2028 graduation
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 1.2 | Accounting intern in Austin but requires accounting major, not a target field
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 2.0 | Remote supply chain analyst in Excel/Power BI, not software, data engineering or ML
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 0.8 | Finance rotational program in Raleigh for new graduates, wrong field, location and timing
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.8 | Marketing coordinator in Phoenix needing 2 years experience, wrong field and location
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.5 | Chicago patient care role requiring CNA certificate or nursing student status, which the student will not hold; wrong field
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.0 | Real estate license required and the student will not hold it; commission-only means unpaid base, Denver
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 0.5 | Nursing internship in Atlanta, wrong field and location, presumably needs nursing enrollment
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 3.3 | Frontend intern with course projects counting is accessible, but Denver, CO is not Austin or Remote and frontend is only adjacent to the wanted roles
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 0.8 | Nonprofit program assistant in Columbus, wrong field and location
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 1.5 | SRE II in Austin requires 3+ years production experience, excluded by rules
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 1.5 | Remote communications intern, wrong field, and pay is not stated
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 0.8 | Investment banking summer analyst for juniors only in Raleigh, wrong field and student ineligible
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 2.3 | ERP systems intern in Phoenix, AZ, off-target location and field
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 0.8 | Treasury analyst intern in Chicago, wrong field and location

@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.3 | Retail sales in Denver, not a nursing or patient care role, wrong location, part-time.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 2.4 | Right role type (new-grad RN residency), but requires an RN license or eligibility and BSN; student graduates 2027-05, so the RN license is likely not held by the start date. Atlanta, not Columbus or Remote.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.5 | Chemistry lab technician in Austin, not a nursing or patient care role.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.8 | Travel ER nurse requiring 3+ years of emergency experience and an RN license the student will not hold; Columbus location does not offset this.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 0.8 | Remote legislative internship, not a nursing or patient care role; pay not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 0.3 | QA automation internship in Raleigh, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 0.4 | Federal Pathways internship in Phoenix, requires US citizenship, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 0.4 | Software engineer new grad in Chicago, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 0.4 | Business analyst internship in Denver, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 0.3 | Equity research in Atlanta, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.1 | Director role requiring 12+ years and managing 20 analysts, in Austin; unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.5 | Commission-only wealth management role requiring own client list; not paid salary, not nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.3 | Barista in Raleigh, not a nursing or patient care role.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.4 | ICU RN requiring 2 years of ICU experience and CCRN certification, plus an RN license the student will not hold; missing CCRN and RN license.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.5 | Teacher assistant in Chicago, not a nursing or patient care role.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.1 | Nurse manager role requiring MSN, 5 years of leadership and RN license; management role the student avoids; Phoenix.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 0.4 | Junior data engineer in Chicago, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 0.5 | Budget analyst trainee in Denver, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 0.4 | Mobile developer internship in Atlanta, unrelated to nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.1 | Senior policy leadership role requiring 8+ years in Austin; unrelated to nursing.

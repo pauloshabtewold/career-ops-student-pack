@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.3 | Part-time retail sales role in Denver, not a software/data/ML role and not in Austin or Remote.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.2 | Requires BSN and RN license (or eligible), which the student will not hold; nursing role in Atlanta, not a target field.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.8 | Austin location fits but it is a chemistry lab technician role requiring a chemistry degree, not software/data/ML.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.1 | Travel ER nurse needing 3+ years of nursing experience and a nursing license the student will not hold; Columbus, OH.
+TRIAGE: FAIL | https://jobs.example.com/q/033 | 1.2 | Remote location fits, but legislative internship is policy work, not software/data/ML; pay not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 2.8 | QA automation intern is close to software engineering, but the location is Raleigh, NC with no remote option stated.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 0.5 | Federal Pathways intern in Phoenix, AZ requires US citizenship and is not a software/data/ML role; wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 2.5 | Software new-grad role in Chicago, IL for 2027 graduates; student graduates 2028-05 and location does not match.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 1.5 | Business analyst intern in Denver, CO; not a software/data/ML engineering role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 0.8 | Equity research role in Atlanta, GA; finance, not a target field, and not early-career internship fit by location.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.2 | Director of Analytics requiring 12+ years, far beyond early-career; Austin location does not offset.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.2 | Commission-only wealth management role, effectively unpaid base; finance and in Columbus, OH.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.2 | Barista role in Raleigh, NC; not a software/data/ML role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.1 | ICU RN requiring 2 years of experience and CCRN certification the student will not hold; Remote location does not offset.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.3 | Teacher assistant in Chicago, IL; not a software/data/ML role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.1 | Nurse Manager requiring MSN and 5 years of leadership, plus nursing credentials the student will not hold; Phoenix, AZ.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 3.2 | Junior data engineer, entry level and new grads welcome, but hybrid in Chicago, IL does not match Austin or Remote.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 0.8 | City budget analyst trainee in Denver, CO; not a software/data/ML role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 3.0 | Paid mobile developer summer internship fits the field, but hybrid in Atlanta, GA does not match Austin or Remote.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.2 | Deputy Director of Policy requiring 8+ years; senior role outside the target field, though Austin location fits.

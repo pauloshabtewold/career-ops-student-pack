@@ -1,0 +1,10 @@
+Dear Hiring Team,
+
+I am applying for the Corporate Finance Rotational Analyst role at Example Finance Co 9. I will finish my B.A. in Economics at Lakeside Example College in December 2027, and a two-year rotation across FP&A, tax and treasury is the kind of broad start in corporate finance I am looking for.
+
+My coursework and projects have given me hands-on practice with the tools this work relies on. I built a discounted cash flow model of a retailer in Excel, and I ran a regression study of rent and transit access in R. As a research assistant in the economics department, I cleaned survey data in Stata. I also worked as a teller intern at Example Credit Union, where I balanced drawers and explained account products to customers, which taught me to be accurate with numbers and clear when explaining them.
+
+I would welcome the chance to learn across FP&A, tax and treasury and to contribute to your team. Thank you for your time and consideration.
+
+Sincerely,
+Riley Fakeham

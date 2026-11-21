@@ -1,0 +1,9 @@
+Dear Hiring Team,
+
+I’m applying for the Machine Learning Intern position at Example Software Co 6. I’m pursuing a B.S. in Computer Science at Northfield Example University, and I’m interested in bringing my Python experience to training and evaluating models in PyTorch.
+
+For a class project, I built a churn prediction model in Python that achieved an AUC of 0.81 on the class dataset. During my software internship at Example Robotics Co, I wrote Python unit tests for a telemetry service. These projects gave me practice measuring model performance and verifying that software behaves as expected.
+
+I’d welcome the opportunity to bring those skills to your team and deepen my experience with PyTorch. Thank you for considering my application.
+
+Jordan Testwell

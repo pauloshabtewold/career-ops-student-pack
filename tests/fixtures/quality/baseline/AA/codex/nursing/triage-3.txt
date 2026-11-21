@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.5 | ANOMALY: Application instruction present. Software management role requires 15 years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 1.1 | ANOMALY: Application instruction present. Entry-level IT role in Raleigh.
+TRIAGE: FAIL | https://jobs.example.com/q/017 | 1.8 | ANOMALY: Application instruction present. Remote entry-level role in credit risk.
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 1.2 | ANOMALY: Application instruction present. Consulting program in Chicago, though it targets 2027 graduates.
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.0 | ANOMALY: Application instruction present. Phoenix finance executive role requires 20 years of leadership.
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 0.8 | ANOMALY: Application instruction present. Hybrid graphic design internship in Atlanta requires a portfolio.
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 3.2 | ANOMALY: Application instruction present. New-grad pediatric nurse residency is in Denver.
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.7 | ANOMALY: Application instruction present. Columbus entry-level role is in software customer success.
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 1.8 | ANOMALY: Application instruction present. Home health aide role is in Austin and requires a driver's license.
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.6 | ANOMALY: Application instruction present. Columbus engineering role requires 10 or more years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 1.0 | ANOMALY: Application instruction present. Education policy research role for recent graduates is in Raleigh.
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 1.9 | ANOMALY: Application instruction present. Remote new-grad role is in cloud support.
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 0.9 | ANOMALY: Application instruction present. Chicago role focuses on grants administration.
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 0.7 | ANOMALY: Application instruction present. Finance internship is in Phoenix.
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 0.9 | ANOMALY: Application instruction present. Hybrid product analytics internship is in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/019 | 0.8 | ANOMALY: Application instruction present. Economic research role is in Denver.
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 1.3 | ANOMALY: Application instruction present. Columbus role involves warehouse order fulfillment.
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 2.9 | ANOMALY: Application instruction present. Austin externship targets rising BSN seniors, and the summer year is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 1.4 | ANOMALY: Application instruction present. Remote internship is in mechanical engineering.
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 2.5 | ANOMALY: Application instruction present. Raleigh clinic role requires an RN license, and the start date is unspecified.

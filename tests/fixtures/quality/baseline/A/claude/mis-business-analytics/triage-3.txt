@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.3 | Principal Architect requiring 15 years of experience and people management; Columbus, OH
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 3.0 | Right field (IT project coordination, early-career) but located in Raleigh, NC, not Denver or Remote; pay and internship status unstated
+TRIAGE: MARGINAL | https://jobs.example.com/q/017 | 3.8 | Entry-level, Remote credit risk analyst with SQL and dashboards, a good data analyst fit; not labeled an internship and pay unstated
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 2.0 | Chicago, IL with up to 50% travel; program is for 2027 graduates, but student graduates 2028-05
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.1 | Chief Financial Officer requiring 20 years of leadership; Phoenix, AZ
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 0.5 | Graphic design intern requiring an Adobe portfolio; Atlanta hybrid; not a target role or location
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 0.2 | Pediatric Nurse Resident in Denver; the RN license is missing, since the student graduates 2028-05 in business analytics and will not hold it
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.5 | Customer success associate (sales-adjacent, not analyst) in Columbus, OH; wrong role and location
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 0.3 | Home Health Aide in Austin, TX; wrong field and location
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.2 | Senior Staff Engineer requiring 10+ years; Columbus, OH
+TRIAGE: FAIL | https://jobs.example.com/q/037 | 2.0 | Research assistant in Raleigh, NC; not a target role or location
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 2.8 | Remote new-grad cloud support is early-career, but it is a support role rather than analyst or ERP, and it targets new grads rather than interns
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 1.8 | Grants Coordinator in Chicago, IL; admin role, wrong location
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 2.8 | Financial Analyst Intern is analytical, but the location is Phoenix, AZ rather than Denver or Remote; pay unstated
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 3.0 | Product Operations Intern doing funnel metrics and A/B readouts fits analytics, but the location is hybrid Atlanta, GA, not Denver or Remote
+TRIAGE: MARGINAL | https://jobs.example.com/q/019 | 3.7 | Economic Research Assistant in Denver doing data cleaning in Stata/R and charts, which is data-analyst-like; not a business analyst title, and pay and internship status are unstated
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 0.3 | Warehouse Associate in Columbus, OH; wrong field and location
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 0.4 | Nursing Student Extern requiring enrollment in a BSN program, which the student lacks; Austin, TX
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 0.8 | Mechanical Engineering Intern needing SolidWorks; remote, but wrong field
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 0.2 | Clinic Nurse requires an RN license, which the student will not hold; Raleigh, NC

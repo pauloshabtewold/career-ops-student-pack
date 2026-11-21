@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 2.0 | Software engineering intern, remote, but not a business/data/ERP analyst role; weak fit with the student's target roles.
+TRIAGE: FAIL | https://jobs.example.com/q/034 | 2.5 | Entry-level policy analyst in Chicago, IL; analyst-type work but not in Denver/Remote and not a target role.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 1.5 | ML intern in Phoenix, AZ; wrong location, wrong role type, graduate students preferred.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.5 | Campaign field organizer, canvassing, Atlanta hybrid; unrelated to target roles and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 2.5 | Security engineering intern in Denver; right location and early-career, but not an analyst/ERP role.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 3.2 | Data analyst new grad in Columbus, OH; right role family but wrong location, and new-grad rather than internship for a 2028 graduate.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 1.0 | Accounting intern in Austin, TX; accounting majors only, wrong location, off-target role.
+TRIAGE: MARGINAL | https://jobs.example.com/q/049 | 3.7 | Remote supply chain analyst using Excel and Power BI; analyst fit and location OK, but experience level and pay are not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 1.5 | Corporate finance rotational program for new graduates in Raleigh, NC; wrong location and not an internship.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.5 | Marketing coordinator in Phoenix, AZ requiring 2 years of experience; off-target role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.5 | Patient care technician in Chicago, IL; requires a CNA certificate or nursing student status, which the student will not hold, and the role is off-target.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.0 | Commission-only real estate agent in Denver, CO; requires a real estate license the student will not hold, and the role is unpaid-base sales-only.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 0.5 | Public health nursing intern in Atlanta, GA; off-target role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 2.5 | Frontend developer intern in Denver, CO; right location and level, but a developer role rather than analyst.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.0 | Nonprofit program assistant in Columbus, OH; off-target role and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 0.0 | Site Reliability Engineer II in Austin, TX requiring 3+ years of experience; not early-career and off-target.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 1.5 | Remote communications intern for a city hall; location fits but the role is not analyst/ERP.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 0.5 | Investment banking summer analyst in Raleigh, NC, juniors only; the student graduates 2028 and the role is off-target with the wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 3.4 | ERP systems analyst intern supporting SAP rollout, a strong role match, but located in Phoenix, AZ rather than Denver or Remote.
+TRIAGE: FAIL | https://jobs.example.com/q/018 | 2.0 | Treasury analyst intern in Chicago, IL; finance analyst work but wrong location and not a target role.

@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/012 | 0.2 | Columbus role requires 15 years of experience and people management.
+TRIAGE: FAIL | https://jobs.example.com/q/045 | 3.2 | Raleigh role welcomes recent graduates, but focuses on IT project coordination.
+TRIAGE: FAIL | https://jobs.example.com/q/017 | 3.3 | Remote entry-level analyst role focused on consumer credit risk.
+TRIAGE: FAIL | https://jobs.example.com/q/050 | 2.0 | Accepts 2027 graduates, but the Chicago role focuses on technology consulting.
+TRIAGE: FAIL | https://jobs.example.com/q/022 | 0.0 | Phoenix executive role requires 20 years of finance leadership.
+TRIAGE: FAIL | https://jobs.example.com/q/055 | 1.0 | Atlanta design internship is outside the target field and lists no pay.
+TRIAGE: FAIL | https://jobs.example.com/q/027 | 0.8 | Denver new-grad residency focuses on pediatric nursing.
+TRIAGE: FAIL | https://jobs.example.com/q/060 | 1.6 | Entry-level customer onboarding role is based in Columbus.
+TRIAGE: FAIL | https://jobs.example.com/q/032 | 0.7 | Austin personal care role is outside the target field and requires a driver’s license.
+TRIAGE: FAIL | https://jobs.example.com/q/004 | 0.3 | Columbus senior engineering role requires 10 or more years of experience.
+TRIAGE: PASS | https://jobs.example.com/q/037 | 4.6 | Raleigh education policy research role targets recent graduates. Pay is unlisted.
+TRIAGE: FAIL | https://jobs.example.com/q/009 | 2.9 | Remote new-grad role focuses on technical customer support.
+TRIAGE: FAIL | https://jobs.example.com/q/042 | 2.7 | Federal grant reporting is relevant, but the role is based in Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/014 | 1.3 | Phoenix finance internship focuses on budgeting and lists no pay.
+TRIAGE: FAIL | https://jobs.example.com/q/047 | 1.5 | Hybrid Atlanta internship focuses on product analytics and lists no pay.
+TRIAGE: FAIL | https://jobs.example.com/q/019 | 3.3 | Research and policy brief work match, but the role is based in Denver.
+TRIAGE: FAIL | https://jobs.example.com/q/052 | 0.5 | Columbus warehouse work falls outside the target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/024 | 0.6 | Austin nursing externship requires rising-senior status in a BSN program.
+TRIAGE: FAIL | https://jobs.example.com/q/057 | 2.2 | Remote internship focuses on mechanical engineering and lists no pay.
+TRIAGE: FAIL | https://jobs.example.com/q/029 | 1.1 | Raleigh clinic role requires an RN license the student will not hold.

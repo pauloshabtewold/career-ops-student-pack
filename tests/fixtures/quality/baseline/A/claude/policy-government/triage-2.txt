@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.3 | Retail sales in Denver, part-time weekends; not policy/research/government and wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.2 | Requires RN license (or eligible) and BSN, which the student will not hold; nursing role in Atlanta, off-target.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.3 | Chemistry lab technician in Austin; wrong field and location, requires chemistry degree.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.1 | Travel ER nurse requiring 3+ years experience and nursing credentials; not early-career, wrong field and location.
+TRIAGE: MARGINAL | https://jobs.example.com/q/033 | 3.8 | Remote legislative role matching target (bill research, hearings), but titled "Intern" with no pay stated, so unpaid risk.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 1.5 | QA automation internship in Raleigh; location fits but it's software testing, not a policy/research/government role.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 2.4 | Federal trainee role fits the government interest, but it's in Phoenix, not Raleigh or remote; pay not stated.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 0.8 | Software engineer new grad in Chicago; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 1.2 | Business analyst intern in Denver; not a policy role, wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 1.4 | Equity research in Atlanta (hybrid); finance, not policy, wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.1 | Director role requiring 12+ years; senior, wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.2 | Commission-only role requiring own client list; not a paid salaried role, wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 0.5 | Barista in Raleigh; location fits but not a policy/research/government role.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.1 | ICU RN requiring 2 years experience and CCRN certification, which the student will not hold; wrong field.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.6 | Teacher assistant in Chicago; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.1 | Nurse Manager requiring MSN and 5 years leadership; senior, credentials missing, wrong location.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 1.2 | Entry-level data engineer in Chicago (hybrid); wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 2.6 | Budget analyst trainee fits government trainee interest, but located in Denver, not Raleigh or remote.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 1.0 | Paid mobile dev internship in Atlanta; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 0.3 | Senior policy role requiring 8+ years; excluded as senior, wrong location.

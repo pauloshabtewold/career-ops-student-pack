@@ -1,0 +1,7 @@
+{
+  "degree": "degree",
+  "major": "major",
+  "grad_date": "graduation",
+  "gpa": "gpa",
+  "honors": "unknown"
+}

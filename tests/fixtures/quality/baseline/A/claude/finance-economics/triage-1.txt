@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/001 | 1.0 | Software engineering intern; not a finance, credit or economic research role.
+TRIAGE: MARGINAL | https://jobs.example.com/q/034 | 3.5 | Entry-level policy analyst in Chicago with Excel and writing; analytical but housing policy, not finance or economics research.
+TRIAGE: FAIL | https://jobs.example.com/q/006 | 1.0 | ML intern in Phoenix, AZ; wrong field and location, graduate students preferred.
+TRIAGE: FAIL | https://jobs.example.com/q/039 | 0.5 | Campaign field organizer in Atlanta; wrong field and location, evenings and weekends canvassing.
+TRIAGE: FAIL | https://jobs.example.com/q/011 | 1.0 | Security engineering intern in Denver; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/044 | 2.0 | Data analyst new grad in Columbus, OH; wrong location and not finance-focused.
+TRIAGE: FAIL | https://jobs.example.com/q/016 | 2.0 | Accounting intern in Austin, TX; wrong location and accounting focus rather than analyst/finance research.
+TRIAGE: FAIL | https://jobs.example.com/q/049 | 2.5 | Remote supply chain analyst using Excel and Power BI; location fits but field is operations, not finance or economics.
+TRIAGE: FAIL | https://jobs.example.com/q/021 | 3.0 | Corporate finance rotational analyst for new grads fits the field, but Raleigh, NC is outside Chicago/Remote.
+TRIAGE: FAIL | https://jobs.example.com/q/054 | 0.5 | Marketing coordinator in Phoenix needing 2 years of experience; wrong field, location and level.
+TRIAGE: FAIL | https://jobs.example.com/q/026 | 0.5 | Patient care technician in Chicago; requires a CNA certificate or nursing student status, which the student lacks, and wrong field.
+TRIAGE: FAIL | https://jobs.example.com/q/059 | 0.0 | Commission-only real estate role in Denver requiring a real estate license the student will not hold.
+TRIAGE: FAIL | https://jobs.example.com/q/031 | 0.5 | Public health nursing intern in Atlanta; wrong field and location, nursing background implied.
+TRIAGE: FAIL | https://jobs.example.com/q/003 | 1.0 | Frontend developer intern in Denver; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/036 | 1.5 | Nonprofit program assistant in Columbus, OH; wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/008 | 0.0 | SRE II in Austin requiring 3+ years experience; not early-career, wrong field and location.
+TRIAGE: FAIL | https://jobs.example.com/q/041 | 1.5 | Remote communications intern for city hall; location fits but wrong field.
+TRIAGE: FAIL | https://jobs.example.com/q/013 | 1.5 | Investment banking summer analyst in Raleigh, NC for juniors only; wrong location and the student graduates 2027-12, so not a junior-year summer fit.
+TRIAGE: FAIL | https://jobs.example.com/q/046 | 1.5 | ERP systems analyst intern in Phoenix running an SAP rollout; wrong field and location.
+TRIAGE: MARGINAL | https://jobs.example.com/q/018 | 3.9 | Treasury analyst intern in Chicago on cash positioning and FX exposure; strong corporate finance fit, but it is an internship and pay is not stated.

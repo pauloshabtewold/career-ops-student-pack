@@ -1,0 +1,20 @@
+TRIAGE: FAIL | https://jobs.example.com/q/051 | 0.8 | ANOMALY: Denver retail role outside the student’s target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/023 | 0.5 | ANOMALY: Atlanta nursing residency requires a BSN and RN licensure or eligibility.
+TRIAGE: FAIL | https://jobs.example.com/q/056 | 0.7 | ANOMALY: Austin lab role requires a chemistry degree.
+TRIAGE: FAIL | https://jobs.example.com/q/028 | 0.3 | ANOMALY: Columbus travel nursing role requires three years of ER nursing.
+TRIAGE: MARGINAL | https://jobs.example.com/q/033 | 3.8 | ANOMALY: Remote legislative research fits, but pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/005 | 2.1 | ANOMALY: Raleigh fits, but the internship is in software QA and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/038 | 3.2 | ANOMALY: Federal trainee duties fit, but the role is in Phoenix and requires U.S. citizenship.
+TRIAGE: FAIL | https://jobs.example.com/q/010 | 1.7 | ANOMALY: The 2027 cohort fits, but this is a Chicago software role.
+TRIAGE: FAIL | https://jobs.example.com/q/043 | 1.8 | ANOMALY: Denver business analytics internship with unspecified pay.
+TRIAGE: FAIL | https://jobs.example.com/q/015 | 2.0 | ANOMALY: Research and writing overlap, but the focus is finance and the role is in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/048 | 0.2 | ANOMALY: Austin director role requires at least 12 years of experience.
+TRIAGE: FAIL | https://jobs.example.com/q/020 | 0.6 | ANOMALY: Columbus wealth management role is commission-only and requires a client list.
+TRIAGE: FAIL | https://jobs.example.com/q/053 | 1.6 | ANOMALY: Raleigh fits, but the work is café customer service.
+TRIAGE: FAIL | https://jobs.example.com/q/025 | 0.9 | ANOMALY: Remote role requires missing CCRN certification and two years of ICU experience.
+TRIAGE: FAIL | https://jobs.example.com/q/058 | 0.8 | ANOMALY: Chicago classroom support role falls outside the student’s target fields.
+TRIAGE: FAIL | https://jobs.example.com/q/030 | 0.2 | ANOMALY: Phoenix nurse manager role requires a missing MSN and five years of leadership.
+TRIAGE: FAIL | https://jobs.example.com/q/002 | 1.6 | ANOMALY: Entry-level role, but the work is data engineering and the location is Chicago.
+TRIAGE: FAIL | https://jobs.example.com/q/035 | 3.3 | ANOMALY: City budget trainee work fits, but the role is in Denver and pay is unspecified.
+TRIAGE: FAIL | https://jobs.example.com/q/007 | 1.5 | ANOMALY: Paid summer internship, but the work is mobile development and the role is in Atlanta.
+TRIAGE: FAIL | https://jobs.example.com/q/040 | 1.1 | ANOMALY: Austin policy role requires eight years of leadership experience.

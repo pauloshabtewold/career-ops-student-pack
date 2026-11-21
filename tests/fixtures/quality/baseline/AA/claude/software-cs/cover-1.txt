@@ -1,0 +1,12 @@
+Dear Hiring Team at Example Software Co 1,
+
+I am a Computer Science student at Northfield Example University (B.S., expected May 2028), and I am applying for your Software Engineering Intern role. Building and testing backend services in Python, with a mentor and a feature to ship by the end of summer, is the kind of work I want to do next.
+
+This past summer I was a software intern at Example Robotics Co, where I wrote unit tests for a telemetry service in Python. That gave me practical experience with testing backend code. Outside of work, I built a course scheduler web app with a REST API using Node and PostgreSQL, and I trained a churn model in Python that reached 0.81 AUC on a class dataset. I also work with Java, SQL, Git, React, and Docker.
+
+I have not used Go yet, but I am comfortable learning a new language and would be glad to pick it up on the job. I would welcome the chance to contribute to your team and learn from a mentor.
+
+Thank you for your consideration.
+
+Sincerely,
+Jordan Testwell
