@@ -12,7 +12,8 @@
 // nothing writes one line. data/fresh-seen.tsv records each posting's first-seen date, its company plus title and its
 // board, so a repost of one title under a new id on a later scan date is counted (reposts= note, one per scan date) and
 // the title's earliest scan date is kept (title_since= note) beside the posting's own date (posted= note); daily-triage
-// passes the count and the title's age to the ghost rule. The first scan of a board adds only the newest
+// passes the count and the title's age to the ghost rule. A repost dropped by the company-plus-title dedupe is still
+// recorded in the seen file and refreshes those notes on its title's Pending row. The first scan of a board adds only the newest
 // fresh_first_scan (default 25) open postings and marks the rest seen.
 // Usage: fresh-scan.mjs [--linkedin] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
 // --linkedin reads only the LinkedIn page, whatever chrome_in_schedule says: a session in which the student asked for
@@ -33,7 +34,7 @@ import { readCycle } from '../lib/cycle-file.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
 import { isOn } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { appendLines, ensureSections, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
+import { appendLines, ensureSections, formatRow, getSection, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
 import { loadMerged } from '../lib/presets.mjs';
 import { politeFetch } from '../lib/robots.mjs';
 import { runText } from '../lib/run.mjs';
@@ -59,29 +60,51 @@ export function boardsFrom(portalsText) {
   return companies.filter((c) => c && c.enabled !== false && typeof c.name === 'string').map((c) => ({ company: c.name, ...boardOf(c.careers_url ?? '') })).filter((b) => b.kind);
 }
 
+const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d ?? '');
 const knownCompany = (c) => Boolean(String(c ?? '').trim()) && !/^unknown$/i.test(String(c).trim());
 // Company plus title, or null when the company is unknown (a LinkedIn card with no company link): those rows dedupe on
 // their job id alone, so two different postings with one common title both stay.
 export const titleKey = (r) => (knownCompany(r.company) ? `${String(r.company).toLowerCase().trim()}|${String(r.title).toLowerCase().trim()}` : null);
 
-// Keeps postings neither seen by an earlier scan nor already in the pipeline by url key or company plus title (T13).
+// Splits postings not seen by an earlier scan and not in the pipeline by url key into new rows and title repeats (T13).
+// A repeat is a new url key whose company plus title is already in the pipeline or taken earlier in this scan: it stays
+// out of the queue but is recorded in the seen file, so a title reposted on later scan dates builds up a repost count.
 // Company plus title is compared here, before rows enter the queue, and not in daily-triage (RULING SHOULD-9).
-export function newRows(jobs, { seen, pipelineRows }) {
+export function splitNew(jobs, { seen, pipelineRows }) {
   const inPipeline = new Set(pipelineRows.flatMap((r) => [urlKey(r.url), titleKey(r)]).filter(Boolean));
-  const out = [];
+  const fresh = [];
+  const repeats = [];
   const taken = new Set();
   for (const j of jobs) {
     const key = urlKey(j.url);
     const tk = titleKey(j);
-    if (!key || seen.has(key) || inPipeline.has(key) || taken.has(key) || (tk && (inPipeline.has(tk) || taken.has(tk)))) continue;
+    if (!key || seen.has(key) || inPipeline.has(key) || taken.has(key)) continue;
     taken.add(key);
+    if (tk && (inPipeline.has(tk) || taken.has(tk))) {
+      repeats.push(j);
+      continue;
+    }
     if (tk) taken.add(tk);
-    out.push(j);
+    fresh.push(j);
   }
-  return out;
+  return { fresh, repeats };
 }
 
-const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d ?? '');
+// Keeps postings neither seen by an earlier scan nor already in the pipeline by url key or company plus title (T13).
+export const newRows = (jobs, opts) => splitNew(jobs, opts).fresh;
+
+// Repost history of a row already in the queue, from every seen row: the distinct scan dates on which its company plus
+// title appeared under another url key, and the title's earliest scan date (its own included). null when none.
+export function queuedHistory(row, allSeen) {
+  const tk = titleKey(row);
+  if (!tk) return null;
+  const own = urlKey(row.url);
+  const same = allSeen.filter((r) => r.title_key === tk && isDay(r.first_seen));
+  const dates = [...new Set(same.filter((r) => r.url_key !== own).map((r) => r.first_seen))].sort();
+  if (!dates.length) return null;
+  const all = [...dates, ...same.filter((r) => r.url_key === own).map((r) => r.first_seen), row.notes?.get('imported')].filter(isDay).sort();
+  return { reposts: dates.length, titleSince: all[0] };
+}
 
 // Repost history per job from the seen rows. A repost is the same company plus title under another url key first seen on
 // an earlier scan date, and it counts once per scan date: same-title openings in several cities seen in one scan
@@ -134,12 +157,22 @@ export function linkedinJobs(readOutput) {
   return jobs.map((j) => ({ ...j, company: j.company || 'unknown' }));
 }
 
-async function mergeRows(dataDir, rows, today) {
+// Adds the new rows to Pending and, for each title repeated in this scan, refreshes the reposts= and title_since= notes of
+// that title's Pending row, the one that still reaches triage. Rows already triaged keep their verdict and notes.
+async function mergeRows(dataDir, rows, today, { repeatTitles = new Set(), allSeen = [] } = {}) {
   const file = join(dataDir, 'pipeline.md');
   return withLock(file, () => {
     const doc = ensureSections(parsePipeline(existsSync(file) ? readFileSync(file, 'utf8') : SKELETON));
     const present = new Set(SECTIONS.flatMap((s) => sectionRows(doc, s).map(({ row }) => urlKey(row.url))));
     const fresh = rows.filter((r) => !present.has(urlKey(r.url)));
+    const pending = getSection(doc, 'Pending');
+    for (const { index, row } of sectionRows(doc, 'Pending')) {
+      const hist = repeatTitles.has(titleKey(row)) && queuedHistory(row, allSeen);
+      if (!hist) continue;
+      row.notes.set('reposts', String(hist.reposts));
+      row.notes.set('title_since', hist.titleSince);
+      pending.lines[index] = formatRow(row);
+    }
     appendLines(doc, 'Pending', fresh.map((r) => rowLine(r, today)));
     writeAtomic(file, serializePipeline(doc));
     return fresh.length;
@@ -207,7 +240,7 @@ async function linkedinFresh({ paths, config, runner, notes, nowFn, sleep, force
 
 // Postings neither seen by an earlier scan nor in the pipeline; T13 off keeps the seen-file check only.
 function freshOf(jobs, { seen, pipelineRows }) {
-  return isOn('T13') ? newRows(jobs, { seen, pipelineRows }) : jobs.filter((j) => !seen.has(urlKey(j.url)));
+  return isOn('T13') ? splitNew(jobs, { seen, pipelineRows }) : { fresh: jobs.filter((j) => !seen.has(urlKey(j.url))), repeats: [] };
 }
 
 function readPipelineRows(dataDir) {
@@ -287,10 +320,13 @@ export async function freshScan({ paths, today, deps = {}, linkedinOnly = false 
   const seenBoards = new Set(seenRows.map((r) => r.board).filter(Boolean));
   const { jobs, seedOnly, boardFailures } = await readBoards(boards, fetchFn, notes, { seenBoards, firstMax: config.fresh_first_scan ?? 25 });
   const linkedin = await linkedinFresh({ paths, config, runner, notes, sleep, rng: deps.rng, nowFn: deps.now ?? (() => new Date()), force: linkedinOnly });
-  const fresh = withHistory(freshOf([...jobs, ...linkedin.jobs], { seen, pipelineRows: readPipelineRows(paths.dataDir) }), seenRows, today);
-  const added = fresh.length ? await mergeRows(paths.dataDir, fresh, today) : 0;
+  const split = freshOf([...jobs, ...linkedin.jobs], { seen, pipelineRows: readPipelineRows(paths.dataDir) });
+  const fresh = withHistory(split.fresh, seenRows, today);
   const seed = seedOnly.filter((j) => !seen.has(urlKey(j.url)));
-  await appendTsv(seenFile, SEEN_HEADER, [...fresh, ...seed].map((j) => seenRow(j, today)));
+  const newSeen = [...fresh, ...split.repeats, ...seed].map((j) => seenRow(j, today));
+  const repeatTitles = new Set(split.repeats.map(titleKey).filter(Boolean));
+  const added = fresh.length || repeatTitles.size ? await mergeRows(paths.dataDir, fresh, today, { repeatTitles, allSeen: [...seenRows, ...newSeen] }) : 0;
+  await appendTsv(seenFile, SEEN_HEADER, newSeen);
   const failed = added ? await runPrefilter(paths, config) : 0;
   const newLinkedin = fresh.filter((j) => j.src === 'fresh-linkedin').length;
   const linkedinLine = linkedin.pages ? [`fresh LinkedIn page: ${linkedin.jobs.length} job card(s) read, ${newLinkedin} new row(s) in Pending noted src=fresh-linkedin`] : [];
