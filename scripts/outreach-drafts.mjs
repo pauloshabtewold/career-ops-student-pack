@@ -91,12 +91,14 @@ export function placeholderValues(job) {
   };
 }
 
-// The text with its placeholders filled in. It runs only over the assembled message (code frame and model body); no cv.md
-// text is ever placed into a message.
-export function fillPlaceholders(text, job) {
+// The text with its placeholders filled in, except the keys in skip. It runs only over the code frame and the model body;
+// no cv.md text is ever placed into a message. The model body never gets {applied_date} filled: only the code-written
+// opening states the date, so a model-written one stays a brace and is a rail failure.
+export function fillPlaceholders(text, job, { skip = [] } = {}) {
   const v = placeholderValues(job);
-  return String(text ?? '').replace(/(?<!\$)\{([a-z_]+)\}/g, (m, k) => (v[k] ? v[k] : m));
+  return String(text ?? '').replace(/(?<!\$)\{([a-z_]+)\}/g, (m, k) => (v[k] && !skip.includes(k) ? v[k] : m));
 }
+const BODY_SKIP = ['applied_date'];
 
 // B. The drafting prompt. The model writes the body only, as warm, natural prose in the student's voice, from the
 // student's cv.md (and article-digest.md when the pack has one), which are the only allowed source of facts. The fixed
@@ -106,7 +108,7 @@ const DRAFT_RULES = [
   'You write one short networking message for a student, in the student\'s own voice: warm, natural and specific, the way a friendly person writes to someone they would like to get to know. Not a form letter.',
   'Facts about the student come only from the RESUME below. Mention one or two real things from it in your own words; never paste resume lines. Never add, stretch or guess a fact: no other jobs, internships, schools, degrees, skills, tools, projects, awards, numbers, dates or job titles, a title only as the resume states it (an intern is an intern), and no earlier contact with the reader or their company. If the resume does not hold something, leave it out.',
   'Write the body only. Code adds the greeting with their name, any sentence about an application and its date, the closing thanks and the sign-off. So never write a greeting, a Subject line, a sign-off, the student\'s name, the application or its date, and do not use the reader\'s name (the greeting has it).',
-  'Write {company} for the company and {title} for the job title where you need them; no other placeholders, brackets or links. Plain words, straight quotes, short paragraphs with at most one blank line between them.',
+  'Write {company} for the company where you need it; no other placeholders (the task names any other one you may use), brackets or links. Plain words, straight quotes, short paragraphs with at most one blank line between them.',
 ].join('\n');
 
 const ASK = {
@@ -115,7 +117,7 @@ const ASK = {
   'follow-up': 'A friendly, light follow-up to an earlier message that got no answer: a short nudge, one easy question, no pressure and no referral ask.',
   reply: 'A reply to their message below. Answer what they asked using only resume facts (when the resume does not hold the answer, say so honestly or leave it out), keep it warm, and keep the conversation going.',
   'referral-ask': 'A short note after a good conversation: thank them for it, then ask whether they would be comfortable referring the student for an open role at {company}, and make it easy to say no.',
-  'application-follow-up': 'The body of a follow-up email on the application below. The code-written first line already says the student applied for the role and when, so do not repeat it: in a sentence or two say why the role fits, with one real resume fact in your own words, and offer to send anything else that would help.',
+  'application-follow-up': 'The body of a follow-up email on the application below. The code-written first line already says the student applied for the role and when, so do not repeat it: in a sentence or two say why the role fits, with one real resume fact in your own words, and offer to send anything else that would help. You may write {title} for the job title.',
 };
 
 export function draftPrompt({ action, cv, digest = '', contact, replyText = '', application = null, noteChars = 0, tag = fenceTag() }) {
@@ -157,8 +159,14 @@ function greetingRe(job) {
 }
 const capitalize = (t) => t.replace(/^\p{Ll}/u, (c) => c.toUpperCase());
 
+// NFKC before the greeting is taken off (a fullwidth "Ｈｉ Alice," folds to "Hi Alice,"), except a brace look-alike (a
+// fullwidth or small brace), which stays as written so it is never filled and the final NFKC pass turns it into a brace
+// the rail flags.
+const BRACE_LIKE = /([\uFE37\uFE38\uFE5B\uFE5C\uFF5B\uFF5D])/u; // every character NFKC turns into { or }
+const nfkcKeepBraces = (t) => t.split(BRACE_LIKE).map((seg) => (BRACE_LIKE.test(seg) ? seg : seg.normalize('NFKC'))).join('');
+
 export function modelBody(text, job) {
-  let body = clean(String(text ?? '')).replace(/\r\n?/g, '\n').trim();
+  let body = clean(nfkcKeepBraces(String(text ?? ''))).replace(/\r\n?/g, '\n').trim();
   body = body.replace(/^\s*(?:\*\*|__)?subject\s*:[^\n]*\n*/i, '').trim();
   body = body.replace(greetingRe(job), '');
   const first = placeholderValues(job).first_name;
@@ -208,21 +216,26 @@ export function applicationOpening(job) {
   return `I applied for ${what}${v.applied_date ? ' on {applied_date},' : ','} and I wanted to follow up.`;
 }
 // A connect note goes on after "Hi {first_name}, ": a plain capitalized first word loses its capital, never "I", a name
-// of the reader or their company, or a tech word.
-const lowerFirst = (t, job) => t.replace(/^(\p{Lu})(\p{Ll}+)(?![\p{L}'\u2019])/u, (m, a, b) => (TECH_WORDS.includes(m) || nameWords(`${job.contact?.name} ${job.contact?.company}`).includes(m.toLowerCase()) ? m : a.toLowerCase() + b));
+// of the reader or their company, a tech word, or a proper noun of the student's data (a word the cv, digest or profile
+// writes capitalized in mid-sentence, such as an employer).
+const properIn = (word, sources) => new RegExp(`[\\p{L}\\p{N},;:)]\\s+${escapeRe(word)}(?![\\p{L}])`, 'u').test(String(sources ?? ''));
+const lowerFirst = (t, job, sources) => t.replace(/^(\p{Lu})(\p{Ll}+)(?![\p{L}'\u2019])/u, (m, a, b) => (TECH_WORDS.includes(m) || nameWords(`${job.contact?.name} ${job.contact?.company}`).includes(m.toLowerCase()) || properIn(m, sources) ? m : a.toLowerCase() + b));
 // Capitalized by convention; a connect note keeps their capital.
 export const TECH_WORDS = Object.freeze(['Python', 'JavaScript', 'TypeScript', 'Java', 'SQL', 'Git', 'GitHub', 'Linux', 'React', 'Node', 'AWS', 'Excel', 'LinkedIn']);
 
 const greetingOf = (job) => (job.action === 'application-follow-up' ? 'Hello {company} hiring team,' : job.channel === 'email' ? 'Hello {first_name},' : 'Hi {first_name},');
 
-export function assembleDraft(body, job) {
+// fill: true fills the frame's placeholders only (the body comes in already filled); sources holds the student's data
+// for a connect note's first word.
+export function assembleDraft(body, job, { fill = false, sources = '' } = {}) {
+  const frame = (s) => (fill ? fillPlaceholders(s, job) : s);
   const email = job.channel === 'email';
-  if (job.action === 'connect') return `Hi {first_name}, ${lowerFirst(String(body).replace(/\s*\n+\s*/g, ' '), job)}`;
+  if (job.action === 'connect') return `${frame('Hi {first_name}, ')}${lowerFirst(String(body).replace(/\s*\n+\s*/g, ' '), job, sources)}`;
   const parts = [];
-  if (job.action === 'application-follow-up') parts.push(applicationOpening(job));
+  if (job.action === 'application-follow-up') parts.push(frame(applicationOpening(job)));
   if (body) parts.push(body);
   const tail = email ? [CLOSING, job.signature ? `Best regards,\n${job.signature}` : 'Best regards,'] : [];
-  return [greetingOf(job), ...parts, ...tail].join('\n\n');
+  return [frame(greetingOf(job)), ...parts, ...tail].join('\n\n');
 }
 
 // The sentences code writes into a job's message, filled and normalized as they are stored: the greeting, an application
@@ -254,9 +267,14 @@ const PLACEHOLDER_RAILS = [
   new RegExp(`:(?:${PH})(?![\\p{L}\\p{N}])`, 'iu'),
   new RegExp(`\\(\\s*(?:(?:insert|your|the|their|contact'?s|recipient'?s|company'?s)\\s+)*(?:${PH})(?:\\s+here)?\\s*\\)`, 'iu'),
   /(?<![\p{L}])(?:COMPANY(?: NAME)?|FIRST NAME|JOB TITLE|XXX+|TBD)(?![\p{L}])|_{3,}/u,
+  new RegExp(`[\\p{Pi}\\p{Pf}]\\s*(?:${PH})\\s*[\\p{Pi}\\p{Pf}]`, 'iu'),
+  new RegExp(`\\(\\s*(?:name|title) of (?:the |your |their )?(?:${PH})\\s*\\)`, 'iu'),
+  new RegExp(`\\(\\s*(?:the |your |their )?(?:${PH})'s (?:name|title)\\s*\\)`, 'iu'),
+  new RegExp(`(?<![\\p{L}\\p{N}])__(?:${PH})__(?![\\p{L}\\p{N}])`, 'iu'),
+  /(?<![\p{L}])(?:company|first|last|full|job|your|recruiter|manager|contact|applied|hiring)(?:Name|Title|Date|Manager)(?![\p{L}])/u,
 ];
 const SNAKE = /(?<![\p{L}\p{N}@.])[\p{L}\p{N}]+(?:_[\p{L}\p{N}]+)+(?![\p{L}\p{N}@])/gu;
-const LINKS = /https?:\/\/[^\s<>"')\]]+|www\.[^\s<>"')\]]+|[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.\p{L}{2,}|(?<![\p{L}\p{N}@./-])[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.(?:com|org|net|io|edu|dev|ai|co|me|app|gov|us|uk|so|ly|gg|sh|tv|fm|xyz|info|biz|tech|site|page)(?:\/[^\s<>"')\]]*)?(?![\p{L}\p{N}])/giu;
+const LINKS = /https?:\/\/[^\s<>"')\]]+|www\.[^\s<>"')\]]+|[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.\p{L}{2,}|(?<![\p{L}\p{N}@./-])[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}(?:\/[^\s<>"')\]]*)?(?![\p{L}\p{N}])/giu;
 
 export function rails(final, job, { sources = '' } = {}) {
   const text = String(final);
@@ -281,12 +299,12 @@ export function rails(final, job, { sources = '' } = {}) {
   if (links.length) flags.push(`a link or email address your data does not hold: ${[...new Set(links)].join(', ')}`);
   return flags;
 }
-// One reply checked by the rails: { text, flags }. text is the final message: the body cleaned once, assembled into the
-// code frame, the placeholders filled, then NFKC-normalized. That one string is what the rails and the verifier read,
+// One reply checked by the rails: { text, flags }. text is the final message: the body cleaned once and its placeholders
+// filled (never {applied_date}), assembled into the filled code frame, then NFKC-normalized. That one string is what the rails and the verifier read,
 // what is stored and what is sent. An empty body is a rail failure too.
 export function checkDraft(reply, job, { sources = '' } = {}) {
   const body = modelBody(reply, job);
-  const text = fillPlaceholders(assembleDraft(body, job), job).normalize('NFKC');
+  const text = assembleDraft(fillPlaceholders(body, job, { skip: BODY_SKIP }), job, { fill: true, sources }).normalize('NFKC');
   return { text, flags: [...(body ? [] : ['the message has no body']), ...rails(text, job, { sources })] };
 }
 

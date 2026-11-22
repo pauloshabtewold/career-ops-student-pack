@@ -10,6 +10,8 @@
 //    checker to return [], a duplicate key), written here as synthetic data.
 // C. one draft's call that throws, times out or answers malformed output holds only that draft; the round goes on, the
 //    other drafts are batched and their usage-ledger rows stay; each call carries OUTREACH_CALL_TIMEOUT_MS.
+// D. the r9 NITs: N1 one re-verify on a malformed verdict, N2 placeholder shapes, N3 any-TLD bare domains, N4 claims kept
+//    in a later rail flag, N5 NFKC before the greeting strip, N6 {title}/{applied_date} by kind, N7 cv proper nouns.
 // Scratch roots, example.com addresses and an injected headless runner: no real model, network, Gmail or LinkedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -237,4 +239,43 @@ test('fix 11 D N4 a claim redraft that then breaks a rail keeps the quoted claim
   const flags = out.res.flagged[0].flags.join('; ');
   assert.match(flags, /placeholder-like text "\{team_name\}"/);
   assert.match(flags, /claims your cv\.md does not support: "I interned on your platform team\."/);
+});
+
+const SOURCES_11 = `${CV}\nSam Placeholder\nsam@example.com`;
+const flagsOf = (body, job = ALICE) => od.checkDraft(body, job, { sources: SOURCES_11 }).flags.join('; ');
+
+test('fix 11 D N2 the remaining placeholder shapes are rail failures, matched against known placeholder names; look-alikes pass', () => {
+  for (const shape of ['«company»', '‹company›', '(Name of company)', '(name of the company)', "(hiring manager's name)", '__company__', 'companyName', 'firstName', 'jobTitle', 'appliedDate']) {
+    assert.match(flagsOf(`I enjoyed reading about ${shape}. What is new?`), /placeholder-like text/, shape);
+  }
+  for (const fine of ['I like the company culture. What is new?', 'My project was called «Bus Tracker». What is new?', 'What does the name of your team mean?', 'I use a dunder method like __init__ often. What is new?']) {
+    assert.equal(flagsOf(fine), '', fine);
+  }
+});
+
+test('fix 11 D N3 a bare domain with any TLD the student data does not hold counts as a link', () => {
+  for (const d of ['samplace.ca', 'sam-portfolio.de', 'samplace.in', 'sam.ru', 'samplace.museum']) assert.match(flagsOf(`My site is ${d}. What is new?`), new RegExp(`a link or email address your data does not hold: ${d.replace('.', '\\.')}`), d);
+  assert.equal(flagsOf('Write me at sam@example.com any time. What is new?'), '');
+});
+
+test('fix 11 D N5 a fullwidth greeting is taken off: the name once', () => {
+  const r = od.checkDraft('Ｈｉ Alice, I am a CS student. What is new?', ALICE, { sources: SOURCES_11 });
+  assert.equal(r.text, 'Hi Alice,\n\nI am a CS student. What is new?');
+  assert.match(flagsOf('Big fan of the ｛team｝ work. What is new?'), /placeholder-like text "\{team\}"/, 'a fullwidth brace is still a rail failure');
+});
+
+test('fix 11 D N6 {title} is offered only to an application follow-up, and a model-written {applied_date} is never filled', () => {
+  assert.ok(!od.draftPrompt({ ...ALICE, cv: CV }).includes('{title}'));
+  assert.ok(!od.draftPrompt({ ...person('Gina Globex', GLOBEX, 'referral-ask'), cv: CV }).includes('{title}'));
+  assert.ok(od.draftPrompt({ ...APP, cv: CV }).includes('You may write {title} for the job title.'));
+  const r = od.checkDraft('Since I applied on {applied_date}, I have kept building Python tools. I am happy to send code samples.', APP, { sources: SOURCES_11 });
+  assert.match(r.flags.join('; '), /placeholder-like text "\{applied_date\}"/);
+  assert.equal(r.text.match(/November 14, 2026/g).length, 1, 'the date only in the code opening');
+  assert.equal(od.fillPlaceholders('on {applied_date}', APP), 'on November 14, 2026', 'the frame is still filled');
+});
+
+test('fix 11 D N7 a connect note keeps the capital of a cv proper noun at its start', () => {
+  const carl = person('Carl Connect', 'Wayne Example', 'connect', { noteChars: 300 });
+  assert.equal(od.checkDraft('Sample Labs gave me a taste of internal tools, and I would like to connect.', carl, { sources: SOURCES_11 }).text, 'Hi Carl, Sample Labs gave me a taste of internal tools, and I would like to connect.');
+  assert.equal(od.checkDraft('Your posts on internal tools are a great read.', carl, { sources: SOURCES_11 }).text, 'Hi Carl, your posts on internal tools are a great read.');
 });
