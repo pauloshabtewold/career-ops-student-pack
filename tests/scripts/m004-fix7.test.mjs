@@ -14,7 +14,7 @@ import { check as factCheck } from '../../lib/fact-gate.mjs';
 import { readBatch } from '../../lib/batch-file.mjs';
 import { resolvePaths } from '../../lib/paths.mjs';
 import { serializeTsv } from '../../lib/tsv.mjs';
-import { ACRONYMS, contactRoles, draftChecks, draftFacts, draftPrompt, fillPlaceholders, literalTargets, outreachDrafts, targetClaims } from '../../scripts/outreach-drafts.mjs';
+import { ACRONYMS, contactRoles, draftChecks, draftFacts, draftPrompt, fillPlaceholders, literalTargets, modelBody, outreachDrafts, targetClaims } from '../../scripts/outreach-drafts.mjs';
 import { makeRoot } from '../helpers/script-harness.mjs';
 
 const DAY = '2026-11-22';
@@ -104,7 +104,11 @@ test('fix 7 M1 every probe claim is flagged as a claim in placeholder form and a
     const ph = toPlaceholders(text, job);
     assert.notEqual(ph, text, `${id} names a target`);
     assert.match(flagsOf(ph, job).join('; '), /makes a claim about the company or job title/, `${id}: ${ph}`);
-    assert.match(flagsOf(text, job).join('; '), /as is instead of \{company\}, \{title\} or \{applied_date\}/, `${id}: ${text}`);
+    // Fix 8: code writes the greeting and drops the model's own, so a name only in the greeting ("Hello Globex Example
+    // hiring team,") is never sent; the rest of the sentence is still judged as a claim.
+    const body = modelBody(text);
+    const named = [job.contact.company, job.application?.title].some((n) => n && body.includes(n));
+    assert.match(flagsOf(text, job).join('; '), named ? /as is instead of \{company\}, \{title\} or \{applied_date\}/ : /makes a claim about the company or job title/, `${id}: ${text}`);
   }
 });
 
@@ -154,8 +158,9 @@ test('fix 7 S1 honest follow-ups and openers pass', () => {
   for (const [text, job] of pass) assert.deepEqual(flagsOf(text, job, CV_LIVE), [], text);
 });
 
-test('fix 7 a sentence-final "first" (send my CV first) is no ordinal claim; "I finished first" still is', () => {
-  assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'] }), []);
+test('fix 7 (fix 8 shape) "send my CV first" is no ordinal claim only with the outreach option; "I finished first" always is', () => {
+  assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'], outreach: true }), []);
+  assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'] }), ['first'], 'the cover and fill gate is the c9d0be8 gate');
   assert.deepEqual(factCheck('In the hackathon I finished first.', { cv: CV_LIVE }), ['finished first']);
 });
 
@@ -226,20 +231,20 @@ async function followupRound(replies) {
   }
 }
 
-const LITERAL_REPLY = `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role and wanted to follow up.\n\nBest regards,\nSam Placeholder`;
-const PLACEHOLDER_REPLY = 'Hello {company} hiring team,\n\nI applied for the {title} role on {applied_date} and wanted to follow up.\n\nBest regards,\nSam Placeholder';
+const LITERAL_REPLY = `Hello ${GLOBEX} hiring team,\n\nI am still interested in the ${TITLE} role at ${GLOBEX}.\n\nBest regards,\nSam Placeholder`;
+const PLACEHOLDER_REPLY = 'Hello {company} hiring team,\n\nI am still interested in the {title} role at {company}. Is there anything else I can send?\n\nBest regards,\nSam Placeholder';
 
 test('fix 7 a reply that writes the company or title as is gets one retry stating why, then is flagged', async () => {
   const twice = await followupRound([LITERAL_REPLY, LITERAL_REPLY]);
   assert.equal(twice.prompts.length, 2, 'one retry only');
-  // The live cv holds "Software engineering intern" itself, so only the company counts as a target name written as is.
-  assert.match(twice.prompts[1], new RegExp(`Your last draft wrote "${GLOBEX}" as is`));
+  // Fix 8: names match case-sensitively and a cv-held name is no exception, so the title written as is counts too.
+  assert.match(twice.prompts[1], new RegExp(`Your last draft wrote "${GLOBEX}", "${TITLE}" as is`));
   assert.equal(twice.items.length, 0);
   assert.match(twice.res.flagged[0]?.flags.join('; ') ?? '', /as is instead of \{company\}/);
   const fixed = await followupRound([LITERAL_REPLY, PLACEHOLDER_REPLY]);
   assert.equal(fixed.prompts.length, 2);
   assert.deepEqual(fixed.res.flagged, []);
-  assert.equal(fixed.items[0].message, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role on November 14, 2026 and wanted to follow up.\n\nBest regards,\nSam Placeholder`);
+  assert.equal(fixed.items[0].message, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026. I am still interested in the ${TITLE} role at ${GLOBEX}. Is there anything else I can send?\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder`);
   const first = await followupRound([PLACEHOLDER_REPLY]);
   assert.equal(first.prompts.length, 1, 'a placeholder draft needs no retry');
   assert.equal(first.items.length, 1);

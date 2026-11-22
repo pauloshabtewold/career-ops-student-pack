@@ -348,7 +348,7 @@ test('row 5b an email draft that starts with its own Subject line is stored and 
     assert.ok(item.message.startsWith('Hello Globex Example hiring team,'), item.message);
     assert.ok(!/^subject:/im.test(item.message), item.message);
     assert.equal(item.subject, `Following up on my application to ${GLOBEX}`);
-    assert.match(prompts[0], /no subject line, start with the greeting/);
+    assert.match(prompts[0], /no greeting, no subject line, no sign-off/, 'fix 8: code writes the greeting and the closing');
 
     const passAll = () => ({ code: 0, stdout: 'ok', stderr: '' });
     const sent = await sendEmail({ paths, port: 9, email: { batchId: id, item: 1, target: GLOBEX_APP, company: GLOBEX, followup: { target: GLOBEX_APP, company: GLOBEX } }, date: DAY, runner: passAll, browser: async () => 'sent' });
@@ -427,10 +427,11 @@ test('fix 6 N1 a bold Subject line is stripped; a reply that is only a Subject l
 });
 
 test('fix 6 N2 an email draft has 3 or more line breaks in a row collapsed to one blank line before it is stored', async () => {
-  const text = 'Hello {company} hiring team,\n\n\n\nI am following up on my application for the {title} role.\n\n \n\nBest regards,\nSam Placeholder';
+  const text = 'Hello {company} hiring team,\n\n\n\nI am following up on my application for the {title} role.\n\n \n\nIs there anything else I can send?\n\n\n\nBest regards,\nSam Placeholder';
   const { items, said } = await roundFor(GLOBEX_ONLY, 'Hiring team', text);
   assert.equal(items.length, 1, said.join('\n'));
-  assert.equal(items[0].message, 'Hello Globex Example hiring team,\n\nI am following up on my application for the Software Engineering Intern role.\n\nBest regards,\nSam Placeholder');
+  // Fix 8: the greeting, the opening sentence and the closing are code-written around the model's body.
+  assert.equal(items[0].message, 'Hello Globex Example hiring team,\n\nI applied for the Software Engineering Intern role at Globex Example on November 14, 2026. I am following up on my application for the Software Engineering Intern role.\n\nIs there anything else I can send?\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder');
 });
 
 test('ruling a LinkedIn profile view is research: it creates no contact and no connect due item', async () => {
