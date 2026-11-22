@@ -2,7 +2,8 @@
 // Prints the job-alert setup steps for the student's field as one numbered batch: LinkedIn, Handshake, Simplify and
 // Indeed searches prefilled from the archetypes and locations, plus a USAJOBS search for policy students. The pack never
 // logs in to these sites or searches them; the student presses the button, and the daily inbox pass reads the alert mail.
-// Makes no network request.
+// Makes no network request. It also prints the LinkedIn past-hour saved search (f_TPR=r3600) that fresh-scan reads once
+// an hour in the automation Chrome, and the steps for LinkedIn's instant job alert, whose mail the inbox step reads.
 // Usage: alert-plan.mjs [--root R] [--data-dir D]
 // Exit 0 after the plan, 1 when the interview has not written config/student.yml.
 import { existsSync, readFileSync } from 'node:fs';
@@ -20,6 +21,25 @@ const LINKEDIN_LEVEL = { internship: 1, coop: 1, newgrad: 2 };
 // One URL per track kind; a site-specific preset search replaces the archetype query for every track.
 function queryFor(archetype, kind, override) {
   return override ?? `${archetype} ${TRACK_WORD[kind] ?? 'intern'}`;
+}
+
+// LinkedIn's posted-in-the-last-hour filter; fresh-scan reads one page of this search per hour.
+export function freshSearchUrl({ config, archetypes }) {
+  const kind = config.tracks?.[0]?.kind ?? 'internship';
+  const q = queryFor(archetypes[0] ?? 'entry level', kind);
+  return `https://www.linkedin.com/jobs/search/?keywords=${enc(q)}&location=${enc(config.locations?.[0] ?? '')}&f_E=${LINKEDIN_LEVEL[kind] ?? 1}&f_TPR=r3600&sortBy=DD`;
+}
+
+export const INSTANT_ALERT_STEPS = Object.freeze([
+  'open the past-hour search above in the automation Chrome',
+  'press Set alert, then choose Daily or Instant and Email',
+  'the inbox step reads the alert mail; nothing else on LinkedIn changes',
+]);
+
+// Role archetypes from interview-answers.json; empty when absent.
+export function readArchetypes(dataDir) {
+  const file = join(dataDir, 'interview-answers.json');
+  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')).archetypes ?? []) : [];
 }
 
 export function alertPlan({ config, archetypes, merged }) {
@@ -102,10 +122,10 @@ async function main() {
     console.log('INTERVIEW: run student/interview/interview.md before anything else');
     return 1;
   }
-  const answersFile = join(paths.dataDir, 'interview-answers.json');
-  const archetypes = existsSync(answersFile) ? (JSON.parse(readFileSync(answersFile, 'utf8')).archetypes ?? []) : [];
+  const archetypes = readArchetypes(paths.dataDir);
   const plan = alertPlan({ config, archetypes, merged: loadMerged(config.presets ?? [], { root: paths.root }) });
   console.log(formatPlan(plan).join('\n'));
+  console.log(['', 'Fresh LinkedIn jobs (past hour, read once an hour in the automation Chrome):', `   open: ${freshSearchUrl({ config, archetypes })}`, ...INSTANT_ALERT_STEPS.map((s, i) => `   ${i + 1}. ${s}`)].join('\n'));
   return 0;
 }
 

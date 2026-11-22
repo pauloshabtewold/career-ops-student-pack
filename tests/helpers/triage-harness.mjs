@@ -10,7 +10,8 @@ export const BRIEF_MARKER = 'TRIAGE-RULES-MARKER-7Q';
 export const PLUS = 'automation: scheduled-discovery-plus-triage\n';
 // The settings file every claude triage call passes so no CLAUDE.md loads (W-022).
 export const CLAUDE_SETTINGS = join(PACK_ROOT, 'templates', 'triage-claude-settings.json');
-export const claudeArgs = (model) => ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', CLAUDE_SETTINGS, '--model', model];
+// --output-format json makes every claude triage call report its real token usage for the ledger.
+export const claudeArgs = (model) => ['-p', '--tools', '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', CLAUDE_SETTINGS, '--model', model, '--output-format', 'json'];
 export const digestFile = (r) => `data/digest/student-${TODAY}.md`;
 
 export const verdict = (v, url, score = '4.0', reason = 'fits the role') => `TRIAGE: ${v} | ${url} | ${score}/5 | ${reason}`;

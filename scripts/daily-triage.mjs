@@ -5,18 +5,29 @@
 // call with no tools or one read-only `codex exec` call per chunk, and only lines in apply-triage's grammar for a url that
 // was sent are applied. Each chunk writes its ledger row and digest line before the next call starts, and the run stops at
 // the first failed chunk. One run at a time holds data/.student-triage.lock, so an overlapping run sends nothing.
+// Before any call, free rules run on each row: duplicates by url key are dropped before any fetch (T13), job-text rules (years, degree, closed, location, never keywords) fail rows by name, a posting whose text hash is
+// unchanged gets its cached verdict back (T1), and scam and ghost rules run first when T16 is on (off: they turn the
+// model's verdict into a FAIL after the call). Calls go through lib/headless.mjs, which writes a usage-ledger row.
+// With T1 on, Pending rows already triaged by this script are fetched again while today's budget has room, and only a
+// row whose job text changed since its verdict is sent again.
 // Usage: daily-triage.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--agent claude|codex] [--agent-path PATH]
 //        [--claude PATH] [--log-file F] [--deadline EPOCH_MS]
 //        (--claude PATH is the older spelling of --agent claude --agent-path PATH; --deadline is the time scheduled.mjs
 //        will kill this process, and no chunk starts that could not finish before it)
 // Exit 0 always: a missing binary, timeout or sign-in problem becomes a digest note and pipeline.md stays unchanged.
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
-import { AGENTS, AGENT_TIMEOUT_MS, CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS, quoteIf, resolveAgentPath, shellForm, signInHint } from '../lib/agent.mjs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { AGENTS, AGENT_TIMEOUT_MS, resolveAgentPath, signInHint } from '../lib/agent.mjs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { HeadlessError, runHeadless } from '../lib/headless.mjs';
+import { jdRule, studentFromConfig } from '../lib/jd-rules.mjs';
+import { isOn } from '../lib/levers.mjs';
+import { isRisky, riskReason, riskRules } from '../lib/posting-risk.mjs';
+import { loadCache, record as recordCache, status as cacheStatus } from '../lib/triage-cache.mjs';
+import { urlKey } from '../lib/url-key.mjs';
 import { LockTimeoutError, acquireLock } from '../lib/dir-lock.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -32,25 +43,6 @@ import { effectiveLimits } from './budget.mjs';
 
 const FETCH_TIMEOUT_MS = 30 * 1000;
 const JD_CHARS = 6000;
-const MAX_BUFFER = 64 * 1024 * 1024;
-
-const realDir = (file) => {
-  try {
-    return dirname(realpathSync(file));
-  } catch {
-    return dirname(file);
-  }
-};
-
-// launchd starts the job with PATH=/usr/bin:/bin:/usr/sbin:/sbin, where an npm-installed agent (a `#!/usr/bin/env node`
-// script) cannot find node. The node running this script and the agent's own folder go first.
-function agentEnv(agentPath) {
-  const key = Object.keys(process.env).find((k) => k.toLowerCase() === 'path') ?? 'PATH';
-  return { ...process.env, [key]: [dirname(process.execPath), realDir(agentPath), process.env[key]].filter(Boolean).join(delimiter) };
-}
-
-// Options shared by both agent calls: the prompt on stdin, captured output, and the shell form for Windows shims.
-const callOptions = ({ cwd, prompt, shell, agentPath }) => ({ cwd, input: prompt, env: agentEnv(agentPath), timeout: AGENT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(shell ? { shell: true } : {}) });
 
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
@@ -188,43 +180,10 @@ export function holdFlagged(lines, flagsByUrl) {
   return { lines: out, passed };
 }
 
-// No tools are granted (--tools ''), so posting text cannot make the model act. The prompt travels on stdin. The call runs
-// in an empty temp folder like the codex call, so the career-ops folder's CLAUDE.md (about 80 KB) is not loaded as project
-// memory into every chunk; the folder is removed whether the call succeeds or not.
-function callClaude({ claudePath, model, prompt, packRoot, runner, platform }) {
-  // A .cmd shim on Windows needs a shell; the arguments are fixed literals and the prompt travels on stdin.
-  // Through cmd.exe an empty argument vanishes, so it is passed as a quoted pair there.
-  const shell = shellForm(claudePath, platform);
-  // --setting-sources project --strict-mcp-config keep the student's user-level hooks, plugins and MCP servers out of an
-  // unattended call, so the fixed token cost per call is the same for every student. The settings file excludes every
-  // CLAUDE.md: career-ops' own imports its 88 KB AGENTS.md, which a live run measured at about 33,000 tokens per call
-  // that the triage never reads. It is a file, not inline JSON, so cmd.exe has no quotes to mangle.
-  const settings = join(packRoot, 'templates', 'triage-claude-settings.json');
-  const args = ['-p', '--tools', shell ? '""' : '', '--setting-sources', 'project', '--strict-mcp-config', '--settings', quoteIf(shell, settings), '--model', model];
-  // cmd.exe splits an unquoted path at a space (C:\Users\First Last\AppData\Roaming\npm\claude.cmd), so the shell form quotes it.
-  return withTempDir('daily-triage-claude-', (tmp) => runner(quoteIf(shell, claudePath), args, callOptions({ cwd: tmp, prompt, shell, agentPath: claudePath })));
-}
-
-// The prompt travels on stdin and the answer comes back through -o, so no posting text is ever in argv. The disabled
-// features leave no tool that reads a file (a live listing showed none; apply_patch and the MCP resource tools with no
-// servers remain), the read-only sandbox blocks writes, and the call runs in an empty temp folder (-C and cwd) so the
-// student's files are not in its working directory; the folder is removed whether the call succeeds or not.
-function callCodex({ codexPath, effort, prompt, runner, platform }) {
-  return withTempDir('daily-triage-codex-', (tmp) => {
-    const out = join(tmp, 'last.txt');
-    const shell = shellForm(codexPath, platform);
-    const args = [
-      '-a', 'never', 'exec', '--ephemeral', '--skip-git-repo-check', ...CODEX_EXTRA_FLAGS, '-s', 'read-only', '--color', 'never',
-      ...CODEX_DISABLED_FEATURES.flatMap((f) => ['--disable', f]),
-      '-c', `model_reasoning_effort=${effort}`, '-C', quoteIf(shell, tmp), '-o', quoteIf(shell, out), '-',
-    ];
-    runner(quoteIf(shell, codexPath), args, callOptions({ cwd: tmp, prompt, shell, agentPath: codexPath }));
-    const answer = existsSync(out) ? readFileSync(out, 'utf8') : '';
-    if (!answer.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
-    return answer;
-  });
-}
-
+// No tools are granted, so posting text cannot make the model act; the prompt travels on stdin and the call runs in an
+// empty temp folder so the career-ops folder's CLAUDE.md is not loaded into every chunk. lib/headless.mjs holds that
+// lockdown (--setting-sources project --strict-mcp-config and the CLAUDE.md exclusion for claude; the disabled features,
+// read-only sandbox and -o answer file for codex) and records the real usage of the call in the ledger.
 // Exit 127, or a shell's "No such file or directory", means the agent never ran (a missing interpreter or a moved
 // install), which signing in cannot fix.
 const cannotStart = (err) => err.status === 127 || /No such file or directory/i.test(String(err.stderr ?? ''));
@@ -247,6 +206,16 @@ export function selectUntriagedRows(dataDir, limit) {
   return sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending')
     .map(({ row }) => row)
     .filter((row) => !row.notes.has('triage') && row.title)
+    .slice(0, limit);
+}
+
+// Pending rows this script triaged before (their url key is in the triage cache), up to `limit`: each is fetched again
+// and sent only when its job text changed (T1).
+export function selectRecheckRows(dataDir, cache, limit) {
+  if (limit <= 0) return [];
+  return sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending')
+    .map(({ row }) => row)
+    .filter((row) => row.notes.has('triage') && row.title && cache.has(urlKey(row.url) ?? row.url))
     .slice(0, limit);
 }
 
@@ -275,11 +244,91 @@ function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
 }
 
 // One call to the configured agent; the model follows spend_tier (premium opus or high effort, otherwise sonnet or medium).
-function callAgent({ configured, file, config, prompt, packRoot, runner, platform }) {
+// The student chose premium, so opus is allowed here as it was before the ledger existed. A HeadlessError is unwrapped so
+// the failure reasons below see the agent's own exit status and stderr.
+async function callAgent({ configured, file, config, prompt, packRoot, runner, platform, dataDir, today, rows }) {
   const premium = config.spend_tier === 'premium';
-  return configured === 'codex'
-    ? callCodex({ codexPath: file, effort: premium ? 'high' : 'medium', prompt, runner, platform })
-    : callClaude({ claudePath: file, model: premium ? 'opus' : 'sonnet', prompt, packRoot, runner, platform });
+  try {
+    const res = await runHeadless({
+      agent: configured, agentPath: file, prompt, runner, platform, packRoot, dataDir, date: today, rows,
+      step: 'triage', feature: 'M1', model: premium ? 'opus' : 'sonnet', effort: premium ? 'high' : 'medium', allowTop: premium, tempPrefix: `daily-triage-${configured}-`,
+    });
+    if (configured === 'codex' && !res.text.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
+    return res.text;
+  } catch (err) {
+    throw err instanceof HeadlessError && err.cause ? err.cause : err;
+  }
+}
+
+const ruleLine = (url, reason) => `TRIAGE: FAIL | ${url} | 0.0 | ${oneLine(reason.replace(/\|/g, '/'), GUARD_REASON_CHARS)}`;
+
+// Rows sharing a url key with an earlier row are dropped before any fetch (T13) and get a FAIL line naming the row they
+// repeat, so they are not selected again tomorrow. Company plus title is not a key here: two postings of one title can
+// differ (TRIAGE_RULE_LINES), so that match is left to fresh-scan, which compares feed rows before they enter the queue.
+export function dedupeRows(rows) {
+  const seen = new Map();
+  const keep = [];
+  const dupes = [];
+  for (const row of rows) {
+    const key = urlKey(row.url) ?? row.url;
+    if (seen.has(key)) dupes.push(ruleLine(row.url, `duplicate of ${seen.get(key)} (same posting)`));
+    else {
+      seen.set(key, row.url);
+      keep.push(row);
+    }
+  }
+  return { keep, dupes };
+}
+
+// The ghost rule's inputs from a row's notes: reposts= (fresh-scan's repost count) and the title's age in days, from
+// title_since= (the title's earliest scan date) or else posted=. A row without them, such as an alert-mail or Handshake
+// row, gives 0 for each.
+export function rowHistory(row, today) {
+  const reposts = Number(row.notes?.get('reposts'));
+  const posted = Date.parse(`${row.notes?.get('title_since') ?? row.notes?.get('posted') ?? ''}T00:00:00Z`);
+  const now = Date.parse(`${today ?? ''}T00:00:00Z`);
+  const ageDays = Number.isFinite(posted) && Number.isFinite(now) ? Math.max(0, Math.round((now - posted) / 86400000)) : 0;
+  return { repostCount: Number.isInteger(reposts) && reposts > 0 ? reposts : 0, ageDays };
+}
+
+// Free rules on fetched postings: job-text rules, the text-hash cache (T1) and, with T16 on, scam rules. Returns the
+// lines decided without a call, the postings still to send, and risk hits to apply after the call when T16 is off.
+// A recheck row (already triaged) with no text or an unchanged text keeps its verdict and gets no line.
+export function preModel(open, { student, cache, t1On, t16On, recheck = new Set(), today = null }) {
+  const decided = [];
+  const send = [];
+  const riskAfter = new Map();
+  for (const f of open) {
+    const again = recheck.has(f.row.url);
+    if (again && !f.text) continue;
+    const rule = f.text ? jdRule({ text: f.text, location: f.row.location }, student) : null;
+    if (rule) {
+      decided.push(ruleLine(f.row.url, `rule ${rule}`));
+      continue;
+    }
+    const cached = t1On && f.text ? cacheStatus(cache, f.row.url, f.text) : { state: 'new' };
+    if (cached.state === 'unchanged') {
+      if (!again) decided.push(cached.verdict);
+      continue;
+    }
+    const risks = f.text ? riskRules({ text: f.text, company: f.row.company, ...rowHistory(f.row, today) }) : [];
+    if (isRisky(risks) && t16On) {
+      decided.push(ruleLine(f.row.url, riskReason(risks)));
+      continue;
+    }
+    if (isRisky(risks)) riskAfter.set(f.row.url, risks);
+    send.push(f);
+  }
+  return { decided, send, riskAfter };
+}
+
+// T16 off: a posting-risk hit turns the model's verdict for that url into a FAIL naming rule scam.
+export function applyRiskAfter(lines, riskAfter) {
+  return lines.map((line) => {
+    const m = VERDICT_RE.exec(line);
+    const risks = m && riskAfter.get(m[2]);
+    return risks ? ruleLine(m[2], riskReason(risks)) : line;
+  });
 }
 
 // The one-line digest reason for a failed call.
@@ -327,13 +376,31 @@ export function triageChildTimeoutMs({ chunks, runLockHours }) {
 // gets an EXPIRED line applied with the model's verdicts, and a chunk of closed postings only makes no call at all.
 // Fetches run one at a time so the same-host gap holds. Returns the counts and `sent` (rows sent to the agent), or a
 // failure { kind, reason }.
-async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch }) {
+// Fetches the chunk's postings and runs the free rules; returns the rows still bound for the model and the lines decided
+// without one.
+async function prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today }) {
   const fetched = [];
   for (const row of chunk) fetched.push({ row, ...(await fetchPosting({ root, row, runner, mayFetch })) });
-  const expired = fetched.filter((f) => f.closed !== undefined).map((f) => expiredLine(f.row.url, f.closed));
-  const open = fetched.filter((f) => f.closed === undefined);
+  const closed = fetched.filter((f) => f.closed !== undefined).map((f) => expiredLine(f.row.url, f.closed));
+  const pre = preModel(fetched.filter((f) => f.closed === undefined), { student: studentFromConfig(config), cache, t1On: isOn('T1'), t16On: isOn('T16'), recheck, today });
   const guard = { removed: fetched.reduce((acc, f) => addRemoved(acc, f.removed), {}), flagged: fetched.filter((f) => f.flagged.length).length };
-  const apply = (lines) => runApplyTriage({ lines, root, dataDir, packRoot, runner });
+  return { pre, open: pre.send, expired: [...closed, ...pre.decided], guard };
+}
+
+// Applies the verdicts and, when that worked, caches each sent row's verdict by its job-text hash.
+async function finishChunk({ held, expired, open, lines, passed, ignored, guard, apply, record, dataDir, today }) {
+  const reason = apply([...held.lines, ...expired]);
+  await record(reason ? 'failed' : 'ok');
+  if (reason) return { failure: { kind: 'apply', reason }, sent: open.length };
+  const byUrl = new Map(held.lines.map((l) => [VERDICT_RE.exec(l)?.[2], l]));
+  await recordCache(dataDir, open.filter((f) => f.text && byUrl.has(f.row.url)).map((f) => ({ url: f.row.url, text: f.text, verdict: byUrl.get(f.row.url) })), today);
+  return { triaged: lines.length + expired.length, passed, ignored, guard, sent: open.length };
+}
+
+async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck }) {
+  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today });
+  // A chunk of unchanged rechecks decides nothing, so apply-triage is not started for it.
+  const apply = (lines) => (lines.length ? runApplyTriage({ lines, root, dataDir, packRoot, runner }) : null);
   if (!open.length) {
     const reason = apply(expired);
     return reason ? { failure: { kind: 'apply', reason }, sent: 0 } : { triaged: expired.length, passed: 0, ignored: 0, guard, sent: 0 };
@@ -344,7 +411,7 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
   const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: open.length, outcome });
   let output;
   try {
-    output = callAgent({ configured, file, config, prompt, root, packRoot, runner, platform });
+    output = await callAgent({ configured, file, config, prompt, packRoot, runner, platform, dataDir, today, rows: open.length });
   } catch (err) {
     // An empty answer spent the call but is not a sign-in or timeout failure, so it must not end the day's scheduled triage.
     const sent = err.code !== 'ENOENT' && !cannotStart(err);
@@ -352,7 +419,8 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
     return { failure: { kind: 'call', reason: agentFailure(configured, err) }, sent: sent ? open.length : 0 };
   }
   const kept = filterVerdicts(output, new Set(open.map((f) => f.row.url)));
-  const { lines, ignored } = kept;
+  const { ignored } = kept;
+  const lines = applyRiskAfter(kept.lines, pre.riskAfter);
   const held = holdFlagged(lines, flagsByUrl);
   const passed = kept.passed - held.passed;
   // A refusal, limit or login message arrives as prose with exit 0; counting it as a good chunk would send every later chunk too.
@@ -360,9 +428,7 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
     await record('failed');
     return { failure: { kind: 'call', reason: `${configured} answered with no verdict lines (${oneLine(output) || 'empty answer'})` }, sent: open.length };
   }
-  const reason = apply([...held.lines, ...expired]);
-  await record(reason ? 'failed' : 'ok');
-  return reason ? { failure: { kind: 'apply', reason }, sent: open.length } : { triaged: lines.length + expired.length, passed, ignored, guard, sent: open.length };
+  return finishChunk({ held, expired, open, lines, passed, ignored, guard, apply, record, dataDir, today });
 }
 
 // Chunks run one after another; the digest gets a progress line after each so a parent kill keeps the counts so far.
@@ -437,7 +503,15 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     note([stop]);
     return { ran: false };
   }
-  const rows = selectUntriagedRows(dataDir, left);
+  const selected = selectUntriagedRows(dataDir, left);
+  const { keep, dupes } = isOn('T13') ? dedupeRows(selected) : { keep: selected, dupes: [] };
+  if (dupes.length) {
+    const reason = runApplyTriage({ lines: dupes, root, dataDir, packRoot, runner });
+    note([reason ? `daily triage could not apply duplicate lines: ${reason}` : `daily triage: ${dupes.length} duplicate row(s) failed before any fetch`]);
+  }
+  const cache = await loadCache(dataDir);
+  const rechecks = isOn('T1') ? selectRecheckRows(dataDir, cache, left - selected.length) : [];
+  const rows = [...keep, ...rechecks];
   if (!rows.length) {
     note(['daily triage: triaged 0, passed 0, ignored 0 (no untriaged Pending rows)', costLine(0)]);
     return { ran: true, triaged: 0 };
@@ -447,7 +521,8 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     return { ran: false };
   }
   const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK_ROWS) }, (_, i) => rows.slice(i * CHUNK_ROWS, (i + 1) * CHUNK_ROWS));
-  const run = await runChunks({ chunks, note, deadline, now, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch });
+  const recheck = new Set(rechecks.map((r) => r.url));
+  const run = await runChunks({ chunks, note, deadline, now, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck });
   const { failure } = run;
   if (failure && failure.chunk === 1) {
     note([failure.kind === 'apply' ? `daily triage ${failureText(failure)}` : `daily triage skipped: ${failureText(failure)}`]);

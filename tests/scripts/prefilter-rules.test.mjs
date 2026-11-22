@@ -73,3 +73,11 @@ test('W-023-A3-4 Senior Nursing Student and Senior Nurse Intern titles pass the 
   assert.equal(reasonOf(runNursing('Senior Student Success Manager')), 'above entry level');
   assert.equal(reasonOf(runNursing('Senior Student Affairs Officer')), 'above entry level');
 });
+
+test('a row located outside every listed location fails as location not in your list, while a remote or matching row passes', () => {
+  const at = (location) => prefilter({ pipelineText: pipelineText({ pending: [line(jobUrl(1), 'Example Robotics', 'Software Engineer Intern', location)] }), applicationsText: '', config: { dealbreakers: [], tracks: INTERN_TRACKS, locations: ['Austin, TX'] }, preset: PRESET, cycle: CYCLE });
+  assert.equal(reasonOf(at('Seattle, WA')), 'location not in your list');
+  assert.deepEqual(at('Austin, TX'), []);
+  assert.deepEqual(at('Remote'), []);
+  assert.deepEqual(at('unknown'), []);
+});

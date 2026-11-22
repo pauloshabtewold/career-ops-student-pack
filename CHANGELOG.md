@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- M-003 (P2 Find jobs): the daily triage now runs free job-text rules before any model call (`lib/jd-rules.mjs`: years of experience, degree when the optional `degree` config key is set, closed postings, US state location, never keywords), skips postings whose text has not changed (`data/triage-cache.tsv`) and drops duplicate URLs before fetching. Only what is left goes to the model.
+- Fresh jobs: `scripts/fresh-scan.mjs` scans Greenhouse, Lever and Ashby boards every hour with no model calls. It adds only the newest `fresh_first_scan` (default 25) postings on a board's first scan, and with `chrome_in_schedule` set or `--linkedin` it reads one LinkedIn past-hour search through `chrome.mjs read --links`, at most once per clock hour. `schedule.mjs install` adds the hourly entry on macOS and Windows; each run writes `data/digest/fresh-<today>.md`. New mode `modes/fresh-jobs.md`.
+- Easy Apply: `chrome.mjs submit --kind easy-apply` needs an item from an approved batch, and `budget.mjs` caps it at `easy_apply_per_day` 12.
+- Scam and ghost check (`lib/posting-risk.mjs`, off by default): a posting fails when the student is asked to pay or buy equipment from the employer's vendor, when a fake-check pattern appears, when a chat app is the only contact, or when the application email is off the employer's domain. Stipends, reimbursements, discounts and benefit checks pass. A title reposted often over a long period fails as a likely ghost job, using the repost history in `data/fresh-seen.tsv`.
+- Handshake: alert mail that has only click-tracking links now yields job ids. `inbox.mjs` resolves each tracking link with one no-cookie request and reads the job id from the redirect.
+- Triage calls to claude pass `--output-format json`, and the usage ledger records the reported tokens.
+
 ## v0.8.0 (2026-11-21)
 
 - Merge branch 'claude/v2-p1'

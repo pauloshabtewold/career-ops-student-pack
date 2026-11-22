@@ -50,6 +50,7 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 |---|---|
 | `interview/interview.md` | `session-start` prints `INTERVIEW:`, or the user says "redo my setup"; its Part D ends with the first top 10 and the guide in `docs/commands.md`. "find more job sources" runs its Part B research steps again (`node student/scripts/research-sources.mjs`) |
 | `modes/apply-loop.md` | the user says "apply" or "start applying" |
+| `modes/fresh-jobs.md` | the user asks for fresh jobs or new LinkedIn jobs |
 | `modes/review.md` | `reviewer` is `on` in config/student.yml and a 4.0+ application's drafts are ready to show |
 | `modes/outreach.md` | the first session of the day, or the user says "outreach" |
 | `modes/handshake.md` | the user says "Handshake pass" and the switch is on |

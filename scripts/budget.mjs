@@ -43,12 +43,14 @@ export const CEILINGS = deepFreeze({
   opener_len: down(299, 'chars', 'message'),
   invite_withdraw_days: down(21, 'days', 'invite'),
   rounds_per_day: down(1, 'count', 'day'),
+  linkedin_fresh_search_per_hour: down(1, 'count', 'hour'),
   // Applications
   submit_per_day: down(10, 'count', 'day'),
   first_week_submit_per_session: down(3, 'count', 'session'),
   first_week_days: down(7, 'days', 'once'),
   batch_size: down(3, 'count', 'batch'),
   approval_batch_max: down(10, 'count', 'batch'),
+  easy_apply_per_day: down(12, 'count', 'day'),
   score_floor: up(3.5, 'score', 'submit'),
   per_company_per_day: down(2, 'count', 'day'),
   jd_browser_per_session: down(10, 'count', 'session'),
@@ -86,8 +88,10 @@ const CHECKABLE = [
   'linkedin.profile_view',
   'linkedin.search_page',
   'linkedin.withdraw',
+  'linkedin.fresh_search',
   'handshake.page',
   'apply.submit',
+  'apply.easy_apply',
   'apply.jd_browser',
 ];
 // Events recorded as they happen; they are not budgeted and carry no gap.
@@ -95,13 +99,14 @@ const CHECKABLE = [
 // after the click fails.
 const OBSERVED = ['linkedin.accept', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending'];
 // Send kinds whose check needs a logged, unused approved batch item.
-const SEND_KINDS = ['apply.submit'];
+const SEND_KINDS = ['apply.submit', 'apply.easy_apply'];
 const APPROVAL_RE = /^(send|submit) (all|\d+(,\s*\d+)*)$/;
 // apply.submit carries --batch-id and --item instead of approval words; its approval is the logged batch.approve.
 const NEEDS_APPROVAL = [...LINKEDIN_SENDS];
 const EXIT = { ok: 0, refused: 3, wait: 4, 'needs-user': 5 };
 
-const groupOf = (action) => (action.startsWith('linkedin.') ? 'linkedin' : action.startsWith('handshake.') ? 'handshake' : null);
+// Easy Apply happens on LinkedIn, so it shares LinkedIn's window, gap and warning stop.
+const groupOf = (action) => (action.startsWith('linkedin.') || action === 'apply.easy_apply' ? 'linkedin' : action.startsWith('handshake.') ? 'handshake' : null);
 const toMinutes = (hhmm) => {
   const [h, m] = String(hhmm).split(':').map(Number);
   return h * 60 + m;
@@ -178,8 +183,10 @@ function priorRefusal({ action, group, rows, session, isToday, refuse }) {
   return refuse(`${action} already refused in this period: ${why}`, { repeat: true, period: detailValue(prior.detail, 'period') ?? 'day' });
 }
 
-function windowRefusal({ group, local, refuse }) {
-  if (group !== 'linkedin') return null;
+// A log of apply.easy_apply records a click that already happened: chrome.mjs checked the window before the click, so a
+// click at 21:59 whose log lands at 22:00 is still logged rather than refused.
+function windowRefusal({ action, args, group, local, refuse }) {
+  if (group !== 'linkedin' || (action === 'apply.easy_apply' && args.recheck)) return null;
   const mins = local.hour * 60 + local.minute;
   if (mins < toMinutes(CEILINGS.window_start.value) || mins >= toMinutes(CEILINGS.window_end.value)) {
     return refuse('outside the LinkedIn window of 08:00 to 22:00 local time', { scope: 'linkedin' });
@@ -245,6 +252,38 @@ function handshakePageRule(ctx) {
   return sessionCap(ctx, L.pages_per_search_per_session, used, 'handshake pages for this search');
 }
 
+const HOUR_MS = 3600000;
+const FRESH_SPACING_MS = 50 * 60000;
+
+// One past-hour saved-search page per local clock hour, and at least 50 minutes after the last read. The hourly scan
+// waits up to 10 minutes of jitter inside its own clock hour, so its reads land 50 to 70 minutes apart; a rolling 60
+// minutes would refuse about a third of them. The count per clock hour, and so per day, is unchanged.
+function freshSearchRule({ action, L, rows, nowMs, config, local }) {
+  const clock = createClock({ timezone: config.timezone });
+  const hourOf = (ms) => {
+    const t = clock.localTime(new Date(ms));
+    return `${t.date}T${t.hour}`;
+  };
+  const reads = rows.filter((r) => r.action === action).map((r) => r.ms).sort((a, b) => a - b);
+  const thisHour = reads.filter((ms) => hourOf(ms) === `${local.date}T${local.hour}`);
+  const spaced = reads.filter((ms) => ms > nowMs - FRESH_SPACING_MS);
+  const limit = L.linkedin_fresh_search_per_hour;
+  if (thisHour.length < limit && spaced.length < limit) return null;
+  const nextHour = nowMs - (nowMs % 60000) + (60 - local.minute) * 60000;
+  const afterSpacing = spaced.length >= limit ? spaced[spaced.length - limit] + FRESH_SPACING_MS : 0;
+  const earliest = new Date(Math.max(thisHour.length >= limit ? nextHour : 0, afterSpacing)).toISOString();
+  return result('wait', `fresh search: ${Math.max(thisHour.length, spaced.length)} of ${limit} this hour; earliest ${earliest}`, { earliest });
+}
+
+// Easy Apply keeps its own daily cap on top of every submit rule. It also counts inside submit_per_day: chrome.mjs logs
+// an apply.pending row before every click, Easy Apply included, and submitRows counts a pending row that has no
+// apply.submit. The score floor applies when --score is given; chrome.mjs submit always passes the fill plan's score.
+function easyApplyRule(ctx) {
+  const { action, args, L, count, isToday, cap } = ctx;
+  const scored = typeof args.score === 'number' ? ctx : { ...ctx, args: { ...args, recheck: true } };
+  return cap(L.easy_apply_per_day, count((r) => r.action === action && isToday(r)), 'Easy Apply submits today') || submitRules(scored);
+}
+
 const ACTION_RULES = {
   'linkedin.connect': connectRule,
   'linkedin.message': messageRule,
@@ -254,11 +293,13 @@ const ACTION_RULES = {
   'handshake.page': handshakePageRule,
   'apply.jd_browser': (c) => sessionCap(c, c.L.jd_browser_per_session, c.count((r) => r.action === c.action && r.session === c.session), 'browser job descriptions this session'),
   'apply.submit': submitRules,
+  'linkedin.fresh_search': freshSearchRule,
+  'apply.easy_apply': easyApplyRule,
 };
 
 function gapOrOk({ group, rows, nowMs, remainingFrom }) {
   if (group === 'linkedin') {
-    const next = Math.max(-Infinity, ...rows.filter((r) => r.action.startsWith('linkedin.')).map((r) => Date.parse(detailValue(r.detail, 'next_allowed') ?? '')).filter(Number.isFinite));
+    const next = Math.max(-Infinity, ...rows.filter((r) => groupOf(r.action) === 'linkedin').map((r) => Date.parse(detailValue(r.detail, 'next_allowed') ?? '')).filter(Number.isFinite));
     if (next > nowMs) return result('wait', `LinkedIn gap not elapsed; earliest ${new Date(next).toISOString()}`, { earliest: new Date(next).toISOString() });
   }
   return result('ok', 'within budget', { remaining: remainingFrom.length ? Math.min(...remainingFrom) : null });
@@ -455,7 +496,7 @@ async function cmdStatus({ clock, history, session, flags }) {
     connects_rolling_7d: n((r) => r.action === 'linkedin.connect' && r.ms > week),
     messages_today: n((r) => r.action === 'linkedin.message' && r.date === today),
     profile_views_today: n((r) => r.action === 'linkedin.profile_view' && r.date === today),
-    submits_today: n((r) => r.action === 'apply.submit' && r.date === today),
+    submits_today: n((r) => (r.action === 'apply.submit' || r.action === 'apply.easy_apply') && r.date === today),
     warnings_today: history.filter((r) => r.date === today && r.action.endsWith('.warning')).map((r) => r.action),
     refusals_today: history.filter((r) => r.date === today && r.action === 'budget.refusal').map((r) => r.target),
   };
@@ -512,6 +553,7 @@ async function cmdCheckLog(env) {
 
   if (command === 'log' && action === 'batch.approve') return logBatchApprove(env);
   if (command === 'log' && action === 'apply.pending') return logPending(env);
+  if (command === 'log' && action === 'linkedin.fresh_search') return logFreshSearch(env);
   if (command === 'log' && OBSERVED.includes(action)) {
     const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`].filter(Boolean).join(';');
     await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail })]);
@@ -559,6 +601,31 @@ async function logPending({ flags, file, mkRow, config, session, clock }) {
     if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
     appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
     console.log('logged apply.pending');
+    return 0;
+  });
+}
+
+// linkedin.fresh_search is logged before the page read, as a compare-and-set under the action-log lock: the fresh rows
+// must still allow one more read this hour, so a read that fails or times out still counts and a session read beside the
+// hourly one never both pass.
+async function logFreshSearch({ flags, file, mkRow, config, session, clock, rng }) {
+  if (flags.dryRun) {
+    console.log('logged linkedin.fresh_search (dry run)');
+    return 0;
+  }
+  mkdirSync(dirname(file), { recursive: true });
+  return withLock(file, async () => {
+    const rows = await readActionLog(file);
+    const now = clock.now();
+    const res = evaluateCheck({ action: 'linkedin.fresh_search', args: argsFrom(flags, true), history: rows, config, session, now });
+    if (res.status !== 'ok') {
+      console.log(flags.json ? JSON.stringify(res) : describe(res, clock));
+      return EXIT[res.status];
+    }
+    const row = mkRow('linkedin.fresh_search', { target: flags.target ?? '', detail: `next_allowed=${new Date(now.getTime() + drawGapMs(config, rng)).toISOString()}` });
+    if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
+    appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
+    console.log(flags.json ? JSON.stringify(res) : 'logged linkedin.fresh_search');
     return 0;
   });
 }
