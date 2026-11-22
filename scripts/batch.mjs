@@ -12,6 +12,7 @@ import { parse } from '../lib/approval-grammar.mjs';
 import { listBatches, readBatch, renderBatch, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { readActionLog, detailValue } from '../lib/action-log.mjs';
+import { guidedFooter } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 import { append, zeroRow } from '../lib/usage-ledger.mjs';
@@ -41,6 +42,7 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   const res = parse(words, batch.items.length);
   if (res.error) {
     say(`batch: ${res.error}`);
+    for (const line of guidedFooter({ step: `say again which items of ${id} to approve`, prompt: batch.kind === 'apply' ? 'approve all, or all except 3' : 'send all, or all except 3', why: 'I could not read that reply, and nothing goes out without an approval I can read.' })) say(line);
     return NEEDS_USER;
   }
   const logged = logApproval({ paths, id, items: res.items, words, runner });
@@ -52,6 +54,8 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   updateBatch(paths.dataDir, id, (b) => ({ ...b, approved: { items: [...new Set([...(b.approved?.items ?? []), ...res.items])].sort((x, y) => x - y), words } }));
   await append(paths.dataDir, zeroRow({ date: today, step: 'batch-approve', feature: 'H3', rows: res.items.length, source: 'session' }));
   say(`batch: approved items ${res.items.join(', ')} of ${id}`);
+  const verb = batch.kind === 'apply' ? 'submit' : 'send';
+  for (const line of guidedFooter({ step: `${verb} the approved items of ${id}`, prompt: `${verb} the approved items`, why: `only the items you approved go out, each checked by budget.mjs first; batch.mjs status ${id} shows what went out.` })) say(line);
   return 0;
 }
 
