@@ -78,12 +78,13 @@ export function sortReply(text) {
 }
 
 // Prompt for one outreach draft: the ask for the action, the cv, the contact and any reply text.
-export function draftPrompt({ action, cv, contact, replyText = '', application = null, noteChars = 0 }) {
+export function draftPrompt({ action, cv, contact, replyText = '', application = null, noteChars = 0, channel = 'linkedin' }) {
   const ask = typeof ASK[action] === 'function' ? ASK[action]({ noteChars }) : ASK[action];
   return [
     ask,
     'Use only facts from the CV below and the contact details given. Never invent an employer, title, number, skill or shared connection.',
     'Plain words, straight quotes, no dashes as punctuation. Reply with the message only.',
+    ...(channel === 'email' ? ['Write only the email body: no subject line, start with the greeting.'] : []),
     '',
     'CV:',
     String(cv ?? '').trim(),
@@ -125,11 +126,26 @@ export function spellOutAcronyms(text, ownText) {
   });
 }
 
-// One draft. A connection request with no note left this week is an item with an empty note and no model call.
+// A leading "Subject: ..." line a model puts on an email draft, with the blank line after it; the item keeps its own
+// subject, so the body never carries a second one.
+const LEADING_SUBJECT = /^\s*subject:[^\n]*\n(?:[ \t]*\n)?/i;
+export const stripSubjectLine = (text) => String(text ?? '').replace(LEADING_SUBJECT, '').trimStart();
+
+// One draft. A connection request with no note left this week is an item with an empty note and no model call. A note
+// over the limit is asked for once more with the limit and the overrun stated; a second note over the limit is flagged,
+// never cut.
 async function draftOne(job, { cv, agent, dataDir, date, headless, source }) {
   if (job.action === 'connect' && !job.noteChars) return { ...job, text: '', flags: [] };
-  const res = await headless({ agent, prompt: draftPrompt({ ...job, cv }), step: `outreach-${job.action}`, feature: FEATURE[job.action], dataDir, date, source });
-  let text = clean(res.text);
+  const call = async (prompt) => {
+    const res = await headless({ agent, prompt, step: `outreach-${job.action}`, feature: FEATURE[job.action], dataDir, date, source });
+    const t = clean(res.text);
+    return job.channel === 'email' ? stripSubjectLine(t) : t;
+  };
+  const prompt = draftPrompt({ ...job, cv });
+  let text = await call(prompt);
+  if (job.action === 'connect' && text.length > job.noteChars) {
+    text = await call(`${prompt}\n\nYour last note was ${text.length} characters, ${text.length - job.noteChars} over the hard limit of ${job.noteChars}. Write a complete note of at most ${job.noteChars} characters.`);
+  }
   if (job.action === 'warm-opener' && text.length > OPENER_CHARS) text = `${text.slice(0, OPENER_CHARS - 1).replace(/\s+\S*$/, '')}.`;
   const flags = [];
   if (job.action === 'connect' && text.length > job.noteChars) flags.push(`note of ${text.length} characters exceeds the ${job.noteChars} limit`);

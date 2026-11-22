@@ -10,10 +10,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { check as factCheck } from '../../lib/fact-gate.mjs';
 import { listBatches, readBatch, writeBatches } from '../../lib/batch-file.mjs';
+import { sendEmail } from '../../lib/gmail-chrome.mjs';
 import { contactRecords } from '../../lib/outreach-state.mjs';
 import { resolvePaths } from '../../lib/paths.mjs';
 import { appendTsv, serializeTsv } from '../../lib/tsv.mjs';
@@ -317,4 +318,75 @@ test('row 7 batch.mjs approve success and its exit-5 could-not-read reply end wi
   } finally {
     r.cleanup();
   }
+});
+
+// Round 5
+
+test('row 5b an email draft that starts with its own Subject line is stored and sent from the greeting, under the item subject', async () => {
+  const r = liveRoot();
+  try {
+    const prompts = [];
+    const texts = { 'Hiring team': `Subject: Following up on my Software Engineering Intern application\n\n${LIVE['Hiring team']}` };
+    const said = [];
+    const headless = async (opts) => {
+      prompts.push(String(opts.prompt));
+      return headlessFor(texts)(opts);
+    };
+    const paths = resolvePaths({ root: r.root, dataDir: r.data });
+    const res = await outreachDrafts({ paths, today: DAY, replies: [], deps: { headless, state: { due: [], followups: STATE.followups }, t6On: false }, say: (s) => said.push(String(s)) });
+    assert.deepEqual(res.flagged, [], said.join('\n'));
+    const [id] = res.ids;
+    const item = readBatch(r.data, id).items[0];
+    assert.ok(item.message.startsWith('Hello Globex Example hiring team,'), item.message);
+    assert.ok(!/^subject:/im.test(item.message), item.message);
+    assert.equal(item.subject, `Following up on my application to ${GLOBEX}`);
+    assert.match(prompts[0], /no subject line, start with the greeting/);
+
+    const passAll = () => ({ code: 0, stdout: 'ok', stderr: '' });
+    const sent = await sendEmail({ paths, port: 9, email: { batchId: id, item: 1, target: GLOBEX_APP, company: GLOBEX, followup: { target: GLOBEX_APP, company: GLOBEX } }, date: DAY, runner: passAll, browser: async () => 'sent' });
+    assert.equal(sent.code, 0, JSON.stringify(sent));
+    const threads = r.file('data/threads');
+    const archived = readdirSync(threads).map((f) => readFileSync(join(threads, f), 'utf8')).join('\n');
+    const body = archived.slice(archived.indexOf(`Subject: ${item.subject}`) + `Subject: ${item.subject}`.length);
+    assert.ok(body.includes('Hello Globex Example hiring team,'), archived);
+    assert.ok(!/^subject:/im.test(body), `the sent body has no Subject line: ${archived}`);
+  } finally {
+    r.cleanup();
+  }
+});
+
+const LONG_NOTE = 'Hi Carl, I would enjoy following your work at Wayne Example and learning from your path in software. '.repeat(3).trim();
+const SHORT_NOTE = 'Hi Carl, I would enjoy following your work at Wayne Example and learning from your path in software.';
+const CONNECT_STATE = { due: [{ name: 'Carl Connect', company: WAYNE, stage: 'new', action: 'connect' }], followups: [] };
+
+async function connectRound(replies) {
+  const r = liveRoot({ config: 'linkedin_tier: free\n' });
+  const prompts = [];
+  const headless = async (opts) => {
+    prompts.push(String(opts.prompt));
+    return { text: replies[Math.min(prompts.length - 1, replies.length - 1)], model: 'sonnet', usage: null };
+  };
+  try {
+    const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, replies: [], deps: { headless, state: CONNECT_STATE, t6On: false }, say: () => {} });
+    return { res, prompts, items: res.ids.flatMap((id) => readBatch(r.data, id).items) };
+  } finally {
+    r.cleanup();
+  }
+}
+
+test('row 2 a connect note over the limit is asked for once more with the limit and the overrun; a fitting retry is batched', async () => {
+  assert.ok(LONG_NOTE.length > 200 && SHORT_NOTE.length <= 200);
+  const { res, prompts, items } = await connectRound([LONG_NOTE, SHORT_NOTE]);
+  assert.equal(prompts.length, 2);
+  assert.match(prompts[1], new RegExp(`${LONG_NOTE.length} characters, ${LONG_NOTE.length - 200} over the hard limit of 200`));
+  assert.deepEqual(res.flagged, []);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].message, SHORT_NOTE, 'the retry text is kept whole');
+});
+
+test('row 2 a connect note still over the limit after the one retry is flagged, never cut', async () => {
+  const { res, prompts, items } = await connectRound([LONG_NOTE, LONG_NOTE]);
+  assert.equal(prompts.length, 2, 'one retry only');
+  assert.equal(items.length, 0);
+  assert.match(res.flagged[0]?.flags.join('; ') ?? '', /exceeds the 200 limit/);
 });
