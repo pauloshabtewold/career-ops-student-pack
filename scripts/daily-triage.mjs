@@ -280,10 +280,20 @@ export function dedupeRows(rows) {
   return { keep, dupes };
 }
 
+// The ghost rule's inputs from a row's notes: reposts= (fresh-scan's repost count) and posted= (the earliest date known,
+// as days before today). A row without them, such as an alert-mail or Handshake row, gives 0 for each.
+export function rowHistory(row, today) {
+  const reposts = Number(row.notes?.get('reposts'));
+  const posted = Date.parse(`${row.notes?.get('posted') ?? ''}T00:00:00Z`);
+  const now = Date.parse(`${today ?? ''}T00:00:00Z`);
+  const ageDays = Number.isFinite(posted) && Number.isFinite(now) ? Math.max(0, Math.round((now - posted) / 86400000)) : 0;
+  return { repostCount: Number.isInteger(reposts) && reposts > 0 ? reposts : 0, ageDays };
+}
+
 // Free rules on fetched postings: job-text rules, the text-hash cache (T1) and, with T16 on, scam rules. Returns the
 // lines decided without a call, the postings still to send, and risk hits to apply after the call when T16 is off.
 // A recheck row (already triaged) with no text or an unchanged text keeps its verdict and gets no line.
-export function preModel(open, { student, cache, t1On, t16On, recheck = new Set() }) {
+export function preModel(open, { student, cache, t1On, t16On, recheck = new Set(), today = null }) {
   const decided = [];
   const send = [];
   const riskAfter = new Map();
@@ -300,7 +310,7 @@ export function preModel(open, { student, cache, t1On, t16On, recheck = new Set(
       if (!again) decided.push(cached.verdict);
       continue;
     }
-    const risks = f.text ? riskRules({ text: f.text, company: f.row.company }) : [];
+    const risks = f.text ? riskRules({ text: f.text, company: f.row.company, ...rowHistory(f.row, today) }) : [];
     if (isRisky(risks) && t16On) {
       decided.push(ruleLine(f.row.url, riskReason(risks)));
       continue;
@@ -367,11 +377,11 @@ export function triageChildTimeoutMs({ chunks, runLockHours }) {
 // failure { kind, reason }.
 // Fetches the chunk's postings and runs the free rules; returns the rows still bound for the model and the lines decided
 // without one.
-async function prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck }) {
+async function prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today }) {
   const fetched = [];
   for (const row of chunk) fetched.push({ row, ...(await fetchPosting({ root, row, runner, mayFetch })) });
   const closed = fetched.filter((f) => f.closed !== undefined).map((f) => expiredLine(f.row.url, f.closed));
-  const pre = preModel(fetched.filter((f) => f.closed === undefined), { student: studentFromConfig(config), cache, t1On: isOn('T1'), t16On: isOn('T16'), recheck });
+  const pre = preModel(fetched.filter((f) => f.closed === undefined), { student: studentFromConfig(config), cache, t1On: isOn('T1'), t16On: isOn('T16'), recheck, today });
   const guard = { removed: fetched.reduce((acc, f) => addRemoved(acc, f.removed), {}), flagged: fetched.filter((f) => f.flagged.length).length };
   return { pre, open: pre.send, expired: [...closed, ...pre.decided], guard };
 }
@@ -387,7 +397,7 @@ async function finishChunk({ held, expired, open, lines, passed, ignored, guard,
 }
 
 async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck }) {
-  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck });
+  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today });
   // A chunk of unchanged rechecks decides nothing, so apply-triage is not started for it.
   const apply = (lines) => (lines.length ? runApplyTriage({ lines, root, dataDir, packRoot, runner }) : null);
   if (!open.length) {
