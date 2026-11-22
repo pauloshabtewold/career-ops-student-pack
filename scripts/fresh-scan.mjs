@@ -10,15 +10,17 @@
 // the daily triage or the fresh-jobs mode, and only if it is new.
 // The scan writes its own digest, data/digest/fresh-<today>.md, which the daily run never overwrites; a run that found
 // nothing writes one line. data/fresh-seen.tsv records each posting's first-seen date, its company plus title and its
-// board, so a repost of one title under a new id is counted (reposts= note) and the age of a title (posted= note) is the
-// earliest date known; daily-triage passes both to the ghost rule. The first scan of a board adds only the newest
+// board, so a repost of one title under a new id on a later scan date is counted (reposts= note, one per scan date) and
+// the title's earliest scan date is kept (title_since= note) beside the posting's own date (posted= note); daily-triage
+// passes the count and the title's age to the ghost rule. The first scan of a board adds only the newest
 // fresh_first_scan (default 25) open postings and marks the rest seen.
 // Usage: fresh-scan.mjs [--linkedin] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
 // --linkedin reads only the LinkedIn page, whatever chrome_in_schedule says: a session in which the student asked for
 // fresh LinkedIn jobs reaches the automation Chrome even when the schedule does not.
 // The hourly run asks budget.mjs only inside the LinkedIn window (08:00 to 22:00 local): a window refusal is logged and
 // would stop the student's LinkedIn work for the whole day. It waits a random 0 to 10 minutes first, so the read does
-// not land on the same minute every hour.
+// not land on the same minute every hour; the wait never crosses into the next clock hour, and the window is asked
+// again after it.
 // Exit 0 always, so the hourly schedule never retries.
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -79,9 +81,13 @@ export function newRows(jobs, { seen, pipelineRows }) {
   return out;
 }
 
-// Repost count and earliest known date per job from the seen rows: a repost is a seen row with the same company plus
-// title and another url key. Returns the jobs with reposts and posted filled in.
-export function withHistory(jobs, seenRows) {
+const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d ?? '');
+
+// Repost history per job from the seen rows. A repost is the same company plus title under another url key first seen on
+// an earlier scan date, and it counts once per scan date: same-title openings in several cities seen in one scan
+// (the first, seeding scan included) are one date, not reposts of each other. posted stays the job's own board date, else
+// today (its first-seen date), so a new posting is never backdated; titleSince carries the title's earliest scan date.
+export function withHistory(jobs, seenRows, today = '') {
   const byTitle = new Map();
   for (const r of seenRows) {
     if (!r.title_key) continue;
@@ -91,14 +97,19 @@ export function withHistory(jobs, seenRows) {
   }
   return jobs.map((j) => {
     const tk = titleKey(j);
-    const earlier = (tk && byTitle.get(tk)?.filter((r) => r.url_key !== urlKey(j.url))) ?? [];
-    const dates = [j.posted, ...earlier.map((r) => r.first_seen)].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d ?? '')).sort();
-    return { ...j, reposts: earlier.length, posted: dates[0] ?? '' };
+    const earlier = (tk && byTitle.get(tk)?.filter((r) => r.url_key !== urlKey(j.url) && isDay(r.first_seen) && (!today || r.first_seen < today))) ?? [];
+    const dates = [...new Set(earlier.map((r) => r.first_seen))].sort();
+    const posted = isDay(j.posted) ? j.posted : isDay(today) ? today : '';
+    return { ...j, reposts: dates.length, posted, titleSince: dates[0] ?? '' };
   });
 }
 
 const cell = (s) => String(s ?? '').replace(/[|;\n]/g, ',').trim();
-const historyNotes = (j) => [j.posted && `posted=${j.posted}`, j.reposts > 0 && `reposts=${j.reposts}`].filter(Boolean).map((n) => `; ${n}`).join('');
+const historyNotes = (j) =>
+  [j.posted && `posted=${j.posted}`, j.reposts > 0 && `reposts=${j.reposts}`, j.reposts > 0 && j.titleSince && `title_since=${j.titleSince}`]
+    .filter(Boolean)
+    .map((n) => `; ${n}`)
+    .join('');
 export const rowLine = (j, today) => `- [ ] ${j.url} | ${cell(j.company)} | ${cell(j.title)} | ${cell(j.location) || 'unknown'} | note: src=${j.src ?? 'fresh-scan'}; imported=${today}${historyNotes(j)}`;
 
 const JOB_VIEW = /\/jobs\/view\/(?:[^/?#\s]*-)?(\d{6,})/;
@@ -147,6 +158,15 @@ function inLinkedinWindow(config, now) {
   return mins >= toMinutes(CEILINGS.window_start.value) && mins < toMinutes(CEILINGS.window_end.value);
 }
 
+// Up to JITTER_MS of random wait, cut so the read stays inside the run's local clock hour with a minute to spare.
+// budget.mjs allows one fresh read per clock hour and at least 50 minutes between reads, so hourly runs whose reads each
+// stay in their own clock hour, at most 10 minutes late, are never refused for the jitter.
+export function jitterRoom(config, now) {
+  const t = createClock({ timezone: config.timezone }).localTime(now);
+  const leftMs = (60 - t.minute) * 60000 - now.getUTCSeconds() * 1000 - now.getUTCMilliseconds() - 60000;
+  return Math.max(0, Math.min(JITTER_MS, leftMs));
+}
+
 // Runs a pack script through the runner (stdout, or a throw like execFileSync); returns { ok, out, code }.
 function packScript(paths, runner, script, args, timeout) {
   try {
@@ -162,9 +182,13 @@ const firstLine = (res) => res.out.trim().split('\n')[0] || `exit ${res.code}`;
 // One LinkedIn past-hour page, only when the schedule reaches Chrome and the budget allows the hourly read. The read is
 // logged before it starts (budget.mjs log is a compare-and-set under the action-log lock), so a read that fails or
 // times out still uses the hour. Returns the job cards read (empty when nothing was read) and whether a page was read.
-async function linkedinFresh({ paths, config, runner, notes, now, sleep, force = false, rng = Math.random }) {
-  if (!force && (config.chrome_in_schedule !== 'yes' || !inLinkedinWindow(config, now))) return { pages: 0, jobs: [] };
-  if (!force) await sleep(Math.floor(rng() * JITTER_MS));
+async function linkedinFresh({ paths, config, runner, notes, nowFn, sleep, force = false, rng = Math.random }) {
+  if (!force && (config.chrome_in_schedule !== 'yes' || !inLinkedinWindow(config, nowFn()))) return { pages: 0, jobs: [] };
+  if (!force) {
+    await sleep(Math.floor(rng() * jitterRoom(config, nowFn())));
+    // The window is asked again after the wait: a check that lands at 22:00 would log a refusal for the whole day.
+    if (!inLinkedinWindow(config, nowFn())) return { pages: 0, jobs: [] };
+  }
   const url = freshSearchUrl({ config, archetypes: readArchetypes(paths.dataDir) });
   for (const command of ['check', 'log']) {
     const res = packScript(paths, runner, 'budget.mjs', [command, 'linkedin.fresh_search', '--target', 'fresh-search']);
@@ -200,6 +224,7 @@ const boardKey = (b) => `${b.kind}:${b.slug}`;
 async function readBoards(boards, fetchFn, notes, { seenBoards, firstMax }) {
   const jobs = [];
   const seedOnly = [];
+  let boardFailures = 0;
   for (const b of boards) {
     try {
       const rows = (await readBoard(b, fetchFn)).map((j) => ({ ...j, board: boardKey(b) }));
@@ -210,10 +235,11 @@ async function readBoards(boards, fetchFn, notes, { seenBoards, firstMax }) {
         seedOnly.push(...newest.slice(firstMax));
       }
     } catch (err) {
+      boardFailures += 1;
       notes.push(`fresh scan: ${b.company} board failed (${String(err.message).split('\n')[0]}); the other boards still scanned`);
     }
   }
-  return { jobs, seedOnly };
+  return { jobs, seedOnly, boardFailures };
 }
 
 // Appends the scan's lines to data/digest/fresh-<today>.md, a file of its own so the daily digest never erases them.
@@ -242,7 +268,7 @@ async function runPrefilter(paths, config) {
   return lines.length;
 }
 
-/** deps: fetchFn (fetch-shaped), robots ({ check }), sleep, runner (child processes), now, rng. Returns { added, failed, linkedinPages, linkedinNew, notes }. */
+/** deps: fetchFn (fetch-shaped), robots ({ check }), sleep, runner (child processes), now, rng. Returns { added, failed (rows that failed the free rules), boardFailures, linkedinPages, linkedinNew, notes }. */
 export async function freshScan({ paths, today, deps = {}, linkedinOnly = false }) {
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const runner = deps.runner ?? runText;
@@ -259,9 +285,9 @@ export async function freshScan({ paths, today, deps = {}, linkedinOnly = false 
   const seenRows = (await readTsv(seenFile)).rows;
   const seen = new Set(seenRows.map((r) => r.url_key));
   const seenBoards = new Set(seenRows.map((r) => r.board).filter(Boolean));
-  const { jobs, seedOnly } = await readBoards(boards, fetchFn, notes, { seenBoards, firstMax: config.fresh_first_scan ?? 25 });
-  const linkedin = await linkedinFresh({ paths, config, runner, notes, sleep, rng: deps.rng, now: (deps.now ?? (() => new Date()))(), force: linkedinOnly });
-  const fresh = withHistory(freshOf([...jobs, ...linkedin.jobs], { seen, pipelineRows: readPipelineRows(paths.dataDir) }), seenRows);
+  const { jobs, seedOnly, boardFailures } = await readBoards(boards, fetchFn, notes, { seenBoards, firstMax: config.fresh_first_scan ?? 25 });
+  const linkedin = await linkedinFresh({ paths, config, runner, notes, sleep, rng: deps.rng, nowFn: deps.now ?? (() => new Date()), force: linkedinOnly });
+  const fresh = withHistory(freshOf([...jobs, ...linkedin.jobs], { seen, pipelineRows: readPipelineRows(paths.dataDir) }), seenRows, today);
   const added = fresh.length ? await mergeRows(paths.dataDir, fresh, today) : 0;
   const seed = seedOnly.filter((j) => !seen.has(urlKey(j.url)));
   await appendTsv(seenFile, SEEN_HEADER, [...fresh, ...seed].map((j) => seenRow(j, today)));
@@ -271,7 +297,7 @@ export async function freshScan({ paths, today, deps = {}, linkedinOnly = false 
   const summary = `fresh scan: ${boards.length} board(s), ${added} new row(s), ${failed} failed the free rules${seed.length ? `, ${seed.length} older posting(s) marked seen on a first scan` : ''}`;
   appendFreshDigest({ dataDir: paths.dataDir, today, lines: [summary, ...linkedinLine, ...notes] });
   await appendLedger(paths.dataDir, [zeroRow({ date: today, step: 'fresh-scan', feature: 'U1', rows: boards.length }), zeroRow({ date: today, step: 'fresh-linkedin', feature: 'M12', rows: linkedin.pages })]);
-  return { added, failed: notes.length, linkedinPages: linkedin.pages, linkedinNew: newLinkedin, notes };
+  return { added, failed, boardFailures, linkedinPages: linkedin.pages, linkedinNew: newLinkedin, notes };
 }
 
 async function main() {

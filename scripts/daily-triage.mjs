@@ -280,11 +280,12 @@ export function dedupeRows(rows) {
   return { keep, dupes };
 }
 
-// The ghost rule's inputs from a row's notes: reposts= (fresh-scan's repost count) and posted= (the earliest date known,
-// as days before today). A row without them, such as an alert-mail or Handshake row, gives 0 for each.
+// The ghost rule's inputs from a row's notes: reposts= (fresh-scan's repost count) and the title's age in days, from
+// title_since= (the title's earliest scan date) or else posted=. A row without them, such as an alert-mail or Handshake
+// row, gives 0 for each.
 export function rowHistory(row, today) {
   const reposts = Number(row.notes?.get('reposts'));
-  const posted = Date.parse(`${row.notes?.get('posted') ?? ''}T00:00:00Z`);
+  const posted = Date.parse(`${row.notes?.get('title_since') ?? row.notes?.get('posted') ?? ''}T00:00:00Z`);
   const now = Date.parse(`${today ?? ''}T00:00:00Z`);
   const ageDays = Number.isFinite(posted) && Number.isFinite(now) ? Math.max(0, Math.round((now - posted) / 86400000)) : 0;
   return { repostCount: Number.isInteger(reposts) && reposts > 0 ? reposts : 0, ageDays };

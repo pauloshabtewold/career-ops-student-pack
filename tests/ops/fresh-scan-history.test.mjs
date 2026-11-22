@@ -48,14 +48,15 @@ test('the first scan of a board adds only the newest fresh_first_scan postings a
     assert.match(r.read(`data/digest/fresh-${TODAY}.md`), /fresh scan: 1 board\(s\)/);
   }));
 
-test('a repost of one company plus title under a new id carries reposts= and the earliest posted= date', () =>
+test('a repost of one company plus title under a new id carries reposts=, its own posted= date and the title_since= date', () =>
   withRoot('', async (r) => {
     await scanWith(r, { body: board([[10, 'Data Intern', '2026-08-01']]), today: '2026-08-01' });
     r.write('data/pipeline.md', pipelineText());
     await scanWith(r, { body: board([[11, 'Data Intern', '2026-11-03']]) });
     const row = rowsOf(r.read('data/pipeline.md'), 'Pending').find((x) => x.url === GH(11));
     assert.equal(row.notes.get('reposts'), '1');
-    assert.equal(row.notes.get('posted'), '2026-08-01');
+    assert.equal(row.notes.get('posted'), '2026-11-03');
+    assert.equal(row.notes.get('title_since'), '2026-08-01');
     assert.deepEqual(rowHistory(row, TODAY), { repostCount: 1, ageDays: 95 });
   }));
 
