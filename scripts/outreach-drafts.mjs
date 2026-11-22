@@ -34,7 +34,7 @@ import { guidedFooter } from '../lib/next-step.mjs';
 import { lower } from '../lib/outreach-state.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { archiveMessage } from '../lib/thread-archive.mjs';
-import { parseTsv } from '../lib/tsv.mjs';
+import { readTsv } from '../lib/tsv.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { effectiveLimits } from './budget.mjs';
 import { outreachState } from './outreach-state.mjs';
@@ -210,7 +210,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
   const actionRows = await readActionLog(join(paths.dataDir, 'action-log.tsv'));
   const notes = noteBudget(config, actionRows, nowMs);
-  const contactRows = readContacts(paths.dataDir);
+  const { rows: contactRows } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
   const resolved = (state.followups ?? []).map((f) => ({ ...f, email: f.email || followupAddress(f, { actionRows, contactRows }) }));
   const needsAddress = resolved.filter((f) => !f.email);
   // Application follow-ups belong to the apply side: they are drafted and batched whatever the outreach switch says.
@@ -219,8 +219,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })];
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
-  const cvFile = join(paths.root, 'cv.md');
-  const cv = existsSync(cvFile) ? readFileSync(cvFile, 'utf8') : '';
+  const cv = readCv(paths.root);
   const ctx = { cv, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
@@ -246,9 +245,10 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   return { ids, ...(draftsFile ? { draftsFile } : {}), ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
 }
 
-function readContacts(dataDir) {
-  const file = join(dataDir, 'contacts.tsv');
-  return existsSync(file) ? parseTsv(readFileSync(file, 'utf8')).rows : [];
+// The student's cv.md text, or '' when there is none.
+function readCv(root) {
+  const file = join(root, 'cv.md');
+  return existsSync(file) ? readFileSync(file, 'utf8') : '';
 }
 
 /**
@@ -265,8 +265,7 @@ export async function addFollowupTo({ paths, today, which, email, deps = {}, say
   const f = (state.followups ?? []).find((x) => lower(x.target) === lower(which)) ?? (state.followups ?? []).find((x) => lower(x.company) === lower(which));
   if (!f) throw new UsageError(`no application follow-up is due for ${which}`);
   const [job] = draftJobs({ due: [], followups: [{ ...f, email }], t6On: false });
-  const cvFile = join(paths.root, 'cv.md');
-  const cv = existsSync(cvFile) ? readFileSync(cvFile, 'utf8') : '';
+  const cv = readCv(paths.root);
   const d = await draftOne(job, { cv, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' });
   if (d.flags.length) {
     say(`outreach-drafts: ${f.company} follow-up flagged and kept out of the batch: ${d.flags.join('; ')}`);

@@ -342,7 +342,6 @@ function gmailRule(ctx) {
   const { args, rows, refuse } = ctx;
   if (args.email && declinedEmails(rows).has(lower(args.email))) return refuse(`${args.email} belongs to a contact who declined; no more messages`, { unlogged: true });
   if (args.followup) {
-    if (!args.target) return refuse('target missing; pass --target with the application url', { unlogged: true });
     const app = (r) => lower(r.target) === lower(args.target) && sameCompany(args.company)(r);
     if (rows.some((r) => isAppFollowup(r) && app(r))) return refuse(`${args.target} already had its follow-up email`, { unlogged: true });
     return followupRule(ctx);
@@ -714,14 +713,14 @@ async function cmdCheckLog(env) {
   return logAllowed({ action, now, env, res });
 }
 
-// apply.pending is a compare-and-set: under the action-log lock the fresh rows must still hold an approved, unused item
-// and the daily submit ceiling must still allow one more, so two submits of one item (a retry after a timeout, a
-// scheduled run beside a session) never both get to click, and two submits of different items never both pass the last
-// daily slot.
-async function logPending({ flags, file, mkRow, config, session, clock }) {
-  if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('apply.pending needs --batch-id and --item of the approved batch item');
+// A pending row is a compare-and-set under the action-log lock, logged right before a click: the fresh rows must still
+// hold an approved, unused item and the action's own check (check(rows) returns a refusal result or null) must still
+// pass, so the item is spent before the click and two clicks of one item (a retry after a timeout, a scheduled run beside
+// a session) never both happen.
+async function logPendingRow({ flags, file, mkRow, clock }, action, check, detail) {
+  if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError(`${action} needs --batch-id and --item of the approved batch item`);
   if (flags.dryRun) {
-    console.log('logged apply.pending (dry run)');
+    console.log(`logged ${action} (dry run)`);
     return 0;
   }
   mkdirSync(dirname(file), { recursive: true });
@@ -731,50 +730,39 @@ async function logPending({ flags, file, mkRow, config, session, clock }) {
       console.log(`refused: item ${flags.item} of batch ${flags.batchId} has no unused logged approval`);
       return EXIT.refused;
     }
-    const ctx = makeContext({ action: 'apply.submit', args: argsFrom(flags, true), history: rows, config, session, now: clock.now() });
-    const full = ctx.cap(ctx.L.submit_per_day, submitRows(rows, ctx.args).filter(ctx.isToday).length, 'submits today');
-    if (full) {
-      console.log(describe(full, clock));
-      return EXIT[full.status];
+    const stop = await check(rows);
+    if (stop) {
+      console.log(describe(stop, clock));
+      return EXIT[stop.status];
     }
-    const detail = [flags.track && `track=${flags.track}`, `batch=${flags.batchId}`, `item=${flags.item}`].filter(Boolean).join(';');
-    const row = mkRow('apply.pending', { target: flags.target ?? '', company: flags.company ?? '', detail });
+    const row = mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail: detail.filter(Boolean).join(';') });
     if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
     appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
-    console.log('logged apply.pending');
+    console.log(`logged ${action}`);
     return 0;
   });
 }
 
-// gmail.pending is logged by lib/gmail-chrome.mjs right before the Send click, as a compare-and-set under the action-log
-// lock: the fresh rows must still hold an approved, unused item and gmail.send must still pass, so the item is spent
-// before the click and a retry or a second session never sends it twice.
-async function logGmailPending({ flags, paths, file, mkRow, config, session, clock }) {
-  if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('gmail.pending needs --batch-id and --item of the approved batch item');
-  if (flags.dryRun) {
-    console.log('logged gmail.pending (dry run)');
-    return 0;
-  }
-  const { rows: contacts } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
-  mkdirSync(dirname(file), { recursive: true });
-  return withLock(file, async () => {
-    const rows = await readActionLog(file);
-    if (!approvedItem(rows, flags.batchId, flags.item)) {
-      console.log(`refused: item ${flags.item} of batch ${flags.batchId} has no unused logged approval`);
-      return EXIT.refused;
-    }
+// apply.pending: the daily submit ceiling must still allow one more, so two submits of different items never both pass
+// the last daily slot.
+function logPending(env) {
+  const { flags, config, session, clock } = env;
+  const check = (rows) => {
+    const ctx = makeContext({ action: 'apply.submit', args: argsFrom(flags, true), history: rows, config, session, now: clock.now() });
+    return ctx.cap(ctx.L.submit_per_day, submitRows(rows, ctx.args).filter(ctx.isToday).length, 'submits today');
+  };
+  return logPendingRow(env, 'apply.pending', check, [flags.track && `track=${flags.track}`, `batch=${flags.batchId}`, `item=${flags.item}`]);
+}
+
+// gmail.pending, logged by lib/gmail-chrome.mjs before the Send click: gmail.send must still pass.
+function logGmailPending(env) {
+  const { flags, paths, config, session, clock } = env;
+  const check = async (rows) => {
+    const { rows: contacts } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
     const res = evaluate({ action: 'gmail.send', args: argsFrom(flags, true), history: rows, contacts, config, session, now: clock.now() });
-    if (res.status !== 'ok') {
-      console.log(describe(res, clock));
-      return EXIT[res.status];
-    }
-    const detail = [`batch=${flags.batchId}`, `item=${flags.item}`, flags.email && `email=${flags.email}`, flags.nudge && 'nudge=1', flags.followup && 'followup=1'].filter(Boolean).join(';');
-    const row = mkRow('gmail.pending', { target: flags.target ?? '', company: flags.company ?? '', detail });
-    if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
-    appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
-    console.log('logged gmail.pending');
-    return 0;
-  });
+    return res.status === 'ok' ? null : res;
+  };
+  return logPendingRow(env, 'gmail.pending', check, [`batch=${flags.batchId}`, `item=${flags.item}`, flags.email && `email=${flags.email}`, flags.nudge && 'nudge=1', flags.followup && 'followup=1']);
 }
 
 // linkedin.fresh_search is logged before the page read, as a compare-and-set under the action-log lock: the fresh rows
