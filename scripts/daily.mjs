@@ -18,6 +18,8 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
+import { readActionLog } from '../lib/action-log.mjs';
+import { weeklySentBy } from '../lib/outreach-state.mjs';
 
 const HOUR_MS = 3600000;
 
@@ -118,8 +120,18 @@ function healthLines({ dataDir, today, results }) {
   }
 }
 
+// The weekly outreach count from the action log; a read failure is one line, never a failed run.
+async function outreachLines({ dataDir, nowMs, limits }) {
+  try {
+    const w = weeklySentBy(await readActionLog(join(dataDir, 'action-log.tsv')), nowMs);
+    return [`- Outreach sent this week: ${w.total} (connects ${w.connects} of ${limits.connect_per_rolling_7d}, messages ${w.messages}, emails ${w.emails})`];
+  } catch (err) {
+    return [`- not counted (${oneLine(err.message)})`];
+  }
+}
+
 // Writes the digest and returns the number of failed steps.
-function writeDigest({ dataDir, today, results, notes, flags = [] }) {
+function writeDigest({ dataDir, today, results, notes, flags = [], outreach = [] }) {
   const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
   const failed = results.filter((r) => !r.ok);
   const digest = [
@@ -138,6 +150,7 @@ function writeDigest({ dataDir, today, results, notes, flags = [] }) {
     '## Pipeline',
     `- Pending rows: ${pending}`,
     '',
+    ...(outreach.length ? ['## Outreach', ...outreach, ''] : []),
   ].join('\n');
   mkdirSync(join(dataDir, 'digest'), { recursive: true });
   writeFileSync(join(dataDir, 'digest', `student-${today}.md`), digest);
@@ -191,7 +204,8 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   try {
     log(`START ${stamp()} student-daily ${today}`);
     runSteps({ root, dataDir, packRoot, today, config, limits, runner, results, flags });
-    const failedCount = writeDigest({ dataDir, today, results, notes, flags });
+    const outreach = config ? await outreachLines({ dataDir, nowMs: now().getTime(), limits }) : [];
+    const failedCount = writeDigest({ dataDir, today, results, notes, flags, outreach });
     log(`END ${stamp()} student-daily ok=${results.length - failedCount} failed=${failedCount}`);
     say(`student-daily: ${results.length - failedCount} step(s) ok, ${failedCount} failed; digest at data/digest/student-${today}.md`);
   } catch (err) {
