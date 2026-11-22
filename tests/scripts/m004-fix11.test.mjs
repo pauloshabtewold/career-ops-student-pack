@@ -12,6 +12,8 @@
 //    other drafts are batched and their usage-ledger rows stay; each call carries OUTREACH_CALL_TIMEOUT_MS.
 // D. the r9 NITs: N1 one re-verify on a malformed verdict, N2 placeholder shapes, N3 any-TLD bare domains, N4 claims kept
 //    in a later rail flag, N5 NFKC before the greeting strip, N6 {title}/{applied_date} by kind, N7 cv proper nouns.
+// F. live round 8 title inflation: the verify prompt holds the title rule with a worked example and an EXACT TITLES HELD
+//    block that code copied from cv.md (a hint, not a rail); a verifier following the contract flags the 3a drafts.
 // Scratch roots, example.com addresses and an injected headless runner: no real model, network, Gmail or LinkedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -278,4 +280,43 @@ test('fix 11 D N7 a connect note keeps the capital of a cv proper noun at its st
   const carl = person('Carl Connect', 'Wayne Example', 'connect', { noteChars: 300 });
   assert.equal(od.checkDraft('Sample Labs gave me a taste of internal tools, and I would like to connect.', carl, { sources: SOURCES_11 }).text, 'Hi Carl, Sample Labs gave me a taste of internal tools, and I would like to connect.');
   assert.equal(od.checkDraft('Your posts on internal tools are a great read.', carl, { sources: SOURCES_11 }).text, 'Hi Carl, your posts on internal tools are a great read.');
+});
+
+// F. Live round 8, 3a: the real verifier passed these two title inflations (cv.md: "Software engineering intern").
+const CARL_3A = "I'm a CS student who recently interned as a software engineer, and I'd love to connect with people at {company}.";
+const RITA_3A = 'What I enjoy most is building practical tools. This past summer I interned as a software engineer at Sample Labs, where I wrote a Python script that turned a two-hour weekly report into a ten-minute job.';
+// A verifier following the prompt contract: a role a sentence claims ("interned as a software engineer", "worked as a
+// data scientist", "I was a software engineering intern") is supported only when an EXACT TITLES HELD line holds that
+// role as whole words.
+const titleVerifier = (prompt) => {
+  const titles = (blockIn(prompt, 'TITLES') ?? '').toLowerCase();
+  const claims = sentences(draftIn(prompt) ?? '').filter((s) => {
+    const m = /\b(?:interned|worked|was|am|served) as an? ([a-z ]+?)(?= at\b| for\b|[.,]|$)|\bI was an? ([a-z ]+?)(?= at\b| for\b|[.,]|$)/i.exec(s);
+    const role = (m?.[1] ?? m?.[2])?.toLowerCase();
+    return role && !new RegExp(`(?:^|- )${role}\\b`, 'm').test(titles);
+  });
+  return JSON.stringify({ unsupported: claims });
+};
+
+test('fix 11 F the verify prompt holds the title rule with a worked example and the exact titles copied from cv.md', async () => {
+  assert.deepEqual(od.cvTitles(CV), ['Software engineering intern at Sample Labs', 'Teaching assistant for Data Structures at Example State University']);
+  assert.deepEqual(od.cvTitles('# A\n\n### Data Analyst | Example Co (2024)\n- **Research assistant** at Example Lab: did things\nWorked at a cafe.\n'), ['Data Analyst | Example Co', 'Research assistant at Example Lab']);
+  const p = od.verifyPrompt({ cv: CV, job: ALICE, draft: 'x' });
+  assert.equal(blockIn(p, 'TITLES'), '- Software engineering intern at Sample Labs\n- Teaching assistant for Data Structures at Example State University');
+  assert.match(p, /EXACT TITLES HELD \(role and title phrases code copied from the resume; a hint for checking titles, the resume stays the source\):/);
+  assert.match(p, /differs in meaning from the resume wording is unsupported, even when the employer is right: an intern written as an engineer, a member as a lead, a course project as an internship, part-time as full-time\./);
+  assert.match(p, /Example: the resume says "Software engineering intern at Example Co"; "I interned as a software engineer at Example Co" and "I worked as a software engineer at Example Co" are unsupported, while "I was a software engineering intern at Example Co" is supported\./);
+  assert.equal(blockIn(od.verifyPrompt({ cv: '# A\n\nLikes bikes.\n', job: ALICE, draft: 'x' }), 'TITLES'), '(none found; read the resume)');
+});
+
+test('fix 11 F a verifier following the contract sees the exact titles and flags the live 3a title inflations; the honest title passes', async () => {
+  const carl = await roundFor(person('Carl Connect', 'Wayne Example', 'connect', { noteChars: 300 }), { drafts: [CARL_3A], verdict: titleVerifier });
+  assert.equal(carl.items.length, 0);
+  assert.match(carl.res.flagged[0].flags.join('; '), /recently interned as a software engineer/);
+  const rita = await roundFor(person('Rita Reply', 'Initech Example', 'reply', { replyText: 'Which team interests you?' }), { drafts: [RITA_3A], verdict: titleVerifier });
+  assert.equal(rita.items.length, 0);
+  assert.match(rita.res.flagged[0].flags.join('; '), /interned as a software engineer at Sample Labs/);
+  assert.ok(blockIn(rita.verifies[0].prompt, 'TITLES').includes('Software engineering intern at Sample Labs'));
+  const honest = await roundFor(ALICE, { drafts: ['This past summer I was a software engineering intern at Sample Labs. What does your team work on?'], verdict: titleVerifier });
+  assert.equal(honest.items.length, 1, JSON.stringify(honest.res.flagged));
 });
