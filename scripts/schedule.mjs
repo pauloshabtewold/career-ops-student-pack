@@ -135,6 +135,10 @@ export function buildFreshPlist({ nodePath, root }) {
     `  <string>${xml(root)}</string>`,
     '  <key>StartInterval</key>',
     `  <integer>${FRESH_INTERVAL_S}</integer>`,
+    '  <key>StandardOutPath</key>',
+    `  <string>${xml(posix.join(logs, 'student-fresh.out.log'))}</string>`,
+    '  <key>StandardErrorPath</key>',
+    `  <string>${xml(posix.join(logs, 'student-fresh.err.log'))}</string>`,
     '</dict>',
     '</plist>',
     '',
@@ -143,6 +147,9 @@ export function buildFreshPlist({ nodePath, root }) {
 
 // schtasks refuses a /TR command over 261 characters.
 export const TR_MAX = 261;
+// Printed by the hourly task script once schtasks has created the task, so a later Set-ScheduledTask failure is told
+// apart from a failed create.
+export const HOURLY_CREATED = 'HOURLY_TASK_CREATED';
 
 // Windows task script for the hourly fresh scan. The node command goes into a short data\fresh-scan.cmd wrapper, so /TR
 // stays under schtasks' 261-character limit on a long OneDrive path; --% hands /TR to schtasks verbatim so the quotes
@@ -161,6 +168,7 @@ export function buildFreshTaskScript({ nodePath, root }) {
     `Set-Content -LiteralPath ${psq(wrapper)} -Value ${psq(cmdLine)} -Encoding Oem`,
     `schtasks.exe --% /Create /F /SC HOURLY /MO 1 /TN "${FRESH_TASK_NAME}" /TR "${tr}"`,
     'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
+    `Write-Output '${HOURLY_CREATED}'`,
     `Set-ScheduledTask -TaskName ${psq(FRESH_TASK_NAME)} -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries) | Out-Null`,
     '',
   ].join('\n');
@@ -297,16 +305,31 @@ function winCommand(command, { nodePath, root, time, dryRun, agent, agentPath, a
   if (command === 'install') {
     const script = buildTaskScript({ nodePath, root, time, agent, agentPath });
     for (const line of triageNotes({ automation, agent, agentPath })) console.log(line);
-    const freshScript = buildFreshTaskScript({ nodePath, root });
+    // A root too long for the hourly task's /TR still gets the daily task; the hourly refusal is printed after it.
+    let freshScript = null;
+    let freshRefusal = '';
+    try {
+      freshScript = buildFreshTaskScript({ nodePath, root });
+    } catch (err) {
+      freshRefusal = err.message;
+    }
     if (dryRun) {
       console.log(script);
-      console.log(freshScript);
+      console.log(freshScript ?? `hourly scan not installed: ${freshRefusal}`);
       return 0;
     }
     const res = runPowershell(script);
-    const hourly = runPowershell(freshScript);
     console.log(res.ok ? `installed ${TASK_NAME} at ${time}` : `Register-ScheduledTask failed: ${res.out.split('\n')[0]}`);
-    console.log(hourly.ok ? `installed ${FRESH_TASK_NAME} every hour` : `schtasks /Create of the hourly scan failed: ${hourly.out.split('\n')[0]}`);
+    if (!freshScript) {
+      console.log(`hourly scan not installed: ${freshRefusal}`);
+      return 1;
+    }
+    const hourly = runPowershell(freshScript);
+    const created = hourly.out.includes(HOURLY_CREATED);
+    const failure = hourly.out.split('\n').find((l) => l.trim() && !l.includes(HOURLY_CREATED)) ?? '';
+    if (hourly.ok) console.log(`installed ${FRESH_TASK_NAME} every hour`);
+    else if (created) console.log(`installed ${FRESH_TASK_NAME} every hour, but its battery settings (Set-ScheduledTask) failed: ${failure}`);
+    else console.log(`schtasks /Create of the hourly scan failed: ${failure}`);
     return res.ok && hourly.ok ? 0 : 1;
   }
   const script = command === 'remove' ? removeScript() : statusScript();

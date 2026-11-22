@@ -265,7 +265,13 @@ export async function runInbox(argv, deps = {}) {
     fresh.push(m);
   }
   const results = [];
-  for (const m of fresh) results.push({ m, c: classifyMail(await resolveMessageLinks(m, { fetchFn: deps.trackFetch ?? globalThis.fetch }), ctx) });
+  // Tracking links are resolved only on a real run and only until the run's lookup deadline; a dry run, or a message after
+  // the deadline, keeps its links as they are (the Handshake search fallback).
+  const trackDeadline = (deps.now?.() ?? Date.now()) + RESOLVE_DEADLINE_MS;
+  for (const m of fresh) {
+    const resolve = !flags.dryRun && (deps.now?.() ?? Date.now()) < trackDeadline;
+    results.push({ m, c: classifyMail(resolve ? await resolveMessageLinks(m, { fetchFn: deps.trackFetch ?? globalThis.fetch }) : m, ctx) });
+  }
   const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set(), counts: { alerts: 0, employer: 0, handshake: 0, needUrl: 0, checkUrl: 0 } };
   const env = { companies, flags, runner, paths, out, clock, conflicted: conflictChecker(results), lookup: createLookup({ flags, deps, limits }) };
   for (const item of results) await handleResult(item, env);

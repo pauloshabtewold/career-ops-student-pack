@@ -1,6 +1,6 @@
 # Fresh LinkedIn jobs
 
-Read this when the user asks for fresh jobs or new LinkedIn jobs, or when the digest has a `fresh LinkedIn page:` line with new rows.
+Read this when the user asks for fresh jobs or new LinkedIn jobs, or when the fresh digest (`data/digest/fresh-<today>.md`) has a `fresh LinkedIn page:` line with new rows or a board failure.
 
 Postings that are an hour old get far fewer applicants. The hourly scan reads the public Greenhouse, Lever and Ashby boards with no model call; this mode adds the student's own LinkedIn past-hour saved search, read in the automation Chrome.
 

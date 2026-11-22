@@ -5,6 +5,7 @@
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
 // Usage: chrome.mjs open [--headless] | status [--json] | read <url> [--links] | close
 //        chrome.mjs fill --plan FILE | submit --batch-id ID --item N [--kind apply|easy-apply]   [--root R] [--data-dir D]
+// read --links lists only the page's LinkedIn job and company links (jobs/view and company hrefs), up to 200.
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
