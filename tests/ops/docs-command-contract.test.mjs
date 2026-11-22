@@ -64,6 +64,9 @@ test('W-023-A5-7 flags from a named spec, a multi-line spec and common: false ar
   assert.deepEqual(scanCommands('x.md', 'node student/scripts/budget.mjs check apply.easy_apply --company "X" --score 4 --batch 1 --batch-id 2026-11-20-apply-1 --item 2'), []);
   assert.deepEqual(scanCommands('x.md', 'node student/scripts/budget.mjs check linkedin.fresh_search'), []);
   assert.match(readDoc('modes/fresh-jobs.md'), /chrome\.mjs submit --kind easy-apply --batch-id/);
+  assert.deepEqual(scanCommands('x.md', 'node student/scripts/budget.mjs check gmail.send --target "a@example.com" --batch-id 2026-11-20-outreach-1 --item 1'), []);
+  assert.deepEqual(scanCommands('x.md', 'node student/scripts/budget.mjs check apply.followup --target "https://example.com/job/1" --batch-id 2026-11-20-outreach-1 --item 1'), []);
+  assert.match(readDoc('modes/outreach.md'), /check apply\.followup --target "<application url>" --batch-id <batch-id> --item <n>/);
   assert.equal(scanCommands('x.md', 'node student/interview/detect-field.mjs cv.md --root /x').length, 1, 'detect-field takes no common --root');
   assert.deepEqual(scanCommands('x.md', 'node student/interview/detect-field.mjs - --json'), []);
 });
