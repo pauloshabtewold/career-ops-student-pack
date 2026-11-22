@@ -243,7 +243,7 @@ export function rails(final, job, { sources = '' } = {}) {
   for (const re of PLACEHOLDER_RAILS) {
     const m = re.exec(text);
     if (m) {
-      const token = /[{｛]+[^{}｛｝\n]{0,40}[}｝]+/.exec(text) ?? m;
+      const token = /\{+[^{}\n]{0,40}\}+/.exec(text) ?? m;
       flags.push(`placeholder-like text "${token[0]}"`);
       break;
     }
