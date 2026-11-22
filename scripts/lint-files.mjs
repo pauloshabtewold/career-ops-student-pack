@@ -14,6 +14,9 @@ const MAC_ONLY_TOKEN = chars(111, 115, 97, 115, 99, 114, 105, 112, 116);
 const TYPOGRAPHY = new Set([0x2014, 0x2018, 0x2019, 0x201c, 0x201d].map((c) => String.fromCodePoint(c)));
 const TYPO_EXT = /\.(md|yml|yaml|json|mjs|js)$/;
 const CODE_EXT = /\.(mjs|js)$/;
+// The cover-letter test feeds curly quotes and an em dash to the clean-text pass on purpose; that fixture is the only
+// file the typography rule skips. Every other rule still applies to it.
+const TYPOGRAPHY_FIXTURES = new Set(['tests/scripts/cover.test.mjs']);
 
 function listFiles(root) {
   try {
@@ -52,7 +55,7 @@ export function lintFiles(root) {
       }
       // A test line that calls doesNotMatch( names the banned characters to assert their absence.
       const assertsAbsence = rel.startsWith('tests/') && line.includes('doesNotMatch(');
-      if (!assertsAbsence && [...line].some((c) => TYPOGRAPHY.has(c))) findings.push({ file: rel, line: i + 1, rule: 'typography' });
+      if (!assertsAbsence && !TYPOGRAPHY_FIXTURES.has(rel) && [...line].some((c) => TYPOGRAPHY.has(c))) findings.push({ file: rel, line: i + 1, rule: 'typography' });
     });
   }
   return findings;

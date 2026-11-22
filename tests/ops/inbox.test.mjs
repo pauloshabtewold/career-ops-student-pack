@@ -204,7 +204,7 @@ test('M-008-S8 --dry-run classifies but records no seen ids and calls no set-sta
 });
 
 // M-008-S9
-test('M-008-S9 LinkedIn and Handshake alerts become needs-url staging rows with company, title and job id', async () => {
+test('M-008-S9 a LinkedIn alert becomes a needs-url row and a Handshake alert with an id gets its joinhandshake job URL', async () => {
   const s = setup();
   try {
     const msgs = [
@@ -215,11 +215,11 @@ test('M-008-S9 LinkedIn and Handshake alerts become needs-url staging rows with 
     assert.equal(res.statusCalls.length, 0);
     const staging = readFileSync(join(s.data, 'pipeline.staging.md'), 'utf8');
     const rows = staging.split('\n').filter((l) => l.startsWith('- [ ] needs-url'));
-    assert.equal(rows.length, 2);
+    assert.equal(rows.length, 1);
     const li = rows.find((l) => l.includes('Tailspin Systems'));
-    const hs = rows.find((l) => l.includes('Wingtip Partners'));
     assert.ok(li && li.includes('Data Engineer Intern') && li.includes('3900001234'));
-    assert.ok(hs && hs.includes('Analyst Intern') && hs.includes('8800123'));
+    const hs = staging.split('\n').find((l) => l.includes('Wingtip Partners'));
+    assert.ok(hs && hs.startsWith('- [ ] https://app.joinhandshake.com/jobs/8800123 |') && hs.includes('Analyst Intern'), staging);
     assert.ok(!/linkedin\.com/i.test(staging), 'no linkedin.com text is stored');
   } finally {
     s.cleanup();
@@ -365,4 +365,19 @@ test('M-004-S7 classifyMail returns ignore for a plain mail from a domain that i
 test('M-004-S10 classifyMail returns rejection for the REJECT fixture from a tracker company domain', () => {
   const ctx = { assessmentDomains: ASSESS, companies: [{ name: 'Northwind Robotics', domains: ['northwindrobotics.example.com'] }] };
   assert.equal(classifyMail(REJECT('r-1', 'hr@northwindrobotics.example.com'), ctx).kind, 'rejection');
+});
+
+test('a Handshake alert with no job id in its links stages a Pending row with check=url, not a needs-url row', async () => {
+  const s = setup();
+  try {
+    const msgs = [msg('m-503', `Handshake <${at('no-reply', 'joinhandshake.com')}>`, 'Policy Intern at Wingtip Partners', 'New job match for you.')];
+    await run(s, msgs);
+    const staging = readFileSync(join(s.data, 'pipeline.staging.md'), 'utf8');
+    const row = staging.split('\n').find((l) => l.includes('Wingtip Partners'));
+    assert.ok(row && row.startsWith('- [ ] https://app.joinhandshake.com/stu/postings?query='), staging);
+    assert.match(row, /check=url/);
+    assert.ok(!staging.includes('needs-url'));
+  } finally {
+    s.cleanup();
+  }
 });

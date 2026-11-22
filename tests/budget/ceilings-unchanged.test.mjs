@@ -30,6 +30,7 @@ const SNAPSHOT = {
   first_week_submit_per_session: {value:3,tighten:'down'},
   first_week_days: {value:7,tighten:'down'},
   batch_size: {value:3,tighten:'down'},
+  approval_batch_max: {value:10,tighten:'down'},
   score_floor: {value:3.5,tighten:'up'},
   per_company_per_day: {value:2,tighten:'down'},
   jd_browser_per_session: {value:10,tighten:'down'},

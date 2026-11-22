@@ -93,3 +93,14 @@ test('M-002-S13 apply.jd_browser caps at 10 per session', () => {
   refused(ev('apply.jd_browser', { args: { target: 'ex-jd-new' }, history: jds(10, 's1') }));
   assert.equal(ev('apply.jd_browser', { args: { target: 'ex-jd-new' }, history: jds(10, 's0') }).status, 'ok');
 });
+
+// M-002-S29-osdr keep
+test('M-002-S29-osdr --batch 4 still refuses with batch_size 3 and first_week_submit_per_session stays 3', async () => {
+  const { CEILINGS } = await import('../../scripts/budget.mjs');
+  assert.equal(CEILINGS.batch_size.value, 3);
+  assert.equal(CEILINGS.batch_size.tighten, 'down');
+  assert.equal(CEILINGS.first_week_submit_per_session.value, 3);
+  assert.equal(CEILINGS.first_week_submit_per_session.tighten, 'down');
+  refused(ev('apply.submit', { args: { ...args, batch: 4 }, history: seasoned }));
+  refused(ev('apply.submit', { args, history: today(3) }));
+});

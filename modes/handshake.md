@@ -17,3 +17,12 @@ Handshake's student terms (last updated 2025-07-22) ban third-party bulk collect
 1. Fill `templates/handshake-extract.js` from the student folder with the preset title regex and a page cap of 4.
 2. Open the student's Handshake search results in the browser they are signed in to (their saved search from Part B when one exists, otherwise the preset title search), and on each page run the extractor and save the copied rows to a `.tsv` file.
 3. Run `node student/scripts/handshake-import.mjs page1.tsv page2.tsv`, then `node student/scripts/merge-post.mjs`.
+
+## Alert rows without a URL
+
+A Handshake alert job whose link holds no job id lands in Pending as a Handshake search with the note `check=url`, not in Flagged. Open the search, find the posting and put its own `joinhandshake.com/jobs/<id>` link on the row before applying.
+
+Next: run a Handshake pass over your saved search
+Type: Handshake pass
+Why: Handshake postings reach your queue the same way every other source does.
+You can always ask me for more. Just ask and approve.

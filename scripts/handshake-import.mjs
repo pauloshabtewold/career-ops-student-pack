@@ -18,7 +18,8 @@ const anyMatch = (patterns, text) => (patterns ?? []).some((p) => new RegExp(p, 
 const fresh = (age) => !/(\d+)\s*mo/.test(age) || Number(/(\d+)\s*mo/.exec(age)[1]) <= 1;
 const clean = (s) => s.replace(/\|/g, '/');
 
-const idsIn = (text) => [...text.matchAll(/joinhandshake\.com\/(?:jobs|job-search)\/(\d+)/g)].map((m) => m[1]);
+// The same URL shapes lib/handshake-links.mjs reads from alert links: jobs/<id>, stu/jobs/<id> and job-search/<id>.
+const idsIn = (text) => [...text.matchAll(/joinhandshake\.com\/(?:stu\/)?(?:jobs|job-search)\/(\d+)/g)].map((m) => m[1]);
 
 // pages: TSV strings without a header; knownTexts: texts that may already hold job ids.
 export function importPages({ pages, preset, config, knownTexts = [], today }) {

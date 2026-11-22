@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { handshakeIdsIn } from '../lib/handshake-links.mjs';
 import { classifyMail, compact, squash } from '../lib/mail-classify.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { politeFetch } from '../lib/robots.mjs';
@@ -26,6 +27,9 @@ const DAY_MS = 86400000;
 const RESOLVE_LOOKUPS = 30;
 const RESOLVE_DEADLINE_MS = 5 * 60 * 1000;
 const HANDSHAKE_JOB_URL = 'https://app.joinhandshake.com/jobs/';
+// A Handshake alert job whose id is lost still reaches Pending, as a Handshake search for its title and company with a
+// check=url note, instead of a needs-url row that merge-post would hold in Flagged and triage would never see.
+const HANDSHAKE_SEARCH_URL = 'https://app.joinhandshake.com/stu/postings?query=';
 
 function isoDate(value) {
   const ms = Date.parse(value);
@@ -64,6 +68,7 @@ export function normalize(backend, payload) {
     snippet: squash(m.snippet),
     date: isoDate(m.date),
     ...(Array.isArray(m.jobs) ? { jobs: m.jobs.filter((j) => j && typeof j === 'object') } : {}),
+    ...(Array.isArray(m.links) ? { links: m.links.filter((l) => typeof l === 'string').map((l) => l.trim()) } : {}),
   }));
 }
 
@@ -154,9 +159,19 @@ function createLookup({ flags, deps, limits }) {
 
 // A message with a jobs array stages one row per job; a message without one stages the single row its subject gave.
 // Rows are never given a LinkedIn, Indeed or Simplify URL: those hosts are aggregators and merge-post would flag them.
+// Handshake jobs without an id take, in order, the ids found in the message's body link targets, but only when there is
+// exactly one id per id-less job; otherwise position cannot tell which id is whose, and the jobs keep the search fallback.
+function withLinkIds(jobs, c) {
+  if (c.label !== 'handshake-alert') return jobs;
+  const ids = handshakeIdsIn(c.links ?? []).filter((id) => !jobs.some((j) => j.jobId === id));
+  const idless = jobs.filter((j) => !/^\d+$/.test(j.jobId)).length;
+  if (!ids.length || ids.length !== idless) return jobs;
+  return jobs.map((j) => (/^\d+$/.test(j.jobId) ? j : { ...j, jobId: ids.shift() }));
+}
+
 async function stageAlert(c, env) {
   const { out, clock } = env;
-  const jobs = c.jobs ?? [{ title: c.title, company: c.company, location: '', jobId: c.jobId, site: '' }];
+  const jobs = withLinkIds(c.jobs ?? [{ title: c.title, company: c.company, location: '', jobId: c.jobId, site: '' }], c);
   const imported = `imported=${clock.today()}`;
   for (const job of jobs) {
     const cells = (url) => `- [ ] ${url} | ${job.company} | ${job.title} | ${job.location || 'unknown'} |`;
@@ -165,9 +180,15 @@ async function stageAlert(c, env) {
     // The job's own site wins over the sender: a Handshake mail can carry a posting that lives elsewhere. A message with
     // no jobs array keeps the subject-parse row it always staged.
     const onHandshake = job.site ? job.site === 'handshake' : c.label === 'handshake-alert';
-    if (c.jobs && onHandshake && /^\d+$/.test(job.jobId)) {
+    if (onHandshake && /^\d+$/.test(job.jobId)) {
       out.stagingRows.push(`${cells(`${HANDSHAKE_JOB_URL}${job.jobId}`)} note: ${['src=handshake-alert', imported].join('; ')}`);
       out.counts.handshake += 1;
+      continue;
+    }
+    if (onHandshake) {
+      const query = encodeURIComponent(`${job.title} ${job.company}`.trim());
+      out.stagingRows.push(`${cells(`${HANDSHAKE_SEARCH_URL}${query}`)} note: ${['src=handshake-alert', 'check=url', imported].join('; ')}`);
+      out.counts.checkUrl += 1;
       continue;
     }
     const employerUrl = c.jobs ? await env.lookup(job) : null;
@@ -241,7 +262,7 @@ export async function runInbox(argv, deps = {}) {
     fresh.push(m);
   }
   const results = fresh.map((m) => ({ m, c: classifyMail(m, ctx) }));
-  const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set(), counts: { alerts: 0, employer: 0, handshake: 0, needUrl: 0 } };
+  const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set(), counts: { alerts: 0, employer: 0, handshake: 0, needUrl: 0, checkUrl: 0 } };
   const env = { companies, flags, runner, paths, out, clock, conflicted: conflictChecker(results), lookup: createLookup({ flags, deps, limits }) };
   for (const item of results) await handleResult(item, env);
 
@@ -250,7 +271,7 @@ export async function runInbox(argv, deps = {}) {
     for (const l of [`## ${heading}`, ...bullets, '']) print(l);
   }
   const { counts } = out;
-  if (counts.alerts) print(`inbox: alerts staged ${counts.alerts} (employer ${counts.employer}, handshake ${counts.handshake}, need a link ${counts.needUrl})`);
+  if (counts.alerts) print(`inbox: alerts staged ${counts.alerts} (employer ${counts.employer}, handshake ${counts.handshake}, need a link ${counts.needUrl}${counts.checkUrl ? `, handshake link to check ${counts.checkUrl}` : ''})`);
   for (const n of out.notices.slice(0, limits.notifications_per_run)) print(`notice: ${n}`);
 
   if (!flags.dryRun) persist({ paths, flags, out, fresh, seenFile });

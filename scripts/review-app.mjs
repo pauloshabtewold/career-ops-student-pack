@@ -6,13 +6,15 @@
 // Usage: review-app.mjs prompt --posting F --resume F [--cover F] [--answers F] [--cv F] [--root R]
 //        review-app.mjs run     (same flags) [--agent claude|codex] [--agent-path PATH]
 // `prompt` prints the prompt, identical for identical inputs. `run` makes one no-tools call to the configured agent and
-// prints its reply; it refuses unless config reviewer is "on". Exit 0 ok, 2 usage, 3 reviewer off, 4 the agent call failed.
+// prints its reply; it refuses unless config reviewer is "on". The call goes through lib/headless.mjs so its tokens reach
+// data/usage-ledger.tsv. Exit 0 ok, 2 usage, 3 reviewer off, 4 the agent call failed.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { AGENT_TIMEOUT_MS, CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS, quoteIf, resolveAgentPath, shellForm, signInHint } from '../lib/agent.mjs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { runHeadless } from '../lib/headless.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
 import { oneLine } from '../lib/text.mjs';
@@ -122,11 +124,18 @@ async function main() {
     console.error(`review-app: ${agent} was not found; ${signInHint(agent)} after installing it`);
     return 4;
   }
+  const premium = config.spend_tier === 'premium';
   try {
-    process.stdout.write(`${callReviewer({ agent, agentPath, prompt, premium: config.spend_tier === 'premium', packRoot: paths.packRoot }).trimEnd()}\n`);
+    const res = await runHeadless({
+      agent, agentPath, prompt, packRoot: paths.packRoot, dataDir: paths.dataDir, step: 'review', feature: 'H2',
+      model: premium ? 'opus' : 'sonnet', effort: premium ? 'high' : 'medium', allowTop: premium, source: 'session',
+    });
+    if (agent === 'codex' && !res.text.trim()) throw new Error('codex wrote no answer');
+    process.stdout.write(`${res.text.trimEnd()}\n`);
     return 0;
   } catch (err) {
-    console.error(`review-app: ${agent} failed (${oneLine(err.stderr) || oneLine(err.message)}); ${signInHint(agent)}`);
+    const cause = err.cause ?? err;
+    console.error(`review-app: ${agent} failed (${oneLine(cause.stderr) || oneLine(cause.message)}); ${signInHint(agent)}`);
     return 4;
   }
 }

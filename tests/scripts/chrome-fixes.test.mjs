@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { main, readState, runSlotCommand, writeState } from '../../scripts/chrome.mjs';
+import { PORT_WAIT_MS, main, readState, runSlotCommand, writeState } from '../../scripts/chrome.mjs';
 import { makeRoot } from '../helpers/script-harness.mjs';
 
 const FAKE_PID = 424242;
@@ -192,4 +192,82 @@ test('S2 close stops a recorded Chrome whose port is silent when the profile Sin
 test('N1 a slot command that cannot start reports its spawn error code', () => {
   assert.equal(runSlotCommand('missing-slot-cmd', { run: () => ({ error: Object.assign(new Error('x'), { code: 'ENOENT' }) }) }), 'ENOENT');
   assert.equal(runSlotCommand('slot', { run: () => ({ status: 3 }) }), 3);
+});
+
+test('open waits 45 seconds for the DevTools port by default and says so; deps.portWaitMs overrides it', async () => {
+  assert.equal(PORT_WAIT_MS, 45 * 1000);
+  for (const [portWaitMs, seconds] of [[undefined, 45], [5000, 5]]) {
+    const r = makeRoot();
+    try {
+      const clock = fakeClock();
+      const start = clock.now();
+      const deps = { findChrome: () => '/fake/chrome', spawn: () => ({ pid: FAKE_PID, unref() {} }), ...fakeProcess(), ...clock, fetchFn: refused };
+      if (portWaitMs) deps.portWaitMs = portWaitMs;
+      const { code, out } = await run(['open'], r, deps);
+      assert.equal(code, 7, out);
+      assert.ok(out.includes(`within ${seconds} seconds`), out);
+      assert.ok(clock.now() - start >= seconds * 1000, 'waited the full port wait');
+    } finally {
+      r.cleanup();
+    }
+  }
+});
+
+// A spawn that writes DevToolsActivePort at once, like Chrome does seconds before its DevTools HTTP server answers.
+const portFileSpawn = (counter) => (bin, args) => {
+  counter.spawned += 1;
+  const profile = args.find((a) => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+  writeFileSync(join(profile, 'DevToolsActivePort'), `${FAKE_PORT}\n/devtools/browser/fake\n`);
+  return { pid: FAKE_PID, unref() {} };
+};
+
+test('open says ready only once the DevTools port answers, so the read right after it finds Chrome running', async () => {
+  const r = makeRoot();
+  try {
+    const clock = fakeClock();
+    const answersAt = clock.now() + 8000; // longer than one liveState probe (two 3 s tries)
+    const fetchFn = async () => {
+      if (clock.now() < answersAt) throw new Error('fake: port written, HTTP not answering yet');
+      return { ok: true };
+    };
+    const counter = { spawned: 0 };
+    const deps = { findChrome: () => '/fake/chrome', spawn: portFileSpawn(counter), ...fakeProcess(), ...clock, fetchFn };
+    const open = await run(['open'], r, deps);
+    assert.equal(open.code, 0, open.out);
+    assert.ok(open.out.includes('chrome: ready'), open.out);
+    assert.ok(clock.now() >= answersAt, 'open waited for the port to answer, not just for the port file');
+    const status = await run(['status', '--json'], r, deps);
+    assert.equal(JSON.parse(status.out).reachable, 'yes', status.out);
+    assert.equal(counter.spawned, 1);
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('open stops a Chrome whose DevTools port file appears but never answers, exits 7 and writes no state', async () => {
+  const r = makeRoot();
+  try {
+    const proc = fakeProcess();
+    const counter = { spawned: 0 };
+    const { code, out } = await run(['open'], r, { findChrome: () => '/fake/chrome', spawn: portFileSpawn(counter), ...proc, ...fakeClock(), fetchFn: refused, portWaitMs: 5000 });
+    assert.equal(code, 7, out);
+    assert.ok(out.includes(`DevTools port ${FAKE_PORT} did not answer within 5 seconds; stopped it (PID ${FAKE_PID})`), out);
+    assert.deepEqual(proc.signals, ['SIGTERM']);
+    assert.equal(readState(r.data), null, 'no state file for a Chrome that never answered');
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('open reports a launched PID that exits before its port answers instead of recording it', async () => {
+  const r = makeRoot();
+  try {
+    const counter = { spawned: 0 };
+    const { code, out } = await run(['open'], r, { findChrome: () => '/fake/chrome', spawn: portFileSpawn(counter), isAlive: () => false, kill: () => {}, ...fakeClock(), fetchFn: ok });
+    assert.equal(code, 7, out);
+    assert.ok(out.includes(`Chrome (PID ${FAKE_PID}) exited before its DevTools port answered`), out);
+    assert.equal(readState(r.data), null);
+  } finally {
+    r.cleanup();
+  }
 });

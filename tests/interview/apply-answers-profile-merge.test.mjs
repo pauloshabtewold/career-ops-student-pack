@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as yaml from 'js-yaml';
-import { mergeProfileAnswers, ProfileParseError } from '../../lib/profile-answers.mjs';
-import { apply, finalAnswers, EEO_FAKE, scratch } from '../helpers/profile-harness.mjs';
+import { learn, mergeProfileAnswers, ProfileParseError } from '../../lib/profile-answers.mjs';
+import { apply, finalAnswers, EEO_FAKE, QUESTIONS_FAKE, profileWithQuestions, scratch } from '../helpers/profile-harness.mjs';
 
 const BEFORE = ['# my own profile, hand edited', 'candidate:', '  full_name: "Pat Existing"', '  email: pat.existing@example.edu', ''].join('\n');
 const OLD_BLOCK = ['application_answers:', '  work_authorization: Old auth', '  custom_note: keep me', '  eeo:', '    gender: old-gender', '    pronouns: old-pron'].join('\n');
@@ -96,4 +96,72 @@ for (const [label, text] of [
 test('extra check: mergeProfileAnswers throws ProfileParseError for text that does not parse or holds two application_answers keys', () => {
   assert.throws(() => mergeProfileAnswers('candidate: [unclosed\n', { start_date: 'immediately' }), ProfileParseError);
   assert.throws(() => mergeProfileAnswers('application_answers:\n  a: 1\napplication_answers:\n  b: 2\n', { start_date: 'immediately' }), ProfileParseError);
+});
+
+test('final apply keeps the learned questions map and a learn patch adds one question without dropping the others', () => {
+  const r = scratch();
+  try {
+    r.write('config/profile.yml', profileWithQuestions());
+    const res = apply(r, finalAnswers());
+    assert.equal(res.code, 0, res.text);
+    const after = yaml.load(r.read('config/profile.yml')).application_answers;
+    assert.deepEqual(after.questions, QUESTIONS_FAKE);
+    assert.deepEqual(after.eeo, EEO_FAKE);
+    const merged = yaml.load(mergeProfileAnswers(r.read('config/profile.yml'), learn('Do you have a driver\'s license?', 'No'))).application_answers;
+    assert.deepEqual(merged.questions, { ...QUESTIONS_FAKE, 'do you have a driver s license': 'No' });
+  } finally {
+    r.cleanup();
+  }
+});
+
+// Sensitive questions (SSN, card, bank) never enter the answer bank: learn refuses them and the CLI exits 2 without
+// touching profile.yml. Fake labels only.
+test('M-002 profile-answers learn refuses SSN, card and bank questions and leaves profile.yml unchanged', async () => {
+  const { isSensitive } = await import('../../lib/profile-answers.mjs');
+  const { profileAnswers } = await import('../helpers/profile-harness.mjs');
+  for (const q of ['Social Security Number', 'SSN (last 4 digits)', 'Credit card number', 'CVV', 'Card expiration date', 'Bank account number', 'Routing number']) {
+    assert.equal(isSensitive(q), true, q);
+    assert.throws(() => learn(q, '000'), /never saved/, q);
+  }
+  assert.equal(isSensitive({ label: 'Name on card', autocomplete: 'cc-name' }), true, 'autocomplete cc-* is sensitive');
+  assert.equal(isSensitive('Why do you want to work here?'), false);
+  const r = scratch();
+  try {
+    const before = profileWithQuestions();
+    r.write('config/profile.yml', before);
+    const res = profileAnswers(r, ['learn', 'What is your Social Security Number?', '000-00-0000']);
+    assert.equal(res.code, 2, res.text);
+    assert.equal(r.read('config/profile.yml'), before);
+  } finally {
+    r.cleanup();
+  }
+});
+
+// Sign-in secrets never reach the answer bank either: learn refuses password, passcode and PIN questions, and a
+// type=password or password-autocomplete field is sensitive whatever its label, so fill-plan never lists it as a question.
+test('M-002 learn refuses password, passcode and PIN questions and type=password fields are sensitive', async () => {
+  const { isSensitive } = await import('../../lib/profile-answers.mjs');
+  const { resolveFields } = await import('../../scripts/fill-plan.mjs');
+  for (const q of ['Password', 'Verify New Password', 'Create a passcode', 'PIN']) {
+    assert.equal(isSensitive(q), true, q);
+    assert.throws(() => learn(q, 'fake-secret-0'), /never saved/, q);
+  }
+  assert.equal(isSensitive({ label: 'Choose one', type: 'password' }), true, 'type=password');
+  assert.equal(isSensitive({ label: 'Choose one', autocomplete: 'new-password' }), true, 'new-password autocomplete');
+  assert.equal(isSensitive('Pinterest profile'), false);
+  const res = resolveFields({ url: 'https://acme.wd5.myworkdayjobs.com/x/job/1', fields: [{ label: 'Choose one', name: 'pw', type: 'password' }, { label: 'Verify New Password', name: 'pw2', type: 'text' }] }, { answers: {}, candidate: {} });
+  assert.deepEqual(res.unknown, [], 'a password field is never an unknown question');
+  assert.deepEqual(res.blocked, ['Choose one', 'Verify New Password']);
+});
+
+test('M-002 camelCase names and passport or driver license numbers are sensitive; a yes/no license question is not', async () => {
+  const { isSensitive } = await import('../../lib/profile-answers.mjs');
+  assert.equal(isSensitive({ label: '', name: 'cardNumber' }), true);
+  assert.equal(isSensitive({ label: '', name: 'routingNumber' }), true);
+  assert.equal(isSensitive({ label: '', name: 'bankAccountNumber' }), true);
+  assert.equal(isSensitive('Passport number'), true);
+  assert.equal(isSensitive("Driver's license number"), true);
+  assert.equal(isSensitive('Drivers license no.'), true);
+  assert.equal(isSensitive("Do you have a driver's license?"), false);
+  assert.equal(isSensitive('Do you hold a valid passport?'), false);
 });

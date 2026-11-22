@@ -36,3 +36,12 @@ Do not give it the tracker, contacts, config, mail, other applications or any ot
 - The reviewer can miss an ungrounded claim. The fact gate is still your job on every line.
 - One review per application. Do not loop review and edit; if the verdict is still `REVISE` after your edits, tell the student what is left.
 - `review-app.mjs` writes no file and the reviewer has no tools, so a message hidden in a posting cannot reach one.
+
+## Order with the self-check
+
+The deterministic self-check (`lib/self-check.mjs`) runs on every item whatever the review setting, and a flagged item stays out of the batch. With the review on it runs first and the checks after it; when lever T8 has a pass verdict the checks run first and only items they pass come here.
+
+Next: review the 4.0+ drafts before the batch is shown
+Type: review my drafts
+Why: a fresh reader catches a claim the drafts cannot back up before an employer does.
+You can always ask me for more. Just ask and approve.

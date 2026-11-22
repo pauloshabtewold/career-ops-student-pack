@@ -201,3 +201,28 @@ test('M-001-S14 an existing digest keeps its own title and its last heading deci
     assert.equal(text.split('\n').filter((l) => l.startsWith('# ')).length, 1);
     assert.deepEqual(text.split('\n').filter((l) => l.startsWith('## ')), ['## Discovery', '## Daily triage']);
   }));
+
+// M-002-S27-osdr keep
+test('M-002-S27-osdr data/triage-usage.tsv columns and the estimate cost lines stay unchanged', async () => {
+  const { USAGE_HEADER } = await import('../../lib/triage-budget.mjs');
+  assert.deepEqual([...USAGE_HEADER], ['date', 'source', 'rows', 'outcome']);
+  await withDir(async (dir) => {
+    await appendTriageUsage(dir, { date: TODAY, source: 'session', rows: 7 });
+    assert.equal(readFileSync(join(dir, 'triage-usage.tsv'), 'utf8').split('\n')[0], 'date\tsource\trows\toutcome');
+  });
+  const { makeRoot, runScript } = await import('../helpers/script-harness.mjs');
+  const cases = [
+    ['automation: scheduled-discovery-plus-triage\nagent: claude\nspend_tier: premium\n', '100', 'estimate: 100 rows in 5 calls; 190,100 input and 7,500 output tokens; about $0.91 API-equivalent at Claude Opus 5.5 base rates, no cache discount; plan not set; read your share in /usage (Claude Code) or /status (Codex); tokens measured at the standard tier'],
+    ['agent: claude\nspend_tier: standard\n', '40', 'estimate: 40 rows in 2 calls; 76,040 input and 3,000 output tokens; about $0.18 API-equivalent at Claude Sonnet 5.5 base rates, no cache discount; plan not set; read your share in /usage (Claude Code) or /status (Codex)'],
+  ];
+  for (const [config, rows, expected] of cases) {
+    const r = makeRoot({ config });
+    try {
+      const res = runScript('triage-budget', ['cost', rows], r, { today: '2026-10-27' });
+      assert.equal(res.code, 0, res.stdout + res.stderr);
+      assert.ok(res.stdout.split('\n').includes(expected), res.stdout);
+    } finally {
+      r.cleanup();
+    }
+  }
+});

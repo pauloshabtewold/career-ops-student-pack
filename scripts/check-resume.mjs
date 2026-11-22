@@ -2,13 +2,16 @@
 // Resume guard, run before any upload: the variant's PDF must fit its page limit, carry a text layer that shows the
 // source's email and phone with spaces between words and uses ASCII hyphens in date ranges (applicant-tracking
 // parsers drop other dashes and read run-together words as one), and
-// the HTML or markdown source it was rendered from must show the variant's graduation month and year.
+// the HTML or markdown source it was rendered from must show the variant's graduation month and year. The
+// lib/ats-text.mjs checks (reading order, mid-sentence breaks, split words, broken hyphenated tokens, single column) run
+// too, and each failure line names its check.
 // Usage: check-resume.mjs --pdf FILE --html FILE --variant NAME [--root R]
 // Exit 0 ok, 1 mismatch (one line per problem), 2 usage or unknown variant.
 import { existsSync, readFileSync } from 'node:fs';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { atsTextProblems, htmlSections } from '../lib/ats-text.mjs';
 import { extractPdfText } from '../lib/pdf-text.mjs';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -97,7 +100,9 @@ export async function checkResume({ pdf, html, variant, config }) {
   const pages = countPdfPages(buffer);
   if (pages > spec.page_limit) problems.push(`PDF has ${pages} pages, limit is ${spec.page_limit}`);
   try {
-    problems.push(...textLayerProblems(await extractPdfText(buffer), sourceContacts(source), sourceWords(source)));
+    const text = await extractPdfText(buffer);
+    problems.push(...textLayerProblems(text, sourceContacts(source), sourceWords(source)));
+    if (text.trim()) problems.push(...atsTextProblems(text, { sections: htmlSections(source), sourceText: source, words: sourceWords(source), glued: false }));
   } catch (err) {
     problems.push(`PDF text layer could not be read: ${err.message}`);
   }

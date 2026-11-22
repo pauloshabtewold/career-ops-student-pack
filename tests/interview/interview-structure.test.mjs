@@ -144,3 +144,15 @@ test('Part C has eight EEO items, none with a recommended value, including sexua
   assert.ok(items.some((l) => /Sexual orientation/.test(l)));
   assert.ok(items.some((l) => /Transgender/.test(l)));
 });
+
+test('every Part ends with Next, Type and Why lines and Part D finishes with the setup flow', () => {
+  for (const h of HEADINGS) {
+    const part = section(h);
+    for (const label of ['Next:', 'Type:', 'Why:']) assert.ok(part.split('\n').some((l) => l.startsWith(label)), `${h} has a ${label} line`);
+    assert.match(part, /You can always ask me for more\. Just ask and approve\./, `${h} ends with the can-do-more line`);
+  }
+  const partD = section(HEADINGS[3]);
+  const flow = partD.indexOf('node student/scripts/setup-flow.mjs');
+  assert.ok(flow > partD.indexOf('docs/commands.md'), 'the setup flow step comes after the commands guide');
+  assert.match(partD, /I'll build your resume from the template[^"]*approve\?/);
+});

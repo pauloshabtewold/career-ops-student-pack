@@ -242,3 +242,17 @@ test('W-027 glued text is caught without usable source pairs by its long letter 
   assert.equal(gluedWords('BuiltinternaldashboardswithReact and ReducedbuildtimesacrossthreeServices').length, 2);
   assert.deepEqual(gluedWords('Built internal dashboards with React. Reduced build times.'), []);
 });
+
+// M-002-S26-osdr keep
+test('M-002-S26-osdr check-resume still fails image-only PDFs and en or em dashes in date ranges', async () => {
+  const image = await textCase(null);
+  assert.equal(image.res.code, 1);
+  assert.match(image.res.problems.join('|'), /no text layer/);
+  assert.equal(image.cli.code, 1);
+  for (const dash of ['\u2013', '\u2014']) {
+    const { res, cli } = await textCase(GOOD_LINES.map((l) => l.replace('Jun 2025 - Aug 2025', `Jun 2025 ${dash} Aug 2025`)));
+    assert.equal(res.code, 1, dash);
+    assert.match(res.problems.join('|'), /ASCII hyphen/);
+    assert.equal(cli.code, 1);
+  }
+});

@@ -23,7 +23,8 @@ function setup({ config, pending, apps, log }) {
   if (log) r.write('data/action-log.tsv', serializeTsv([...LOG_HEADER], log));
   return r;
 }
-const submit = (company, date) => ({ ts: `${date}T10:00:00.000Z`, date, session: 's1', action: 'apply.submit', target: jobUrl(900), company, approval: 'user', detail: 'ok' });
+// Submit rows carry the approved batch item they used.
+const submit = (company, date) => ({ ts: `${date}T10:00:00.000Z`, date, session: 's1', action: 'apply.submit', target: jobUrl(900), company, approval: '', detail: `batch=${date}-apply-1;item=1` });
 
 function run(opts) {
   const r = setup(opts);

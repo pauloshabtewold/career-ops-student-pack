@@ -2,16 +2,22 @@
 // Runs first in every Claude Code or Codex session (see AGENTS.student.md). Output is at most six lines because the
 // agent reads it before anything else: update result, integrity restore, budget session and clamps, interview trigger,
 // switch states. A sandboxed or offline agent cannot reach the pack remote, so a failed update check is one quiet
-// line and never stops the rest. Usage: session-start.mjs [--root R]
+// line and never stops the rest. Once onboarding is done the last lines are the guided part: a SETUP line while setup
+// is incomplete, then one line with the code-built Next/Type/Why block when lever T14 is on, or the guided pattern rule
+// when it is off. Usage: session-start.mjs [--root R]
 import { join } from 'node:path';
 import { refreshOverride } from '../lib/agents-override.mjs';
 import { parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { verifyAndRestore } from '../lib/integrity.mjs';
+import { isOn, readOverrides } from '../lib/levers.mjs';
+import { readProfileAnswers } from '../lib/profile-answers.mjs';
+import { guidedFooter, nextStep, patternRule } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runText } from '../lib/run.mjs';
 import { oneLine } from '../lib/text.mjs';
 import { runUpdate } from '../update.mjs';
+import { pipelineState, readSetupState, setupComplete } from './setup-flow.mjs';
 
 const MAX_LINES = 6;
 const OFFLINE_LINE = 'update check skipped (offline)';
@@ -48,7 +54,27 @@ function runBudgetSessionStart({ root, packRoot }) {
   }
 }
 
-export async function sessionStart({ root, packRoot, update = runUpdate, refresh = refreshOverride }) {
+// Saved answers for the unknown-question count; an unreadable profile.yml counts every question and never stops the run.
+function answersOf(root) {
+  if (!root) return null;
+  try {
+    return readProfileAnswers(root) ?? {};
+  } catch {
+    return null;
+  }
+}
+
+// The guided tail: a SETUP line while setup is incomplete, then the pattern rule (T14 off) or the Next/Type/Why block
+// (T14 on). oneLine folds the block into a single line, which sessionStart uses to stay within MAX_LINES.
+export function guidedLines({ dataDir, root = null, t14On = isOn('T14'), oneLine: fold = false }) {
+  const setup = readSetupState(dataDir);
+  const lines = setupComplete(setup) ? [] : ['SETUP: run node student/scripts/setup-flow.mjs and follow its Next line'];
+  if (!t14On) return [...lines, patternRule()];
+  const block = guidedFooter(nextStep({ setup: { ...setup, installed: true, interview: true }, pipeline: pipelineState(dataDir, { answers: answersOf(root) }) }));
+  return [...lines, ...(fold ? [block.join(' ')] : block)];
+}
+
+export async function sessionStart({ root, packRoot, dataDir = resolvePaths({ root }).dataDir, update = runUpdate, refresh = refreshOverride, t14On }) {
   const lines = [];
   try {
     lines.push(...collapseOffline((await update({ root, packRoot, safetyOnly: true })).lines));
@@ -73,12 +99,15 @@ export async function sessionStart({ root, packRoot, update = runUpdate, refresh
   } catch (err) {
     problem = `config problem: ${String(err.message).split('\n')[0]}`;
   }
-  // The last line decides what the agent does next, so it is never the one cut by the line cap.
-  let last;
-  if (!config || !config.onboarding.complete) last = 'INTERVIEW: run student/interview/interview.md before anything else';
-  else last = `outreach=${config.switches.outreach} handshake=${config.switches.handshake} submission=${config.switches.submission}`;
+  // The last lines decide what the agent does next, so they are never the ones cut by the line cap.
+  let tail;
+  if (!config || !config.onboarding.complete) tail = ['INTERVIEW: run student/interview/interview.md before anything else'];
+  else {
+    const on = t14On ?? isOn('T14', { overrides: readOverrides(root) });
+    tail = [`outreach=${config.switches.outreach} handshake=${config.switches.handshake} submission=${config.switches.submission}`, ...guidedLines({ dataDir, root, t14On: on, oneLine: true })];
+  }
   const head = problem ? [problem, ...lines] : lines;
-  return [...head.slice(0, MAX_LINES - 1), last];
+  return [...head.slice(0, MAX_LINES - tail.length), ...tail];
 }
 
 async function main() {
