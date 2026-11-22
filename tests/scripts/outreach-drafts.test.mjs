@@ -16,9 +16,11 @@ import { A, B, C, ACME, GLOBEX, CONTACT_HEADER, contact } from '../helpers/outre
 
 const DAY = '2026-03-10';
 const CV = '# Sample Student\n\nSynthetic fixture resume.\n\nB.S. in Information Systems, expected May 2027.\n\nSkills: Python, SQL, Excel.\n';
-// Model replies are slot JSON (fix 9 RULING: the model writes short slots, code places cv.md facts by id).
-const CLEAN = JSON.stringify({ warm_line: 'Thanks for connecting.', question: 'How did you choose your field?', fact_ids: [] });
-const INVENTED = JSON.stringify({ warm_line: 'Thanks for connecting.', question: 'I have built Kubernetes clusters for your platform team, right?', fact_ids: [99] });
+const CLEAN = 'Thanks for connecting. I would like to hear how you chose your field when you have time.';
+const INVENTED = 'Thanks for connecting. I have built Kubernetes clusters for your platform team.';
+// fix 10 RULING: every draft is checked by a separate verifier call (step 'outreach-verify') that returns
+// {"unsupported": [claims about the student not backed by cv.md]}; this fake flags the invented claim.
+const VERDICT = (prompt) => JSON.stringify({ unsupported: String(prompt).includes('Kubernetes') ? ['built Kubernetes clusters for your platform team'] : [] });
 
 // M-004-S9-osdr
 test('M-004-S9-osdr a drafted message that names a fact absent from cv.md is flagged', async () => {
@@ -33,7 +35,7 @@ test('M-004-S9-osdr a drafted message that names a fact absent from cv.md is fla
       ago(3, 'linkedin.accept', A, ACME),
       ago(3, 'linkedin.accept', C, GLOBEX),
     ]);
-    const headless = async (opts) => ({ text: String(opts.prompt).includes(ACME) ? INVENTED : CLEAN, model: 'sonnet', usage: null });
+    const headless = async (opts) => ({ text: opts.step === 'outreach-verify' ? VERDICT(opts.prompt) : String(opts.prompt).includes(ACME) ? INVENTED : CLEAN, model: 'sonnet', usage: null });
     const said = [];
     const result = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, replies: [], deps: { headless }, say: (s) => said.push(String(s)) });
 
