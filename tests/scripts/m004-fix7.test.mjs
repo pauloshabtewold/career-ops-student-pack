@@ -152,13 +152,12 @@ const LIVE_PEOPLE = { 'warm-opener': 'Alice Alpha', connect: 'Carl Connect', 'fo
 const LIVE_COMPANY = { 'warm-opener': ACME, connect: 'Wayne Example', 'follow-up': 'Umbrella Example', reply: INITECH };
 
 
-test('fix 7 (fix 10) every live round 3 and round 4 draft passes the rails; an over-long opener is the length rail, nothing else', () => {
+test('fix 7 (fix 10) every live round 3 and round 4 draft passes the rails with no flag', () => {
   assert.equal(LIVE_DRAFTS.length, 24);
   for (const d of LIVE_DRAFTS) {
     const job = d.action === 'application-follow-up' ? APP : person(LIVE_PEOPLE[d.action], LIVE_COMPANY[d.action], d.action, d.action === 'connect' ? { noteChars: 300 } : d.action === 'reply' ? { replyText: 'Which team interests you?' } : {});
     const r = check(d.text, job);
-    const flags = r.flags.filter((f) => !/^opener of \d+ characters exceeds the 299 limit$/.test(f));
-    assert.deepEqual(flags, [], `${d.src} ${d.action}: ${r.text}`);
+    assert.deepEqual(r.flags, [], `${d.src} ${d.action}: ${r.text}`);
     if (job === APP) assert.equal(r.text.match(/November 14, 2026/g).length, 1, `${d.src}: the date once: ${r.text}`);
   }
 });
