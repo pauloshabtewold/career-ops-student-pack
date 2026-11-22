@@ -10,7 +10,7 @@
 //    checker to return [], a duplicate key), written here as synthetic data.
 // C. one draft's call that throws, times out or answers malformed output holds only that draft; the round goes on, the
 //    other drafts are batched and their usage-ledger rows stay; each call carries OUTREACH_CALL_TIMEOUT_MS.
-// D. the r9 NITs: N1 one re-verify on a malformed verdict, N2 placeholder shapes, N3 any-TLD bare domains, N4 claims kept
+// D. the r9 NITs: N1 one re-verify on a malformed verdict, N2 placeholder shapes, N3 any-TLD links (fix 12 B: bare domains go to the verifier), N4 claims kept
 //    in a later rail flag, N5 NFKC before the greeting strip, N6 {title}/{applied_date} by kind, N7 cv proper nouns.
 // F. live round 8 title inflation: the verify prompt holds the title rule with a worked example and an EXACT TITLES HELD
 //    block that code copied from cv.md (a hint, not a rail); a verifier following the contract flags the 3a drafts.
@@ -264,8 +264,14 @@ test('fix 11 D N2 the remaining placeholder shapes are rail failures, matched ag
   }
 });
 
-test('fix 11 D N3 a bare domain with any TLD the student data does not hold counts as a link', () => {
-  for (const d of ['samplace.ca', 'sam-portfolio.de', 'samplace.in', 'sam.ru', 'samplace.museum']) assert.match(flagsOf(`My site is ${d}. What is new?`), new RegExp(`a link or email address your data does not hold: ${d.replace('.', '\\.')}`), d);
+// Fix 12 B drops the bare-domain rule (review r10 S2 and N4): http(s)://, www. and an email address with any TLD stay rails.
+test('fix 11 D N3 (fix 12 B) a link with any TLD the student data does not hold is a rail failure; a bare domain is left to the verifier', () => {
+  for (const d of ['samplace.ca', 'sam-portfolio.de', 'samplace.in', 'sam.ru', 'samplace.museum']) {
+    assert.match(flagsOf(`My site is https://${d}. What is new?`), new RegExp(`a link or email address your data does not hold: https://${d.replace('.', '\\.')}`), d);
+    assert.match(flagsOf(`My site is www.${d}. What is new?`), new RegExp(`a link or email address your data does not hold: www\\.${d.replace('.', '\\.')}`), d);
+    assert.match(flagsOf(`Write me at sam@${d}. What is new?`), new RegExp(`sam@${d.replace('.', '\\.')}`), d);
+    assert.equal(flagsOf(`My site is ${d}. What is new?`), '', d);
+  }
   assert.equal(flagsOf('Write me at sam@example.com any time. What is new?'), '');
 });
 

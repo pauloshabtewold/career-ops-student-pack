@@ -224,7 +224,8 @@ test('fix 10 D the other rails: Subject line, blank-line runs, length caps, link
   assert.match(f('Your posts on testing are a great read and I would like to connect.', person('Carl Connect', 'Wayne Example', 'connect', { noteChars: 40 })), /note of \d+ characters exceeds the 40 limit/);
   assert.match(f('See https://portfolio.example.net/sam for more. What is new?'), /link or email address your data does not hold: https:\/\/portfolio\.example\.net\/sam/);
   assert.match(f('Write me at sam.p@example.org. What is new?'), /sam\.p@example\.org/);
-  assert.match(f('My site is samplace.dev. What is new?'), /samplace\.dev/);
+  assert.match(f('My site is www.samplace.dev. What is new?'), /www\.samplace\.dev/);
+  assert.equal(f('My site is samplace.dev. What is new?'), '', 'fix 12 B: a bare domain is left to the verifier');
   assert.equal(f('Write me at sam@example.com any time. What is new?'), '', 'the profile email is the student\'s own');
   assert.match(f('Would you be open to referring me? What is new?'), /referral in a first message/);
   assert.match(f('Best regards,\nSam Placeholder'), /no body/);

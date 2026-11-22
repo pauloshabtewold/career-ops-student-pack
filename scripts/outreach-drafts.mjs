@@ -278,7 +278,9 @@ const PLACEHOLDER_RAILS = [
   /(?<![\p{L}])(?:company|first|last|full|job|your|recruiter|manager|contact|applied|hiring)(?:Name|Title|Date|Manager)(?![\p{L}])/u,
 ];
 const SNAKE = /(?<![\p{L}\p{N}@.])[\p{L}\p{N}]+(?:_[\p{L}\p{N}]+)+(?![\p{L}\p{N}@])/gu;
-const LINKS = /https?:\/\/[^\s<>"')\]]+|www\.[^\s<>"')\]]+|[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.\p{L}{2,}|(?<![\p{L}\p{N}@./-])[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}(?:\/[^\s<>"')\]]*)?(?![\p{L}\p{N}])/giu;
+// Only certain link shapes: http(s)://, www. and an email address. A bare domain ("samplace.dev") is left to the
+// verifier, which lists links and websites, since "Node.js" or a company such as "Placehold.io" looks the same.
+const LINKS = /https?:\/\/[^\s<>"')\]]+|www\.[^\s<>"')\]]+|[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.\p{L}{2,}/giu;
 
 export function rails(final, job, { sources = '' } = {}) {
   const text = String(final);
@@ -298,7 +300,7 @@ export function rails(final, job, { sources = '' } = {}) {
   if (job.action === 'connect' && text.length > job.noteChars) flags.push(`note of ${text.length} characters exceeds the ${job.noteChars} limit`);
   if (job.action === 'warm-opener' && text.length > OPENER_CHARS) flags.push(`opener of ${text.length} characters exceeds the ${OPENER_CHARS} limit`);
   if (FIRST_MESSAGES.includes(job.action) && REFERRAL_ASK.test(text)) flags.push('asks for a referral in a first message');
-  const known = `${sources}\n${job.to ?? ''}\n${job.replyText ?? ''}`.toLowerCase();
+  const known = [sources, job.to, job.replyText, job.contact?.company, job.application?.company].map((t) => t ?? '').join('\n').toLowerCase();
   const links = [...text.matchAll(LINKS)].map((m) => m[0].replace(/[.,;:!?]+$/, '')).filter((l) => !known.includes(l.toLowerCase()));
   if (links.length) flags.push(`a link or email address your data does not hold: ${[...new Set(links)].join(', ')}`);
   return flags;

@@ -2,11 +2,13 @@
 // M-004 fix 12 (review r10 S1, S2 and NITs, scope-check trims). These tests pin:
 // A. the KNOWN TRUE block holds no outside text: the contact is "the reader" and the posting title is never in it; a
 //    contact name with a line break, a control character or over 80 characters is held with no model call.
+// B. the link rail keeps only http(s)://, www. and email addresses; the company name and the student's own data are
+//    known text, so a follow-up to "Placehold.io" batches (review r10 S2) and "Node.js" is no link (N4).
 // Scratch roots, example.com addresses and an injected headless runner: no real model, network, Gmail or LinkedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as od from '../../scripts/outreach-drafts.mjs';
-import { APP, CV, GLOBEX, INITECH, TITLE, knownIn, round } from '../helpers/outreach-verify-harness.mjs';
+import { ALICE, APP, CV, GLOBEX, INITECH, SOURCES, TITLE, knownIn, person, round } from '../helpers/outreach-verify-harness.mjs';
 
 const HONEST = 'Thanks for asking. What does your team work on most?';
 
@@ -48,4 +50,26 @@ test('fix 12 A a posting title carrying a claim is in neither the application re
   assert.ok(!od.knownTrueFacts(APP).join('\n').includes(TITLE));
   assert.ok(!od.frameSentences(APP).join('\n').includes(TITLE));
   assert.ok(od.verifyPrompt({ cv: CV, job: APP, draft: 'x' }).includes(`role: ${TITLE}`), 'the title stays reader data in the fenced READER block');
+});
+
+// B. Review r10 S2: a company name with a TLD.
+const APP_BODY = 'The focus on practical internal tools stands out, and I built something similar at my internship. I am happy to send code samples.';
+
+test('fix 12 B an application follow-up to "Placehold.io" batches on a clean verdict: one drafting call, one verify call', async () => {
+  const followup = { target: 'https://jobs.example.com/placehold/intern', company: 'Placehold.io', submitted: '2026-11-14', email: 'recruiter@example.com' };
+  const out = await round({ followups: [followup], drafts: [APP_BODY] });
+  assert.deepEqual(out.res.flagged, []);
+  assert.equal(out.items.length, 1);
+  assert.equal(out.drafting.length, 1);
+  assert.equal(out.verifies.length, 1);
+  assert.match(out.items[0].message, /^Hello Placehold\.io hiring team,\n\nI applied for a role at Placehold\.io on November 14, 2026, and I wanted to follow up\./);
+});
+
+test('fix 12 B a contact draft naming a company with a TLD, and tech names with a dot, are no link; real links still are', () => {
+  const ai = person('Eve Example', 'Example.ai');
+  assert.deepEqual(od.checkDraft('What is the work at {company} like these days?', ai, { sources: SOURCES }).flags, []);
+  assert.deepEqual(od.checkDraft('I use Node.js and Vue.js, and some ASP.NET. What is new?', ALICE, { sources: SOURCES }).flags, []);
+  assert.match(od.checkDraft('See https://example.ai/jobs for more. What is new?', ai, { sources: SOURCES }).flags.join('; '), /link or email address your data does not hold: https:\/\/example\.ai\/jobs/);
+  assert.deepEqual(od.checkDraft('What is new at {company}?', person('Wes Web', 'www.example.ai'), { sources: SOURCES }).flags, [], 'the company name is known text');
+  assert.match(od.checkDraft('Write me at sam.p@example.org. What is new?', ALICE, { sources: SOURCES }).flags.join('; '), /sam\.p@example\.org/);
 });
