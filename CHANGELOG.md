@@ -4,6 +4,10 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.8.0 (2026-11-21)
+
+- Merge branch 'claude/v2-p1'
+
 ## v0.7.0 (2026-11-21)
 
 - Merge branch 'claude/v2-p0'
