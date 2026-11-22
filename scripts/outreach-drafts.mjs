@@ -13,13 +13,13 @@
 // An application follow-up reaches a batch only with an address the student sees: an email logged on the application's
 // apply rows, else a recruiter or hiring contact at the company in contacts.tsv (role and email columns) who has not
 // declined. A follow-up with neither is left out and listed under "needs an address"; --followup-to supplies one.
-// The fact gate grounds each draft in cv.md plus the names that make no claim: the contact's full and first name, the
-// application's submit date, the sender's config/profile.yml candidate block, "Hiring team" and the document words CV,
-// résumé and resume. The company, the application's job title (its data/pipeline.md row) and the contact's contacts.tsv
-// role reach the gate only as its company and role names, so they pass in the gate's fixed contexts (at <Company>, the
-// <Title> role) plus a greeting to the company's team and the application itself, and "I interned at <Company>" or "I
-// worked as a <Title>" still needs cv.md. An acronym the draft uses (CS, TA) passes when cv.md or the profile holds it
-// as is or spells it out on one line with the first word capitalized (Computer Science).
+// Target names are structural: the model writes {first_name}, {company}, {title} and {applied_date} and never the
+// company name, job title or submit date themselves. A draft that writes one as is gets one retry stating why, then is
+// flagged. Claims about {company} or {title} are judged per sentence (targetClaims), and the fact gate then checks the
+// rest against cv.md plus the names that make no claim: the contact's full and first name, the sender's
+// config/profile.yml candidate block, "Hiring team" and the document words CV, résumé and resume. The submit date and
+// the company are never allowed source. An acronym passes when cv.md or the profile holds it, or holds its expansion
+// from the fixed ACRONYMS table. The real values are filled in only after every check passes.
 // Usage: outreach-drafts.mjs [--replies FILE] [--root R] [--data-dir D] [--today YYYY-MM-DD]
 //        outreach-drafts.mjs --followup-to <application url or company> <email>
 //   --replies: JSON [{ name, company, text, channel?, email?, subject? }] of incoming replies read from LinkedIn or Gmail.
@@ -80,12 +80,41 @@ export function sortReply(text) {
   return 'needs-answer';
 }
 
-// Prompt for one outreach draft: the ask for the action, the cv, the contact and any reply text.
+// The placeholders a draft writes for its target names. The model never writes the company, job title or submit date
+// itself; code puts the real values in only after every check has passed.
+const PLACEHOLDER_HINT = {
+  first_name: "{first_name} for the contact's first name",
+  company: '{company} for their company',
+  title: '{title} for the job title',
+  applied_date: '{applied_date} for the date you applied',
+};
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const isoParts = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? '').trim());
+  return m ? { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) } : null;
+};
+
+// The value of each placeholder for one job; '' when the job has none (a person draft has no {title}).
+export function placeholderValues(job) {
+  const first = job.action !== 'application-follow-up' ? String(job.contact?.name ?? '').trim().split(/\s+/)[0] : '';
+  const date = isoParts(job.application?.submitted);
+  return {
+    first_name: first,
+    company: String(job.contact?.company ?? '').trim(),
+    title: String(job.application?.title ?? '').trim(),
+    applied_date: date ? `${MONTHS[date.mo - 1]} ${date.d}, ${date.y}` : '',
+  };
+}
+
+// Prompt for one outreach draft: the ask for the action, the placeholder rule, the cv, the contact and any reply text.
 export function draftPrompt({ action, cv, contact, replyText = '', application = null, noteChars = 0, channel = 'linkedin' }) {
   const ask = typeof ASK[action] === 'function' ? ASK[action]({ noteChars }) : ASK[action];
+  const values = placeholderValues({ action, contact, application });
+  const hints = Object.keys(PLACEHOLDER_HINT).filter((k) => values[k]).map((k) => PLACEHOLDER_HINT[k]);
   return [
     ask,
     'Use only facts from the CV below and the contact details given. Never invent an employer, title, number, skill or shared connection.',
+    `Write ${hints.join(', ')}, exactly with the braces. Never write the company name, job title or date themselves; they are filled in later.`,
     'Plain words, straight quotes, no dashes as punctuation. Reply with the message only.',
     ...(channel === 'email' ? ['Write only the email body: no subject line, start with the greeting.'] : []),
     '',
@@ -104,13 +133,13 @@ const DOCUMENT_WORDS = Object.freeze(['CV', 'résumé', 'resume']);
 const valuesOf = (v) => (v === null || v === undefined ? [] : typeof v === 'object' ? Object.values(v).flatMap(valuesOf) : [String(v)]);
 
 // The facts that belong to one draft and make no claim, given to the fact gate as allowed source next to cv.md: the
-// contact's full and first name, the application's submit date, the sender's profile fields, and "Hiring team", the name
-// an application follow-up greets, plus DOCUMENT_WORDS. The company, job title and contact role are left out: as allowed
-// source they would ground "I interned at <Company>" anywhere.
+// contact's full and first name, the sender's profile fields, and "Hiring team", the name an application follow-up
+// greets, plus DOCUMENT_WORDS. The company, job title, contact role and submit date are never allowed source: the first
+// three would ground "I interned at <Company>" and the date's numbers would ground "14 students".
 export function draftFacts(job, { candidate = {} } = {}) {
   const { name } = job.contact;
   const first = job.action !== 'application-follow-up' ? String(name ?? '').trim().split(/\s+/)[0] : '';
-  return [name, first, job.application?.submitted, ...valuesOf(candidate), HIRING_TEAM, ...DOCUMENT_WORDS].filter((v) => typeof v === 'string' && v.trim());
+  return [name, first, ...valuesOf(candidate), HIRING_TEAM, ...DOCUMENT_WORDS].filter((v) => typeof v === 'string' && v.trim());
 }
 
 // The contact's contacts.tsv roles, which the gate takes as role names (allowed only in its fixed contexts).
@@ -121,44 +150,138 @@ export function contactRoles(job, contactRows = []) {
 }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-// Contexts that name the target company or job title and make no claim, which the gate's fixed contexts miss: a greeting
-// to the company's team at the start of a line ("Hello Acme hiring team,"), the application itself ("I applied for the
-// <Title> position", "I applied to Acme") and curiosity about the company with no first-person word between ("I'm curious
-// about the work at Acme"). The copy the gate checks has the name blanked there; anywhere else the gate checks it as the
-// company or role name.
-export function maskTargetNames(text, { company = '', title = '' } = {}) {
-  const blank = (m, pre) => pre + ' '.repeat(m.length - pre.length);
-  let out = String(text ?? '');
-  const c = String(company ?? '').trim();
-  const t = String(title ?? '').trim();
-  if (c) out = out.replace(new RegExp(`^([ \\t]*(?:hi|hello|hey|dear|greetings)[ \\t]+(?:the[ \\t]+)?)${escapeRe(c)}(?=(?:'s)?[ \\t]+(?:(?:hiring|recruiting|recruitment|talent)[ \\t]+)?team(?![\\p{L}]))`, 'gimu'), blank);
-  const applied = `((?<![\\p{L}'])i(?:'ve|\\s+have)?(?:\\s+(?:recently|just|already))?\\s+applied\\s+(?:to\\s+(?=(?:for|as)\\s))?(?:for|to|as)\\s+(?:(?:the|your|this|a|an)\\s+)?)`;
-  for (const n of [c, t]) if (n) out = out.replace(new RegExp(`${applied}${escapeRe(n)}(?![\\p{L}\\p{N}])`, 'giu'), blank);
-  if (c) out = out.replace(new RegExp(`((?<![\\p{L}])curious\\s+(?:about|to\\s+(?:learn|hear|know))(?![\\p{L}])(?:(?!(?<![\\p{L}'])(?:i|i'm|we|my|me|our|us)(?![\\p{L}']))[^.;!?\\n]){0,60}?[^\\p{L}](?:at|with|from|of)\\s+(?:the\\s+)?)${escapeRe(c)}(?![\\p{L}\\p{N}])`, 'giu'), blank);
+const wholeWord = (s, flags = 'iu') => new RegExp(`(?<![\\p{L}\\p{N}])${s}(?![\\p{L}\\p{N}])`, flags);
+
+// The company's initials when it has two or more words (International Business Machines -> IBM).
+function initialsOf(company) {
+  const words = String(company ?? '').split(/\s+/).filter((w) => /^\p{L}/u.test(w));
+  return words.length >= 2 ? words.map((w) => w[0].toUpperCase()).join('') : '';
+}
+
+// The submit date written out in the usual forms: 2026-11-14, November 14(th)(, 2026), Nov. 14, 14 November, 14th of
+// Nov, 11/14, 14/11.
+function dateRe(iso) {
+  const p = isoParts(iso);
+  if (!p) return null;
+  const month = `(?:${MONTHS[p.mo - 1]}|${MONTHS[p.mo - 1].slice(0, 3)}\\.?)`;
+  const day = `0?${p.d}(?:st|nd|rd|th)?`;
+  const mo = `0?${p.mo}`;
+  return wholeWord(`(?:${p.y}-${mo}-0?${p.d}|${month}\\s+${day}|${day}\\s+(?:of\\s+)?${month}|${mo}/0?${p.d}(?:/\\d{2,4})?|0?${p.d}/${mo}(?:/\\d{2,4})?)`);
+}
+
+// The target names a draft wrote as is instead of as placeholders: the company (or its initials), the job title and
+// the submit date. A company or title the student's own text holds as is (cv.md names it) is the student's fact, not a
+// target name, and is left to the gate.
+export function literalTargets(text, job, ownText = '') {
+  const t = String(text ?? '');
+  const v = placeholderValues(job);
+  const held = (s) => wholeWord(escapeRe(s)).test(ownText);
+  const out = [];
+  for (const n of [v.company, v.title]) if (n && wholeWord(escapeRe(n)).test(t) && !held(n)) out.push(n);
+  const initials = initialsOf(v.company);
+  if (initials && wholeWord(initials, 'u').test(t) && !held(initials)) out.push(initials);
+  const date = dateRe(job.application?.submitted)?.exec(t);
+  if (date) out.push(date[0]);
   return out;
 }
 
+// Placeholders the draft used that have no value for this job, or that are not placeholders at all.
+function badPlaceholders(text, job) {
+  const v = placeholderValues(job);
+  return [...new Set([...String(text ?? '').matchAll(/\{([^{}\s]{1,40})\}/g)].map((m) => m[1]))].filter((k) => !v[k]);
+}
+
+// Claims about {company} or {title}, judged sentence by sentence. In a sentence that holds one, these are claims:
+// - a first-person experience verb (I interned, we built, I've worked, I was, I'm ...) before the placeholder with no
+//   apply, join or wish word between them, or anywhere after it;
+// - a where/who/when clause right after it ("{company}, where I interned");
+// - "hired/trained/mentored ... me", "my internship/summer/role at {company}", "my time as a {title}";
+// - return, rejoin, back, again, former or previous ("back at {company}", "a former {title}");
+// - after/before/while/since interning, working or my internship ("the {title} role after interning there").
+// The apply and wish verbs themselves (applied, submitted, reached, wanted, hoped ...), "I saw/noticed/read/heard/learned
+// that/about/how" and a be verb with a wish word within three words ("I am still very interested") make no claim. "Hello {company} hiring team,", "I applied for the {title} role at {company} on {applied_date}" and "I'm
+// curious about the work at {company}" pass.
+const EXP_ADVERB = 'have|has|had|already|also|currently|still|recently|previously|once|regularly|often|now|just|even|been|personally|actually|both|all|then|later|first|proudly|formerly|briefly';
+const EXP_VERB = 'am|are|was|were|been|know|knows|use|uses|write|writes|build|builds|work|works|working|run|runs|lead|leads|manage|manages|own|owns|maintain|maintains|teach|teaches|intern|interns|interning|hold|holds|serve|serves|code|develop|develops|support|supports|analyze|analyse|built|wrote|written|led|ran|made|took|taken|got|won|spent|sent|kept|brought|gave|knew|known|met|began|begun|grew|drove|found|sold|paid|set|put|cut|became|came|went|left|taught|held|did|done|had|saw|seen|fed|bought|caught|dealt|rode|spoke|stood|understood|sat|wore|read|heard';
+const EXP_CLAIM = new RegExp(`(?<![\\p{L}'])(?:i|we)(?:'m|'re|(?:'ve|'d)?(?:\\s+(?:${EXP_ADVERB}))*\\s+(${EXP_VERB}|\\p{L}*[a-df-z]ed))(?![\\p{L}])`, 'gu');
+const NO_CLAIM_VERB = new Set(['applied', 'reapplied', 'submitted', 'reached', 'wanted', 'hoped', 'wished', 'planned', 'aimed', 'decided', 'meant', 'thought']);
+const BE_VERB = new Set([undefined, 'am', 'are', 'was', 'were', 'been']);
+const LEARNED_OF = new Set(['saw', 'noticed', 'read', 'heard', 'learned']);
+const WISH_FRAME = /(?<![\p{L}])(?:apply|applying|applied|application|join|joining|interview\p{L}*|would|could|can|will|hope\p{L}*|lov\p{L}*|like|eager|excit\p{L}*|glad|keen|want\p{L}*|wish\p{L}*|chance|opportunity|ready|forward|interest\p{L}*|inspir\p{L}*|impress\p{L}*|drawn|attract\p{L}*|admir\p{L}*|thrill\p{L}*|delight\p{L}*|plan|planning|aim|aiming|seek|seeking|curious|open\s+to)(?![\p{L}])|'d(?![\p{L}])/gu;
+const RELATIVE_AFTER = /^(?:'s)?(?:\s+[\p{L}-]+){0,3}?\s*,?\s+(?:where|who|when)(?![\p{L}])/u;
+const EMPLOYED_ME = /(?<![\p{L}])(?:hired|employed|trained|mentored|paid|promoted|recruited|onboarded|supervised|taught)\s+(?:me|us)(?![\p{L}])/u;
+const MY_WORK = /(?<![\p{L}])my\s+(?:[\p{L}-]+\s+){0,2}?(?:internship|job|work|role|time|summer|position|experience|manager|employer|team|supervisor|boss|colleagues|coworkers|days|years?|title)\s+(?:at|with|for|from|as|on)\s+(?:(?:the|a|an)\s+)?(?:[\p{L}-]+\s+){0,3}?\{(?:company|title)\}/u;
+const RETURN_WORD = /(?<![\p{L}])(?:return\p{L}*|rejoin\p{L}*|back|again|former|previous|ex-)(?![\p{L}])/u;
+const AFTER_WORK = /(?<![\p{L}])(?:after|before|while|since|during|from)\s+(?:my\s+)?(?:interning|working|serving|volunteering|training|internship|employment|time\s+there|summer\s+there|years?\s+there)(?![\p{L}])/u;
+const TARGET = /\{(?:company|title)\}/g;
+
+const placeholderSentences = (text) => String(text ?? '').split(/(?<=[.!?:])\s+|\n+/).filter((s) => /\{(?:company|title)\}/.test(s));
+
+export function targetClaims(text) {
+  const out = [];
+  for (const sentence of placeholderSentences(text)) {
+    const lower = sentence.toLowerCase();
+    const claims = [...lower.matchAll(EXP_CLAIM)].filter((m) => {
+      const verb = m[1];
+      if (verb && NO_CLAIM_VERB.has(verb)) return false;
+      const rest = lower.slice(m.index + m[0].length);
+      if (verb && LEARNED_OF.has(verb) && /^\s+(?:that|about|how)(?![\p{L}])/u.test(rest)) return false;
+      // "I am still very interested", "I'm curious", "I was excited to apply": a be verb with a wish word right after it.
+      if (BE_VERB.has(verb) && /^(?:\s+[\p{L}']+){0,3}/u.exec(rest)[0].match(WISH_FRAME)) return false;
+      return true;
+    }).map((m) => ({ start: m.index, end: m.index + m[0].length }));
+    const frames = [...lower.matchAll(WISH_FRAME)].map((m) => m.index + m[0].length);
+    const targets = [...lower.matchAll(TARGET)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
+    const claimed = targets.some((t) => claims.some((c) => (c.start >= t.end ? true : c.end <= t.start && !frames.some((f) => f > c.end && f <= t.start)))
+      || RELATIVE_AFTER.test(lower.slice(t.end)));
+    if (claimed || EMPLOYED_ME.test(lower) || MY_WORK.test(lower) || RETURN_WORD.test(lower) || AFTER_WORK.test(lower)) out.push(sentence.trim());
+  }
+  return out;
+}
+
+// Acronyms a student draft may use, each with the expansions that ground it. An acronym passes when the student's own
+// text (cv.md, the profile) holds it as is, or when it is in this table and the own text holds one of its expansions on
+// one line in any case. Nothing in the draft is rewritten.
+export const ACRONYMS = Object.freeze({
+  CS: ['computer science'],
+  CE: ['computer engineering'],
+  EE: ['electrical engineering'],
+  IT: ['information technology'],
+  IS: ['information systems'],
+  TA: ['teaching assistant'],
+  RA: ['research assistant'],
+  GPA: ['grade point average'],
+  CV: ['curriculum vitae'],
+  US: ['united states'],
+  USA: ['united states'],
+  AI: ['artificial intelligence'],
+  ML: ['machine learning'],
+  NLP: ['natural language processing'],
+  UX: ['user experience'],
+  UI: ['user interface'],
+  SQL: ['structured query language'],
+  API: ['application programming interface'],
+  HR: ['human resources'],
+  QA: ['quality assurance'],
+  BS: ['bachelor of science'],
+  BA: ['bachelor of arts'],
+  MS: ['master of science'],
+  MA: ['master of arts'],
+  MBA: ['master of business administration'],
+});
 const ACRONYM = /(?<![\p{L}\p{N}])\p{Lu}{2,5}(?![\p{L}\p{N}])/gu;
-const SPELL_STOP = new Set(['and', 'for', 'from', 'the', 'with']);
-// The draft with each all-capitals acronym (CS, TA) that ownText lacks as is but spells out (Computer Science, Teaching
-// assistant) replaced by the spelled-out words as ownText writes them, so the gate checks the student's own words. A
-// spelling-out stands on one line, its first word is capitalized and is not a past-tense verb (a bullet such as "Managed
-// budget allocation" is a task, not MBA), and no word is a stop word. After a capitalized word ("Data Structures TA") the
-// spelled-out words follow a comma, so the gate checks them and that name each as their own run. An acronym ownText
-// neither holds nor spells out is left as written, and the gate flags it.
-export function spellOutAcronyms(text, ownText) {
+
+// The acronyms of the draft that the own text grounds through ACRONYMS (held as is needs no help from here).
+export function groundedAcronyms(text, ownText) {
   const own = String(ownText ?? '');
-  return String(text ?? '').replace(ACRONYM, (a, at, whole) => {
-    if (new RegExp(`(?<![\\p{L}\\p{N}])${a}(?![\\p{L}\\p{N}])`, 'u').test(own)) return a;
-    const [first, ...rest] = [...a];
-    const spelled = new RegExp(`(?<![\\p{L}\\p{N}])${first}\\p{L}{2,}${rest.map((ch) => `[ \\t-]+[${ch}${ch.toLowerCase()}]\\p{L}{2,}`).join('')}(?![\\p{L}\\p{N}])`, 'gu');
-    const hit = [...own.matchAll(spelled)].find((m) => {
-      const words = m[0].split(/[ \t-]+/);
-      return !/ed$/i.test(words[0]) && !words.some((w) => SPELL_STOP.has(w.toLowerCase()));
-    });
-    if (!hit) return a;
-    return /\p{Lu}\p{L}*[ \t]+$/u.test(whole.slice(Math.max(0, at - 40), at)) ? `, ${hit[0]}` : hit[0];
-  });
+  const found = new Set(String(text ?? '').match(ACRONYM) ?? []);
+  return [...found].filter((a) => (ACRONYMS[a] ?? []).some((x) => new RegExp(`(?<![\\p{L}\\p{N}])${x.split(' ').map(escapeRe).join('[ \\t-]+')}(?![\\p{L}\\p{N}])`, 'iu').test(own)));
+}
+
+// The draft with its placeholders filled in.
+export function fillPlaceholders(text, job) {
+  const v = placeholderValues(job);
+  return String(text ?? '').replace(/\{([a-z_]+)\}/g, (m, k) => (v[k] ? v[k] : m));
 }
 
 // A leading "Subject: ..." line (plain or **bold**) a model puts on an email draft, with the blank line after it; the item
@@ -168,33 +291,62 @@ export const stripSubjectLine = (text) => String(text ?? '').replace(LEADING_SUB
 // Three or more line breaks in a row (blank lines holding spaces too) become one blank line.
 const EXTRA_BLANK_LINES = /\n(?:[ \t]*\n){2,}/g;
 
-// One draft. A connection request with no note left this week is an item with an empty note and no model call. A note
-// over the limit is asked for once more with the limit and the overrun stated; a second note over the limit is flagged,
-// never cut.
+// The flags for one placeholder draft (empty when it may be batched): empty text, a note over the limit, a referral ask in
+// a first message, target names written as is, placeholders with no value, claims about {company} or {title}, and the
+// fact gate's unsupported items.
+export function draftChecks(text, job, { cv = '', facts = [] } = {}) {
+  const ownText = [cv, ...facts].join('\n');
+  const flags = [];
+  if (!text.trim()) flags.push('the draft is empty');
+  const filled = fillPlaceholders(text, job);
+  if (job.action === 'connect' && filled.length > job.noteChars) flags.push(`note of ${filled.length} characters exceeds the ${job.noteChars} limit`);
+  if (FIRST_MESSAGES.includes(job.action) && REFERRAL_ASK.test(text)) flags.push('asks for a referral in a first message');
+  const again = literalTargets(text, job, ownText);
+  if (again.length) flags.push(`writes ${again.join(', ')} as is instead of {company}, {title} or {applied_date}`);
+  const bad = badPlaceholders(text, job);
+  if (bad.length) flags.push(`uses ${bad.map((k) => `{${k}}`).join(', ')}, which this draft has no value for`);
+  const claims = targetClaims(text);
+  if (claims.length) flags.push(`makes a claim about the company or job title: ${claims.map((s) => `"${s}"`).join('; ')}`);
+  const acronyms = groundedAcronyms(text, ownText);
+  // The gate reads the text with each placeholder blanked: its claims were judged above, and its value is not cv text.
+  const missing = factCheck(text.replace(/\{[a-z_]+\}/g, (m) => ' '.repeat(m.length)), { cv, answers: [...facts, ...acronyms], acronyms, extra: [job.contact.name, ...(job.roles ?? []), job.replyText ?? '', job.application?.target ?? ''] });
+  if (missing.length) flags.push(`names facts absent from cv.md: ${missing.join(', ')}`);
+  return flags;
+}
+
+const LITERAL_FIX = 'Write {company}, {title} and {applied_date} in their place, exactly with the braces.';
+
+// One draft. A connection request with no note left this week is an item with an empty note and no model call. The model
+// writes placeholders for the target names. When its draft writes a target name as is, or a note runs over the limit, it
+// is asked once more with the reason stated; a second miss is flagged, never cut. The checks run on the placeholder
+// text: target names written as is, unknown placeholders, claims about {company} or {title}, then the fact gate against
+// cv.md and the draft's facts. Only a draft that passes gets its placeholders filled in.
 async function draftOne(job, { cv, agent, dataDir, date, headless, source }) {
   if (job.action === 'connect' && !job.noteChars) return { ...job, text: '', flags: [] };
+  const facts = job.facts ?? [];
+  const ownText = [cv, ...facts].join('\n');
   const call = async (prompt) => {
     const res = await headless({ agent, prompt, step: `outreach-${job.action}`, feature: FEATURE[job.action], dataDir, date, source });
     const t = clean(res.text);
     return job.channel === 'email' ? stripSubjectLine(t).replace(EXTRA_BLANK_LINES, '\n\n') : t;
   };
+  const overrun = (t) => (job.action === 'connect' ? fillPlaceholders(t, job).length - job.noteChars : 0);
   const prompt = draftPrompt({ ...job, cv });
   let text = await call(prompt);
-  if (job.action === 'connect' && text.length > job.noteChars) {
-    text = await call(`${prompt}\n\nYour last note was ${text.length} characters, ${text.length - job.noteChars} over the hard limit of ${job.noteChars}. Write a complete note of at most ${job.noteChars} characters.`);
+  const reasons = [];
+  if (overrun(text) > 0) {
+    const n = fillPlaceholders(text, job).length;
+    reasons.push(`Your last note was ${n} characters, ${n - job.noteChars} over the hard limit of ${job.noteChars}. Write a complete note of at most ${job.noteChars} characters.`);
   }
-  if (job.action === 'warm-opener' && text.length > OPENER_CHARS) text = `${text.slice(0, OPENER_CHARS - 1).replace(/\s+\S*$/, '')}.`;
-  const flags = [];
-  if (!text.trim()) flags.push('the draft is empty');
-  if (job.action === 'connect' && text.length > job.noteChars) flags.push(`note of ${text.length} characters exceeds the ${job.noteChars} limit`);
-  if (FIRST_MESSAGES.includes(job.action) && REFERRAL_ASK.test(text)) flags.push('asks for a referral in a first message');
-  const facts = job.facts ?? [];
-  const company = job.contact.company;
-  const title = job.application?.title ?? '';
-  const checked = spellOutAcronyms(maskTargetNames(text, { company, title }), [cv, ...facts].join('\n'));
-  const missing = factCheck(checked, { cv, answers: facts, company, role: title, extra: [job.contact.name, ...(job.roles ?? []), job.replyText ?? '', job.application?.target ?? ''] });
-  if (missing.length) flags.push(`names facts absent from cv.md: ${missing.join(', ')}`);
-  return { ...job, text, flags };
+  const literal = literalTargets(text, job, ownText);
+  if (literal.length) reasons.push(`Your last draft wrote ${literal.map((x) => `"${x}"`).join(', ')} as is. ${LITERAL_FIX}`);
+  if (reasons.length) text = await call(`${prompt}\n\n${reasons.join('\n')}`);
+
+  const flags = draftChecks(text, job, { cv, facts });
+  const filled = fillPlaceholders(text, job);
+  let out = filled;
+  if (job.action === 'warm-opener' && out.length > OPENER_CHARS) out = `${out.slice(0, OPENER_CHARS - 1).replace(/\s+\S*$/, '')}.`;
+  return { ...job, text: out, flags };
 }
 
 // Replies T6 sorts out of the AI step: none while T6 is off; with T6 on, the thanks and no replies.
