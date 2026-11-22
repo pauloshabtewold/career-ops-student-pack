@@ -103,7 +103,7 @@ test('fix 11 A knownTrueFacts reads only records: the application record, else t
   assert.deepEqual(od.knownTrueFacts(NORA, { actionRows: rows, contactRows: [{ date: '2026-11-12', company: 'Umbrella Example', name: 'Nora Nudge', stage: 'accepted' }] }), [
     'On November 10, 2026, the student sent the reader a LinkedIn connection request with a note.',
     'On November 12, 2026, the reader accepted the student\'s LinkedIn connection request.',
-    'On November 14, 2026, the reader replied to the student on LinkedIn.',
+    'On November 14, 2026, the reader replied to the student.',
     'On November 12, 2026, the student\'s contact sheet records the stage "accepted" for the reader.',
   ]);
   const p = od.verifyPrompt({ cv: CV, job: NORA, draft: 'Hi Nora,\n\nx', known: ['No earlier message between the student and the reader is logged.'] });
@@ -221,7 +221,9 @@ test('fix 11 C through runHeadless: each call carries the short per-call timeout
     assert.equal(od.OUTREACH_CALL_TIMEOUT_MS, 180000);
     assert.ok(timeouts.length === 5 && timeouts.every((t) => t === od.OUTREACH_CALL_TIMEOUT_MS), JSON.stringify(timeouts));
     const ledger = await readLedger(r.data);
-    assert.deepEqual(ledger.map((row) => row.step), ['outreach-warm-opener', 'outreach-verify', 'outreach-warm-opener', 'outreach-verify']);
+    // Fix 12 N6: the timed-out call writes its own row too, 0 tokens and its status.
+    assert.deepEqual(ledger.map((row) => `${row.step} ${row.model}`), ['outreach-warm-opener claude-sonnet', 'outreach-verify claude-sonnet', 'outreach-warm-opener sonnet (timeout)', 'outreach-warm-opener claude-sonnet', 'outreach-verify claude-sonnet']);
+    assert.deepEqual([ledger[2].input, ledger[2].output], ['0', '0']);
   } finally {
     r.cleanup();
   }
