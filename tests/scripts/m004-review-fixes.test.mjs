@@ -132,7 +132,9 @@ test('S1 with outreach at drafts or off gmail.send exits 3, an application follo
       const file = join(r.data, 'outreach', `drafts-${DAY}.md`);
       if (mode === 'drafts') {
         assert.equal(res.draftsFile, file);
-        assert.match(readFileSync(file, 'utf8'), new RegExp(`1\\. ${C} \\| ${GLOBEX} \\| warm-opener \\| ${CLEAN.length} chars`));
+        // Fix 8: code writes the greeting ("Hi <first name>," and a blank line), so the count is of the message as sent.
+        const sent = `Hi ${C.split(' ')[0]},\n\n${CLEAN}`;
+        assert.match(readFileSync(file, 'utf8'), new RegExp(`1\\. ${C} \\| ${GLOBEX} \\| warm-opener \\| ${sent.length} chars\\n\\n${sent}`));
       } else {
         assert.equal(existsSync(file), false, 'off: nothing drafted');
         assert.equal(res.ready, 0);
