@@ -12,8 +12,10 @@
 // ask in a first message); a rail failure gets one redraft naming it, then a flag. Every draft that passes the rails goes
 // to a separate verifier call (step outreach-verify) that lists, as strict JSON, every statement about the student the
 // cv does not support. A malformed verdict flags the draft; listed claims get one redraft quoting them and a second
-// verdict, then a flag that quotes them for the student. The string the rails and the verifier read is the string that
-// is stored and sent.
+// verdict, then a flag that quotes them for the student. The verifier also reads a known-true block code builds from
+// the pack's records (the application, the dated history with the contact, the code-written sentences) and the cv's
+// exact titles, each prompt block fenced with a per-call tag. A call that fails or times out holds only its own draft.
+// The string the rails and the verifier read is the string that is stored and sent.
 // With switches.outreach at drafts the contact drafts go to data/outreach/drafts-<date>.md instead of a batch; at off no
 // contact outreach is drafted. Application follow-ups are apply-side and are batched under every switch value. Every
 // incoming reply passed in is also kept in the contact's thread file (lib/thread-archive.mjs).
