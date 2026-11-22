@@ -12,12 +12,21 @@
     { "company": "Sample Health", "text": "Nursing Extern. You must pay attention to detail and follow clinical protocols. Pay is $22 per hour by direct deposit." },
     { "company": "Example Robotics", "text": "Remote Intern. Purchases for your home office are covered by a stipend. We reimburse internet costs monthly." },
     { "company": "unknown", "text": "Data Analyst. Questions? Write to talent@acme-careers.example.com. Apply on LinkedIn." },
-    { "company": "Example Robotics", "text": "Firmware Intern. Send your resume to university@examplerobotics.example.com. Signal processing experience is a plus." }
+    { "company": "Example Robotics", "text": "Firmware Intern. Send your resume to university@examplerobotics.example.com. Signal processing experience is a plus." },
+    { "company": "Example Radio Systems", "text": "RF Engineering Intern. This role focuses only on RF signal processing and antenna design. Apply on our careers site." },
+    { "company": "Example Radio Systems", "text": "Analog Design Intern. Experience with mixed-signal design only; no software role. Apply online." },
+    { "company": "Example Robotics", "text": "Hardware Intern. Book and pay for your travel to the onsite interview; we reimburse you after the visit." },
+    { "company": "Sample Labs", "text": "Lab Intern. Interns must purchase their own parking permit; we reimburse it after the first month." },
+    { "company": "Demo Works", "text": "Operations Intern. Students must purchase a transit pass before your first day; it is reimbursed monthly." }
   ],
   "scam": [
     { "company": "Sample Labs", "text": "Remote Assistant. Purchase your laptop and printer from our approved vendor with your own funds; we reimburse you after your first check." },
     { "company": "Demo Works", "text": "Data Entry Clerk. You must buy a software license upfront before you start." },
     { "company": "Example Analytics", "text": "Virtual Assistant. Pay the onboarding deposit of $80 to secure your spot." },
-    { "company": "Sample Health", "text": "Admin Intern. Interviews take place exclusively over Telegram." }
+    { "company": "Sample Health", "text": "Admin Intern. Interviews take place exclusively over Telegram." },
+    { "company": "Example Robotics", "text": "Remote Assistant. We will send you a check to buy your home office equipment from our approved vendor." },
+    { "company": "Example Robotics", "text": "Remote Assistant. You will receive a check; deposit it and buy equipment from our vendor." },
+    { "company": "Sample Labs", "text": "Data Entry Clerk. Pay a $60 registration fee to start training." },
+    { "company": "Demo Works", "text": "Support Associate. Text the hiring manager on Signal at @hiringdesk only." }
   ]
 }
