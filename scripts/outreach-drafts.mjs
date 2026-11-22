@@ -13,10 +13,13 @@
 // An application follow-up reaches a batch only with an address the student sees: an email logged on the application's
 // apply rows, else a recruiter or hiring contact at the company in contacts.tsv (role and email columns) who has not
 // declined. A follow-up with neither is left out and listed under "needs an address"; --followup-to supplies one.
-// The fact gate grounds each draft in cv.md plus the facts that belong to that draft: the contact's full and first name,
-// company and contacts.tsv role, the application's job title (its data/pipeline.md row) and submit date, the sender's
-// config/profile.yml candidate block, and "Hiring team" for an application follow-up. An acronym the draft uses (CS, TA)
-// passes when cv.md or the profile holds it as is or spelled out.
+// The fact gate grounds each draft in cv.md plus the names that make no claim: the contact's full and first name, the
+// application's submit date, the sender's config/profile.yml candidate block, "Hiring team" and the document words CV,
+// résumé and resume. The company, the application's job title (its data/pipeline.md row) and the contact's contacts.tsv
+// role reach the gate only as its company and role names, so they pass in the gate's fixed contexts (at <Company>, the
+// <Title> role) plus a greeting to the company's team and the application itself, and "I interned at <Company>" or "I
+// worked as a <Title>" still needs cv.md. An acronym the draft uses (CS, TA) passes when cv.md or the profile holds it
+// as is or spells it out on one line with the first word capitalized (Computer Science).
 // Usage: outreach-drafts.mjs [--replies FILE] [--root R] [--data-dir D] [--today YYYY-MM-DD]
 //        outreach-drafts.mjs --followup-to <application url or company> <email>
 //   --replies: JSON [{ name, company, text, channel?, email?, subject? }] of incoming replies read from LinkedIn or Gmail.
@@ -100,36 +103,70 @@ const HIRING_TEAM = 'Hiring team';
 const DOCUMENT_WORDS = Object.freeze(['CV', 'résumé', 'resume']);
 const valuesOf = (v) => (v === null || v === undefined ? [] : typeof v === 'object' ? Object.values(v).flatMap(valuesOf) : [String(v)]);
 
-// The facts that belong to one draft, given to the fact gate as allowed source next to cv.md: the contact's full and first
-// name, company and contacts.tsv role, the application's job title and submit date, the sender's profile fields, and
-// "Hiring team", the name an application follow-up greets, plus DOCUMENT_WORDS.
-export function draftFacts(job, { candidate = {}, contactRows = [] } = {}) {
+// The facts that belong to one draft and make no claim, given to the fact gate as allowed source next to cv.md: the
+// contact's full and first name, the application's submit date, the sender's profile fields, and "Hiring team", the name
+// an application follow-up greets, plus DOCUMENT_WORDS. The company, job title and contact role are left out: as allowed
+// source they would ground "I interned at <Company>" anywhere.
+export function draftFacts(job, { candidate = {} } = {}) {
+  const { name } = job.contact;
+  const first = job.action !== 'application-follow-up' ? String(name ?? '').trim().split(/\s+/)[0] : '';
+  return [name, first, job.application?.submitted, ...valuesOf(candidate), HIRING_TEAM, ...DOCUMENT_WORDS].filter((v) => typeof v === 'string' && v.trim());
+}
+
+// The contact's contacts.tsv roles, which the gate takes as role names (allowed only in its fixed contexts).
+export function contactRoles(job, contactRows = []) {
+  if (job.action === 'application-follow-up') return [];
   const { name, company } = job.contact;
-  const person = job.action !== 'application-follow-up';
-  const roles = person ? contactRows.filter((r) => lower(r.name) === lower(name) && lower(r.company) === lower(company)).map((r) => r.role) : [];
-  const first = person ? String(name ?? '').trim().split(/\s+/)[0] : '';
-  return [name, first, company, ...roles, job.application?.title, job.application?.submitted, ...valuesOf(candidate), HIRING_TEAM, ...DOCUMENT_WORDS].filter((v) => typeof v === 'string' && v.trim());
+  return contactRows.filter((r) => lower(r.name) === lower(name) && lower(r.company) === lower(company)).map((r) => r.role).filter((v) => typeof v === 'string' && v.trim());
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Contexts that name the target company or job title and make no claim, which the gate's fixed contexts miss: a greeting
+// to the company's team at the start of a line ("Hello Acme hiring team,"), the application itself ("I applied for the
+// <Title> position", "I applied to Acme") and curiosity about the company with no first-person word between ("I'm curious
+// about the work at Acme"). The copy the gate checks has the name blanked there; anywhere else the gate checks it as the
+// company or role name.
+export function maskTargetNames(text, { company = '', title = '' } = {}) {
+  const blank = (m, pre) => pre + ' '.repeat(m.length - pre.length);
+  let out = String(text ?? '');
+  const c = String(company ?? '').trim();
+  const t = String(title ?? '').trim();
+  if (c) out = out.replace(new RegExp(`^([ \\t]*(?:hi|hello|hey|dear|greetings)[ \\t]+(?:the[ \\t]+)?)${escapeRe(c)}(?=(?:'s)?[ \\t]+(?:(?:hiring|recruiting|recruitment|talent)[ \\t]+)?team(?![\\p{L}]))`, 'gimu'), blank);
+  const applied = `((?<![\\p{L}'])i(?:'ve|\\s+have)?(?:\\s+(?:recently|just|already))?\\s+applied\\s+(?:to\\s+(?=(?:for|as)\\s))?(?:for|to|as)\\s+(?:(?:the|your|this|a|an)\\s+)?)`;
+  for (const n of [c, t]) if (n) out = out.replace(new RegExp(`${applied}${escapeRe(n)}(?![\\p{L}\\p{N}])`, 'giu'), blank);
+  if (c) out = out.replace(new RegExp(`((?<![\\p{L}])curious\\s+(?:about|to\\s+(?:learn|hear|know))(?![\\p{L}])(?:(?!(?<![\\p{L}'])(?:i|i'm|we|my|me|our|us)(?![\\p{L}']))[^.;!?\\n]){0,60}?[^\\p{L}](?:at|with|from|of)\\s+(?:the\\s+)?)${escapeRe(c)}(?![\\p{L}\\p{N}])`, 'giu'), blank);
+  return out;
 }
 
 const ACRONYM = /(?<![\p{L}\p{N}])\p{Lu}{2,5}(?![\p{L}\p{N}])/gu;
 const SPELL_STOP = new Set(['and', 'for', 'from', 'the', 'with']);
-// The draft with each all-capitals acronym (CS, TA) that ownText lacks as is but spells out (Computer science, Teaching
-// assistant) replaced by the spelled-out words in lowercase, so the gate checks the words the student's own text holds.
-// An acronym ownText neither holds nor spells out is left as written, and the gate flags it.
+// The draft with each all-capitals acronym (CS, TA) that ownText lacks as is but spells out (Computer Science, Teaching
+// assistant) replaced by the spelled-out words as ownText writes them, so the gate checks the student's own words. A
+// spelling-out stands on one line, its first word is capitalized and is not a past-tense verb (a bullet such as "Managed
+// budget allocation" is a task, not MBA), and no word is a stop word. After a capitalized word ("Data Structures TA") the
+// spelled-out words follow a comma, so the gate checks them and that name each as their own run. An acronym ownText
+// neither holds nor spells out is left as written, and the gate flags it.
 export function spellOutAcronyms(text, ownText) {
   const own = String(ownText ?? '');
-  return String(text ?? '').replace(ACRONYM, (a) => {
+  return String(text ?? '').replace(ACRONYM, (a, at, whole) => {
     if (new RegExp(`(?<![\\p{L}\\p{N}])${a}(?![\\p{L}\\p{N}])`, 'u').test(own)) return a;
-    const spelled = new RegExp(`(?<![\\p{L}\\p{N}])${[...a].map((ch) => `${ch}\\p{L}{2,}`).join('[\\s-]+')}(?![\\p{L}\\p{N}])`, 'giu');
-    const hit = [...own.matchAll(spelled)].find((m) => !m[0].split(/[\s-]+/).some((w) => SPELL_STOP.has(w.toLowerCase())));
-    return hit ? hit[0].toLowerCase() : a;
+    const [first, ...rest] = [...a];
+    const spelled = new RegExp(`(?<![\\p{L}\\p{N}])${first}\\p{L}{2,}${rest.map((ch) => `[ \\t-]+[${ch}${ch.toLowerCase()}]\\p{L}{2,}`).join('')}(?![\\p{L}\\p{N}])`, 'gu');
+    const hit = [...own.matchAll(spelled)].find((m) => {
+      const words = m[0].split(/[ \t-]+/);
+      return !/ed$/i.test(words[0]) && !words.some((w) => SPELL_STOP.has(w.toLowerCase()));
+    });
+    if (!hit) return a;
+    return /\p{Lu}\p{L}*[ \t]+$/u.test(whole.slice(Math.max(0, at - 40), at)) ? `, ${hit[0]}` : hit[0];
   });
 }
 
-// A leading "Subject: ..." line a model puts on an email draft, with the blank line after it; the item keeps its own
-// subject, so the body never carries a second one.
-const LEADING_SUBJECT = /^\s*subject:[^\n]*\n(?:[ \t]*\n)?/i;
+// A leading "Subject: ..." line (plain or **bold**) a model puts on an email draft, with the blank line after it; the item
+// keeps its own subject, so the body never carries a second one. A reply that is only a Subject line leaves ''.
+const LEADING_SUBJECT = /^\s*(?:\*\*|__)?subject:[^\n]*(?:\n(?:[ \t]*\n)?|$)/i;
 export const stripSubjectLine = (text) => String(text ?? '').replace(LEADING_SUBJECT, '').trimStart();
+// Three or more line breaks in a row (blank lines holding spaces too) become one blank line.
+const EXTRA_BLANK_LINES = /\n(?:[ \t]*\n){2,}/g;
 
 // One draft. A connection request with no note left this week is an item with an empty note and no model call. A note
 // over the limit is asked for once more with the limit and the overrun stated; a second note over the limit is flagged,
@@ -139,7 +176,7 @@ async function draftOne(job, { cv, agent, dataDir, date, headless, source }) {
   const call = async (prompt) => {
     const res = await headless({ agent, prompt, step: `outreach-${job.action}`, feature: FEATURE[job.action], dataDir, date, source });
     const t = clean(res.text);
-    return job.channel === 'email' ? stripSubjectLine(t) : t;
+    return job.channel === 'email' ? stripSubjectLine(t).replace(EXTRA_BLANK_LINES, '\n\n') : t;
   };
   const prompt = draftPrompt({ ...job, cv });
   let text = await call(prompt);
@@ -148,10 +185,14 @@ async function draftOne(job, { cv, agent, dataDir, date, headless, source }) {
   }
   if (job.action === 'warm-opener' && text.length > OPENER_CHARS) text = `${text.slice(0, OPENER_CHARS - 1).replace(/\s+\S*$/, '')}.`;
   const flags = [];
+  if (!text.trim()) flags.push('the draft is empty');
   if (job.action === 'connect' && text.length > job.noteChars) flags.push(`note of ${text.length} characters exceeds the ${job.noteChars} limit`);
   if (FIRST_MESSAGES.includes(job.action) && REFERRAL_ASK.test(text)) flags.push('asks for a referral in a first message');
   const facts = job.facts ?? [];
-  const missing = factCheck(spellOutAcronyms(text, [cv, ...facts].join('\n')), { cv, answers: facts, company: job.contact.company, role: job.application?.title ?? '', extra: [job.contact.name, job.replyText ?? '', job.application?.target ?? ''] });
+  const company = job.contact.company;
+  const title = job.application?.title ?? '';
+  const checked = spellOutAcronyms(maskTargetNames(text, { company, title }), [cv, ...facts].join('\n'));
+  const missing = factCheck(checked, { cv, answers: facts, company, role: title, extra: [job.contact.name, ...(job.roles ?? []), job.replyText ?? '', job.application?.target ?? ''] });
   if (missing.length) flags.push(`names facts absent from cv.md: ${missing.join(', ')}`);
   return { ...job, text, flags };
 }
@@ -300,7 +341,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   // Contact outreach is batched only while the switch is on, goes to the drafts file at drafts, and is skipped at off.
   const contactJobs = mode === 'off' ? [] : draftJobs({ due: state.due, followups: [], replies, t6On, ...notes });
   const candidate = readCandidate(paths);
-  const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })].map((j) => ({ ...j, facts: draftFacts(j, { candidate, contactRows }) }));
+  const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })].map((j) => ({ ...j, facts: draftFacts(j, { candidate }), roles: contactRoles(j, contactRows) }));
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const cv = readCv(paths.root);

@@ -1,9 +1,10 @@
 // SYNTHETIC FIXTURE: placeholder people, companies and cv text only.
 // M-004 live-verify fixes. Row 1: an apply.* row (target = application url) never becomes an outreach contact, so an
-// applied company gets no `connect <url>` line. Row 2: the fact gate grounds each outreach draft in cv.md plus the facts
-// that belong to that draft (contact full and first name, company, role, job title, submit date, profile fields, "Hiring
-// team"), and an acronym passes only when cv.md or the profile holds it as is or spelled out; an invented employer or
-// degree is still flagged. Row 2b: `outreach-drafts.mjs --followup-to "<Company>" <email>` works from the command line.
+// applied company gets no `connect <url>` line. Row 2: the fact gate grounds each outreach draft in cv.md plus the names
+// of that draft that make no claim (contact full and first name, submit date, profile fields, "Hiring team"); the company,
+// job title and contact role pass only as the gate's company and role names, so an experience or title claim with them is
+// flagged. An acronym passes only when cv.md or the profile holds it as is or spells it out on one line with the first
+// word capitalized; an invented employer or degree is still flagged. Fix 6 cases are at the end of the file. Row 2b: `outreach-drafts.mjs --followup-to "<Company>" <email>` works from the command line.
 // Row 7: the drafts round, --followup-to and batch.mjs approve end with the Next / Type / Why footer.
 // Scratch roots, synthetic placeholder people and companies, example.com addresses, an injected headless runner or a
 // fake `claude` on an isolated PATH: no real model, network, Gmail or LinkedIn.
@@ -19,7 +20,7 @@ import { contactRecords } from '../../lib/outreach-state.mjs';
 import { resolvePaths } from '../../lib/paths.mjs';
 import { appendTsv, serializeTsv } from '../../lib/tsv.mjs';
 import { main as batchMain } from '../../scripts/batch.mjs';
-import { addFollowupTo, draftFacts, outreachDrafts, spellOutAcronyms } from '../../scripts/outreach-drafts.mjs';
+import { addFollowupTo, contactRoles, draftFacts, maskTargetNames, outreachDrafts, spellOutAcronyms, stripSubjectLine } from '../../scripts/outreach-drafts.mjs';
 import { LOG_HEADER, at, makePack, row, shiftDate } from '../helpers/budget-harness.mjs';
 import { due, linesFor } from '../helpers/outreach-harness.mjs';
 import { PACK_ROOT, makeRoot } from '../helpers/script-harness.mjs';
@@ -157,9 +158,9 @@ test('row 2 an invented employer or degree in a draft is still flagged and kept 
 
 test('row 2 an acronym passes only when the cv or profile holds it as is or spelled out; acronyms are not allowed globally', () => {
   const cv = 'Computer science student. Teaching assistant for Data Structures.';
-  assert.equal(spellOutAcronyms('a CS student and a former TA', cv), 'a computer science student and a former teaching assistant');
+  assert.equal(spellOutAcronyms('a CS student and a former TA', cv), 'a Computer science student and a former Teaching assistant', 'the cv casing is kept');
   assert.equal(spellOutAcronyms('my CV', cv), 'my CV', 'no CV and no spelled-out form: left for the gate');
-  assert.equal(spellOutAcronyms('my CV', 'Curriculum vitae on request.'), 'my curriculum vitae');
+  assert.equal(spellOutAcronyms('my CV', 'Curriculum vitae on request.'), 'my Curriculum vitae');
   assert.equal(spellOutAcronyms('my CV', 'Full CV on request.'), 'my CV');
   assert.equal(spellOutAcronyms('a CS student', 'Contact for Sam.'), 'a CS student', 'a stop word never spells an acronym');
   const facts = draftFacts({ action: 'warm-opener', contact: { name: 'Alice Alpha', company: ACME } }, { candidate: { full_name: 'Sam Placeholder' } });
@@ -178,13 +179,19 @@ test('row 2 CV, résumé and resume name the document and pass in every draft; a
   assert.deepEqual(gate('I hold a CS degree.'), ['CS']);
 });
 
-test('row 2 draftFacts holds the contact, company, role, job title, submit date, profile fields and Hiring team', () => {
+test('row 2 draftFacts holds the contact, submit date, profile fields and Hiring team, never the company, role or job title', () => {
   const contactRows = [{ name: 'Alice Alpha', company: ACME, role: 'Data Engineer' }];
-  const person = draftFacts({ action: 'reply', contact: { name: 'Alice Alpha', company: ACME } }, { candidate: { full_name: 'Sam Placeholder', links: { site: 'sam.example.com' } }, contactRows });
-  for (const f of ['Alice Alpha', 'Alice', ACME, 'Data Engineer', 'Sam Placeholder', 'sam.example.com', 'Hiring team']) assert.ok(person.includes(f), `${f} in ${person}`);
-  const app = draftFacts({ action: 'application-follow-up', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: 'Software Engineering Intern' } });
-  for (const f of ['Hiring team', GLOBEX, 'Software Engineering Intern', '2026-11-14']) assert.ok(app.includes(f), `${f} in ${app}`);
+  const reply = { action: 'reply', contact: { name: 'Alice Alpha', company: ACME } };
+  const person = draftFacts(reply, { candidate: { full_name: 'Sam Placeholder', links: { site: 'sam.example.com' } } });
+  for (const f of ['Alice Alpha', 'Alice', 'Sam Placeholder', 'sam.example.com', 'Hiring team']) assert.ok(person.includes(f), `${f} in ${person}`);
+  for (const f of [ACME, 'Data Engineer']) assert.ok(!person.includes(f), `${f} not in ${person}`);
+  assert.deepEqual(contactRoles(reply, contactRows), ['Data Engineer'], 'the role goes to the gate as a role name');
+  const appJob = { action: 'application-follow-up', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: 'Software Engineering Intern' } };
+  const app = draftFacts(appJob);
+  for (const f of ['Hiring team', '2026-11-14']) assert.ok(app.includes(f), `${f} in ${app}`);
+  for (const f of [GLOBEX, 'Software Engineering Intern']) assert.ok(!app.includes(f), `${f} not in ${app}`);
   assert.ok(!app.includes('Hiring'), 'an application follow-up has no person first name');
+  assert.deepEqual(contactRoles(appJob, contactRows), []);
 });
 
 // Row 2b
@@ -389,4 +396,115 @@ test('row 2 a connect note still over the limit after the one retry is flagged, 
   assert.equal(prompts.length, 2, 'one retry only');
   assert.equal(items.length, 0);
   assert.match(res.flagged[0]?.flags.join('; ') ?? '', /exceeds the 200 limit/);
+});
+
+// Fix 6 (re-review r4)
+
+const ALICE_ONLY = { due: [STATE.due[0]], followups: [] };
+const GLOBEX_ONLY = { due: [], followups: STATE.followups };
+
+// One round for one contact with the given draft text, in a root whose cv.md is cv (the live cv by default).
+async function roundFor(state, name, text, { cv } = {}) {
+  const r = liveRoot();
+  if (cv !== undefined) r.write('cv.md', cv);
+  try {
+    const { res, said } = await run(r, { texts: { [name]: text }, state, replies: [] });
+    return { res, said, items: res.ids.flatMap((id) => readBatch(r.data, id).items), flags: res.flagged.map((f) => f.flags.join('; ')).join(' | ') };
+  } finally {
+    r.cleanup();
+  }
+}
+
+test('fix 6 M1 an experience or title claim with the target company, job title or contact role is flagged and kept out', async () => {
+  const cases = [
+    [ALICE_ONLY, 'Alice Alpha', 'Hi Alice, I interned at Acme Example last summer and loved it.', /Acme Example/],
+    [ALICE_ONLY, 'Alice Alpha', 'Hi Alice, I worked at Acme Example on the data team.', /Acme Example/],
+    [GLOBEX_ONLY, 'Hiring team', 'Hello Globex Example hiring team, I was a Software Engineering Intern at Globex Example before.', /Software Engineering Intern/],
+    [GLOBEX_ONLY, 'Hiring team', 'Hello hiring team, I worked as a Software Engineering Intern last year.', /Software Engineering Intern/],
+    [ALICE_ONLY, 'Alice Alpha', 'Hi Alice, I also worked as a Data Engineer at Acme Example.', /Data Engineer/],
+  ];
+  // The reviewer's probe cv, which holds none of these employers or titles.
+  for (const [state, name, text, flag] of cases) {
+    const { res, items, flags } = await roundFor(state, name, text, { cv: CV_LOOKALIKE });
+    assert.equal(res.ready, 0, `${text} must be flagged`);
+    assert.equal(items.length, 0, text);
+    assert.match(flags, flag, text);
+  }
+});
+
+const CV_CS = '# Sam Placeholder\n\n## Education\nBS Computer Science, Example State University, 2027\n\n## Skills\nPython, SQL\n';
+
+test('fix 6 M1 natural lines pass: a first-name greeting, a CS student, the company team greeting and the application to the title', async () => {
+  const opener = "Hi Alice, I'm a CS student at Example State University. I'd love to learn about your work at Acme Example.";
+  const a = await roundFor(ALICE_ONLY, 'Alice Alpha', opener, { cv: CV_CS });
+  assert.equal(a.flags, '', a.said.join('\n'));
+  assert.equal(a.items[0]?.message, opener);
+  const follow = 'Hello Globex Example hiring team,\n\nI am following up on my application for the Software Engineering Intern role, sent on 14 November 2026.\n\nBest regards,\nSam Placeholder';
+  const g = await roundFor(GLOBEX_ONLY, 'Hiring team', follow, { cv: CV_CS });
+  assert.equal(g.flags, '', g.said.join('\n'));
+  assert.equal(g.items.length, 1);
+  const applied = await roundFor(GLOBEX_ONLY, 'Hiring team', 'Hello Globex Example hiring team,\n\nI applied for the Software Engineering Intern position on 14 November 2026.\n\nBest,\nSam', { cv: CV_CS });
+  assert.equal(applied.flags, '', applied.said.join('\n'));
+});
+
+test('fix 6 M1 maskTargetNames blanks only the greeting, application and curiosity contexts', () => {
+  const opts = { company: GLOBEX, title: 'Software Engineering Intern' };
+  assert.ok(!maskTargetNames('Hello Globex Example hiring team,', opts).includes(GLOBEX));
+  assert.ok(!maskTargetNames("I've applied for the Software Engineering Intern role.", opts).includes('Software Engineering Intern'));
+  assert.ok(!maskTargetNames("I'm curious about the work at Globex Example.", opts).includes(GLOBEX));
+  for (const kept of ['I interned at Globex Example.', 'Last year I was at Globex Example, hiring team lead.', "I'm curious about my old team at Globex Example.", 'I worked as a Software Engineering Intern.']) {
+    assert.equal(maskTargetNames(kept, opts), kept, kept);
+  }
+});
+
+const CV_LOOKALIKE = '# Sam Placeholder\n\n## Experience\nCampus Bookstore, Sales Associate, 2024 to 2025\n- Handled customer service at the front desk\n- Helped with artistic illustration for club posters\n- Managed budget allocation for the hiking club\n';
+
+test('fix 6 M2 an acronym is not spelled out by look-alike cv words: CS degree, AI models and my MBA are flagged', async () => {
+  for (const [text, flag] of [['Hi Alice, I hold a CS degree and want to learn more.', /\bCS\b/], ['Hi Alice, I build AI models in my spare time.', /\bAI\b/], ['Hi Alice, I am finishing my MBA this spring.', /\bMBA\b/]]) {
+    const { res, flags } = await roundFor(ALICE_ONLY, 'Alice Alpha', text, { cv: CV_LOOKALIKE });
+    assert.equal(res.ready, 0, text);
+    assert.match(flags, flag, text);
+  }
+  assert.equal(spellOutAcronyms('a CS degree', CV_LOOKALIKE), 'a CS degree');
+  assert.equal(spellOutAcronyms('AI models', CV_LOOKALIKE), 'AI models');
+  assert.equal(spellOutAcronyms('my MBA', CV_LOOKALIKE), 'my MBA');
+});
+
+test('fix 6 M2 CS is spelled out only from one cv line with the first word capitalized, in the cv casing', async () => {
+  assert.equal(spellOutAcronyms('a CS student', CV_CS), 'a Computer Science student');
+  assert.equal(spellOutAcronyms('a CS student', 'BS computer science'), 'a CS student', 'a lowercase first word is not a spelling-out');
+  assert.equal(spellOutAcronyms('a CS student', 'Studied Computer\nScience'), 'a CS student', 'never across a line break');
+  const { res, said } = await roundFor(ALICE_ONLY, 'Alice Alpha', "Hi Alice, I'm a CS student and would love to hear about your team.", { cv: CV_CS });
+  assert.deepEqual(res.flagged, [], said.join('\n'));
+  assert.equal(res.ready, 1);
+});
+
+test('fix 6 N1 a bold Subject line is stripped; a reply that is only a Subject line is flagged as empty, never batched', async () => {
+  assert.equal(stripSubjectLine('**Subject:** Following up\n\nHello team,'), 'Hello team,');
+  assert.equal(stripSubjectLine('Subject: only line'), '');
+  const { res, items, flags } = await roundFor(GLOBEX_ONLY, 'Hiring team', '**Subject:** Following up on my application');
+  assert.equal(items.length, 0);
+  assert.equal(res.ready, 0);
+  assert.match(flags, /empty/);
+});
+
+test('fix 6 N2 an email draft has 3 or more line breaks in a row collapsed to one blank line before it is stored', async () => {
+  const text = 'Hello Globex Example hiring team,\n\n\n\nI am following up on my application for the Software Engineering Intern role.\n\n \n\nBest regards,\nSam Placeholder';
+  const { items, said } = await roundFor(GLOBEX_ONLY, 'Hiring team', text);
+  assert.equal(items.length, 1, said.join('\n'));
+  assert.equal(items[0].message, 'Hello Globex Example hiring team,\n\nI am following up on my application for the Software Engineering Intern role.\n\nBest regards,\nSam Placeholder');
+});
+
+test('ruling a LinkedIn profile view is research: it creates no contact and no connect due item', async () => {
+  const ts = at(shiftDate(DAY, -1), 12, 0);
+  const view = { ...row({ ts, action: 'linkedin.profile_view', target: 'Vera Viewed', company: SOYLENT }), ms: Date.parse(ts) };
+  assert.deepEqual(contactRecords([], [view]), []);
+  const p = await makePack({ rows: [row({ ts, action: 'linkedin.profile_view', target: 'Vera Viewed', company: SOYLENT })] });
+  try {
+    const r = due(p, { today: DAY });
+    assert.equal(r.code, 0, r.stdout + r.stderr);
+    assert.deepEqual(linesFor(r.stdout, 'Vera Viewed'), [], r.stdout);
+  } finally {
+    p.cleanup();
+  }
 });
