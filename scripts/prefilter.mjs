@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Free title-only filter for untriaged Pending rows; runs before any paid triage.
 // Prints 'TRIAGE: FAIL | url | 0.0/5 | Title pre-filter: <reason> (<title>)' lines for apply-triage.mjs.
-// Only unambiguous title-level rules live here; anything that needs the JD is left to triage.
+// Only unambiguous rules on row data live here (title, company, location, the row's extra cells); anything that needs
+// the job text is left to lib/jd-rules.mjs inside daily-triage, which runs before the model call.
 // Usage: prefilter.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD]
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,6 +13,7 @@ import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { effectiveTitleRules, loadMerged } from '../lib/presets.mjs';
 import { INTERN_TITLE, NEWGRAD_TITLE } from '../lib/title-patterns.mjs';
+import { locationMismatch } from '../lib/jd-rules.mjs';
 
 const ABOVE_ENTRY = [
   [/\b(senior|sr\.?|staff|principal|distinguished|director|manager|head of)\b/i, 'above entry level'],
@@ -93,7 +95,9 @@ export function prefilter({ pipelineText, applicationsText = '', preset: merged,
     if (!reason) reason = newGradMismatch(title, config, cycle);
     // effectiveTitleRules leaves out the clearance and citizenship excludes for a student who is a US citizen.
     if (!reason && anyMatch(rules.exclude, title)) reason = 'excluded title';
-    if (!reason && anyMatch(config?.dealbreakers, `${title} ${row.company}`)) reason = 'dealbreaker';
+    if (!reason && anyMatch(config?.dealbreakers, `${title} ${row.company} ${row.location} ${(row.extra ?? []).join(' ')}`)) reason = 'dealbreaker';
+    // Row data only: a remote-only student with an on-site posting is a job-text matter and stays with triage.
+    if (!reason && locationMismatch(row.location, '', config?.locations ?? []) === 'location') reason = 'location not in your list';
     if (!reason && merged?.early_career && !new RegExp(merged.early_career, 'i').test(title)) reason = 'not an early-career title';
     if (!reason && namesOnlyOutOfCycleTerm(title, cycle)) reason = 'term not in cycle';
     if (reason) lines.push(`TRIAGE: FAIL | ${url} | 0.0/5 | Title pre-filter: ${reason} (${title.replace(/[|;]/g, ',').replace(/\(/g, '[').replace(/\)/g, ']').slice(0, 80)})`);

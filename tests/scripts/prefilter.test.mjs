@@ -48,3 +48,9 @@ test('M-004-S4 an all-clean Pending section yields no lines', () => {
   const lines = prefilter({ pipelineText: pipelineText({ pending: [pending[3]] }), applicationsText: '', config: CONFIG, preset: PRESET });
   assert.deepEqual(lines, []);
 });
+
+test('a dealbreaker in the location or an extra cell fails the row, and the existing title rules keep their lines', () => {
+  const lines = prefilter({ pipelineText: pipelineText({ pending: [line(jobUrl(9), 'Example Robotics', 'Software Engineer Intern', 'On-site, Clearance site'), ...pending] }), applicationsText: '', config: CONFIG, preset: PRESET });
+  assert.ok(lines.some((l) => l.includes(jobUrl(9)) && /dealbreaker/.test(l)), lines.join('\n'));
+  assert.ok(lines.some((l) => l.includes(jobUrl(3))), 'Senior Software Engineer still fails');
+});
