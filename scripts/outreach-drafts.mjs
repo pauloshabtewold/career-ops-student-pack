@@ -94,7 +94,7 @@ export function placeholderValues(job) {
 // text is ever placed into a message.
 export function fillPlaceholders(text, job) {
   const v = placeholderValues(job);
-  return String(text ?? '').replace(/\{([a-z_]+)\}/g, (m, k) => (v[k] ? v[k] : m));
+  return String(text ?? '').replace(/(?<!\$)\{([a-z_]+)\}/g, (m, k) => (v[k] ? v[k] : m));
 }
 
 // B. The drafting prompt. The model writes the body only, as warm, natural prose in the student's voice, from the
@@ -180,7 +180,7 @@ export function modelBody(text, job) {
   if (job.action === 'application-follow-up') {
     const m = /^[^.!?\n]*[.!?](?:\s+|$)/.exec(body);
     const words = m ? m[0].replace(/\{[a-z_]+\}/g, ' ph ').toLowerCase().match(/[\p{L}']+/gu) ?? [] : [];
-    if (m && words.length && words.every((w) => RESTATE_WORDS.has(w)) && /\bappl(?:ied|ication)\b/.test(m[0])) body = body.slice(m[0].length).trim();
+    if (m && !/\p{N}/u.test(m[0]) && words.length && words.every((w) => RESTATE_WORDS.has(w)) && /\bappl(?:ied|ication)\b/.test(m[0])) body = body.slice(m[0].length).trim();
   }
   return capitalize(body);
 }
@@ -231,6 +231,7 @@ const PLACEHOLDER_RAILS = [
   /[<>]|&(?:#\d+|#x[\da-f]+|[a-z]+);/i,
   new RegExp(`%\\s*(?:${PH})\\s*%`, 'iu'),
   new RegExp(`(?<![\\p{L}\\p{N}])[$@#:](?:${PH})(?![\\p{L}\\p{N}])`, 'iu'),
+  new RegExp(`:(?:${PH})(?![\\p{L}\\p{N}])`, 'iu'),
   new RegExp(`\\(\\s*(?:(?:insert|your|the|their|contact'?s|recipient'?s|company'?s)\\s+)*(?:${PH})(?:\\s+here)?\\s*\\)`, 'iu'),
   /(?<![\p{L}])(?:COMPANY(?: NAME)?|FIRST NAME|JOB TITLE|XXX+|TBD)(?![\p{L}])|_{3,}/u,
 ];
