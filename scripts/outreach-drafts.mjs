@@ -226,10 +226,11 @@ export function parseSlots(text) {
 // URL or an email address, a capitalized word outside its allow-list (the slot's first word; the contact's first name;
 // the company and job title words in a question; the words of the contact's own message; TECH_WORDS), a past-time or
 // relationship word (last, ago, former, again, back at, return, rejoin, remember, since ...) and a third-person name
-// for the sender (this student, yours truly ...). A question ends with "?". A warm_line is a statement: it never names
-// the company or the job title, has no past-tense verb, no experience -ing form, no "on/at/with your team", no
-// self-description (part of, familiar with, already, fellow, know ...), does not open with an -ing word (looking,
-// hoping aside) or an -s verb ("Knows your codebase") and does not end with "here". Names match in any case.
+// for the sender (this student, yours truly ...). A question opens with a question word or an auxiliary verb and ends
+// with "?". A warm_line is a statement: it never names the company or the job title, has no past-tense verb, no
+// experience -ing form, no "on/at/with your team", no self-description (part of, familiar with, already, fellow, know
+// ...), does not open with an -ing word (looking, hoping aside) or an -s verb ("Knows your codebase") and does not end
+// with "here". Names match in any case.
 const SLOT_WORDS = 30;
 // Capitalized by convention, naming no person or organization; a question about the reader's tools may use them.
 export const TECH_WORDS = Object.freeze(['Python', 'JavaScript', 'TypeScript', 'Java', 'SQL', 'Git', 'GitHub', 'Linux', 'React', 'Node', 'AWS', 'Excel', 'AI', 'ML', 'API', 'APIs', 'UX', 'UI', 'CV', 'LinkedIn']);
@@ -249,6 +250,8 @@ const YOUR_PLACE = /(?<![\p{L}])(?:on|at|in|with|for|from|joined|joining)\s+your
 const SELF_STATE = /(?<![\p{L}])(?:part\s+of|member\s+of|familiar\s+with|experience\s+(?:with|in|at)|already|currently|fellow|colleague|colleagues|coworker|coworkers|teammate|teammates|know|knows)(?![\p{L}])/iu;
 // Words ending in -s that may open a statement; any other ("Knows your codebase", "Holds an MBA") reads as the sender.
 const S_OPENERS = new Set('thanks congrats congratulations kudos cheers props sounds looks seems this thus perhaps always sometimes besides nowadays yes its his'.split(' '));
+// A question slot opens with a question word or an auxiliary verb, so it asks the reader and tells nothing.
+const QUESTION_OPEN = /^(?:what|what's|how|how's|which|who|whom|whose|where|when|why|is|are|was|were|do|does|did|can|could|would|will|should|shall|may|might|have|has|had|any|anything|anyone|isn't|aren't|don't|doesn't)(?![\p{L}'])/iu;
 const sentenceCount = (t) => t.split(/(?<=[.!?])\s+/).filter((s) => s.trim()).length;
 const wordsOf = (t) => t.match(/[\p{L}\p{N}](?:[\p{L}\p{N}'\u2019.-]*[\p{L}\p{N}])?/gu) ?? [];
 const nameWords = (s) => String(s ?? '').split(/[^\p{L}\p{N}&']+/u).filter(Boolean).map((w) => w.toLowerCase());
@@ -264,12 +267,14 @@ export function slotProblems(slot, text, job) {
   if (NUMBER_WORD.test(t)) out.push(`number word or ordinal "${NUMBER_WORD.exec(t)[0]}"`);
   const v = placeholderValues(job);
   const bare = t.replace(SLOT_PLACEHOLDER, (m, k) => (v[k] ? ' ' : m));
-  if (ODD_MARK.test(bare)) out.push(`placeholder-like or bracket text "${ODD_MARK.exec(bare)[0]}"`);
+  const odd = ODD_MARK.exec(bare) ?? /\$\{/.exec(t);
+  if (odd) out.push(`placeholder-like or bracket text "${odd[0]}"`);
   if (LINK.test(t)) out.push('a link or email address');
   if (PAST_TIME.test(t)) out.push(`past-time or relationship word "${PAST_TIME.exec(t)[0].trim()}"`);
   if (SELF_THIRD.test(t)) out.push(`names the sender in the third person ("${SELF_THIRD.exec(t)[0]}")`);
   const question = slot === 'question';
   if (question && !/\?$/.test(t)) out.push('a question that does not end with "?"');
+  if (question && !QUESTION_OPEN.test(t)) out.push(`a question that does not open with a question word ("${t.split(/\s+/)[0]}")`);
   if (!question && /\?/.test(t)) out.push('a question mark in a statement');
   // Capitalized words outside the allow-list.
   const allow = new Set([...nameWords(v.first_name), ...TECH_WORDS.map((w) => w.toLowerCase()), ...nameWords(job.replyText)]);
