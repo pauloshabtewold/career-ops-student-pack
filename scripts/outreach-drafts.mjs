@@ -413,35 +413,64 @@ export function parseVerdict(text) {
 
 // One draft: at most DRAFT_CALLS drafting calls and VERIFY_CALLS verifier calls. A connection request with no note left
 // this week is an item with an empty note and no model call. A draft that breaks a rail is asked for once more naming the
-// rail, then flagged. A draft that passes the rails goes to the verifier; a malformed verdict flags it (fail closed), an
-// empty list passes it, and unsupported claims get one redraft quoting them, then a second verdict. Claims still listed
-// flag the draft, quoted for the student. The stored text is the exact string the rails and the verifier read.
+// rail, then flagged (with the claims an earlier verdict listed, when a claim redraft broke the rail). A draft that
+// passes the rails goes to the verifier: a malformed verdict gets one re-verify of the same draft while the verify budget
+// lasts, then flags it (fail closed); an empty list passes it; unsupported claims get one redraft quoting them, then a
+// second verdict, and claims still listed flag the draft, quoted for the student. The stored text is the exact string the
+// rails and the verifier read.
+// C. Each call has its own OUTREACH_CALL_TIMEOUT_MS (a short draft or verify call; the agent's 15-minute limit stays the
+// outer bound). A call that throws or times out, or a prompt block that holds its fence tag, holds this one draft with
+// the reason; the round goes on and the other drafts are batched.
 const DRAFT_CALLS = 2;
-async function draftOne(job, { cv, digest = '', sources = '', records = {}, agent, dataDir, date, headless, source }) {
+const VERIFY_CALLS = 2;
+export const OUTREACH_CALL_TIMEOUT_MS = 3 * 60 * 1000;
+const MALFORMED_FLAG = 'the claim check did not answer in the required JSON, so the draft is held and never sent unchecked';
+const claimsFlag = (claims) => `claims your cv.md does not support: ${claims.map((c) => `"${c}"`).join('; ')}`;
+class CallFailed extends Error {}
+
+async function draftOne(job, ctx) {
   if (job.action === 'connect' && !job.noteChars) return { ...job, text: '', flags: [] };
-  const run = (prompt, step) => headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source });
+  try {
+    return await draftLoop(job, ctx);
+  } catch (err) {
+    if (err instanceof CallFailed) return { ...job, text: '', flags: [err.message] };
+    if (err instanceof FenceError) return { ...job, text: '', flags: [`a prompt could not be fenced (${err.message}), so the draft is held and never sent unchecked`] };
+    throw err;
+  }
+}
+
+async function draftLoop(job, { cv, digest = '', sources = '', records = {}, agent, dataDir, date, headless, source }) {
+  const call = async (prompt, step) => {
+    try {
+      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, timeoutMs: OUTREACH_CALL_TIMEOUT_MS })).text;
+    } catch (err) {
+      const what = step === 'outreach-verify' ? 'the claim check call' : 'the drafting call';
+      throw new CallFailed(`${what} failed (${String(err?.message ?? err).split('\n')[0]}), so the draft is held and never sent unchecked`);
+    }
+  };
+  const held = (flags, claims) => ({ ...job, text: '', flags, ...(claims ? { claims } : {}) });
   const base = draftPrompt({ ...job, cv, digest });
   const known = knownTrueFacts(job, records);
   let prompt = base;
+  let verifies = 0;
+  let earlier = null;
   for (let drafts = 1; ; drafts += 1) {
-    const { text, flags } = checkDraft((await run(prompt, `outreach-${job.action}`)).text, job, { sources });
+    const { text, flags } = checkDraft(await call(prompt, `outreach-${job.action}`), job, { sources });
     const last = drafts >= DRAFT_CALLS;
     if (flags.length) {
-      if (last) return { ...job, text: '', flags };
+      if (last) return earlier ? held([...flags, claimsFlag(earlier)], earlier) : held(flags);
       prompt = `${base}\n\nYour last draft broke these rules:\n${flags.map((f) => `- ${f}`).join('\n')}\nWrite the message again, keeping every rule.`;
       continue;
     }
-    let vPrompt;
-    try {
-      vPrompt = verifyPrompt({ cv, digest, job, draft: text, known });
-    } catch (err) {
-      if (!(err instanceof FenceError)) throw err;
-      return { ...job, text: '', flags: [`the claim check could not fence the draft (${err.message}), so the draft is held and never sent unchecked`] };
+    let claims = null;
+    while (claims === null && verifies < VERIFY_CALLS) {
+      verifies += 1;
+      claims = parseVerdict(await call(verifyPrompt({ cv, digest, job, draft: text, known }), 'outreach-verify'));
     }
-    const claims = parseVerdict((await run(vPrompt, 'outreach-verify')).text);
-    if (claims === null) return { ...job, text: '', flags: ['the claim check did not answer in the required JSON, so the draft is held and never sent unchecked'] };
+    if (claims === null) return held([MALFORMED_FLAG]);
     if (!claims.length) return { ...job, text, flags: [] };
-    if (last) return { ...job, text: '', flags: [`claims your cv.md does not support: ${claims.map((c) => `"${c}"`).join('; ')}`], claims };
+    if (last || verifies >= VERIFY_CALLS) return held([claimsFlag(claims)], claims);
+    earlier = claims;
     prompt = `${base}\n\nA check against the resume found statements it does not support:\n${claims.map((c) => `- "${c}"`).join('\n')}\nRemove or correct these; use only facts from the resume.`;
   }
 }

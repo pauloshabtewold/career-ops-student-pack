@@ -136,7 +136,8 @@ test('fix 10 G the same probes are batched only when the verifier passes them: n
   assert.equal(batched, ALL_PROBES().length);
 });
 
-// Malformed verifier replies: each fails closed (flagged, never batched, no redraft on an unreadable verdict).
+// Malformed verifier replies: each fails closed (flagged, never batched, no redraft on an unreadable verdict; fix 11 N1
+// re-verifies the same draft once).
 const MALFORMED = {
   'non-JSON': 'Looks fine to me, nothing unsupported.',
   'code-fenced JSON with extra prose': 'Here is the result:\n```json\n{"unsupported": []}\n```',
@@ -148,7 +149,8 @@ for (const [kind, reply] of Object.entries(MALFORMED)) {
   test(`fix 10 E a malformed verdict fails closed: ${kind}`, async () => {
     const out = await roundFor(ALICE, { drafts: ["I'm a CS student and curious how your team works. What does a typical week look like for you?"], verdict: () => reply });
     assert.equal(out.items.length, 0, 'never batched');
-    assert.equal(out.verifies.length, 1);
+    // Fix 11 N1: one re-verify of the same draft within the 2-verify budget, then the flag; still no redraft.
+    assert.equal(out.verifies.length, 2);
     assert.equal(out.drafting.length, 1);
     assert.match(out.res.flagged[0].flags.join('; '), /did not answer in the required JSON/);
     assert.equal(od.parseVerdict(reply), null);

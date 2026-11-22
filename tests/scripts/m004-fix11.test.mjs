@@ -8,13 +8,20 @@
 //    tag is refused; the verdict is one object with exactly one key "unsupported" (duplicate, escaped-duplicate and
 //    extra keys fail closed). The probes are the review r9 S1 shapes (a reply forging a DRAFT block, a reply telling the
 //    checker to return [], a duplicate key), written here as synthetic data.
+// C. one draft's call that throws, times out or answers malformed output holds only that draft; the round goes on, the
+//    other drafts are batched and their usage-ledger rows stay; each call carries OUTREACH_CALL_TIMEOUT_MS.
 // Scratch roots, example.com addresses and an injected headless runner: no real model, network, Gmail or LinkedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LOG_HEADER } from '../../lib/action-log.mjs';
+import { runHeadless } from '../../lib/headless.mjs';
+import { resolvePaths } from '../../lib/paths.mjs';
+import { read as readLedger } from '../../lib/usage-ledger.mjs';
+import { readBatch } from '../../lib/batch-file.mjs';
+import { makeRoot } from '../helpers/script-harness.mjs';
 import { serializeTsv } from '../../lib/tsv.mjs';
 import * as od from '../../scripts/outreach-drafts.mjs';
-import { ALICE, APP, CV, GLOBEX, TITLE, blockIn, draftIn, knownIn, person, roundFor } from '../helpers/outreach-verify-harness.mjs';
+import { ALICE, APP, CV, DAY, GLOBEX, PROFILE, TITLE, blockIn, draftIn, knownIn, person, round, roundFor } from '../helpers/outreach-verify-harness.mjs';
 
 const NORA = person('Nora Nudge', 'Umbrella Example', 'follow-up');
 const logOf = (rows) => ({ 'data/action-log.tsv': serializeTsv([...LOG_HEADER], rows.map(([date, action, target, company, detail = '']) => ({ ts: `${date}T12:00:00.000Z`, date, session: 'fixture', action, target, company, approval: '', detail }))) });
@@ -150,4 +157,84 @@ test('fix 11 B a block whose text holds the call\'s fence tag is refused (FenceE
   assert.throws(() => od.verifyPrompt({ cv: `${CV}\n0a1b2c3d`, job: ALICE, draft: 'x', tag: '0a1b2c3d' }), /RESUME block holds the fence tag/);
   assert.throws(() => od.draftPrompt({ ...RITA, replyText: 'hi 0a1b2c3d', cv: CV, tag: '0a1b2c3d' }), od.FenceError);
   assert.match(od.fenceTag(), /^[0-9a-f]{8}$/);
+});
+
+// C. Three warm openers at three companies; the second one's call fails.
+const THREE = [['Alice Alpha', 'Acme Example'], ['Bob Beta', 'Hooli Example'], ['Cara Gamma', 'Initech Example']].map(([name, company]) => ({ name, company, action: 'warm-opener' }));
+const OPENER = "I'm a CS student who automated a weekly report at my internship. What does your team spend the most time on?";
+const companiesOf = (items) => items.map((i) => i.company);
+
+test('fix 11 C draft 2 of 3 throws on its drafting call: drafts 1 and 3 are batched, draft 2 is flagged with the reason', async () => {
+  const drafts = (opts) => {
+    if (String(opts.prompt).includes('Contact: Bob Beta at')) throw new Error('claude call failed: spawnSync claude ETIMEDOUT\nmore');
+    return OPENER;
+  };
+  const out = await round({ due: THREE, drafts });
+  assert.deepEqual(companiesOf(out.items), ['Acme Example', 'Initech Example']);
+  assert.equal(out.res.flagged.length, 1);
+  assert.equal(out.res.flagged[0].name, 'Bob Beta');
+  assert.match(out.res.flagged[0].flags[0], /^the drafting call failed \(claude call failed: spawnSync claude ETIMEDOUT\), so the draft is held and never sent unchecked$/);
+  assert.ok(out.said.some((l) => l.includes('Bob Beta') && l.includes('ETIMEDOUT')), 'told to the student');
+});
+
+test('fix 11 C draft 2 of 3 throws on its claim check call, or answers malformed twice: the others are batched, draft 2 is flagged', async () => {
+  const isBob = (prompt) => /Reader: Bob Beta at/.test(prompt);
+  const thrown = await round({ due: THREE, drafts: [OPENER], verdict: (prompt) => { if (isBob(prompt)) throw new Error('claude call failed: exit 1'); return '{"unsupported": []}'; } });
+  assert.deepEqual(companiesOf(thrown.items), ['Acme Example', 'Initech Example']);
+  assert.match(thrown.res.flagged[0].flags[0], /^the claim check call failed \(claude call failed: exit 1\)/);
+  const malformed = await round({ due: THREE, drafts: [OPENER], verdict: (prompt) => (isBob(prompt) ? 'Looks fine.' : '{"unsupported": []}') });
+  assert.deepEqual(companiesOf(malformed.items), ['Acme Example', 'Initech Example']);
+  assert.match(malformed.res.flagged[0].flags[0], /did not answer in the required JSON/);
+});
+
+test('fix 11 C through runHeadless: each call carries the short per-call timeout, a timed-out call holds one draft, and the ledger rows of the others stay', async () => {
+  const r = makeRoot();
+  try {
+    r.write('cv.md', CV);
+    r.write('config/profile.yml', PROFILE);
+    const timeouts = [];
+    const runner = (cmd, args, opts) => {
+      timeouts.push(opts.timeout);
+      if (String(opts.input).includes('Contact: Bob Beta at')) throw Object.assign(new Error('spawnSync /fake/claude ETIMEDOUT'), { code: 'ETIMEDOUT' });
+      const verify = /Now answer only for the DRAFT-/.test(String(opts.input));
+      return JSON.stringify({ result: verify ? '{"unsupported": []}' : OPENER, usage: { input_tokens: 100, output_tokens: 20 }, modelUsage: { 'claude-sonnet': {} } });
+    };
+    const headless = (opts) => runHeadless({ ...opts, runner, agentPath: '/fake/claude', platform: 'linux' });
+    const said = [];
+    const res = await (await import('../../scripts/outreach-drafts.mjs')).outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state: { due: THREE, followups: [] }, t6On: false }, say: (l) => said.push(l) });
+    assert.equal(res.flagged.length, 1);
+    assert.match(res.flagged[0].flags[0], /^the drafting call failed \(claude call failed: spawnSync \/fake\/claude ETIMEDOUT\)/);
+    assert.deepEqual(companiesOf(res.ids.flatMap((id) => readBatch(r.data, id).items)), ['Acme Example', 'Initech Example']);
+    assert.equal(od.OUTREACH_CALL_TIMEOUT_MS, 180000);
+    assert.ok(timeouts.length === 5 && timeouts.every((t) => t === od.OUTREACH_CALL_TIMEOUT_MS), JSON.stringify(timeouts));
+    const ledger = await readLedger(r.data);
+    assert.deepEqual(ledger.map((row) => row.step), ['outreach-warm-opener', 'outreach-verify', 'outreach-warm-opener', 'outreach-verify']);
+  } finally {
+    r.cleanup();
+  }
+});
+
+// D. N1 and N4.
+test('fix 11 D N1 a malformed verdict gets one re-verify of the same draft within the 2-verify budget', async () => {
+  const once = await roundFor(ALICE, { drafts: [OPENER], verdict: (p, n) => (n === 0 ? 'Here is the result: {"unsupported": []}' : '{"unsupported": []}') });
+  assert.equal(once.items.length, 1, 'recovered');
+  assert.equal(once.drafting.length, 1);
+  assert.equal(once.verifies.length, 2);
+  assert.equal(draftIn(once.verifies[0].prompt), draftIn(once.verifies[1].prompt), 'the same draft');
+  const twice = await roundFor(ALICE, { drafts: [OPENER], verdict: () => 'nope' });
+  assert.equal(twice.items.length, 0);
+  assert.equal(twice.verifies.length, 2);
+  // A re-verify that lists claims uses the last verify call: flagged with the claims, no redraft.
+  const claims = await roundFor(ALICE, { drafts: [OPENER], verdict: (p, n) => (n === 0 ? 'nope' : '{"unsupported": ["automated a weekly report"]}') });
+  assert.equal(claims.drafting.length, 1);
+  assert.equal(claims.verifies.length, 2);
+  assert.match(claims.res.flagged[0].flags[0], /^claims your cv\.md does not support: "automated a weekly report"$/);
+});
+
+test('fix 11 D N4 a claim redraft that then breaks a rail keeps the quoted claims in the flag', async () => {
+  const out = await roundFor(ALICE, { drafts: ['I interned on your platform team. What is new?', 'Big fan of the {team_name} work. What is new?'], verdict: () => '{"unsupported": ["I interned on your platform team."]}' });
+  assert.equal(out.items.length, 0);
+  const flags = out.res.flagged[0].flags.join('; ');
+  assert.match(flags, /placeholder-like text "\{team_name\}"/);
+  assert.match(flags, /claims your cv\.md does not support: "I interned on your platform team\."/);
 });
