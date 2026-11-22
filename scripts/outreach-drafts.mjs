@@ -241,9 +241,11 @@ export function assembleDraft(body, job, { fill = false, sources = '' } = {}) {
 }
 
 // The sentences code writes into a job's message, filled and normalized as they are stored: the greeting, an application
-// follow-up's opening, and an email's closing thanks and sign-off. The verifier is told they are true.
+// follow-up's opening, and an email's closing thanks and sign-off. The verifier is told they are true. {first_name} and
+// {title} stay placeholders: a display name and a posting title are outside text, never known facts.
+const OUTSIDE_KEYS = ['first_name', 'title'];
 export function frameSentences(job) {
-  const filled = (s) => fillPlaceholders(s, job).normalize('NFKC');
+  const filled = (s) => fillPlaceholders(s, job, { skip: OUTSIDE_KEYS }).normalize('NFKC');
   if (job.action === 'connect') return [filled('Hi {first_name},')];
   const app = job.action === 'application-follow-up' ? [filled(applicationOpening(job))] : [];
   const tail = job.channel === 'email' ? [CLOSING, 'Best regards,', ...(job.signature ? [job.signature] : [])] : [];
@@ -311,17 +313,18 @@ export function checkDraft(reply, job, { sources = '' } = {}) {
 }
 
 // A. What is already true for one job, built by code from the pack's own records and never from model text: an
-// application follow-up's application record (title, company, applied date), else the outreach history with this
-// contact from data/action-log.tsv and data/contacts.tsv (connection request, accept, messages and follow-ups sent,
-// their replies), each with its date. With no logged history it says so, so "circling back on my earlier note" is not
-// backed. Dates are written out ("November 16, 2026"), the way a message states them.
+// application follow-up's application record (company and applied date), else the outreach history with this contact
+// from data/action-log.tsv and data/contacts.tsv (connection request, accept, messages and follow-ups sent, their
+// replies), each with its date. With no logged history it says so, so "circling back on my earlier note" is not backed.
+// Dates are written out ("November 16, 2026"), the way a message states them. The contact is only ever "the reader":
+// their display name and the posting title are outside text and never enter the block.
 const HISTORY = {
-  'linkedin.connect': (n, r) => `the student sent ${n} a LinkedIn connection request${Number(detailValue(r.detail, 'note')) > 0 ? ' with a note' : ''}`,
-  'linkedin.accept': (n) => `${n} accepted the student's LinkedIn connection request`,
-  'linkedin.message': (n) => `the student sent ${n} a LinkedIn message`,
-  'linkedin.nudge': (n) => `the student sent ${n} a LinkedIn follow-up message`,
-  'linkedin.reply': (n) => `${n} replied to the student on LinkedIn`,
-  'gmail.send': (n, r) => `the student sent ${n} ${detailValue(r.detail, 'nudge') === '1' ? 'a follow-up email' : 'an email'}`,
+  'linkedin.connect': (r) => `the student sent the reader a LinkedIn connection request${Number(detailValue(r.detail, 'note')) > 0 ? ' with a note' : ''}`,
+  'linkedin.accept': () => 'the reader accepted the student\'s LinkedIn connection request',
+  'linkedin.message': () => 'the student sent the reader a LinkedIn message',
+  'linkedin.nudge': () => 'the student sent the reader a LinkedIn follow-up message',
+  'linkedin.reply': () => 'the reader replied to the student on LinkedIn',
+  'gmail.send': (r) => `the student sent the reader ${detailValue(r.detail, 'nudge') === '1' ? 'a follow-up email' : 'an email'}`,
 };
 const longDate = (iso) => {
   const d = isoParts(String(iso ?? '').slice(0, 10));
@@ -332,14 +335,14 @@ const onDate = (iso, text) => (longDate(iso) ? `On ${longDate(iso)}, ${text}.` :
 export function knownTrueFacts(job, { actionRows = [], contactRows = [] } = {}) {
   if (job.action === 'application-follow-up') {
     const v = placeholderValues(job);
-    return [`The student applied for ${v.title ? `the ${v.title} role` : 'a role'} at ${v.company}${v.applied_date ? ` on ${v.applied_date}` : ''} (the application record).`];
+    return [`The student applied for a role at ${v.company}${v.applied_date ? ` on ${v.applied_date}` : ''} (the application record).`];
   }
   const name = String(job.contact?.name ?? '').trim();
   const mine = (target, company) => lower(target) === lower(name) && lower(company) === lower(job.contact?.company);
-  const logged = actionRows.filter((r) => HISTORY[r.action] && !isAppFollowup(r) && mine(r.target, r.company)).sort((a, b) => a.ms - b.ms).map((r) => onDate(r.date || r.ts, HISTORY[r.action](name, r)));
-  const sheet = contactRows.filter((r) => r.stage && mine(r.name, r.company)).map((r) => onDate(r.date, `the student's contact sheet records the stage "${r.stage}" for ${name}`));
+  const logged = actionRows.filter((r) => HISTORY[r.action] && !isAppFollowup(r) && mine(r.target, r.company)).sort((a, b) => a.ms - b.ms).map((r) => onDate(r.date || r.ts, HISTORY[r.action](r)));
+  const sheet = contactRows.filter((r) => r.stage && mine(r.name, r.company)).map((r) => onDate(r.date, `the student's contact sheet records the stage "${r.stage}" for the reader`));
   const facts = [...logged, ...sheet];
-  return facts.length ? facts : [`No earlier message between the student and ${name} is logged.`];
+  return facts.length ? facts : ['No earlier message between the student and the reader is logged.'];
 }
 
 // B. Untrusted text in a prompt (the resume, the known-true facts, the reader and job, the contact's message, the draft)
@@ -384,7 +387,11 @@ const VERIFY_RULES = [
 
 export function verifyPrompt({ cv, digest = '', job, draft, known = [], tag = fenceTag() }) {
   const title = job.application?.title ? `, role: ${job.application.title}` : '';
-  const facts = [...known.map((f) => `- ${f}`), ...frameSentences(job).map((f) => `- Code writes this sentence into the message: "${f}"`)].join('\n');
+  const facts = [
+    ...known.map((f) => `- ${f}`),
+    '- In the sentences code writes below, code fills {first_name} with the reader\'s first name and {title} with the job title of the posting; neither is a fact about the student.',
+    ...frameSentences(job).map((f) => `- Code writes this sentence into the message: "${f}"`),
+  ].join('\n');
   return [
     VERIFY_RULES,
     ...fenced([
@@ -464,7 +471,19 @@ const MALFORMED_FLAG = 'the claim check did not answer in the required JSON, so 
 const claimsFlag = (claims) => `claims your cv.md does not support: ${claims.map((c) => `"${c}"`).join('; ')}`;
 class CallFailed extends Error {}
 
+// A contact name with a line break or control character, or longer than NAME_MAX, is held before any model call: the
+// name is outside text (a LinkedIn or Gmail display name) and could forge prompt lines.
+const NAME_MAX = 80;
+const BAD_NAME = /[\p{Cc}\p{Zl}\p{Zp}]/u;
+function nameFlag(name) {
+  const held = 'so the draft is held and no model call was made';
+  if (BAD_NAME.test(name)) return `the contact name holds a line break or control character, ${held}`;
+  return name.length > NAME_MAX ? `the contact name is over ${NAME_MAX} characters, ${held}` : '';
+}
+
 async function draftOne(job, ctx) {
+  const badName = nameFlag(String(job.contact?.name ?? ''));
+  if (badName) return { ...job, text: '', flags: [badName] };
   if (job.action === 'connect' && !job.noteChars) return { ...job, text: '', flags: [] };
   try {
     return await draftLoop(job, ctx);

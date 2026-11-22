@@ -35,14 +35,18 @@ const logOf = (rows) => ({ 'data/action-log.tsv': serializeTsv([...LOG_HEADER], 
 // when the block quotes it; "my earlier note" is backed when the block logs a message the student sent.
 const sentences = (text) => text.split(/\n+/).flatMap((l) => l.split(/(?<=[.!?])\s+/)).map((s) => s.trim()).filter(Boolean);
 const CLAIMISH = /\bappl(?:ied|ication)\b|\bearlier (?:note|message)\b|\bcircl(?:e|ing) back\b/i;
+// Fix 12 A: the KNOWN block keeps {title} as a placeholder the prompt says code fills from the posting, so this verifier
+// fills it from the READER block before matching.
 const strictVerifier = (prompt) => {
-  const known = knownIn(prompt) ?? '';
+  const role = /, role: (.+)$/m.exec(blockIn(prompt, 'READER') ?? '')?.[1] ?? '';
+  const known = (knownIn(prompt) ?? '').replaceAll('{title}', role);
   const backed = (s) => CV.includes(s) || known.includes(s) || (/\bearlier (?:note|message)\b|\bcircl(?:e|ing) back\b/i.test(s) && !/\bappl(?:ied|ication)\b/i.test(s) && /the student sent .+ (?:message|email)/i.test(known));
   return JSON.stringify({ unsupported: sentences(draftIn(prompt) ?? '').filter((s) => CLAIMISH.test(s) && !backed(s)) });
 };
 
 const APP_BODY = 'The focus on practical internal tools stands out, and I built something similar at my internship. I am happy to send code samples.';
 const OPENING = `I applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026, and I wanted to follow up.`;
+const OPENING_KNOWN = `I applied for the {title} role at ${GLOBEX} on November 14, 2026, and I wanted to follow up.`;
 
 test('fix 11 A the code-written application opening passes a strict verifier: the KNOWN TRUE block quotes it and holds the application record', async () => {
   const out = await roundFor(APP, { drafts: [APP_BODY], verdict: strictVerifier });
@@ -51,8 +55,9 @@ test('fix 11 A the code-written application opening passes a strict verifier: th
   assert.ok(out.items[0].message.includes(OPENING));
   const known = knownIn(out.verifies[0].prompt);
   assert.ok(known, 'the verify prompt has a KNOWN TRUE block');
-  assert.ok(known.includes(`"${OPENING}"`), known);
-  assert.ok(known.includes(`The student applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026 (the application record).`), known);
+  assert.ok(known.includes(`"${OPENING_KNOWN}"`), known);
+  assert.ok(known.includes(`The student applied for a role at ${GLOBEX} on November 14, 2026 (the application record).`), known);
+  assert.ok(!known.includes(TITLE), 'fix 12 A: the posting title is not in the block');
   assert.ok(known.includes('"Thank you for your time and consideration."') && known.includes('"Hello Globex Example hiring team,"'), known);
 });
 
@@ -62,7 +67,7 @@ test('fix 11 A "circling back on my earlier note" passes when the action log hol
   assert.deepEqual(out.res.flagged, []);
   assert.equal(out.items.length, 1);
   assert.ok(knownIn(out.verifies[0].prompt), 'the verify prompt has a KNOWN TRUE block');
-  assert.match(knownIn(out.verifies[0].prompt), /On November 16, 2026, the student sent Nora Nudge a LinkedIn message\./);
+  assert.match(knownIn(out.verifies[0].prompt), /On November 16, 2026, the student sent the reader a LinkedIn message\./);
 });
 
 test('fix 11 A "circling back on my earlier note" is flagged when no earlier message is logged', async () => {
@@ -71,7 +76,7 @@ test('fix 11 A "circling back on my earlier note" is flagged when no earlier mes
   assert.equal(out.items.length, 0, 'kept out');
   assert.match(out.res.flagged[0].flags.join('; '), /"I wanted to circle back on my earlier note in case it got buried\."/);
   assert.ok(knownIn(out.verifies[0].prompt), 'the verify prompt has a KNOWN TRUE block');
-  assert.match(knownIn(out.verifies[0].prompt), /No earlier message between the student and Nora Nudge is logged\./);
+  assert.match(knownIn(out.verifies[0].prompt), /No earlier message between the student and the reader is logged\./);
   // Another contact's message is not this contact's history.
   const other = await roundFor(NORA, { drafts: [body], verdict: strictVerifier, extraFiles: logOf([['2026-11-16', 'linkedin.message', 'Rita Reply', 'Umbrella Example']]) });
   assert.equal(other.items.length, 0);
@@ -87,7 +92,7 @@ test('fix 11 A "I applied ... on <another date>" is flagged; the code opening wi
 });
 
 test('fix 11 A knownTrueFacts reads only records: the application record, else the dated history with this contact', () => {
-  assert.deepEqual(od.knownTrueFacts(APP), [`The student applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026 (the application record).`]);
+  assert.deepEqual(od.knownTrueFacts(APP), [`The student applied for a role at ${GLOBEX} on November 14, 2026 (the application record).`]);
   const rows = [
     { date: '2026-11-10', ms: Date.parse('2026-11-10T12:00:00Z'), action: 'linkedin.connect', target: 'Nora Nudge', company: 'Umbrella Example', detail: 'note=120' },
     { date: '2026-11-12', ms: Date.parse('2026-11-12T12:00:00Z'), action: 'linkedin.accept', target: 'nora nudge', company: 'Umbrella Example', detail: '' },
@@ -96,14 +101,14 @@ test('fix 11 A knownTrueFacts reads only records: the application record, else t
     { date: '2026-11-15', ms: Date.parse('2026-11-15T12:00:00Z'), action: 'linkedin.message', target: 'Nora Nudge', company: 'Other Example', detail: '' },
   ];
   assert.deepEqual(od.knownTrueFacts(NORA, { actionRows: rows, contactRows: [{ date: '2026-11-12', company: 'Umbrella Example', name: 'Nora Nudge', stage: 'accepted' }] }), [
-    'On November 10, 2026, the student sent Nora Nudge a LinkedIn connection request with a note.',
-    'On November 12, 2026, Nora Nudge accepted the student\'s LinkedIn connection request.',
-    'On November 14, 2026, Nora Nudge replied to the student on LinkedIn.',
-    'On November 12, 2026, the student\'s contact sheet records the stage "accepted" for Nora Nudge.',
+    'On November 10, 2026, the student sent the reader a LinkedIn connection request with a note.',
+    'On November 12, 2026, the reader accepted the student\'s LinkedIn connection request.',
+    'On November 14, 2026, the reader replied to the student on LinkedIn.',
+    'On November 12, 2026, the student\'s contact sheet records the stage "accepted" for the reader.',
   ]);
-  const p = od.verifyPrompt({ cv: CV, job: NORA, draft: 'Hi Nora,\n\nx', known: ['No earlier message between the student and Nora Nudge is logged.'] });
+  const p = od.verifyPrompt({ cv: CV, job: NORA, draft: 'Hi Nora,\n\nx', known: ['No earlier message between the student and the reader is logged.'] });
   assert.match(p, /A statement backed by it is supported, the same as a resume fact/);
-  assert.match(knownIn(p), /Code writes this sentence into the message: "Hi Nora,"/);
+  assert.match(knownIn(p), /Code writes this sentence into the message: "Hi \{first_name\},"/);
 });
 
 // B. Review r9 S1 probes (synthetic).
