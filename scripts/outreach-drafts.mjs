@@ -170,71 +170,117 @@ function dateRe(iso) {
 }
 
 // The target names a draft wrote as is instead of as placeholders: the company (or its initials), the job title and
-// the submit date. A company or title the student's own text holds as is (cv.md names it) is the student's fact, not a
-// target name, and is left to the gate.
-export function literalTargets(text, job, ownText = '') {
+// the submit date. Names match case-sensitively as written ("the notion of" is not the company Notion), and a name that
+// cv.md also holds is no exception: the body names the target only as a placeholder.
+export function literalTargets(text, job) {
   const t = String(text ?? '');
   const v = placeholderValues(job);
-  const held = (s) => wholeWord(escapeRe(s)).test(ownText);
   const out = [];
-  for (const n of [v.company, v.title]) if (n && wholeWord(escapeRe(n)).test(t) && !held(n)) out.push(n);
+  for (const n of [v.company, v.title]) if (n && wholeWord(escapeRe(n), 'u').test(t)) out.push(n);
   const initials = initialsOf(v.company);
-  if (initials && wholeWord(initials, 'u').test(t) && !held(initials)) out.push(initials);
+  if (initials && wholeWord(initials, 'u').test(t)) out.push(initials);
   const date = dateRe(job.application?.submitted)?.exec(t);
   if (date) out.push(date[0]);
   return out;
 }
 
-// Placeholders the draft used that have no value for this job, or that are not placeholders at all.
-function badPlaceholders(text, job) {
+const BRACED = /\{+[^{}\n]{0,40}\}+/g;
+const PLACEHOLDER_EXACT = /^\{(?:first_name|company|title|applied_date)\}$/;
+const BRACKET_TOKEN = /\[(?:company(?:\s+name)?|title|job\s+title|role|position|first[\s_]?name|name|your\s+name|date|applied[\s_]date|hiring\s+manager)\]/giu;
+
+// Placeholder-like text the fill would not replace: a placeholder with no value for this job ({title} on a person
+// draft), an unknown or malformed one ({Company}, { company }, {company name}, {{company}}), a stray brace and a
+// [Company]-style token.
+export function badPlaceholders(text, job) {
   const v = placeholderValues(job);
-  return [...new Set([...String(text ?? '').matchAll(/\{([^{}\s]{1,40})\}/g)].map((m) => m[1]))].filter((k) => !v[k]);
+  const t = String(text ?? '');
+  const out = (t.match(BRACED) ?? []).filter((m) => !(PLACEHOLDER_EXACT.test(m) && v[m.slice(1, -1)]));
+  out.push(...(t.replace(BRACED, ' ').match(/[{}]/g) ?? []), ...(t.match(BRACKET_TOKEN) ?? []));
+  return [...new Set(out)];
 }
 
-// Claims about {company} or {title}, judged sentence by sentence. In a sentence that holds one, these are claims:
-// - a first-person experience verb (I interned, we built, I've worked, I was, I'm ...) before the placeholder with no
-//   apply, join or wish word between them, or anywhere after it;
-// - a where/who/when clause right after it ("{company}, where I interned");
-// - "hired/trained/mentored ... me", "my internship/summer/role at {company}", "my time as a {title}";
-// - return, rejoin, back, again, former or previous ("back at {company}", "a former {title}");
-// - after/before/while/since interning, working or my internship ("the {title} role after interning there").
-// The apply and wish verbs themselves (applied, submitted, reached, wanted, hoped ...), "I saw/noticed/read/heard/learned
-// that/about/how" and a be verb with a wish word within three words ("I am still very interested") make no claim. "Hello {company} hiring team,", "I applied for the {title} role at {company} on {applied_date}" and "I'm
-// curious about the work at {company}" pass.
-const EXP_ADVERB = 'have|has|had|already|also|currently|still|recently|previously|once|regularly|often|now|just|even|been|personally|actually|both|all|then|later|first|proudly|formerly|briefly';
-const EXP_VERB = 'am|are|was|were|been|know|knows|use|uses|write|writes|build|builds|work|works|working|run|runs|lead|leads|manage|manages|own|owns|maintain|maintains|teach|teaches|intern|interns|interning|hold|holds|serve|serves|code|develop|develops|support|supports|analyze|analyse|built|wrote|written|led|ran|made|took|taken|got|won|spent|sent|kept|brought|gave|knew|known|met|began|begun|grew|drove|found|sold|paid|set|put|cut|became|came|went|left|taught|held|did|done|had|saw|seen|fed|bought|caught|dealt|rode|spoke|stood|understood|sat|wore|read|heard';
-const EXP_CLAIM = new RegExp(`(?<![\\p{L}'])(?:i|we)(?:'m|'re|(?:'ve|'d)?(?:\\s+(?:${EXP_ADVERB}))*\\s+(${EXP_VERB}|\\p{L}*[a-df-z]ed))(?![\\p{L}])`, 'gu');
-const NO_CLAIM_VERB = new Set(['applied', 'reapplied', 'submitted', 'reached', 'wanted', 'hoped', 'wished', 'planned', 'aimed', 'decided', 'meant', 'thought']);
-const BE_VERB = new Set([undefined, 'am', 'are', 'was', 'were', 'been']);
-const LEARNED_OF = new Set(['saw', 'noticed', 'read', 'heard', 'learned']);
-const WISH_FRAME = /(?<![\p{L}])(?:apply|applying|applied|application|join|joining|interview\p{L}*|would|could|can|will|hope\p{L}*|lov\p{L}*|like|eager|excit\p{L}*|glad|keen|want\p{L}*|wish\p{L}*|chance|opportunity|ready|forward|interest\p{L}*|inspir\p{L}*|impress\p{L}*|drawn|attract\p{L}*|admir\p{L}*|thrill\p{L}*|delight\p{L}*|plan|planning|aim|aiming|seek|seeking|curious|open\s+to)(?![\p{L}])|'d(?![\p{L}])/gu;
-const RELATIVE_AFTER = /^(?:'s)?(?:\s+[\p{L}-]+){0,3}?\s*,?\s+(?:where|who|when)(?![\p{L}])/u;
-const EMPLOYED_ME = /(?<![\p{L}])(?:hired|employed|trained|mentored|paid|promoted|recruited|onboarded|supervised|taught)\s+(?:me|us)(?![\p{L}])/u;
-const MY_WORK = /(?<![\p{L}])my\s+(?:[\p{L}-]+\s+){0,2}?(?:internship|job|work|role|time|summer|position|experience|manager|employer|team|supervisor|boss|colleagues|coworkers|days|years?|title)\s+(?:at|with|for|from|as|on)\s+(?:(?:the|a|an)\s+)?(?:[\p{L}-]+\s+){0,3}?\{(?:company|title)\}/u;
-const RETURN_WORD = /(?<![\p{L}])(?:return\p{L}*|rejoin\p{L}*|back|again|former|previous|ex-)(?![\p{L}])/u;
-const AFTER_WORK = /(?<![\p{L}])(?:after|before|while|since|during|from)\s+(?:my\s+)?(?:interning|working|serving|volunteering|training|internship|employment|time\s+there|summer\s+there|years?\s+there)(?![\p{L}])/u;
-const TARGET = /\{(?:company|title)\}/g;
+// Claims about the target, judged on the model's body. Code writes every sentence that names the target (greeting,
+// application opening, closing), so the body may name it only in a no-claim phrase:
+// B. {title} only in "the {title} role|position|opening|internship|posting" or "{title} application"; {company} only in
+//    COMPANY_PHRASES (the work at, roles/teams/people at, your work/team/role at, {company}'s work/team/product/mission,
+//    interested in, curious about, learn/hear/read (more) about, {company} (is) hiring, {company} might have a role,
+//    with you at, my application/applied to, you do/started at). Any other {company} or {title} flags its sentence.
+// C. Every clause of the body (a sentence, split only at ";" and at ", and/but/so I") flags when it holds first-person
+//    experience wording (EXPERIENCE) and refers to the target (TARGET_REF: an allowed phrase, there, your team/company/
+//    group/org/office, you all, with you, at your). A sentence opening with "There" refers to the target when the
+//    sentence before it does. An experience verb right after a wish ("I would love to join", "I'm excited to
+//    contribute") is no claim; "to have <verb>", "to still be", return/rejoin/back/again/former never count as a wish.
+// The mark an allowed phrase leaves where its placeholder was; no letters, so lowercasing keeps it.
+const T = '⟦#⟧';
+const TITLE_PHRASES = [/(?<![\p{L}])the\s+\{title\}\s+(?:role|position|opening|internship|posting)(?![\p{L}])/giu, /\{title\}\s+application(?![\p{L}])/giu];
+const COMPANY_PHRASES = [
+  /(?<![\p{L}])(?:work(?:\s+happening)?|roles?|positions?|openings?|opportunities|teams?(?:\s+in\s+mind)?|people|your\s+(?:work|team|role))\s+at\s+\{company\}/giu,
+  /\{company\}'s\s+(?:work|team|teams|product|products|mission)(?![\p{L}])/giu,
+  /(?<![\p{L}])(?:interested\s+in|curious\s+about|(?:learn|hear|read)(?:\s+more)?\s+about)\s+\{company\}/giu,
+  /\{company\}\s+(?:is\s+)?hiring(?![\p{L}])/giu,
+  /\{company\}\s+(?:might|may|could|would)\s+have\s+(?:a|an|any)\s+(?:role|opening|position|internship)s?(?![\p{L}])/giu,
+  /(?<![\p{L}])with\s+you\s+at\s+\{company\}/giu,
+  /(?<![\p{L}])(?:my\s+application|apply|applying|applied)\s+(?:to|with)\s+\{company\}/giu,
+  /(?<![\p{L}])you\s+(?:do|work\s+on|got\s+started|started)\s+at\s+\{company\}/giu,
+];
+const EXP_FORM = "(?:work(?:s|ed|ing)?|intern(?:s|ed|ing|ships?)?|co-?ops?|join(?:s|ed|ing)?|rejoin\\p{L}*|partner(?:s|ed|ing)?|volunteer(?:s|ed|ing)?|train(?:s|ed|ing)?|lead(?:s|ing)?|led|build(?:s|ing)?|built|manag(?:e|es|ed|ing)|mentor(?:s|ed|ing)?|collaborat(?:e|es|ed|ing)|contribut(?:e|es|ed|ing)|spen(?:d|ds|t|ding)|serv(?:e|es|ed|ing)|ship(?:s|ped|ping)?|shadow(?:s|ed|ing)?)";
+const GAP_STOP = '(?:that|which|who|and|but|because|so|if|when|where|while|although|though|how|what|why)';
+// "I/we" then up to three words (no clause word) then an experience verb in any form.
+const SUBJECT_EXP = new RegExp(`(?<![\\p{L}'])(?:i|we)('(?:ve|d|m|re|ll))?((?:[\\s,]+(?!${GAP_STOP}(?![\\p{L}]))[\\p{L}']+){0,3}?)[\\s,]+(${EXP_FORM})(?![\\p{L}])`, 'gu');
+const WISH_WORDS = new Set(['love', 'like', 'hope', 'hoping', 'want', 'wanting', 'wish', 'eager', 'excited', 'keen', 'glad', 'happy', 'ready', 'chance', 'opportunity', 'plan', 'planning', 'aim', 'aiming', 'forward', 'thrilled', 'delighted']);
+const MODALS = new Set(['would', 'could', 'will', 'can', 'might']);
+const DETERMINERS = new Set(['the', 'a', 'an', 'your', 'their', 'his', 'her', 'its', 'this', 'these', 'those', 'some', 'any', 'more']);
+const EXPERIENCE = [
+  /(?<![\p{L}'])(?:my|our)\s+(?:[\p{L}-]+\s+){0,2}?(?:internships?|co-?ops?|time|summers?|years?|days|job|role|work|team|projects?|experience|manager|colleagues|coworkers|position|stint)(?![\p{L}])/u,
+  /(?<![\p{L}])having\s+\p{L}+(?:ed|en|t)(?![\p{L}])/u,
+  /(?<![\p{L}])(?:enjoyed|loved|liked|miss|missed)\s+(?:working|interning|being|my\s+time)(?![\p{L}])/u,
+  /(?<![\p{L}])(?:glad|happy|excited|proud|thrilled|grateful|lucky)\s+to\s+(?:have|still)(?![\p{L}])/u,
+  /(?<![\p{L}])as\s+(?:a|an)\s+(?:[\p{L}-]+\s+){0,3}?(?:at|with|for|on)\s+/u,
+  /(?<![\p{L}])part\s+of(?![\p{L}])/u,
+  /(?<![\p{L}])(?:return\p{L}*|rejoin\p{L}*|back|again|former|previous|ex-)(?![\p{L}])/u,
+  /^\s*(?:having|interning|working|volunteering|training|serving|partnering|collaborating|mentoring|leading|building)(?![\p{L}])/u,
+  // "it was great working with you all": a past or -ing form with no subject, unless the reader or the team does it.
+  /(?<![\p{L}'])(?<!(?:you're|you\s+are|you|they|they're|is|are)\s+)(?:worked|working|interned|interning|collaborated|collaborating|partnered|partnering|volunteered|volunteering)(?![\p{L}])/u,
+  /(?<![\p{L}])(?:hired|employed|trained|mentored|paid|promoted|recruited|onboarded|supervised|taught|hosted)\s+(?:me|us)(?![\p{L}])/u,
+  /(?<![\p{L}'])(?:i|we)(?:\s+(?:was|were|am|are|have\s+been|had\s+been)|'ve\s+been|'m|'re)\s+(?:still\s+|also\s+)?(?:on|with|at|in|part|there|here|back)(?![\p{L}])/u,
+];
+const TARGET_REF = new RegExp(`${T}|\\{(?:company|title)\\}|(?<![\\p{L}])(?:your\\s+(?:team|company|group|org|organization|office)|you\\s+all|with\\s+you|at\\s+your)(?![\\p{L}])`, 'u');
+// "there" that points at a place: not "there is/are", "is/are there" or a sentence-opening "There".
+const THERE_PLACE = /(?<![\p{L}]|(?:is|are|was|were)\s)(?<!^\s*)there(?!\s+(?:is|are|was|were|will|might|may|has|have)(?![\p{L}]))(?![\p{L}])/u;
 
-const placeholderSentences = (text) => String(text ?? '').split(/(?<=[.!?:])\s+|\n+/).filter((s) => /\{(?:company|title)\}/.test(s));
+function experienceIn(clause) {
+  if (EXPERIENCE.some((re) => re.test(clause))) return true;
+  return [...clause.matchAll(SUBJECT_EXP)].some((m) => {
+    const gap = m[2].trim().split(/[\s,]+/).filter(Boolean);
+    const last = gap.at(-1);
+    const prev = gap.at(-2);
+    if (/^rejoin/.test(m[3])) return true;
+    if (!gap.length) return m[1] !== "'d" && m[1] !== "'ll";
+    if (MODALS.has(last)) return false;
+    // "I'm curious about the work at ...": after a determiner the word is a noun ("my work" is EXPERIENCE above).
+    if (DETERMINERS.has(last)) return false;
+    if (last === 'to' && WISH_WORDS.has(prev)) return false;
+    if (last === 'in' && prev === 'interested' && /ing$/.test(m[3])) return false;
+    return true;
+  });
+}
+
+const sentencesOf = (text) => String(text ?? '').split(/(?<=[.!?:])\s+|\n+/).filter((s) => s.trim());
 
 export function targetClaims(text) {
   const out = [];
-  for (const sentence of placeholderSentences(text)) {
-    const lower = sentence.toLowerCase();
-    const claims = [...lower.matchAll(EXP_CLAIM)].filter((m) => {
-      const verb = m[1];
-      if (verb && NO_CLAIM_VERB.has(verb)) return false;
-      const rest = lower.slice(m.index + m[0].length);
-      if (verb && LEARNED_OF.has(verb) && /^\s+(?:that|about|how)(?![\p{L}])/u.test(rest)) return false;
-      // "I am still very interested", "I'm curious", "I was excited to apply": a be verb with a wish word right after it.
-      if (BE_VERB.has(verb) && /^(?:\s+[\p{L}']+){0,3}/u.exec(rest)[0].match(WISH_FRAME)) return false;
-      return true;
-    }).map((m) => ({ start: m.index, end: m.index + m[0].length }));
-    const frames = [...lower.matchAll(WISH_FRAME)].map((m) => m.index + m[0].length);
-    const targets = [...lower.matchAll(TARGET)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
-    const claimed = targets.some((t) => claims.some((c) => (c.start >= t.end ? true : c.end <= t.start && !frames.some((f) => f > c.end && f <= t.start)))
-      || RELATIVE_AFTER.test(lower.slice(t.end)));
-    if (claimed || EMPLOYED_ME.test(lower) || MY_WORK.test(lower) || RETURN_WORD.test(lower) || AFTER_WORK.test(lower)) out.push(sentence.trim());
+  let prevRef = false;
+  for (const sentence of sentencesOf(modelBody(text))) {
+    let marked = sentence;
+    for (const re of [...TITLE_PHRASES, ...COMPANY_PHRASES]) marked = marked.replace(re, (m) => m.replace(/\{(?:company|title)\}/g, T));
+    const outside = /\{(?:company|title)\}/.test(marked);
+    const lower = marked.toLowerCase();
+    const opensThere = /^\s*there(?![\p{L}])(?!\s+(?:is|are|was|were|will|might|may|has|have)(?![\p{L}]))/u.test(lower);
+    const clauses = lower.split(/;|,\s+(?=(?:and|but|so)\s+i(?![\p{L}]))/u);
+    const refers = (c, i) => TARGET_REF.test(c) || THERE_PLACE.test(c) || (i === 0 && opensThere && prevRef);
+    const claimed = clauses.some((c, i) => refers(c, i) && experienceIn(c));
+    if (outside || claimed) out.push(sentence.trim());
+    prevRef = clauses.some((c, i) => refers(c, i));
   }
   return out;
 }
@@ -354,7 +400,7 @@ export function draftChecks(raw, job, { cv = '', facts = [] } = {}) {
   const again = literalTargets(text, job);
   if (again.length) flags.push(`writes ${again.join(', ')} as is instead of {company}, {title} or {applied_date}`);
   const bad = badPlaceholders(text, job);
-  if (bad.length) flags.push(`uses ${bad.map((k) => `{${k}}`).join(', ')}, which this draft has no value for`);
+  if (bad.length) flags.push(`uses ${bad.join(', ')}, which this draft has no value for`);
   const claims = targetClaims(text);
   if (claims.length) flags.push(`makes a claim about the company or job title: ${claims.map((s) => `"${s}"`).join('; ')}`);
   const acronyms = groundedAcronyms(text, ownText);
