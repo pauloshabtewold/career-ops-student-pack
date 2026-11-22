@@ -116,3 +116,28 @@ test('r7 M4: counts of years with no "of": spent (several) years, years\' experi
   const cv = `${CV}- Data Clerk, Example Bank (2021-2024): 3 years of SQL reporting\n`;
   assert.deepEqual(check('I have spent several years working with SQL.', { ...NW, cv }), []);
 });
+
+const BLUEFIN = (resp, req) => ({ cv: CV, answers: {}, company: 'Bluefin Supply', role: 'Data Analyst Intern', posting: `Data Analyst Intern
+Bluefin Supply is a distributor of industrial parts.
+${resp}
+- Build demand forecasting models and run regression analysis on order history
+- Perform geospatial analysis of delivery routes
+- Reconcile vendor invoices and support month-end close
+- Conduct usability testing of internal tools and write user personas
+${req}
+- Pursuing a degree in a quantitative field
+- Strong forecasting and statistics skills
+- Comfortable with geospatial data` });
+
+test('r7 M5: requirement headers match in any case, with markdown marks and a colon stripped, and in common wordings', () => {
+  const headers = ['Requirements', 'Job Requirements', 'Qualifications', 'Minimum Qualifications', 'Preferred Qualifications', 'Technical Skills', 'Skills', "Who we're looking for", 'Your profile', 'The ideal candidate', 'Must have', 'Nice to have', 'What you bring', 'REQUIREMENTS'];
+  const forms = [(h) => `${h}:`, (h) => `## ${h}`, (h) => `**${h}**`, (h) => `**${h}:**`, (h) => `### ${h}:`];
+  for (const h of headers) for (const f of forms) {
+    const src = BLUEFIN('## What you will do', f(h));
+    assert.deepEqual(check('Your team works with geospatial data every day.', src), ['geospatial'], f(h));
+  }
+  // A markdown header that is not a requirement header ends the section before it.
+  const src = BLUEFIN('## Requirements\n- Comfortable with kriging\n## About the team', '## Benefits');
+  assert.deepEqual(check('Your team works with kriging every day.', src), ['kriging']);
+  assert.deepEqual(check('Your team uses forecasting models.', src), []);
+});
