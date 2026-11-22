@@ -17,7 +17,10 @@
     { "company": "Example Radio Systems", "text": "Analog Design Intern. Experience with mixed-signal design only; no software role. Apply online." },
     { "company": "Example Robotics", "text": "Hardware Intern. Book and pay for your travel to the onsite interview; we reimburse you after the visit." },
     { "company": "Sample Labs", "text": "Lab Intern. Interns must purchase their own parking permit; we reimburse it after the first month." },
-    { "company": "Demo Works", "text": "Operations Intern. Students must purchase a transit pass before your first day; it is reimbursed monthly." }
+    { "company": "Demo Works", "text": "Operations Intern. Students must purchase a transit pass before your first day; it is reimbursed monthly." },
+    { "company": "Example Robotics", "text": "Remote Hardware Intern. Purchase the equipment you need with your $1,000 home-office stipend." },
+    { "company": "Sample Labs", "text": "Research Intern. Interns get a check-in with mentors weekly and a budget to buy books." },
+    { "company": "Demo Works", "text": "Remote Support Intern. You will receive a check for your equipment stipend with your first paycheck." }
   ],
   "scam": [
     { "company": "Sample Labs", "text": "Remote Assistant. Purchase your laptop and printer from our approved vendor with your own funds; we reimburse you after your first check." },

@@ -13,8 +13,8 @@
 // board, so a repost of one title under a new id on a later scan date is counted (reposts= note, one per scan date) and
 // the title's earliest scan date is kept (title_since= note) beside the posting's own date (posted= note); daily-triage
 // passes the count and the title's age to the ghost rule. A repost dropped by the company-plus-title dedupe is still
-// recorded in the seen file and refreshes those notes on its title's Pending row. The first scan of a board adds only the newest
-// fresh_first_scan (default 25) open postings and marks the rest seen.
+// recorded in the seen file and refreshes those notes on its title's Pending row. The first scan of a board adds only
+// the newest fresh_first_scan (default 25) open postings and marks the rest seen.
 // Usage: fresh-scan.mjs [--linkedin] [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
 // --linkedin reads only the LinkedIn page, whatever chrome_in_schedule says: a session in which the student asked for
 // fresh LinkedIn jobs reaches the automation Chrome even when the schedule does not.
