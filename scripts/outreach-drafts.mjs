@@ -197,7 +197,7 @@ export function applicationOpening(job) {
 }
 // A connect note goes on after "Hi {first_name}, ": a plain capitalized first word loses its capital, never "I", a name
 // of the reader or their company, or a tech word.
-const lowerFirst = (t, job) => t.replace(/^(\p{Lu})(\p{Ll}+)(?![\p{L}'’])/u, (m, a, b) => (TECH_WORDS.includes(m) || nameWords(`${job.contact?.name} ${job.contact?.company}`).includes(m.toLowerCase()) ? m : a.toLowerCase() + b));
+const lowerFirst = (t, job) => t.replace(/^(\p{Lu})(\p{Ll}+)(?![\p{L}'\u2019])/u, (m, a, b) => (TECH_WORDS.includes(m) || nameWords(`${job.contact?.name} ${job.contact?.company}`).includes(m.toLowerCase()) ? m : a.toLowerCase() + b));
 // Capitalized by convention; a connect note keeps their capital.
 export const TECH_WORDS = Object.freeze(['Python', 'JavaScript', 'TypeScript', 'Java', 'SQL', 'Git', 'GitHub', 'Linux', 'React', 'Node', 'AWS', 'Excel', 'LinkedIn']);
 
