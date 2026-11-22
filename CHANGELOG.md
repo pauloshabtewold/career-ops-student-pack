@@ -4,6 +4,8 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- M-003 (P2 Find jobs): free job-text rules (`lib/jd-rules.mjs`: years, degree, closed, location, never keywords) and a job-text hash cache (`data/triage-cache.tsv`, T1) run in the daily triage before any model call; duplicate rows by url key fail before any fetch (T13); scam and ghost rules (`lib/posting-risk.mjs`, T16, off by default) turn a model verdict into a FAIL naming rule scam; every claude triage call passes `--output-format json` and its usage-ledger row records the reported tokens. `scripts/fresh-scan.mjs` scans Greenhouse, Lever and Ashby boards hourly with zero model calls and, with `chrome_in_schedule` yes or `--linkedin`, reads one LinkedIn past-hour page through `chrome.mjs read --links`; `schedule.mjs install` adds the hourly entry. `budget.mjs` adds `easy_apply_per_day` 12 (`apply.easy_apply`, approved batch item required) and `linkedin_fresh_search_per_hour` 1 (`linkedin.fresh_search`); `chrome.mjs submit --kind easy-apply`; new mode `modes/fresh-jobs.md`.
+
 ## v0.8.0 (2026-11-21)
 
 - Merge branch 'claude/v2-p1'
