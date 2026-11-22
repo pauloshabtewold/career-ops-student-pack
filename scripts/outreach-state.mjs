@@ -10,7 +10,8 @@ import { isMain, parseArgs, runCli, UsageError } from '../lib/args.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { contactRecords, followupsDue, nextAction, oneActivePerCompany, weeklySentBy } from '../lib/outreach-state.mjs';
+import { detailValue } from '../lib/action-log.mjs';
+import { contactRecords, followupsDue, isAppFollowup, isMessage, lower, nextAction, oneActivePerCompany, weeklySentBy } from '../lib/outreach-state.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { archiveMessage } from '../lib/thread-archive.mjs';
@@ -18,17 +19,28 @@ import { parseTsv } from '../lib/tsv.mjs';
 
 const readIf = (f) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
 
+// The channel of a contact's last message (email when it was a gmail.send, with its logged address), so their one
+// follow-up goes out the same way.
+function lastChannel(actions, name, company) {
+  const mine = actions.filter((r) => isMessage(r) && !isAppFollowup(r) && lower(r.target) === lower(name) && lower(r.company) === lower(company));
+  const last = mine.reduce((a, r) => (!a || r.ms >= a.ms ? r : a), null);
+  return last?.action === 'gmail.send' ? { channel: 'email', email: detailValue(last.detail, 'email') ?? '' } : { channel: 'linkedin' };
+}
+
 // Builds contact records from contacts.tsv joined with action-log.tsv (both through contactRecords, the helper budget.mjs
 // uses, so a contact known only from a logged linkedin.connect holds its company too) and returns the due actions (at
 // most one opener per company, none while another contact there is active), the application follow-ups due and the
-// weekly sent counts.
+// weekly sent counts. A contact follow-up carries the channel (and address) of the contact's last message.
 export async function outreachState(dataDir, now) {
   // A Date or epoch milliseconds.
   const nowMs = Number(now);
   const actions = await readActionLog(join(dataDir, 'action-log.tsv'));
   const contacts = contactRecords(parseTsv(readIf(join(dataDir, 'contacts.tsv'))).rows, actions);
   const openPostings = new Set(sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').map(({ row }) => String(row.company).toLowerCase()));
-  const all = contacts.map((c) => ({ name: c.name, company: c.company, ...nextAction(c, { nowMs, openPostings }) })).filter((d) => !['stop', 'wait'].includes(d.action));
+  const all = contacts
+    .map((c) => ({ name: c.name, company: c.company, ...nextAction(c, { nowMs, openPostings }) }))
+    .filter((d) => !['stop', 'wait'].includes(d.action))
+    .map((d) => (d.action === 'follow-up' ? { ...d, ...lastChannel(actions, d.name, d.company) } : d));
   return { due: oneActivePerCompany(all, contacts, nowMs), followups: followupsDue(actions, nowMs), weekly: weeklySentBy(actions, nowMs) };
 }
 

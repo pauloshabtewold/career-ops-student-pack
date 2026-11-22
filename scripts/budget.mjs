@@ -19,7 +19,8 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
 import { LOG_HEADER, appendAction, readActionLog, detailValue } from '../lib/action-log.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
-import { closedStage, contactRecords } from '../lib/outreach-state.mjs';
+import { readBatch } from '../lib/batch-file.mjs';
+import { FOLLOWUP_MAX_DAYS, FOLLOWUP_MIN_DAYS, closedStage, contactRecords, isAppFollowup, isMessage, isNudge, lower } from '../lib/outreach-state.mjs';
 import { escapeCell, readTsv } from '../lib/tsv.mjs';
 
 const entry = (value, unit, tighten, period) => ({ value, unit, tighten, period });
@@ -104,14 +105,13 @@ const CHECKABLE = [
 ];
 // Events recorded as they happen; they are not budgeted and carry no gap.
 // linkedin.reply and linkedin.declined record what a contact did, so hygiene rules can stop after a no or a silence.
-// apply.pending is logged by chrome.mjs right before a submit click, so an item stays used even when the apply.submit log
-// after the click fails.
-const OBSERVED = ['linkedin.accept', 'linkedin.reply', 'linkedin.declined', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending'];
+// apply.pending is logged by chrome.mjs right before a submit click, and gmail.pending by lib/gmail-chrome.mjs right
+// before a Send click, so an item stays used even when the send log after the click fails.
+const OBSERVED = ['linkedin.accept', 'linkedin.reply', 'linkedin.declined', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending', 'gmail.pending'];
+const PENDING = ['apply.pending', 'gmail.pending'];
 // Send kinds whose check needs a logged, unused approved batch item. A follow-up is checked as apply.followup and as its
 // channel (gmail.send with --followup) with the same batch item; both checks run before either is logged.
 const SEND_KINDS = ['apply.submit', 'apply.easy_apply', ...LINKEDIN_SENDS, 'gmail.send', 'apply.followup'];
-const FOLLOWUP_MIN_DAYS = 7;
-const FOLLOWUP_MAX_DAYS = 10;
 const APPROVAL_RE = /^(send|submit) (all|\d+(,\s*\d+)*)$/;
 // apply.submit carries --batch-id and --item instead of approval words; its approval is the logged batch.approve.
 const NEEDS_APPROVAL = [...LINKEDIN_SENDS];
@@ -170,10 +170,13 @@ function makeContext({ action, args, history, contacts = [], config, session, no
   };
 }
 
-function switchRefusal({ group, config, action, refuse }) {
+// Outreach drafts or off stops every outreach send, LinkedIn and email alike. An application follow-up email
+// (gmail.send --followup) belongs to the apply side and is left alone.
+function switchRefusal({ group, config, action, args, refuse }) {
   const switches = config.switches ?? {};
   if (group === 'handshake' && switches.handshake === 'off') return refuse('handshake is switched off', { period: 'day' });
-  if (LINKEDIN_SENDS.includes(action) && switches.outreach !== undefined && switches.outreach !== 'on') {
+  const outreachSend = LINKEDIN_SENDS.includes(action) || (action === 'gmail.send' && !args.followup);
+  if (outreachSend && switches.outreach !== undefined && switches.outreach !== 'on') {
     return refuse(`outreach is ${switches.outreach}; sends are disabled`);
   }
   return null;
@@ -241,10 +244,6 @@ function connectRule(ctx) {
 // with --nudge is that contact's one follow-up, so the hygiene rules below see both channels as one person. One sent with
 // --followup is an application's one follow-up (G6): it is no outreach contact, and the person rules never see it.
 const OUTREACH_SENDS = [...LINKEDIN_SENDS, 'gmail.send'];
-const isAppFollowup = (r) => r.action === 'gmail.send' && detailValue(r.detail, 'followup') === '1';
-const isNudge = (r) => r.action === 'linkedin.nudge' || (r.action === 'gmail.send' && !isAppFollowup(r) && detailValue(r.detail, 'nudge') === '1');
-const isMessage = (r) => r.action === 'linkedin.message' || (r.action === 'gmail.send' && !isAppFollowup(r) && detailValue(r.detail, 'nudge') !== '1');
-const lower = (s) => String(s ?? '').trim().toLowerCase();
 // A person is their lowercased name plus lowercased company, the key lib/outreach-state.mjs uses. A check without
 // --company matches the name at any company, so leaving the flag out never opens a second message.
 const sameCompany = (company) => (r) => !lower(company) || lower(r.company) === lower(company);
@@ -315,23 +314,37 @@ function followupRule({ args, rows, nowMs, refuse }) {
   return null;
 }
 
-function nudgeRule({ args, L, rows, nowMs, refuse, cap }) {
+// A nudge follows up an earlier message to the same person, so a nudge with no first message is refused, and it keeps
+// the one-active-contact-per-company rule like any other send.
+function nudgeRule(ctx) {
+  const { args, L, rows, nowMs, refuse, cap } = ctx;
   const mine = personRows(rows, args.target, args.company);
   if (mine.some((r) => r.action === 'linkedin.declined')) return refuse(`${args.target} declined; no more messages`, { unlogged: true });
   const stop = cap(L.nudge_per_target, mine.filter(isNudge).length, 'nudges to this target') || companyCap(rows, args, L.contacts_per_company, cap);
   if (stop) return stop;
   const lastMsg = Math.max(-Infinity, ...mine.filter(isMessage).map((r) => r.ms));
-  return nowMs - lastMsg < L.nudge_min_days * DAY_MS ? refuse(`last message to this target is under ${L.nudge_min_days} days old`) : null;
+  if (lastMsg === -Infinity) return refuse(`${args.target} has no first message to follow up`, { unlogged: true });
+  if (nowMs - lastMsg < L.nudge_min_days * DAY_MS) return refuse(`last message to this target is under ${L.nudge_min_days} days old`);
+  return activeCompanyRefusal(ctx);
 }
 
-// An email: --followup makes it an application's one follow-up (once per application, no person rules), --nudge a
-// contact's one follow-up (nudge rules), anything else a message to a contact (hygiene rules).
+// Addresses logged on emails to contacts who declined.
+function declinedEmails(rows) {
+  const declined = new Set(rows.filter((r) => r.action === 'linkedin.declined').map((r) => `${lower(r.target)}|${lower(r.company)}`));
+  return new Set(rows.filter((r) => r.action === 'gmail.send' && !isAppFollowup(r) && declined.has(`${lower(r.target)}|${lower(r.company)}`)).map((r) => lower(detailValue(r.detail, 'email'))).filter(Boolean));
+}
+
+// An email: --followup makes it an application's one follow-up (the apply.followup rules: a logged submit, 7 to 10 days
+// after it, once per application; no person rules), --nudge a contact's one follow-up (nudge rules), anything else a
+// message to a contact (hygiene rules). No email goes to an address logged for a contact who declined.
 function gmailRule(ctx) {
   const { args, rows, refuse } = ctx;
+  if (args.email && declinedEmails(rows).has(lower(args.email))) return refuse(`${args.email} belongs to a contact who declined; no more messages`, { unlogged: true });
   if (args.followup) {
     if (!args.target) return refuse('target missing; pass --target with the application url', { unlogged: true });
     const app = (r) => lower(r.target) === lower(args.target) && sameCompany(args.company)(r);
-    return rows.some((r) => isAppFollowup(r) && app(r)) ? refuse(`${args.target} already had its follow-up email`, { unlogged: true }) : null;
+    if (rows.some((r) => isAppFollowup(r) && app(r))) return refuse(`${args.target} already had its follow-up email`, { unlogged: true });
+    return followupRule(ctx);
   }
   if (!args.target) return refuse('target missing; pass --target with the contact name and --email with the address', { unlogged: true });
   return args.nudge ? nudgeRule(ctx) : hygieneRefusal(ctx, 'gmail.send');
@@ -412,21 +425,27 @@ const listOf = (text) => String(text ?? '').split(',').map((n) => Number(n.trim(
 export function approvedItem(rows, batchId, item) {
   if (!batchId || !Number.isInteger(item)) return false;
   const approved = rows.some((r) => r.action === 'batch.approve' && detailValue(r.detail, 'batch') === batchId && listOf(detailValue(r.detail, 'items')).includes(item));
-  const used = rows.some((r) => (SEND_KINDS.includes(r.action) || r.action === 'apply.pending') && detailValue(r.detail, 'batch') === batchId && Number(detailValue(r.detail, 'item')) === item);
+  const used = rows.some((r) => (SEND_KINDS.includes(r.action) || PENDING.includes(r.action)) && detailValue(r.detail, 'batch') === batchId && Number(detailValue(r.detail, 'item')) === item);
   return approved && !used;
 }
 
 // A missing approval refuses this one item only: it is marked unlogged so it does not write a budget.refusal row that
-// would stop every other approved item for the rest of the day.
-function approvalRefusal({ action, args = {}, history = [] }) {
+// would stop every other approved item for the rest of the day. batch is the stored batch (data/batches/<id>.json) when
+// it exists: an item that names a target is spent only on that target, so an approval for one person never sends to another.
+function approvalRefusal({ action, args = {}, history = [], batch = null }) {
   if (!SEND_KINDS.includes(action) || args.recheck) return null;
   const refuse = (reason) => result('refused', reason, { period: 'day', unlogged: true });
   if (!args.batchId || !Number.isInteger(args.item)) return refuse(`${action} needs --batch-id and --item from an approved batch`);
-  return approvedItem(history, args.batchId, args.item) ? null : refuse(`item ${args.item} of batch ${args.batchId} has no unused logged approval`);
+  if (!approvedItem(history, args.batchId, args.item)) return refuse(`item ${args.item} of batch ${args.batchId} has no unused logged approval`);
+  if (!batch) return null;
+  const listed = batch.items?.[args.item - 1];
+  if (!listed) return refuse(`batch ${args.batchId} has no item ${args.item}`);
+  if (listed.target && lower(listed.target) !== lower(args.target)) return refuse(`item ${args.item} of batch ${args.batchId} was approved for ${listed.target}, not ${args.target ?? '(no target)'}`);
+  return null;
 }
 
-// The CLI check: a send kind first needs its approved, unused batch item, then the ceilings decide. evaluate() stays the
-// ceiling decision alone.
+// The CLI check: a send kind first needs its approved, unused batch item (bound to its target), then the ceilings decide.
+// evaluate() stays the ceiling decision alone.
 export function evaluateCheck(opts) {
   return approvalRefusal(opts) ?? evaluate(opts);
 }
@@ -503,6 +522,9 @@ function submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refu
 // follow-up; --followup marks it as an application's follow-up, with the application as --target.
 const FLAGS = { target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string', 'batch-id': 'string', item: 'int', items: 'string', email: 'string', nudge: 'boolean', followup: 'boolean' };
 const COMMANDS = ['check', 'log', 'session-start', 'status', 'warning', 'due-withdrawals'];
+// Outreach sends name the person and the company, so the hygiene rules never run on half a key. An application
+// follow-up email (gmail.send --followup) names the application and needs no company.
+const NEEDS_PERSON = [...LINKEDIN_SENDS, 'gmail.send', 'gmail.pending'];
 
 function sessionFile(dataDir) {
   return join(dataDir, '.student-session.json');
@@ -619,6 +641,9 @@ function actionFrom({ command, positionals, flags }) {
   if (command === 'log' && SEND_KINDS.includes(action) && (!flags.batchId || !Number.isInteger(flags.item))) {
     throw new UsageError(`${action} needs --batch-id and --item of the approved batch item`);
   }
+  if (NEEDS_PERSON.includes(action) && !(action.startsWith('gmail.') && flags.followup)) {
+    if (!String(flags.target ?? '').trim() || !String(flags.company ?? '').trim()) throw new UsageError(`${action} needs --target with the contact's name and --company`);
+  }
   return action;
 }
 
@@ -658,6 +683,7 @@ async function cmdCheckLog(env) {
 
   if (command === 'log' && action === 'batch.approve') return logBatchApprove(env);
   if (command === 'log' && action === 'apply.pending') return logPending(env);
+  if (command === 'log' && action === 'gmail.pending') return logGmailPending(env);
   if (command === 'log' && action === 'linkedin.fresh_search') return logFreshSearch(env);
   if (command === 'log' && OBSERVED.includes(action)) {
     const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`].filter(Boolean).join(';');
@@ -667,7 +693,8 @@ async function cmdCheckLog(env) {
   }
 
   const { rows: contacts } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
-  const res = evaluateCheck({ action, args: argsFrom(flags, command === 'log'), history: all, contacts, config, session, now });
+  const batch = command === 'check' && SEND_KINDS.includes(action) && flags.batchId ? readBatch(paths.dataDir, flags.batchId) : null;
+  const res = evaluateCheck({ action, args: argsFrom(flags, command === 'log'), history: all, contacts, config, session, now, batch });
   if (res.status === 'refused' && !res.repeat && !res.unlogged) {
     const scope = res.scope ?? action;
     await write([mkRow('budget.refusal', { target: scope, detail: `period=${res.period ?? 'day'};reason=${res.reason}` })]);
@@ -707,6 +734,37 @@ async function logPending({ flags, file, mkRow, config, session, clock }) {
     if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
     appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
     console.log('logged apply.pending');
+    return 0;
+  });
+}
+
+// gmail.pending is logged by lib/gmail-chrome.mjs right before the Send click, as a compare-and-set under the action-log
+// lock: the fresh rows must still hold an approved, unused item and gmail.send must still pass, so the item is spent
+// before the click and a retry or a second session never sends it twice.
+async function logGmailPending({ flags, paths, file, mkRow, config, session, clock }) {
+  if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('gmail.pending needs --batch-id and --item of the approved batch item');
+  if (flags.dryRun) {
+    console.log('logged gmail.pending (dry run)');
+    return 0;
+  }
+  const { rows: contacts } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
+  mkdirSync(dirname(file), { recursive: true });
+  return withLock(file, async () => {
+    const rows = await readActionLog(file);
+    if (!approvedItem(rows, flags.batchId, flags.item)) {
+      console.log(`refused: item ${flags.item} of batch ${flags.batchId} has no unused logged approval`);
+      return EXIT.refused;
+    }
+    const res = evaluate({ action: 'gmail.send', args: argsFrom(flags, true), history: rows, contacts, config, session, now: clock.now() });
+    if (res.status !== 'ok') {
+      console.log(describe(res, clock));
+      return EXIT[res.status];
+    }
+    const detail = [`batch=${flags.batchId}`, `item=${flags.item}`, flags.email && `email=${flags.email}`, flags.nudge && 'nudge=1', flags.followup && 'followup=1'].filter(Boolean).join(';');
+    const row = mkRow('gmail.pending', { target: flags.target ?? '', company: flags.company ?? '', detail });
+    if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
+    appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
+    console.log('logged gmail.pending');
     return 0;
   });
 }

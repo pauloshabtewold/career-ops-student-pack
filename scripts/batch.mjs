@@ -55,18 +55,20 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   return 0;
 }
 
-// One batch's items with their send state, then its finish-these-yourself jobs with their direct links and reasons. An
-// apply.pending row with no send row is a click the page never confirmed: the application may or may not have gone out.
+// One batch's items with their send state (submitted for applications, sent for outreach), then its finish-these-yourself
+// jobs with their direct links and reasons. An apply.pending or gmail.pending row with no send row is a click the page
+// never confirmed: the application or email may or may not have gone out.
 function sayBatchStatus(batch, id, rows, say) {
   const itemsWith = (pred) => new Set(rows.filter((r) => pred(r) && detailValue(r.detail, 'batch') === id).map((r) => Number(detailValue(r.detail, 'item'))));
   const sent = itemsWith((r) => SEND_ACTIONS.has(r.action));
-  const pending = itemsWith((r) => r.action === 'apply.pending');
+  const pending = itemsWith((r) => r.action === 'apply.pending' || r.action === 'gmail.pending');
+  const done = batch.kind === 'apply' ? 'submitted' : 'sent';
   const approved = new Set(batch.approved?.items ?? []);
   const finishReason = new Map((batch.finishYourself ?? []).map((f) => [f.link, f.reason]));
   batch.items.forEach((it, i) => {
     const n = i + 1;
     const finish = finishReason.has(it.link) ? `on finish these yourself${finishReason.get(it.link) ? `: ${finishReason.get(it.link)}` : ''}` : null;
-    const state = sent.has(n) ? 'submitted' : pending.has(n) ? `clicked, not confirmed: check ${it.link}` : finish ?? (approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval');
+    const state = sent.has(n) ? done : pending.has(n) ? `clicked, not confirmed: check ${it.link || 'the Sent folder'}` : finish ?? (approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval');
     say(`${n}. ${it.company} | ${it.role} | ${state}`);
   });
   const finish = batch.finishYourself ?? [];
