@@ -95,8 +95,10 @@ export function roundFor(job, opts) {
   return round({ due: [dueOf(job)], ...opts });
 }
 
+// One fenced block of a prompt (<<<NAME-tag>>> ... <<<END-NAME-tag>>>), or null.
+export const blockIn = (prompt, name) => new RegExp(`\\n<<<${name}-([0-9a-f]+)>>>\\n([\\s\\S]*?)\\n<<<END-${name}-\\1>>>(?:\\n|$)`).exec(prompt)?.[2] ?? null;
 // The DRAFT block of a verify prompt.
-export const draftIn = (prompt) => /\nDRAFT:\n<<<\n([\s\S]*)\n>>>$/.exec(prompt)?.[1] ?? null;
+export const draftIn = (prompt) => blockIn(prompt, 'DRAFT');
 
 // The KNOWN TRUE block of a verify prompt (the facts code built from the student's records).
-export const knownIn = (prompt) => /\nKNOWN TRUE[^\n]*\n([\s\S]*?)\n\n/.exec(prompt)?.[1] ?? null;
+export const knownIn = (prompt) => blockIn(prompt, 'KNOWN');

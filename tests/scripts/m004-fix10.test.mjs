@@ -304,7 +304,8 @@ test('fix 10 B the drafting prompt: fixed rules and cv.md first (cacheable), art
   assert.ok(!/2026-11-14|November 14|\{applied_date\}/.test(b), b);
   const out = await roundFor(ALICE, { drafts: [HONEST], extraFiles: { 'article-digest.md': '# Digest\n\nWrote a campus newspaper piece on bus routes.\n' } });
   assert.match(out.drafting[0].prompt, /ARTICLE DIGEST \(article-digest\.md, also a source of facts\):\n# Digest/);
-  assert.match(out.verifies[0].prompt, /ARTICLE DIGEST \(article-digest\.md\):\n# Digest/);
+  // Fix 11 B: each block sits in its own fence with a per-call tag.
+  assert.match(out.verifies[0].prompt, /ARTICLE DIGEST \(article-digest\.md\):\n<<<DIGEST-([0-9a-f]+)>>>\n# Digest[\s\S]*?\n<<<END-DIGEST-\1>>>/);
 });
 
 test('fix 10 E and H the verify call: step outreach-verify with the draft kind\'s feature, resume first, the draft last', async () => {
@@ -317,9 +318,13 @@ test('fix 10 E and H the verify call: step outreach-verify with the draft kind\'
   assert.ok(v.prompt.includes(CV.trim()));
   assert.match(v.prompt, /\{"unsupported": \["<exact quote from the draft>", \.\.\.\]\}/);
   assert.match(v.prompt, /Questions to the reader, wishes, interest, plans/);
+  // Fix 11 B: the fence tag is new per call, so the shared prefix is the rules up to the RESUME fence; with one tag the
+  // prefix through the resume is the same for every draft.
   const other = od.verifyPrompt({ cv: CV, job: APP, draft: 'x' });
-  const prefix = v.prompt.slice(0, v.prompt.indexOf('Reader:'));
-  assert.ok(other.startsWith(prefix), 'the same cacheable prefix for every draft');
+  const rules = v.prompt.slice(0, v.prompt.indexOf('<<<RESUME-'));
+  assert.ok(other.startsWith(rules), 'the same rules prefix for every draft');
+  const one = (job) => od.verifyPrompt({ cv: CV, job, draft: 'x', tag: '0a1b2c3d' });
+  assert.ok(one(APP).startsWith(one(ALICE).slice(0, one(ALICE).indexOf('READER'))), 'the same prefix through the resume for one tag');
   assert.match(other, /Reader: Hiring team at Globex Example, role: Software Engineering Intern/);
 });
 

@@ -162,8 +162,9 @@ test('row 2 an invented employer or degree in a draft is still flagged and kept 
 test('row 2 (fix 10) acronyms, document words and degree claims are judged by the verifier against cv.md, which is its only fact source; the company, role, title and date are reader data', () => {
   const job = { action: 'warm-opener', channel: 'linkedin', contact: { name: 'Alice Alpha', company: ACME } };
   const p = verifyPrompt({ cv: CV, job, draft: 'Hi Alice,\n\nI hold a CS degree and an MBA. Would the CV or a résumé help?' });
-  const resume = p.slice(p.indexOf('RESUME (cv.md):'), p.indexOf('Reader:'));
-  assert.equal(resume.trim(), `RESUME (cv.md):\n${CV.trim()}`, 'only cv.md is the fact source');
+  // Fix 11 B: the resume sits alone in its own fenced block.
+  const resume = /\nRESUME \(cv\.md\):\n<<<RESUME-([0-9a-f]+)>>>\n([\s\S]*?)\n<<<END-RESUME-\1>>>/.exec(p)?.[2];
+  assert.equal(resume, CV.trim(), 'only cv.md is the fact source');
   assert.match(p, /Reader: Alice Alpha at Acme Example\n/);
   assert.match(p, /I hold a CS degree and an MBA\. Would the CV or a résumé help\?/);
   const appJob = { action: 'application-follow-up', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: 'Software Engineering Intern' } };
