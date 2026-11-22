@@ -508,3 +508,37 @@ test('R3 with outreach at drafts or off the application follow-up is still batch
     }
   }
 });
+
+// Round 3b R2b: one reply key however and whenever the reply is read.
+test('R2b the same reply read under inbox, search and label urls on two days logs once; two replies under one search url log twice', async () => {
+  const { readReply, replyKey } = await import('../../lib/gmail-chrome.mjs');
+  const p = await makePack({ rows: [row({ ts: ago(7), action: 'gmail.send', target: C, company: GLOBEX, detail: `email=${EMAIL[C]};batch=X;item=1` })] });
+  try {
+    const paths = resolvePaths({ root: p.root, dataDir: p.dataDir });
+    const read = (url, text, date, page = {}) => readReply({ dataDir: p.dataDir, paths, port: 9, url, contact: { name: C, company: GLOBEX }, date, runner: runResult, browser: async () => ({ text, hrefs: [], ...page }) });
+    const replies = async () => (await readLog(p)).filter((r) => r.action === 'linkedin.reply').length;
+    const G = 'https://mail.google.com/mail/u/0/';
+    const ID = '18c2f0a9b3d4e5f6';
+    const TEXT = 'Happy to chat. I work on the data team.';
+    for (const date of [DAY, shiftDate(DAY, 1)]) {
+      await read(`${G}#inbox/${ID}`, TEXT, date);
+      await read(`${G}#search/from%3Agamma/${ID}`, TEXT, date);
+      await read(`${G}#label/Recruiting/${ID}`, TEXT, date);
+    }
+    assert.equal(await replies(), 1, 'one reply, one row');
+
+    const searchUrl = `${G}#search/deadbeefdeadbeefdeadbeef`;
+    assert.equal(replyKey({ url: searchUrl, text: 'a' }).startsWith('h-'), true, 'a search query is never taken as a message id');
+    await read(searchUrl, 'First distinct reply about the team.', DAY, { from: EMAIL[C] });
+    await read(searchUrl, 'Second distinct reply about the schedule.', DAY, { from: EMAIL[C] });
+    assert.equal(await replies(), 3, 'two different replies under one search url log twice');
+    await read(searchUrl, '  first distinct REPLY about the team. ', shiftDate(DAY, 2), { from: EMAIL[C] });
+    assert.equal(await replies(), 3, 'the text hash has no read date and ignores spacing and case');
+
+    await read(`${G}#search/anything`, 'Text that differs from the page id read.', DAY, { id: 'FMfcgzPageId0001' });
+    await read(`${G}#inbox/FMfcgzPageId0001`, 'Text that differs again.', shiftDate(DAY, 3));
+    assert.equal(await replies(), 4, 'a message id from the page keys the reply like one from the url');
+  } finally {
+    p.cleanup();
+  }
+});
