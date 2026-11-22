@@ -382,3 +382,44 @@ test('2b --followup-to adds the follow-up to today\'s batch with that address, a
     r.cleanup();
   }
 });
+
+// Fix round 2c: the budget check runs before the batch item is read, even when the batch file is missing.
+test('2c sendEmail runs budget check gmail.send first with the caller fields when the batch file is missing', async () => {
+  const p = await makePack();
+  try {
+    const paths = resolvePaths({ root: p.root, dataDir: p.dataDir });
+    const email = { batchId: 'hb9', item: 4, target: C, company: GLOBEX, to: EMAIL[C], subject: 'Hello', body: CLEAN };
+    let opened = 0;
+    const browser = async () => {
+      opened += 1;
+      return 'sent';
+    };
+    const calls = [];
+    const refuseAll = (cmd, args) => {
+      calls.push(args.slice(1));
+      return { code: 3, stdout: 'refused: synthetic', stderr: '' };
+    };
+    const refused = await sendEmail({ paths, port: 9, email, date: DAY, runner: refuseAll, browser });
+    assert.equal(refused.code, 3, JSON.stringify(refused));
+    assert.equal(calls.length, 1);
+    const [first] = calls;
+    assert.deepEqual(first.slice(0, 2), ['check', 'gmail.send']);
+    assert.equal(first[first.indexOf('--batch-id') + 1], 'hb9');
+    assert.equal(first[first.indexOf('--item') + 1], '4');
+    assert.equal(first[first.indexOf('--email') + 1], EMAIL[C], 'the caller address is used when the batch cannot be read');
+    assert.equal(opened, 0, 'a refused check opens nothing');
+
+    const passAll = (cmd, args) => {
+      calls.push(args.slice(1));
+      return { code: 0, stdout: 'ok', stderr: '' };
+    };
+    calls.length = 0;
+    const missing = await sendEmail({ paths, port: 9, email, date: DAY, runner: passAll, browser });
+    assert.equal(missing.code, 3, `a passing check with no batch file is still refused: ${JSON.stringify(missing)}`);
+    assert.match(missing.reason, /no such batch item/);
+    assert.deepEqual(calls.map((c) => c.slice(0, 2).join(' ')), ['check gmail.send'], 'no pending row before the item binding');
+    assert.equal(opened, 0);
+  } finally {
+    p.cleanup();
+  }
+});
