@@ -183,8 +183,10 @@ function priorRefusal({ action, group, rows, session, isToday, refuse }) {
   return refuse(`${action} already refused in this period: ${why}`, { repeat: true, period: detailValue(prior.detail, 'period') ?? 'day' });
 }
 
-function windowRefusal({ group, local, refuse }) {
-  if (group !== 'linkedin') return null;
+// A log of apply.easy_apply records a click that already happened: chrome.mjs checked the window before the click, so a
+// click at 21:59 whose log lands at 22:00 is still logged rather than refused.
+function windowRefusal({ action, args, group, local, refuse }) {
+  if (group !== 'linkedin' || (action === 'apply.easy_apply' && args.recheck)) return null;
   const mins = local.hour * 60 + local.minute;
   if (mins < toMinutes(CEILINGS.window_start.value) || mins >= toMinutes(CEILINGS.window_end.value)) {
     return refuse('outside the LinkedIn window of 08:00 to 22:00 local time', { scope: 'linkedin' });
@@ -251,17 +253,31 @@ function handshakePageRule(ctx) {
 }
 
 const HOUR_MS = 3600000;
+const FRESH_SPACING_MS = 50 * 60000;
 
-// One past-hour saved-search page per hour: a second read inside the hour waits until the first is an hour old.
-function freshSearchRule({ action, L, rows, nowMs }) {
-  const recent = rows.filter((r) => r.action === action && r.ms > nowMs - HOUR_MS).map((r) => r.ms).sort((a, b) => a - b);
-  if (recent.length < L.linkedin_fresh_search_per_hour) return null;
-  const earliest = new Date(recent[recent.length - L.linkedin_fresh_search_per_hour] + HOUR_MS).toISOString();
-  return result('wait', `fresh search: ${recent.length} of ${L.linkedin_fresh_search_per_hour} this hour; earliest ${earliest}`, { earliest });
+// One past-hour saved-search page per local clock hour, and at least 50 minutes after the last read. The hourly scan
+// waits up to 10 minutes of jitter inside its own clock hour, so its reads land 50 to 70 minutes apart; a rolling 60
+// minutes would refuse about a third of them. The count per clock hour, and so per day, is unchanged.
+function freshSearchRule({ action, L, rows, nowMs, config, local }) {
+  const clock = createClock({ timezone: config.timezone });
+  const hourOf = (ms) => {
+    const t = clock.localTime(new Date(ms));
+    return `${t.date}T${t.hour}`;
+  };
+  const reads = rows.filter((r) => r.action === action).map((r) => r.ms).sort((a, b) => a - b);
+  const thisHour = reads.filter((ms) => hourOf(ms) === `${local.date}T${local.hour}`);
+  const spaced = reads.filter((ms) => ms > nowMs - FRESH_SPACING_MS);
+  const limit = L.linkedin_fresh_search_per_hour;
+  if (thisHour.length < limit && spaced.length < limit) return null;
+  const nextHour = nowMs - (nowMs % 60000) + (60 - local.minute) * 60000;
+  const afterSpacing = spaced.length >= limit ? spaced[spaced.length - limit] + FRESH_SPACING_MS : 0;
+  const earliest = new Date(Math.max(thisHour.length >= limit ? nextHour : 0, afterSpacing)).toISOString();
+  return result('wait', `fresh search: ${Math.max(thisHour.length, spaced.length)} of ${limit} this hour; earliest ${earliest}`, { earliest });
 }
 
-// Easy Apply keeps its own daily cap on top of every submit rule. The score floor applies when --score is given;
-// chrome.mjs submit always passes the fill plan's score.
+// Easy Apply keeps its own daily cap on top of every submit rule. It also counts inside submit_per_day: chrome.mjs logs
+// an apply.pending row before every click, Easy Apply included, and submitRows counts a pending row that has no
+// apply.submit. The score floor applies when --score is given; chrome.mjs submit always passes the fill plan's score.
 function easyApplyRule(ctx) {
   const { action, args, L, count, isToday, cap } = ctx;
   const scored = typeof args.score === 'number' ? ctx : { ...ctx, args: { ...args, recheck: true } };
@@ -480,7 +496,7 @@ async function cmdStatus({ clock, history, session, flags }) {
     connects_rolling_7d: n((r) => r.action === 'linkedin.connect' && r.ms > week),
     messages_today: n((r) => r.action === 'linkedin.message' && r.date === today),
     profile_views_today: n((r) => r.action === 'linkedin.profile_view' && r.date === today),
-    submits_today: n((r) => r.action === 'apply.submit' && r.date === today),
+    submits_today: n((r) => (r.action === 'apply.submit' || r.action === 'apply.easy_apply') && r.date === today),
     warnings_today: history.filter((r) => r.date === today && r.action.endsWith('.warning')).map((r) => r.action),
     refusals_today: history.filter((r) => r.date === today && r.action === 'budget.refusal').map((r) => r.target),
   };
