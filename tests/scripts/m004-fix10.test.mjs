@@ -353,5 +353,4 @@ test('fix 10 F four sample drafts from prose replies read like a person wrote th
     writeFileSync(file, out.join('\n'));
   }
   assert.equal(od.checkDraft(SAMPLES[3][2], APP, { sources: SOURCES }).text.match(/I applied for the Software Engineering Intern role at Globex Example on November 14, 2026/g).length, 1);
-  assert.ok(ACME);
 });
