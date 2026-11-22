@@ -216,7 +216,7 @@ test('fix 7 every live round 3 and round 4 draft: its questions with no first-pe
 test('fix 7 the placeholders are filled in only after the checks, to the exact final text', () => {
   assert.equal(fillPlaceholders('Hello {company} hiring team, I applied for the {title} role on {applied_date}.', APP), `Hello ${GLOBEX} hiring team, I applied for the ${TITLE} role on November 14, 2026.`);
   assert.equal(fillPlaceholders("Hi {first_name}, what is new at {company}?", ALICE), `Hi Alice, what is new at ${ACME}?`);
-  assert.match(flagsOf({ question: 'What does the {title} role involve?' }, ALICE).flags.join('; '), /placeholder-like or bracket text "\{"/);
+  assert.match(flagsOf({ question: 'What does the {title} role involve?' }, ALICE).flags.join('; '), /placeholder-like or bracket text "\{title\}"/);
   const prompt = draftPrompt({ ...APP, cv: CV_LIVE });
   assert.match(prompt, /\{company\}/);
   assert.match(prompt, /one JSON object/);
