@@ -16,8 +16,9 @@ import { A, B, C, ACME, GLOBEX, CONTACT_HEADER, contact } from '../helpers/outre
 
 const DAY = '2026-03-10';
 const CV = '# Sample Student\n\nSynthetic fixture resume.\n\nB.S. in Information Systems, expected May 2027.\n\nSkills: Python, SQL, Excel.\n';
-const CLEAN = 'Thanks for connecting. I would like to hear how you chose your field when you have time.';
-const INVENTED = 'Thanks for connecting. I have built Kubernetes clusters for your platform team.';
+// Model replies are slot JSON (fix 9 RULING: the model writes short slots, code places cv.md facts by id).
+const CLEAN = JSON.stringify({ warm_line: 'Thanks for connecting.', question: 'How did you choose your field?', fact_ids: [] });
+const INVENTED = JSON.stringify({ warm_line: 'Thanks for connecting.', question: 'I have built Kubernetes clusters for your platform team, right?', fact_ids: [99] });
 
 // M-004-S9-osdr
 test('M-004-S9-osdr a drafted message that names a fact absent from cv.md is flagged', async () => {
