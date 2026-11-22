@@ -85,8 +85,8 @@ const R8 = [
   [ALICE, 'Fluent in rust and go.'], [ALICE, 'Rust is a daily tool.'], [ALICE, 'Stanford grads tend to enjoy this kind of work.'], [ALICE, "Proud recipient of the dean's award."],
   [ALICE, "Dean's list every semester, so happy to share grades."], [ALICE, 'Happy to share the google offer details.'], [ALICE, 'A stanford degree and a google internship are on the resume.'],
   [ALICE, 'The resume shows a google internship and a stanford degree.'], [ALICE, 'Comfortable with production on-call work and incident reviews.'],
-  [ALICE, 'I’m a stanford grad.'], [ALICE, 'Iʼm a stanford grad.'], [ALICE, 'І hold a stanford degree.'], [ALICE, 'Ｉ hold a stanford degree.'],
-  [ALICE, 'Happy to chat, and І hold a stanford degree.'], [ALICE, 'Me​ and the team say hi.'], [ALICE, 'Wе love the mission.'],
+  [ALICE, 'I\u2019m a stanford grad.'], [ALICE, 'I\u02bcm a stanford grad.'], [ALICE, '\u0406 hold a stanford degree.'], [ALICE, '\uff29 hold a stanford degree.'],
+  [ALICE, 'Happy to chat, and \u0406 hold a stanford degree.'], [ALICE, 'Me\u200b and the team say hi.'], [ALICE, 'W\u0435 love the mission.'],
   [ALICE, 'Hired as an intern by the globex data team.'], [ALICE, 'Coded the initrode mobile app.'], [ALICE, 'Fixed bugs in the initrode checkout flow.'],
   [ALICE, 'Owned the initrode billing service.'], [ALICE, 'Aced every data structures exam.'], [ALICE, 'Loved the summer on the data team.'],
   [ALICE, 'Used rust and go daily on the data team.'], [ALICE, 'Won the hackathon at initrode.'], [ALICE, 'Placed at the top of the class.'],
@@ -199,9 +199,9 @@ test('fix 10 E budget: claims still listed after the redraft flag the draft with
 });
 
 // D. Placeholder shapes (r7 S3, r8 S1): each is a rail failure on the final string.
-const SHAPES = ['{company }', '{COMPANY}', '{company_name}', '{{ company }}', '{{company}}', '<company>', '${company}', '｛company｝', '(company name)', '[Company Name]', '&lt;company&gt;',
-  '{applied_date}', '[Company]', '{Company}', '{ company }', 'the ___ team', 'XXX', '(Company)', '%company%', '$company', '@company', '#company', ':company', '❴company❵', '﹛company﹜',
-  '⦃company⦄', 'company_name', 'first_name', 'job_title', '(your name)', '(insert company)', 'COMPANY NAME', 'TBD', '【company】', '《company》', '{title}', '%s'];
+const SHAPES = ['{company }', '{COMPANY}', '{company_name}', '{{ company }}', '{{company}}', '<company>', '${company}', '\uff5bcompany\uff5d', '(company name)', '[Company Name]', '&lt;company&gt;',
+  '{applied_date}', '[Company]', '{Company}', '{ company }', 'the ___ team', 'XXX', '(Company)', '%company%', '$company', '@company', '#company', ':company', '\u2774company\u2775', '\ufe5bcompany\ufe5c',
+  '\u2983company\u2984', 'company_name', 'first_name', 'job_title', '(your name)', '(insert company)', 'COMPANY NAME', 'TBD', '\u3010company\u3011', '\u300acompany\u300b', '{title}', '%s'];
 
 test('fix 10 D every placeholder shape is a rail failure; ordinary words, parentheses and filled names pass', () => {
   for (const shape of SHAPES) {
@@ -233,7 +233,7 @@ test('fix 10 D the other rails: Subject line, blank-line runs, length caps, link
 });
 
 test('fix 10 D the final string is NFKC-normalized before the rails and stored that way (r8 M3)', async () => {
-  const out = await roundFor(ALICE, { drafts: ['Ｉ hold a stanford degree. What is new at Ａcme?'] });
+  const out = await roundFor(ALICE, { drafts: ['\uff29 hold a stanford degree. What is new at \uff21cme?'] });
   assert.equal(out.items[0].message, 'Hi Alice,\n\nI hold a stanford degree. What is new at Acme?');
   assert.equal(draftIn(out.verifies[0].prompt), out.items[0].message);
 });
