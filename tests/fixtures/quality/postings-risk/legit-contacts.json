@@ -52,6 +52,8 @@
     { "company": "Sample Health", "text": "Remote Assistant. Purchase the laptop from the employer's vendor." },
     { "company": "Example Robotics", "text": "Remote Assistant. You will buy the laptop from the employer's vendor using your stipend." },
     { "company": "Sample Labs", "text": "Payment Clerk. We will send you a cheque; deposit it and forward the remaining funds to the IT supplier." },
-    { "company": "Demo Works", "text": "Remote Assistant. You will receive an equipment stipend. You must then purchase the laptop and software." }
+    { "company": "Demo Works", "text": "Remote Assistant. You will receive an equipment stipend. You must then purchase the laptop and software." },
+    { "company": "Example Analytics", "text": "Remote Assistant. A check will be mailed to you. Use it to buy the laptop from our partner store." },
+    { "company": "Sample Health", "text": "Remote Assistant. Purchase the laptop from our partner store with your equipment stipend." }
   ]
 }
