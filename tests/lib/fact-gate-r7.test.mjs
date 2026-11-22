@@ -161,3 +161,66 @@ test('r7: a soft-skill word in a requirement bullet is not a claim', () => {
   const src = BLUEFIN('## Responsibilities', '**Qualifications**\n- Clear communicator who works well with drivers');
   assert.deepEqual(check('Tutoring each week has made me a clear communicator.', src), []);
 });
+
+const LV = { cv: CV_AVERY, answers: {}, company: 'Lakeview Credit Union', role: 'Finance Intern', posting: `# Finance Intern, Summer 2026
+Lakeview Credit Union serves 40,000 members in the region.
+## What you'll do
+- Reconcile general ledger accounts and prepare monthly variance reports in Excel
+- Support the budgeting process and help analyze loan portfolio trends
+- Build pivot tables and charts for the finance team
+## Requirements
+- Pursuing a degree in finance, accounting, economics or a related field
+- Strong Excel skills; experience with QuickBooks is a plus
+- Attention to detail and a commitment to member service` };
+const RT = { cv: CV_AVERY, answers: {}, company: 'Redwood Transit', role: 'Operations Intern', posting: `**Operations Intern**
+Redwood Transit runs bus service across three counties.
+**Responsibilities**
+- Analyze ridership and on-time performance data
+- Help schedulers prepare service change materials
+- Respond to rider feedback and track trends
+**Qualifications**
+- Pursuing a degree in economics, planning, engineering or a related field
+- Comfortable with Excel; GIS experience a plus
+- Clear communicator who works well with drivers and planners` };
+const CV_SAM = `# Sam Placeholder
+sam.placeholder@example.com | Example City
+## Education
+- B.S. Computer Science, Example State University, expected May 2027. Coursework: Data Structures, Databases, Software Engineering, Human-Computer Interaction
+## Experience
+- IT Help Desk Student Worker, Example State University (2024 - present): answer student and staff tickets; reset accounts; set up laptops; wrote how-to guides for the help desk wiki
+## Projects
+- Course project: built a Java web app for booking study rooms with a team of 4; wrote unit tests and the database schema in MySQL
+- Personal project: Python script that cleans and charts my running data
+## Skills
+Java, Python, MySQL, Git, HTML, CSS
+`;
+const MV = { cv: CV_SAM, answers: {}, company: 'Maple Valley Schools', role: 'IT Support Intern', posting: `IT Support Intern
+Maple Valley Schools serves 9,000 students in 14 schools.
+Responsibilities:
+- Troubleshoot Chromebooks, printers and classroom projectors
+- Image and deploy laptops for teachers
+- Track tickets in our help desk system and update the knowledge base
+Qualifications:
+- Customer service mindset and patience with users of all skill levels
+- Basic networking knowledge; CompTIA A+ a plus
+- Able to lift 40 pounds` };
+const OB = { cv: CV_SAM, answers: {}, company: 'Orchard Bank', role: 'Data Science Intern', posting: 'Orchard Bank is a community bank with 30 branches. Our data science team builds models that help us serve customers better. As a Data Science Intern, you will clean data in Python and SQL, build churn and fraud models, and present results to business partners. You should have coursework in statistics or machine learning. Experience with pandas and scikit-learn is preferred.' };
+
+test('r7 M7: honest first drafts: company-name words as plain words, "as an intern on your team" and "as your <Role>" pass', () => {
+  for (const [src, letter] of [
+    [LV, "Lakeview Credit Union's focus on its members is what draws me to the Finance Intern position. My Financial Accounting coursework gave me a base in how accounts fit together, and my Excel skills grew in a class project where I analyzed local housing prices and presented the results. At Example Grocery I closed the register each night, which taught me to find and fix small errors before they grow. As an intern on your team, I would bring the same attention to detail to monthly reports and pivot tables, and I am eager to learn how a credit union plans its budget."],
+    [RT, 'I am applying for the Operations Intern role at Redwood Transit because public transit shapes how people in my town get to work and school. In my Statistics and Econometrics courses at Example College I learned to look for trends in data, and in a class project I analyzed local housing prices in Excel and R. As a cashier at Example Grocery, I closed the register each night and trained 2 new cashiers, which taught me to be careful and patient. I would welcome the chance to help your team understand riders better.'],
+    [RT, 'Tutoring students each week at the Example College Math Center has made me a clear communicator, and my years at Example Grocery taught me to stay calm and helpful with the public. I am eager to learn how a transit agency plans its service.'],
+    [MV, 'Supporting teachers so they can focus on students is work I would be proud to do at Maple Valley Schools. At my campus help desk I set up laptops, reset accounts and answer tickets every week, and I wrote how-to guides so people could solve common problems on their own. I am studying Computer Science at Example State University and I am eager to learn more about networking as your IT Support Intern.'],
+    [OB, 'I am excited to apply for the Data Science Intern role at Orchard Bank. My Databases coursework gave me a solid base in working with structured data. I would welcome the chance to learn how a community bank uses data to serve its customers.'],
+    [OB, "Orchard Bank's goal of serving customers better with data is what draws me to the Data Science Intern position. I am eager to deepen my statistics knowledge and learn how models are built and checked in a real bank."],
+  ]) assert.deepEqual(check(letter, src), [], letter.slice(0, 60));
+});
+
+test('r7 M7: the whole company name and held titles are still checked', () => {
+  assert.deepEqual(check('I interned at Lakeview Credit Union last summer.', LV), ['Lakeview Credit Union']);
+  assert.deepEqual(check('I helped members at Lakeview last summer.', LV), ['Lakeview']);
+  assert.deepEqual(check('As an intern on your team, I closed the books each month.', LV), ['intern']);
+  assert.deepEqual(check('As an analyst at Example Grocery, I would review sales.', LV), ['analyst']);
+  assert.deepEqual(check('As an intern at Lakeview Credit Union, I would help prepare monthly reports.', LV), []);
+});
