@@ -24,7 +24,9 @@ import { A, B, C, ACME, GLOBEX, EMAIL, OB, CONTACT_HEADER, approve, contact, ema
 const ago = (days, hour = 12, today = DAY) => at(shiftDate(today, -days), hour, 0);
 const li = (days, action, target, company = ACME) => liRow({ ts: ago(days), action, target, company });
 const CV = '# Sample Student\n\nSynthetic fixture resume.\n\nB.S. in Information Systems, expected May 2027.\n\nSkills: Python, SQL, Excel.\n';
-const CLEAN = 'Thanks for connecting. I would like to hear how you chose your field when you have time.';
+// Fix 9: the model answers with slot JSON; CLEAN is the body code builds from CLEAN_SLOTS (a stored message's text).
+const CLEAN_SLOTS = JSON.stringify({ warm_line: 'Thanks for connecting.', question: 'How did you choose your field?', fact_ids: [] });
+const CLEAN = 'Thanks for connecting. How did you choose your field?';
 
 async function withPack(rows, fn, { config = '', items = '1,2,3', today = DAY } = {}) {
   const p = await makePack({ rows, config });
@@ -83,7 +85,7 @@ test('M2 a due connect and a due contact follow-up each become a batch item with
     let calls = 0;
     const headless = async () => {
       calls += 1;
-      return { text: CLEAN, model: 'sonnet', usage: null };
+      return { text: CLEAN_SLOTS, model: 'sonnet', usage: null };
     };
     const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, t6On: false }, say: () => {} });
     const items = res.ids.flatMap((id) => readBatch(r.data, id).items);
@@ -126,7 +128,7 @@ test('S1 with outreach at drafts or off gmail.send exits 3, an application follo
     try {
       r.write('cv.md', CV);
       const state = { due: [{ name: C, company: GLOBEX, action: 'warm-opener' }], followups: [] };
-      const headless = async () => ({ text: CLEAN, model: 'sonnet', usage: null });
+      const headless = async () => ({ text: CLEAN_SLOTS, model: 'sonnet', usage: null });
       const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state, t6On: false }, say: () => {} });
       assert.deepEqual(listBatches(r.data), [], `${mode}: no batch is written`);
       const file = join(r.data, 'outreach', `drafts-${DAY}.md`);
@@ -296,7 +298,8 @@ test('S7 a warm opener that asks for a referral is flagged and kept out of the b
   try {
     r.write('cv.md', CV);
     const state = { due: [{ name: C, company: GLOBEX, action: 'warm-opener' }, { name: A, company: ACME, action: 'warm-opener' }], followups: [] };
-    const headless = async (opts) => ({ text: String(opts.prompt).includes(GLOBEX) ? 'Thanks for connecting. Would you be open to a referral for the role on your team?' : CLEAN, model: 'sonnet', usage: null });
+    const referral = JSON.stringify({ warm_line: 'Thanks for connecting.', question: 'Would you be open to a referral for the role on your team?', fact_ids: [] });
+    const headless = async (opts) => ({ text: String(opts.prompt).includes(GLOBEX) ? referral : CLEAN_SLOTS, model: 'sonnet', usage: null });
     const said = [];
     const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state, t6On: false }, say: (s) => said.push(s) });
     const batches = JSON.stringify(listBatches(r.data).map((id) => readBatch(r.data, id)));
@@ -325,7 +328,8 @@ test('M2 outreach-state due carries the channel of the last message on a contact
 
 // Fix round 2b: an application follow-up reaches a batch only with an address.
 const FOLLOW_STATE = { due: [], followups: [{ target: 'https://jobs.example.com/acme/1', company: ACME, submitted: shiftDate(DAY, -8) }] };
-const followHeadless = async () => ({ text: 'Thanks for considering my application. I would be glad to send anything else you need.', model: 'sonnet', usage: null });
+// An application follow-up gets its slots; any contact draft in the same round gets CLEAN_SLOTS.
+const followHeadless = async (opts) => ({ text: String(opts.prompt).includes('\nApplication: ') ? JSON.stringify({ warm_line: 'The role looks like a great match for practical work.', fact_ids: [] }) : CLEAN_SLOTS, model: 'sonnet', usage: null });
 
 test('2b a recruiter email in contacts.tsv lands on the application follow-up item', async () => {
   const r = makeRoot();
