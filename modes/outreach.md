@@ -28,7 +28,7 @@ Each contact's conversation is kept as plain text in `data/threads/<name>-<compa
 
 ## Follow-ups on applications
 
-Each submitted application gets one follow-up 7 to 10 days after its submit, in the next approved outreach batch, always as an email.
+Each submitted application gets one follow-up 7 to 10 days after its submit, in the next approved outreach batch, always as an email. The item shows the address it goes to: an email logged for that application, or else a recruiter or hiring contact at the company in `data/contacts.tsv` (with `role` and `email` columns) who has not said no. A follow-up with no address never goes into a batch: the round lists it under "needs an address" and asks the student for one (for example "follow up with <Company> at <email>"). When they give it, run `node student/scripts/outreach-drafts.mjs --followup-to "<application url or company>" <email>`, which adds that follow-up to today's batch with the address. It still needs the student's approval before it is sent.
 
 ## Sending
 

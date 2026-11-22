@@ -320,3 +320,65 @@ test('M2 outreach-state due carries the channel of the last message on a contact
     p.cleanup();
   }
 });
+
+// Fix round 2b: an application follow-up reaches a batch only with an address.
+const FOLLOW_STATE = { due: [], followups: [{ target: 'https://jobs.example.com/acme/1', company: ACME, submitted: shiftDate(DAY, -8) }] };
+const followHeadless = async () => ({ text: 'Thanks for considering my application. I would be glad to send anything else you need.', model: 'sonnet', usage: null });
+
+test('2b a recruiter email in contacts.tsv lands on the application follow-up item', async () => {
+  const r = makeRoot();
+  try {
+    r.write('cv.md', CV);
+    r.write('data/contacts.tsv', serializeTsv(['date', 'company', 'name', 'stage', 'role', 'email'], [
+      { date: shiftDate(DAY, -5), company: ACME, name: 'Contact Recruiter', stage: 'accepted', role: 'Campus Recruiter', email: 'recruiter@example.com' },
+      { date: shiftDate(DAY, -5), company: ACME, name: 'Contact No', stage: 'declined', role: 'Hiring Manager', email: 'no@example.com' },
+    ]));
+    const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless: followHeadless, state: FOLLOW_STATE, t6On: false }, say: () => {} });
+    const items = res.ids.flatMap((id) => readBatch(r.data, id).items);
+    assert.equal(items.length, 1, JSON.stringify(items));
+    assert.equal(items[0].action, 'application-follow-up');
+    assert.equal(items[0].to, 'recruiter@example.com');
+    assert.match(items[0].role, /email to recruiter@example\.com/, 'the student sees the address on the batch line');
+    assert.deepEqual(res.needsAddress, []);
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('2b a follow-up with no address is not batched and is listed under needs an address with the guided prompt', async () => {
+  const r = makeRoot();
+  try {
+    r.write('cv.md', CV);
+    const said = [];
+    const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless: followHeadless, state: FOLLOW_STATE, t6On: false }, say: (s) => said.push(s) });
+    assert.deepEqual(listBatches(r.data), [], 'no batch holds an item with no address');
+    assert.equal(res.needsAddress.length, 1);
+    const text = said.join('\n');
+    assert.match(text, /needs an address/);
+    assert.match(text, new RegExp(`Type: follow up with ${ACME} at <email>`));
+    assert.match(text, /^Next: /m);
+    assert.match(text, /^Why: /m);
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('2b --followup-to adds the follow-up to today\'s batch with that address, and the CLI rejects a bad address', async () => {
+  const { addFollowupTo } = await import('../../scripts/outreach-drafts.mjs');
+  const r = makeRoot();
+  try {
+    r.write('cv.md', CV);
+    const paths = resolvePaths({ root: r.root, dataDir: r.data });
+    const [open] = writeBatches(r.data, { date: DAY, kind: 'outreach', items: [{ company: GLOBEX, role: `${C} (warm-opener)`, score: null, preview: CLEAN, link: '', message: CLEAN, action: 'warm-opener', channel: 'linkedin', target: C }] });
+    const res = await addFollowupTo({ paths, today: DAY, which: ACME, email: 'jobs@example.com', deps: { headless: followHeadless, state: FOLLOW_STATE }, say: () => {} });
+    assert.deepEqual(res, { id: open, item: 2 });
+    const item = readBatch(r.data, open).items[1];
+    assert.equal(item.to, 'jobs@example.com');
+    assert.equal(item.target, FOLLOW_STATE.followups[0].target);
+    assert.equal(readBatch(r.data, open).approved, null, 'still waits for approval');
+    await assert.rejects(addFollowupTo({ paths, today: DAY, which: 'Nobody Example', email: 'x@example.com', deps: { headless: followHeadless, state: FOLLOW_STATE }, say: () => {} }), /no application follow-up is due/);
+    await assert.rejects(addFollowupTo({ paths, today: DAY, which: ACME, email: 'not-an-address', deps: { headless: followHeadless, state: FOLLOW_STATE }, say: () => {} }), /email address/);
+  } finally {
+    r.cleanup();
+  }
+});

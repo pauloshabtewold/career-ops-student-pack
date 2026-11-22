@@ -13,6 +13,7 @@ One section per pack release, newest first. The release workflow writes each sec
 - Review fixes: the outreach round now batches connection requests (a note while this week's free notes last, else none) and each contact's one follow-up on the channel of their last message, so every send kind has an item to approve. A first message that asks for a referral is flagged.
 - `budget.mjs`: a nudge needs an earlier message and keeps the one-active-contact-per-company rule. Outreach checks and logs need `--target` and `--company` (exit 2 without). `switches.outreach` at `drafts` or `off` also stops outreach email, and `outreach-drafts.mjs` then writes `data/outreach/drafts-<date>.md` or nothing. `gmail.send --followup` runs the application follow-up rules and never goes to a declined contact's address. A batch item is spent only on its own target. A connect limit of 0 is a valid lowering.
 - `lib/gmail-chrome.mjs` takes the address, subject and text from the approved item, logs `gmail.pending` before the Send click, logs the send only after Gmail confirms it, reports a failed log, closes the compose tab, and logs each reply it reads as `linkedin.reply`. `batch.mjs status` shows outreach items as sent.
+- An application follow-up goes into a batch only with an address: one logged for the application, or a recruiter or hiring contact at the company in `data/contacts.tsv`. Otherwise the round lists it under "needs an address", and `outreach-drafts.mjs --followup-to <application or company> <email>` adds it to today's batch.
 
 ## v0.9.0 (2026-11-22)
 

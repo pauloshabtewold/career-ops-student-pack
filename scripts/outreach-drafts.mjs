@@ -9,22 +9,31 @@
 // referral, is flagged, not batched. With switches.outreach at drafts the drafts go to data/outreach/drafts-<date>.md
 // instead of a batch; at off nothing is drafted. Every incoming reply passed in is also kept in the contact's thread
 // file (lib/thread-archive.mjs).
+// An application follow-up reaches a batch only with an address the student sees: an email logged on the application's
+// apply rows, else a recruiter or hiring contact at the company in contacts.tsv (role and email columns) who has not
+// declined. A follow-up with neither is left out and listed under "needs an address"; --followup-to supplies one.
 // Usage: outreach-drafts.mjs [--replies FILE] [--root R] [--data-dir D] [--today YYYY-MM-DD]
+//        outreach-drafts.mjs --followup-to <application url or company> <email>
 //   --replies: JSON [{ name, company, text, channel?, email?, subject? }] of incoming replies read from LinkedIn or Gmail.
-// Exit 0 always for a finished run; 2 usage.
+//   --followup-to: drafts that due application follow-up to the address given and adds it to today's open outreach
+//   batch (or a new one); it still needs the student's approval to send.
+// Exit 0 for a finished run; 2 usage (including no follow-up due for --followup-to).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readActionLog, detailValue } from '../lib/action-log.mjs';
-import { isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { writeBatches } from '../lib/batch-file.mjs';
+import { isMain, parseArgs, runCli, UsageError } from '../lib/args.mjs';
+import { PAGE_MAX, listBatches, readBatch, updateBatch, writeBatches } from '../lib/batch-file.mjs';
 import { clean } from '../lib/clean-text.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { isOn } from '../lib/levers.mjs';
+import { guidedFooter } from '../lib/next-step.mjs';
+import { lower } from '../lib/outreach-state.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { archiveMessage } from '../lib/thread-archive.mjs';
+import { parseTsv } from '../lib/tsv.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { effectiveLimits } from './budget.mjs';
 import { outreachState } from './outreach-state.mjs';
@@ -133,6 +142,53 @@ function noteBudget(config, actionRows, nowMs) {
   return { noteSlots: Math.max(0, L.notes_free_per_rolling_7d - used), noteChars: L.note_len_free };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const HIRING_ROLE = /recruit|hiring|talent/i;
+
+// The address for an application follow-up: an email logged on that application's apply rows, else the email of a
+// recruiter or hiring contact at the same company in contacts.tsv who has not declined (latest sheet row, or a logged
+// linkedin.declined). '' when there is none.
+export function followupAddress(f, { actionRows = [], contactRows = [] } = {}) {
+  const app = actionRows.filter((r) => ['apply.submit', 'apply.easy_apply', 'apply.pending'].includes(r.action) && lower(r.target) === lower(f.target) && lower(r.company) === lower(f.company));
+  const logged = app.map((r) => detailValue(r.detail, 'email')).find((e) => EMAIL_RE.test(String(e ?? '')));
+  if (logged) return logged;
+  const declined = new Set(actionRows.filter((r) => r.action === 'linkedin.declined').map((r) => `${lower(r.target)}|${lower(r.company)}`));
+  const latest = new Map();
+  for (const r of contactRows) {
+    if (lower(r.company) !== lower(f.company) || !r.name) continue;
+    const key = lower(r.name);
+    const prev = latest.get(key);
+    if (!prev || String(r.date ?? '') >= String(prev.date ?? '')) latest.set(key, { ...r, email: r.email || prev?.email, role: r.role || prev?.role });
+  }
+  const pick = [...latest.values()].find((r) => HIRING_ROLE.test(String(r.role ?? '')) && EMAIL_RE.test(String(r.email ?? '')) && r.stage !== 'declined' && !declined.has(`${lower(r.name)}|${lower(f.company)}`));
+  return pick?.email ?? '';
+}
+
+// The guided lines for follow-ups that have no address yet.
+function needsAddressLines(needs) {
+  if (!needs.length) return [];
+  const first = needs[0];
+  return [
+    'outreach-drafts: needs an address (left out of the batch):',
+    ...needs.map((f) => `  ${f.company} | ${f.target} | submitted ${f.submitted}`),
+    ...guidedFooter({ step: `give the address for the ${first.company} follow-up`, prompt: `follow up with ${first.company} at <email>`, why: 'a follow-up email goes only to an address you see and approve in the batch.' }),
+  ];
+}
+
+// Batch item for one ready draft.
+const itemOf = (d) => ({
+  company: d.contact.company,
+  role: `${d.contact.name} (${d.action}${d.channel === 'email' ? `, email to ${d.to || 'address needed'}` : ''})`,
+  score: null,
+  preview: d.action === 'connect' && !d.text ? '(connection request, no note)' : d.text,
+  link: '',
+  message: d.text,
+  action: d.action,
+  channel: d.channel ?? 'linkedin',
+  target: d.application?.target ?? d.contact.name,
+  ...(d.channel === 'email' ? { to: d.to, subject: d.subject } : {}),
+});
+
 // Drafts mode: every draft, numbered with contact, company and character count, in data/outreach/drafts-<date>.md.
 function writeDraftsFile(dataDir, today, drafts) {
   const dir = join(dataDir, 'outreach');
@@ -155,8 +211,12 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
     return { ids: [], ready: 0, flagged: [], sorted: 0 };
   }
   const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
-  const notes = noteBudget(config, await readActionLog(join(paths.dataDir, 'action-log.tsv')), nowMs);
-  const jobs = draftJobs({ due: state.due, followups: state.followups, replies, t6On, ...notes });
+  const actionRows = await readActionLog(join(paths.dataDir, 'action-log.tsv'));
+  const notes = noteBudget(config, actionRows, nowMs);
+  const contactRows = readContacts(paths.dataDir);
+  const resolved = (state.followups ?? []).map((f) => ({ ...f, email: f.email || followupAddress(f, { actionRows, contactRows }) }));
+  const needsAddress = resolved.filter((f) => !f.email);
+  const jobs = draftJobs({ due: state.due, followups: resolved.filter((f) => f.email), replies, t6On, ...notes });
   const sorted = sortedOut(replies, t6On);
   const cvFile = join(paths.root, 'cv.md');
   const cv = existsSync(cvFile) ? readFileSync(cvFile, 'utf8') : '';
@@ -169,33 +229,73 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   for (const s of sorted) say(`outreach-drafts: ${s.name} at ${s.company}: ${s.kind} reply, no draft needed`);
   if (sorted.length) await appendLedger(paths.dataDir, zeroRow({ date: today, step: 'reply-sort', feature: 'U4', rows: sorted.length }));
   const flaggedOut = flagged.map((d) => ({ name: d.contact.name, company: d.contact.company, flags: d.flags }));
+  const needsOut = needsAddress.map((f) => ({ target: f.target, company: f.company, submitted: f.submitted }));
   if (mode === 'drafts') {
     const file = writeDraftsFile(paths.dataDir, today, ready);
     say(`outreach-drafts: outreach is drafts; ${ready.length} draft(s) in ${file}, nothing batched for sending`);
-    return { ids: [], draftsFile: file, ready: ready.length, flagged: flaggedOut, sorted: sorted.length };
+    for (const line of needsAddressLines(needsAddress)) say(line);
+    return { ids: [], draftsFile: file, ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
   }
-  const items = ready.map((d) => ({
-    company: d.contact.company,
-    role: `${d.contact.name} (${d.action}${d.channel === 'email' ? `, email to ${d.to || 'address needed'}` : ''})`,
-    score: null,
-    preview: d.action === 'connect' && !d.text ? '(connection request, no note)' : d.text,
-    link: '',
-    message: d.text,
-    action: d.action,
-    channel: d.channel ?? 'linkedin',
-    target: d.application?.target ?? d.contact.name,
-    ...(d.channel === 'email' ? { to: d.to, subject: d.subject } : {}),
-  }));
+  const items = ready.map(itemOf);
   const ids = items.length ? writeBatches(paths.dataDir, { date: today, kind: 'outreach', items }) : [];
   say(`outreach-drafts: ${ready.length} draft(s) in ${ids.length} batch(es)${ids.length ? `: ${ids.join(', ')}` : ''}`);
-  return { ids, ready: ready.length, flagged: flaggedOut, sorted: sorted.length };
+  for (const line of needsAddressLines(needsAddress)) say(line);
+  return { ids, ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
+}
+
+function readContacts(dataDir) {
+  const file = join(dataDir, 'contacts.tsv');
+  return existsSync(file) ? parseTsv(readFileSync(file, 'utf8')).rows : [];
+}
+
+/**
+ * Drafts the due application follow-up named by `which` (its application url or its company) to `email` and adds it to
+ * today's open outreach batch (not yet approved, with room), or a new batch. Returns { id, item } where item is the
+ * 1-based number in that batch; throws UsageError when no follow-up is due for `which` or the address is not an email.
+ * A draft the fact gate flags is reported and not added ({ id: null }).
+ */
+export async function addFollowupTo({ paths, today, which, email, deps = {}, say = console.log }) {
+  if (!EMAIL_RE.test(String(email ?? ''))) throw new UsageError(`--followup-to needs an email address after the application, got "${email ?? ''}"`);
+  const config = (await loadStudentConfig({ root: paths.root })) ?? {};
+  const nowMs = deps.nowMs ?? createClock({ today, timezone: config.timezone }).now().getTime();
+  const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
+  const f = (state.followups ?? []).find((x) => lower(x.target) === lower(which)) ?? (state.followups ?? []).find((x) => lower(x.company) === lower(which));
+  if (!f) throw new UsageError(`no application follow-up is due for ${which}`);
+  const [job] = draftJobs({ due: [], followups: [{ ...f, email }], t6On: false });
+  const cvFile = join(paths.root, 'cv.md');
+  const cv = existsSync(cvFile) ? readFileSync(cvFile, 'utf8') : '';
+  const d = await draftOne(job, { cv, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' });
+  if (d.flags.length) {
+    say(`outreach-drafts: ${f.company} follow-up flagged and kept out of the batch: ${d.flags.join('; ')}`);
+    return { id: null, item: null };
+  }
+  const item = itemOf(d);
+  const open = listBatches(paths.dataDir).filter((id) => id.startsWith(`${today}-outreach-`)).map((id) => readBatch(paths.dataDir, id)).filter((b) => b && !b.approved && b.items.length < PAGE_MAX).at(-1);
+  let id;
+  let n;
+  if (open) {
+    const next = updateBatch(paths.dataDir, open.id, (b) => ({ ...b, items: [...b.items, item] }));
+    id = next.id;
+    n = next.items.length;
+  } else {
+    [id] = writeBatches(paths.dataDir, { date: today, kind: 'outreach', items: [item] });
+    n = 1;
+  }
+  say(`outreach-drafts: ${f.company} follow-up to ${email} is item ${n} of ${id}; it goes out only after you approve it`);
+  return { id, item: n };
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { replies: 'string' } });
+  const { flags, positionals } = parseArgs(process.argv.slice(2), { flags: { replies: 'string', 'followup-to': 'string' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const config = await loadStudentConfig({ root: paths.root }).catch(() => null);
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
+  if (flags.followupTo !== undefined) {
+    if (positionals.length !== 1) throw new UsageError('usage: outreach-drafts.mjs --followup-to <application url or company> <email>');
+    await addFollowupTo({ paths, today, which: flags.followupTo, email: positionals[0] });
+    return 0;
+  }
+  if (positionals.length) throw new UsageError('too many arguments');
   const replies = flags.replies && existsSync(flags.replies) ? JSON.parse(readFileSync(flags.replies, 'utf8')) : [];
   await outreachDrafts({ paths, today, replies });
   return 0;
