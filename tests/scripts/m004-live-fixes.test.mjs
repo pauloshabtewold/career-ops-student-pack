@@ -1,8 +1,9 @@
 // SYNTHETIC FIXTURE: placeholder people, companies and cv text only.
 // M-004 live-verify fixes. Row 1: an apply.* row (target = application url) never becomes an outreach contact, so an
-// applied company gets no `connect <url>` line. Row 2 (fix 9 shape): the model returns slot JSON (warm_line, question,
-// fact_ids); code places cv.md facts word for word and writes the frame; an invented employer, degree or acronym in a slot
-// is flagged. The fix 9 cases (every probe, honest lines, checked = stored = sent) are in m004-fix9.test.mjs. Row 2b: `outreach-drafts.mjs --followup-to "<Company>" <email>` works from the command line.
+// applied company gets no `connect <url>` line. Row 2 (fix 10 shape): the model writes a prose body, code writes the
+// frame, and a separate verifier call against cv.md flags an invented employer or degree. The fix 10 cases (every probe,
+// fail-closed verdicts, checked = stored = sent) are in m004-fix10.test.mjs. Row 2b: `outreach-drafts.mjs --followup-to
+// "<Company>" <email>` works from the command line.
 // Row 7: the drafts round, --followup-to and batch.mjs approve end with the Next / Type / Why footer.
 // Scratch roots, synthetic placeholder people and companies, example.com addresses, an injected headless runner or a
 // fake `claude` on an isolated PATH: no real model, network, Gmail or LinkedIn.
@@ -11,14 +12,13 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { check as factCheck } from '../../lib/fact-gate.mjs';
 import { listBatches, readBatch, writeBatches } from '../../lib/batch-file.mjs';
 import { sendEmail } from '../../lib/gmail-chrome.mjs';
 import { contactRecords } from '../../lib/outreach-state.mjs';
 import { resolvePaths } from '../../lib/paths.mjs';
 import { appendTsv, serializeTsv } from '../../lib/tsv.mjs';
 import { main as batchMain } from '../../scripts/batch.mjs';
-import { addFollowupTo, checkDraft, contactRoles, draftFacts, factList, outreachDrafts } from '../../scripts/outreach-drafts.mjs';
+import { addFollowupTo, outreachDrafts, verifyPrompt } from '../../scripts/outreach-drafts.mjs';
 import { LOG_HEADER, at, makePack, row, shiftDate } from '../helpers/budget-harness.mjs';
 import { due, linesFor } from '../helpers/outreach-harness.mjs';
 import { PACK_ROOT, makeRoot } from '../helpers/script-harness.mjs';
@@ -47,15 +47,13 @@ Python, JavaScript, SQL, Git
 `;
 const PROFILE = 'candidate:\n  full_name: "Sam Placeholder"\n  email: "sam@example.com"\n';
 
-// Drafts shaped like the live real-model run, in the slot JSON the model now returns (fix 9). Fact ids are the lines of
-// CV below: 1 the degree line, 2 the internship, 3 the TA line, 4 the skills.
-const slots = (o) => JSON.stringify({ fact_ids: [], ...o });
+// Drafts shaped like the live real-model run, as prose bodies (fix 10): the model writes the body, code the frame.
 const LIVE = {
-  'Alice Alpha': slots({ question: 'What kind of problems does your team work on?', fact_ids: [2] }),
-  'Carl Connect': slots({ warm_line: 'Your work on developer tools looks great.', fact_ids: [3] }),
-  'Nora Nudge': slots({ question: 'Would it be easier to chat, or is there a better person to reach out to?', fact_ids: [1] }),
-  'Rita Reply': slots({ warm_line: 'Thanks for getting back so quickly.', question: 'Which teams at {company} are growing right now?', fact_ids: [1, 2] }),
-  'Hiring team': slots({ fact_ids: [2] }),
+  'Alice Alpha': "I'm a CS student who automated a weekly report at my internship, and I'm curious how your team works. What kind of problems does your team work on?",
+  'Carl Connect': 'Your work on developer tools looks great, and as a Data Structures TA I would like to follow it.',
+  'Nora Nudge': 'Just a quick nudge on my earlier note. Would it be easier to chat, or is there a better person to reach out to?',
+  'Rita Reply': 'Thanks for getting back so quickly! I graduate in May 2027, and I liked building a Python script at Sample Labs. Which teams at {company} are growing right now?',
+  'Hiring team': 'My internship at Sample Labs, where I built a Python script that saved my team hours each week, is why this role appeals to me.',
 };
 const STATE = {
   due: [
@@ -67,10 +65,15 @@ const STATE = {
 };
 const REPLIES = [{ name: 'Rita Reply', company: INITECH, text: 'Thanks for connecting! When do you graduate, and which team interests you?' }];
 
-// A headless runner that answers each prompt with the draft for the contact it names; texts overrides some contacts.
-const headlessFor = (texts = {}) => async (opts) => {
+// A headless runner that answers each prompt with the draft for the contact it names (texts overrides some contacts),
+// and each outreach-verify call with the claims listed for that contact in claims (none by default).
+const headlessFor = (texts = {}, claims = {}) => async (opts) => {
+  if (opts.step === 'outreach-verify') {
+    const reader = Object.keys(LIVE).find((n) => String(opts.prompt).includes(`Reader: ${n} at`));
+    return { text: JSON.stringify({ unsupported: claims[reader] ?? [] }), model: 'sonnet', usage: null };
+  }
   const name = Object.keys(LIVE).find((n) => String(opts.prompt).includes(`Contact: ${n} at`));
-  return { text: texts[name] ?? LIVE[name] ?? slots({ warm_line: 'Thanks for connecting.' }), model: 'sonnet', usage: null };
+  return { text: texts[name] ?? LIVE[name] ?? 'Thanks for connecting.', model: 'sonnet', usage: null };
 };
 
 function liveRoot({ config = '' } = {}) {
@@ -84,9 +87,9 @@ function liveRoot({ config = '' } = {}) {
   return r;
 }
 
-const run = (r, { texts, state = STATE, replies = REPLIES } = {}) => {
+const run = (r, { texts, claims, state = STATE, replies = REPLIES } = {}) => {
   const said = [];
-  return outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, replies, deps: { headless: headlessFor(texts), state, t6On: false }, say: (s) => said.push(String(s)) }).then((res) => ({ res, said }));
+  return outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, replies, deps: { headless: headlessFor(texts, claims), state, t6On: false }, say: (s) => said.push(String(s)) }).then((res) => ({ res, said }));
 };
 
 // Same rule as lintGuided in tests/ops/guided-messages.test.mjs (locked, so repeated here): null when the text holds
@@ -123,7 +126,7 @@ test('row 1 outreach-state due with only an apply.submit row lists its applicati
 
 // Row 2
 
-test('row 2 realistic drafts like the live ones pass the fact gate and all reach the batch', async () => {
+test('row 2 realistic drafts like the live ones pass the rails and the verifier and all reach the batch', async () => {
   const r = liveRoot();
   try {
     const { res, said } = await run(r);
@@ -136,14 +139,15 @@ test('row 2 realistic drafts like the live ones pass the fact gate and all reach
   }
 });
 
-test('row 2 an invented employer or degree in a draft is still flagged and kept out of the batch', async () => {
+test('row 2 an invented employer or degree in a draft is still flagged and kept out of the batch (fix 10: by the verifier)', async () => {
   const r = liveRoot();
   try {
     const texts = {
-      'Alice Alpha': slots({ warm_line: 'Great to see Initrode Systems mentioned in your posts.', question: 'What is your team working on?' }),
-      'Nora Nudge': slots({ question: 'Is an MBA useful on your team?' }),
+      'Alice Alpha': 'I interned at Initrode Systems last summer. What is your team working on?',
+      'Nora Nudge': 'I am finishing my MBA this spring. Is an MBA useful on your team?',
     };
-    const { res } = await run(r, { texts });
+    const claims = { 'Alice Alpha': ['I interned at Initrode Systems last summer'], 'Nora Nudge': ['I am finishing my MBA this spring'] };
+    const { res } = await run(r, { texts, claims });
     const flags = Object.fromEntries(res.flagged.map((f) => [f.name, f.flags.join('; ')]));
     assert.match(flags['Alice Alpha'] ?? '', /Initrode Systems/);
     assert.match(flags['Nora Nudge'] ?? '', /MBA/);
@@ -155,39 +159,16 @@ test('row 2 an invented employer or degree in a draft is still flagged and kept 
   }
 });
 
-test('row 2 (fix 9) an acronym in a slot passes only as one of the fixed tech words; cv.md acronyms reach a message only inside a fact', () => {
+test('row 2 (fix 10) acronyms, document words and degree claims are judged by the verifier against cv.md, which is its only fact source; the company, role, title and date are reader data', () => {
   const job = { action: 'warm-opener', channel: 'linkedin', contact: { name: 'Alice Alpha', company: ACME } };
-  const opts = { facts: factList(CV), cv: CV, own: draftFacts(job, { candidate: { full_name: 'Sam Placeholder' } }) };
-  const gate = (o) => checkDraft(slots(o), job, opts).flags.join('; ');
-  for (const a of ['CS', 'TA', 'MBA', 'GPA', 'NLP']) assert.match(gate({ question: `Does a ${a} matter on your team?` }), new RegExp(`not allowed here: ${a}`), a);
-  assert.equal(gate({ question: 'Does your team use AI or SQL much?' }), '');
-  const placed = checkDraft(slots({ question: 'What is your team working on?', fact_ids: [3] }), job, opts).text;
-  assert.ok(placed.includes('Teaching assistant for Data Structures at Example State University (2025 to 2026)'), placed);
-});
-
-test('row 2 (fix 9) CV, résumé and resume name the document; a CS degree claim in a slot is still flagged', () => {
-  const job = { action: 'warm-opener', channel: 'linkedin', contact: { name: 'Alice Alpha', company: ACME } };
-  const facts = draftFacts(job);
-  for (const w of ['CV', 'résumé', 'resume']) assert.ok(facts.includes(w), `${w} in ${facts}`);
-  const opts = { facts: factList('Biology student at Example State University.'), cv: 'Biology student at Example State University.', own: facts };
-  const gate = (o) => checkDraft(slots(o), job, opts).flags.join('; ');
-  assert.equal(gate({ question: 'Would the CV or a résumé help?' }), '');
-  assert.match(gate({ warm_line: 'Holds a CS degree.', question: 'What is new?' }), /CS/);
-});
-
-test('row 2 draftFacts holds the contact, profile fields and Hiring team, never the company, role, job title or submit date', () => {
-  const contactRows = [{ name: 'Alice Alpha', company: ACME, role: 'Data Engineer' }];
-  const reply = { action: 'reply', contact: { name: 'Alice Alpha', company: ACME } };
-  const person = draftFacts(reply, { candidate: { full_name: 'Sam Placeholder', links: { site: 'sam.example.com' } } });
-  for (const f of ['Alice Alpha', 'Alice', 'Sam Placeholder', 'sam.example.com', 'Hiring team']) assert.ok(person.includes(f), `${f} in ${person}`);
-  for (const f of [ACME, 'Data Engineer']) assert.ok(!person.includes(f), `${f} not in ${person}`);
-  assert.deepEqual(contactRoles(reply, contactRows), ['Data Engineer'], 'the role goes to the gate as a role name');
+  const p = verifyPrompt({ cv: CV, job, draft: 'Hi Alice,\n\nI hold a CS degree and an MBA. Would the CV or a résumé help?' });
+  const resume = p.slice(p.indexOf('RESUME (cv.md):'), p.indexOf('Reader:'));
+  assert.equal(resume.trim(), `RESUME (cv.md):\n${CV.trim()}`, 'only cv.md is the fact source');
+  assert.match(p, /Reader: Alice Alpha at Acme Example\n/);
+  assert.match(p, /I hold a CS degree and an MBA\. Would the CV or a résumé help\?/);
   const appJob = { action: 'application-follow-up', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: 'Software Engineering Intern' } };
-  const app = draftFacts(appJob);
-  assert.ok(app.includes('Hiring team'), `Hiring team in ${app}`);
-  for (const f of [GLOBEX, 'Software Engineering Intern', '2026-11-14']) assert.ok(!app.includes(f), `${f} not in ${app}`);
-  assert.ok(!app.includes('Hiring'), 'an application follow-up has no person first name');
-  assert.deepEqual(contactRoles(appJob, contactRows), []);
+  const a = verifyPrompt({ cv: CV, job: appJob, draft: 'x' });
+  assert.ok(!a.slice(0, a.indexOf('Reader:')).includes(GLOBEX) && !a.includes('2026-11-14'), a);
 });
 
 // Row 2b
@@ -199,7 +180,8 @@ function fakeClaude(r, text) {
   mkdirSync(bin);
   mkdirSync(home);
   const calls = r.file('calls.txt');
-  const body = `#!${process.execPath}\nconst fs = require('node:fs');\nfs.appendFileSync(${JSON.stringify(calls)}, 'call\\n');\nprocess.stdout.write(JSON.stringify({ result: ${JSON.stringify(text)}, modelUsage: { 'fake-model': {} }, usage: { input_tokens: 1, output_tokens: 1 } }));\n`;
+  // An outreach-verify prompt (read from stdin) gets a clean verdict; any other prompt gets the fixed draft.
+  const body = `#!${process.execPath}\nconst fs = require('node:fs');\nfs.appendFileSync(${JSON.stringify(calls)}, 'call\\n');\nlet input = '';\ntry { input = fs.readFileSync(0, 'utf8'); } catch {}\nconst text = input.includes('You check a networking message') ? '{"unsupported": []}' : ${JSON.stringify(text)};\nprocess.stdout.write(JSON.stringify({ result: text, modelUsage: { 'fake-model': {} }, usage: { input_tokens: 1, output_tokens: 1 } }));\n`;
   writeFileSync(join(bin, 'claude'), body);
   chmodSync(join(bin, 'claude'), 0o755);
   return { env: { PATH: bin, HOME: home }, calls: () => (existsSync(calls) ? readFileSync(calls, 'utf8').trim().split('\n').length : 0) };
@@ -214,10 +196,10 @@ test('row 2b outreach-drafts.mjs --followup-to "<Company>" <email> adds the foll
   const r = liveRoot();
   try {
     await appendTsv(r.file('data/action-log.tsv'), LOG_HEADER, [row({ ts: at(SUBMITTED, 12, 0), action: 'apply.submit', target: SOYLENT_APP, company: SOYLENT })]);
-    const fake = fakeClaude(r, slots({ warm_line: 'The role looks like a great match for practical work.' }));
+    const fake = fakeClaude(r, 'The role looks like a great match for practical work.');
     const res = drafts(r, ['--followup-to', SOYLENT, 'soylent-hr@example.com'], fake.env);
     assert.equal(res.code, 0, res.stdout + res.stderr);
-    assert.equal(fake.calls(), 1, 'one call to the fake claude');
+    assert.equal(fake.calls(), 2, 'one drafting call and one verify call to the fake claude');
     assert.match(res.stdout, /follow-up to soylent-hr@example\.com is item 1 of /);
     assert.equal(lintGuided('--followup-to success', res.stdout), null, res.stdout);
     const items = listBatches(r.data).flatMap((id) => readBatch(r.data, id).items);
@@ -250,7 +232,7 @@ test('row 2b and row 7 --followup-to without the email or with two words exits 2
 test('row 7 a round with flagged drafts ends with a footer that says what happened and the prompt to fix them', async () => {
   const r = liveRoot();
   try {
-    const { said } = await run(r, { texts: { 'Alice Alpha': 'Hi {first_name}, I interned at Initrode Systems.' } });
+    const { said } = await run(r, { texts: { 'Alice Alpha': 'Hi {first_name}, I interned at Initrode Systems.' }, claims: { 'Alice Alpha': ['I interned at Initrode Systems'] } });
     const text = said.join('\n');
     assert.match(text, /flagged and kept out of the batch/);
     assert.equal(lintGuided('flagged round', text), null, text);
@@ -290,11 +272,11 @@ test('row 7 an added and a flagged --followup-to draft each end with the guided 
     const paths = resolvePaths({ root: r.root, dataDir: r.data });
     const state = { due: [], followups: [{ target: SOYLENT_APP, company: SOYLENT, submitted: SUBMITTED }] };
     const said = [];
-    const bad = await addFollowupTo({ paths, today: DAY, which: SOYLENT, email: 'hr@example.com', deps: { headless: async () => ({ text: 'I interned at Initrode Systems.', model: 'sonnet', usage: null }), state }, say: (s) => said.push(s) });
+    const bad = await addFollowupTo({ paths, today: DAY, which: SOYLENT, email: 'hr@example.com', deps: { headless: async (opts) => ({ text: opts.step === 'outreach-verify' ? '{"unsupported": ["I interned at Initrode Systems."]}' : 'I interned at Initrode Systems.', model: 'sonnet', usage: null }), state }, say: (s) => said.push(s) });
     assert.equal(bad.id, null);
     assert.equal(lintGuided('flagged follow-up', said.join('\n')), null, said.join('\n'));
     said.length = 0;
-    const ok = await addFollowupTo({ paths, today: DAY, which: SOYLENT, email: 'hr@example.com', deps: { headless: async () => ({ text: slots({ fact_ids: [2] }), model: 'sonnet', usage: null }), state }, say: (s) => said.push(s) });
+    const ok = await addFollowupTo({ paths, today: DAY, which: SOYLENT, email: 'hr@example.com', deps: { headless: async (opts) => ({ text: opts.step === 'outreach-verify' ? '{"unsupported": []}' : 'My internship at Sample Labs is why the role appeals to me.', model: 'sonnet', usage: null }), state }, say: (s) => said.push(s) });
     assert.equal(ok.item, 1);
     assert.equal(lintGuided('added follow-up', said.join('\n')), null, said.join('\n'));
   } finally {
@@ -325,17 +307,20 @@ test('row 7 batch.mjs approve success and its exit-5 could-not-read reply end wi
 
 // Round 5
 
-test('row 5b (fix 9) a Subject line never enters an email: a slot holding one is flagged, and the stored and sent email starts with the code greeting', async () => {
-  const subject = await roundFor(GLOBEX_ONLY, 'Hiring team', slots({ warm_line: 'Subject: Following up on the application.', fact_ids: [2] }));
+test('row 5b (fix 10) a Subject line never enters an email: a leading one is taken off, any other is a rail flag, and the stored and sent email starts with the code greeting', async () => {
+  const subject = await roundFor(GLOBEX_ONLY, 'Hiring team', 'The role stands out.\nSubject: Following up on the application.');
   assert.equal(subject.items.length, 0);
-  assert.match(subject.flags, /warm_line/);
+  assert.match(subject.flags, /Subject line/);
+  const leading = await roundFor(GLOBEX_ONLY, 'Hiring team', 'Subject: Following up on the application\n\nThe role stands out.');
+  assert.equal(leading.items.length, 1, leading.flags);
+  assert.ok(!/subject:/i.test(leading.items[0].message), leading.items[0].message);
   const r = liveRoot();
   try {
     const prompts = [];
     const texts = {};
     const said = [];
     const headless = async (opts) => {
-      prompts.push(String(opts.prompt));
+      if (opts.step !== 'outreach-verify') prompts.push(String(opts.prompt));
       return headlessFor(texts)(opts);
     };
     const paths = resolvePaths({ root: r.root, dataDir: r.data });
@@ -346,7 +331,7 @@ test('row 5b (fix 9) a Subject line never enters an email: a slot holding one is
     assert.ok(item.message.startsWith('Hello Globex Example hiring team,'), item.message);
     assert.ok(!/^subject:/im.test(item.message), item.message);
     assert.equal(item.subject, `Following up on my application to ${GLOBEX}`);
-    assert.match(prompts[0], /Code writes the greeting, any sentence about an application or its date, the closing thanks and the sign-off/, 'fix 9: code writes the frame');
+    assert.match(prompts[0], /Write the body only\. Code adds the greeting with their name, any sentence about an application and its date, the closing thanks and the sign-off/, 'code writes the frame');
 
     const passAll = () => ({ code: 0, stdout: 'ok', stderr: '' });
     const sent = await sendEmail({ paths, port: 9, email: { batchId: id, item: 1, target: GLOBEX_APP, company: GLOBEX, followup: { target: GLOBEX_APP, company: GLOBEX } }, date: DAY, runner: passAll, browser: async () => 'sent' });
@@ -361,19 +346,20 @@ test('row 5b (fix 9) a Subject line never enters an email: a slot holding one is
   }
 });
 
-// Fix 9: a connect note is "Hi {first_name}, " and the warm_line slot (and a fact), built by code.
+// Fix 10: a connect note is "Hi {first_name}, " and the model body on one line.
 const LONG_LINE = 'Your thoughtful posts about developer tooling, testing culture, reliable deployment pipelines, observability dashboards, incident reviews and career growth for early engineers are consistently excellent reads.';
 const SHORT_LINE = 'Your posts on developer tooling are a great read.';
-const LONG_NOTE = slots({ warm_line: LONG_LINE });
-const SHORT_NOTE = slots({ warm_line: SHORT_LINE });
-// The notes as sent: the code greeting, then the slot with its first letter lowercased.
-const sent = (note) => `Hi Carl, ${JSON.parse(note).warm_line.replace(/^./, (c) => c.toLowerCase())}`;
+const LONG_NOTE = LONG_LINE;
+const SHORT_NOTE = SHORT_LINE;
+// The notes as sent: the code greeting, then the body with its first letter lowercased.
+const sent = (note) => `Hi Carl, ${note.replace(/^./, (c) => c.toLowerCase())}`;
 const CONNECT_STATE = { due: [{ name: 'Carl Connect', company: WAYNE, stage: 'new', action: 'connect' }], followups: [] };
 
 async function connectRound(replies) {
   const r = liveRoot({ config: 'linkedin_tier: free\n' });
   const prompts = [];
   const headless = async (opts) => {
+    if (opts.step === 'outreach-verify') return { text: '{"unsupported": []}', model: 'sonnet', usage: null };
     prompts.push(String(opts.prompt));
     return { text: replies[Math.min(prompts.length - 1, replies.length - 1)], model: 'sonnet', usage: null };
   };
@@ -418,22 +404,22 @@ async function roundFor(state, name, text, { cv } = {}) {
   }
 }
 
-test('fix 6 N1 (fix 9) a reply that is only a Subject line, bold or plain, is not slot JSON: flagged, never batched', async () => {
+test('fix 6 N1 (fix 10) a reply that is only a Subject line, bold or plain, has no body: flagged, never batched', async () => {
   for (const text of ['**Subject:** Following up on my application', 'Subject: only line']) {
     const { res, items, flags } = await roundFor(GLOBEX_ONLY, 'Hiring team', text);
     assert.equal(items.length, 0);
     assert.equal(res.ready, 0);
-    assert.match(flags, /not one JSON object/);
+    assert.match(flags, /no body/);
   }
 });
 
-test('fix 6 N2 (fix 9) a slot with line breaks is flagged; a stored email has at most one blank line in a row', async () => {
-  const broken = await roundFor(GLOBEX_ONLY, 'Hiring team', slots({ warm_line: 'The role stands out.\n\n\n\nThe team does too.' }));
+test('fix 6 N2 (fix 10) a body with a run of blank lines is a rail flag; a stored email has at most one blank line in a row', async () => {
+  const broken = await roundFor(GLOBEX_ONLY, 'Hiring team', 'The role stands out.\n\n\n\nThe team does too.');
   assert.equal(broken.items.length, 0);
-  assert.match(broken.flags, /more than one sentence/);
-  const { items, said } = await roundFor(GLOBEX_ONLY, 'Hiring team', slots({ warm_line: 'The role stands out.', fact_ids: [2] }));
+  assert.match(broken.flags, /more than one blank line/);
+  const { items, said } = await roundFor(GLOBEX_ONLY, 'Hiring team', 'The role stands out, and my Sample Labs internship is a close match.\n\nI am happy to send code samples.');
   assert.equal(items.length, 1, said.join('\n'));
-  assert.equal(items[0].message, 'Hello Globex Example hiring team,\n\nI applied for the Software Engineering Intern role at Globex Example on November 14, 2026, and I wanted to follow up. The role stands out.\n\nA bit about my background: Software engineering intern at Sample Labs (summer 2026): built a Python script that cut a weekly report from 2 hours to 10 minutes.\n\nPlease let me know if there is anything else I can send.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder');
+  assert.equal(items[0].message, 'Hello Globex Example hiring team,\n\nI applied for the Software Engineering Intern role at Globex Example on November 14, 2026, and I wanted to follow up.\n\nThe role stands out, and my Sample Labs internship is a close match.\n\nI am happy to send code samples.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder');
   assert.ok(!/\n[ \t]*\n[ \t]*\n/.test(items[0].message));
 });
 
