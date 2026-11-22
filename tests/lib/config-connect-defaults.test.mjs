@@ -60,9 +60,9 @@ test('M-004-S4-osdr a fresh config defaults to 15 connects a day and 80 a week a
     const res = runDaily(up, DAY);
     assert.equal(res.code, 0, res.stderr);
     const digest = readFileSync(join(up.root, 'data', 'digest', `student-${DAY}.md`), 'utf8');
-    const line = digest.split('\n').find((l) => /outreach|connect|sent/i.test(l) && /week|7 days|7-day/i.test(l));
-    assert.ok(line, `the digest has a weekly outreach line:\n${digest}`);
-    assert.match(line, /(^|\D)4(\D|$)/, `the weekly line shows 4 sent: ${line}`);
+    const weekLine = digest.split('\n').find((l) => /outreach|connect|sent/i.test(l) && /week|7 days|7-day/i.test(l));
+    assert.ok(weekLine, `the digest has a weekly outreach line:\n${digest}`);
+    assert.match(weekLine, /(^|\D)4(\D|$)/, `the weekly line shows 4 sent: ${weekLine}`);
   } finally {
     rmSync(up.root, { recursive: true, force: true });
   }
