@@ -211,19 +211,29 @@ async function waitProfileReleased(profile, { platform = process.platform, now =
   }
 }
 
-// Chrome writes the port it picked for --remote-debugging-port=0 on the first line of DevToolsActivePort.
+// Chrome writes the port it picked for --remote-debugging-port=0 on the first line of DevToolsActivePort, and on a slow
+// or cold start it can write it seconds before /json/version answers. The launch is ready only when it passes the same
+// check read, fill, submit and status make (liveState: the PID alive and the port answering), so a "ready" open is never
+// followed by "not running". Returns { port, ready, exited }; port is the last one seen, null when none was written.
 // portWaitMs overrides PORT_WAIT_MS (tests).
-async function waitForPort(profile, { now = Date.now, wait = sleep, portWaitMs = PORT_WAIT_MS } = {}) {
+async function waitForDevtools(profile, pid, deps = {}) {
+  const { now = Date.now, wait = sleep, portWaitMs = PORT_WAIT_MS } = deps;
+  const isAlive = deps.isAlive ?? isPidAlive;
   const file = join(profile, 'DevToolsActivePort');
   const until = now() + portWaitMs;
+  let port = null;
   while (now() < until) {
+    if (!isAlive(pid)) return { port, ready: false, exited: true };
     if (existsSync(file)) {
-      const port = Number(readFileSync(file, 'utf8').split('\n')[0]);
-      if (Number.isInteger(port) && port > 0) return port;
+      const seen = Number(readFileSync(file, 'utf8').split('\n')[0]);
+      if (Number.isInteger(seen) && seen > 0) {
+        port = seen;
+        if ((await reachable(port, deps)) && isAlive(pid)) return { port, ready: true, exited: false };
+      }
     }
     await wait(200);
   }
-  return null;
+  return { port, ready: false, exited: false };
 }
 
 // Chrome flags: dedicated profile directory, debugging port bound to loopback only.
@@ -280,10 +290,13 @@ async function openLocked({ dataDir, config, flags, deps, say }) {
   rmSync(join(profile, 'DevToolsActivePort'), { force: true });
   const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless) }), { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref?.();
-  const port = await waitForPort(profile, deps);
-  if (!port) {
+  const { port, ready, exited } = await waitForDevtools(profile, child.pid, deps);
+  if (!ready) {
     await stopChrome(child.pid, deps);
-    say(`chrome: Chrome started but opened no DevTools port within ${Math.round((deps.portWaitMs ?? PORT_WAIT_MS) / 1000)} seconds; stopped it (PID ${child.pid})`);
+    const seconds = Math.round((deps.portWaitMs ?? PORT_WAIT_MS) / 1000);
+    if (exited) say(`chrome: Chrome (PID ${child.pid}) exited before its DevTools port answered; run open again`);
+    else if (port) say(`chrome: Chrome started but its DevTools port ${port} did not answer within ${seconds} seconds; stopped it (PID ${child.pid})`);
+    else say(`chrome: Chrome started but opened no DevTools port within ${seconds} seconds; stopped it (PID ${child.pid})`);
     return EXIT.notRunning;
   }
   writeState(dataDir, { port, pid: child.pid, profile, started: new Date().toISOString() });
