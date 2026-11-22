@@ -103,3 +103,16 @@ test('r7 M3: more title triggers: in my role as, my <title> internship/job, I wa
     'I worked at Example Logistics as an operations intern.',
   ]) assert.deepEqual(check(s, NW), [], s);
 });
+
+test('r7 M4: counts of years with no "of": spent (several) years, years\' experience, years working with', () => {
+  for (const [s, want] of [
+    ['I have spent several years working with SQL.', ['spent several years']],
+    ['I have spent years building Excel reports.', ['spent years']],
+    ["I have several years' experience with Python.", ["several years' experience"]],
+    ['I have 3 years\' experience with Python.', ['3']],
+    ['I have many years experience in reporting.', ['many years experience']],
+  ]) assert.deepEqual(check(s, NW), want, s);
+  for (const s of ['Over the years I have written SQL for many teams.', 'Your team has spent years building trust with patients.']) assert.deepEqual(check(s, NW), [], s);
+  const cv = `${CV}- Data Clerk, Example Bank (2021-2024): 3 years of SQL reporting\n`;
+  assert.deepEqual(check('I have spent several years working with SQL.', { ...NW, cv }), []);
+});
