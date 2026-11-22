@@ -18,9 +18,13 @@ import { parseTsv } from '../lib/tsv.mjs';
 
 const readIf = (f) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
 
-// Builds contact records from contacts.tsv joined with action-log.tsv and returns the due actions (one opener per company
-// while another contact there is active), the application follow-ups due and the weekly sent counts.
-export async function outreachState(dataDir, nowMs) {
+// Builds contact records from contacts.tsv joined with action-log.tsv (both through contactRecords, the helper budget.mjs
+// uses, so a contact known only from a logged linkedin.connect holds its company too) and returns the due actions (at
+// most one opener per company, none while another contact there is active), the application follow-ups due and the
+// weekly sent counts.
+export async function outreachState(dataDir, now) {
+  // A Date or epoch milliseconds.
+  const nowMs = Number(now);
   const actions = await readActionLog(join(dataDir, 'action-log.tsv'));
   const contacts = contactRecords(parseTsv(readIf(join(dataDir, 'contacts.tsv'))).rows, actions);
   const openPostings = new Set(sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').map(({ row }) => String(row.company).toLowerCase()));

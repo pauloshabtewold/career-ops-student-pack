@@ -32,11 +32,19 @@ const ASK = {
   'application-follow-up': 'Write a short, polite follow-up email about the application below: say you applied, restate one true reason you fit, and ask whether there is anything else you can send. No pressure.',
 };
 
-// Plain-code reply sorting (T6): thanks and no replies need no AI answer; anything else does.
+// Plain-code reply sorting (T6) by what the reply asks of the student. A question or a request needs an answer, and
+// wins over a thanks or a no around it. A decline (not hiring, not interested, unfortunately...) is a no. A short reply
+// that only thanks is a thanks. Anything else needs an answer.
+const QUESTION = /\?|\b(could|can|would|will) you\b|\b(please|kindly) (send|share|tell|let|email|forward|reach|apply|fill|book|schedule)\b|\blet me know\b|\b(send|share|tell|email|forward) me\b|^\s*(what|when|which|where|who|why|how|do|does|did|are|is)\b/i;
+const DECLINE = /\b(not|aren't|isn't|no longer) (hiring|interested|recruiting|taking|accepting|able to help|looking)\b|\bno (thanks|thank you|openings?|positions?|roles?|vacanc(y|ies))\b|\bunfortunately\b|\b(can't|cannot|unable to) help\b|\b(please )?(don't|do not) (contact|message|email)\b|\bunsubscribe\b|\b(has|have) been filled\b|\bpass on\b|^\s*no\b/i;
+const THANKS = /\b(thanks|thank you|thx|ty|appreciate|grateful|you're welcome|sounds good|will do|great to connect|glad to connect|happy to connect)\b/i;
+const THANKS_MAX_WORDS = 20;
+
 export function sortReply(text) {
-  const t = String(text ?? '').toLowerCase().trim();
-  if (/\b(no,|not interested|no thanks|not hiring|please (don't|do not) (contact|message)|unsubscribe|not able to help|can't help|cannot help)/.test(t) && !t.includes('?')) return 'no';
-  if (/^(thanks|thank you|thx|appreciate it|you're welcome|sounds good|will do)( so much)?[\s!.]*$/.test(t)) return 'thanks';
+  const t = String(text ?? '').trim();
+  if (QUESTION.test(t)) return 'needs-answer';
+  if (DECLINE.test(t)) return 'no';
+  if (THANKS.test(t) && t.split(/\s+/).length <= THANKS_MAX_WORDS) return 'thanks';
   return 'needs-answer';
 }
 
