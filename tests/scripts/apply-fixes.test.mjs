@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { fillPlans, planRow } from '../../scripts/fill-plan.mjs';
 import { EXIT_WAIT } from '../../scripts/build-resume.mjs';
 import { CACHE_FILE, setupFlow } from '../../scripts/setup-flow.mjs';
@@ -198,15 +199,17 @@ test('NIT updateBatch waits for the batch lock, so a change made while another p
     const { updateBatch } = await import('../../lib/batch-file.mjs');
     const [id] = writeBatches(r.dataDir, { date: TODAY, kind: 'apply', items: [{ company: 'Example Co', role: 'Data Intern', score: 4.1, preview: 'Fake.', link: 'https://example.com/jobs/1' }] });
     const file = join(r.dataDir, 'batches', `${id}.json`);
-    const holder = `import { withLock } from ${JSON.stringify(join(PACK_ROOT, 'lib', 'dir-lock.mjs'))};
+    const holder = `import { withLock } from ${JSON.stringify(pathToFileURL(join(PACK_ROOT, 'lib', 'dir-lock.mjs')).href)};
       import { readFileSync, writeFileSync } from 'node:fs';
       const file = process.argv[1];
       await withLock(file, async () => { const b = JSON.parse(readFileSync(file, 'utf8')); console.log('held');
         await new Promise((ok) => setTimeout(ok, 600)); writeFileSync(file, JSON.stringify({ ...b, other: true })); });`;
     const { spawn } = await import('node:child_process');
     const child = spawn(process.execPath, ['--input-type=module', '-e', holder, file], { stdio: ['ignore', 'pipe', 'inherit'] });
-    await new Promise((ok) => child.stdout.once('data', ok));
+    // ESM import() needs a file:// URL on Windows; a holder that dies before printing fails the test instead of hanging it.
     const done = new Promise((ok) => child.once('exit', ok));
+    const held = await Promise.race([new Promise((ok) => child.stdout.once('data', () => ok(true))), done.then(() => false)]);
+    assert.ok(held, 'the lock holder started');
     updateBatch(r.dataDir, id, (b) => ({ ...b, approved: { items: [1], words: 'approve all' } }));
     await done;
     const b = readBatch(r.dataDir, id);
