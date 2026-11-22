@@ -81,7 +81,11 @@ test('r7 M2: the role-wish span stops at a comma, and, since, because or but; th
     'I would love to join Northwind Health and grow as an analyst.',
     'I would love to join your team, learn from your analysts and grow as a data analyst.',
     'I would love to join Northwind Health, where I could grow as an analyst.',
+    'I want to bring my SQL and Excel skills to your team as a data analyst.',
+    'I want to bring my SQL, Excel and Python skills to your team as a data analyst.',
+    'I would love to join Northwind Health and bring my skills to your team as an analyst.',
   ]) assert.deepEqual(check(s, NW), [], s);
+  assert.deepEqual(check('I would love to help your team, and as a data analyst at Example Logistics I wrote SQL.', NW), ['data analyst']);
 });
 
 test('r7 M3: more title triggers: in my role as, my <title> internship/job, I was the, as their/its, worked at <Company> as', () => {
