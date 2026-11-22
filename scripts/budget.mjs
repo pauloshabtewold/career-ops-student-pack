@@ -20,7 +20,7 @@ import { loadMerged } from '../lib/presets.mjs';
 import { LOG_HEADER, appendAction, readActionLog, detailValue } from '../lib/action-log.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
 import { readBatch } from '../lib/batch-file.mjs';
-import { FOLLOWUP_MAX_DAYS, FOLLOWUP_MIN_DAYS, closedStage, contactRecords, isAppFollowup, isMessage, isNudge, lower } from '../lib/outreach-state.mjs';
+import { FOLLOWUP_MAX_DAYS, FOLLOWUP_MIN_DAYS, closedStage, contactRecords, isAppFollowup, isMessage, isNudge, lower, withPendingSends } from '../lib/outreach-state.mjs';
 import { escapeCell, readTsv } from '../lib/tsv.mjs';
 
 const entry = (value, unit, tighten, period) => ({ value, unit, tighten, period });
@@ -153,7 +153,8 @@ function makeContext({ action, args, history, contacts = [], config, session, no
   const { values: L } = effectiveLimits(config);
   const local = createClock({ timezone: config.timezone }).localTime(now);
   const nowMs = now.getTime();
-  const rows = history.map((r) => ({ ...r, ms: r.ms ?? Date.parse(r.ts) }));
+  // A gmail.pending row with no gmail.send counts as that email for every rule, except the item checked or logged now.
+  const rows = withPendingSends(history, `${args.batchId}#${args.item}`).map((r) => ({ ...r, ms: r.ms ?? Date.parse(r.ts) }));
   const remainingFrom = [];
   const refuse = (reason, extra = {}) => result('refused', reason, { period: 'day', ...extra });
   const cap = (limit, used, what) => {
@@ -520,7 +521,7 @@ function submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refu
 // --batch is the integer fill-session size; --batch-id names an approval batch and --item its numbered line.
 // --email is the address of a gmail.send whose --target is the contact's name; --nudge marks that email as the contact's
 // follow-up; --followup marks it as an application's follow-up, with the application as --target.
-const FLAGS = { target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string', 'batch-id': 'string', item: 'int', items: 'string', email: 'string', nudge: 'boolean', followup: 'boolean' };
+const FLAGS = { reply: 'string', target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string', 'batch-id': 'string', item: 'int', items: 'string', email: 'string', nudge: 'boolean', followup: 'boolean' };
 const COMMANDS = ['check', 'log', 'session-start', 'status', 'warning', 'due-withdrawals'];
 // Outreach sends name the person and the company, so the hygiene rules never run on half a key. An application
 // follow-up email (gmail.send --followup) names the application and needs no company.
@@ -686,7 +687,14 @@ async function cmdCheckLog(env) {
   if (command === 'log' && action === 'gmail.pending') return logGmailPending(env);
   if (command === 'log' && action === 'linkedin.fresh_search') return logFreshSearch(env);
   if (command === 'log' && OBSERVED.includes(action)) {
-    const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`].filter(Boolean).join(';');
+    // A reply logged with --reply (its message id or text hash) is logged once per contact, so reading it again adds nothing.
+    const replyKey = action === 'linkedin.reply' && flags.reply ? String(flags.reply).replace(/[;=\s]/g, '') : '';
+    const same = (r) => r.action === action && lower(r.target) === lower(flags.target) && lower(r.company) === lower(flags.company) && detailValue(r.detail, 'reply') === replyKey;
+    if (replyKey && history.some(same)) {
+      console.log(`${action} already logged for this reply`);
+      return 0;
+    }
+    const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`, replyKey && `reply=${replyKey}`].filter(Boolean).join(';');
     await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail })]);
     console.log(`logged ${action}`);
     return 0;

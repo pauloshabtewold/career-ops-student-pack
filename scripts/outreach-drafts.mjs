@@ -6,8 +6,9 @@
 // and target (and an email's address and subject), so each send kind has an item to approve and spend. Drafts are
 // written by lib/headless.mjs at the mid tier from cv.md facts and the contact's own data only, then pass the
 // writing-rule cleanup and the fact gate; a draft that names an unsupported fact, or a first message that asks for a
-// referral, is flagged, not batched. With switches.outreach at drafts the drafts go to data/outreach/drafts-<date>.md
-// instead of a batch; at off nothing is drafted. Every incoming reply passed in is also kept in the contact's thread
+// referral, is flagged, not batched. With switches.outreach at drafts the contact drafts go to
+// data/outreach/drafts-<date>.md instead of a batch; at off no contact outreach is drafted. Application follow-ups are
+// apply-side and are batched under every switch value. Every incoming reply passed in is also kept in the contact's thread
 // file (lib/thread-archive.mjs).
 // An application follow-up reaches a batch only with an address the student sees: an email logged on the application's
 // apply rows, else a recruiter or hiring contact at the company in contacts.tsv (role and email columns) who has not
@@ -206,18 +207,18 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const t6On = deps.t6On ?? isOn('T6');
   const mode = config.switches?.outreach ?? 'on';
   for (const r of replies) if (r.name && r.company) archiveMessage(paths.dataDir, { name: r.name, company: r.company, direction: 'received', channel: r.channel ?? 'linkedin', text: r.text });
-  if (mode === 'off') {
-    say('outreach-drafts: outreach is off; nothing drafted');
-    return { ids: [], ready: 0, flagged: [], sorted: 0 };
-  }
   const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
   const actionRows = await readActionLog(join(paths.dataDir, 'action-log.tsv'));
   const notes = noteBudget(config, actionRows, nowMs);
   const contactRows = readContacts(paths.dataDir);
   const resolved = (state.followups ?? []).map((f) => ({ ...f, email: f.email || followupAddress(f, { actionRows, contactRows }) }));
   const needsAddress = resolved.filter((f) => !f.email);
-  const jobs = draftJobs({ due: state.due, followups: resolved.filter((f) => f.email), replies, t6On, ...notes });
-  const sorted = sortedOut(replies, t6On);
+  // Application follow-ups belong to the apply side: they are drafted and batched whatever the outreach switch says.
+  // Contact outreach is batched only while the switch is on, goes to the drafts file at drafts, and is skipped at off.
+  const contactJobs = mode === 'off' ? [] : draftJobs({ due: state.due, followups: [], replies, t6On, ...notes });
+  const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })];
+  const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
+  if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const cvFile = join(paths.root, 'cv.md');
   const cv = existsSync(cvFile) ? readFileSync(cvFile, 'utf8') : '';
   const ctx = { cv, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
@@ -230,17 +231,19 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   if (sorted.length) await appendLedger(paths.dataDir, zeroRow({ date: today, step: 'reply-sort', feature: 'U4', rows: sorted.length }));
   const flaggedOut = flagged.map((d) => ({ name: d.contact.name, company: d.contact.company, flags: d.flags }));
   const needsOut = needsAddress.map((f) => ({ target: f.target, company: f.company, submitted: f.submitted }));
+  const isApp = (d) => d.action === 'application-follow-up';
+  const batched = mode === 'on' ? ready : ready.filter(isApp);
+  let draftsFile;
   if (mode === 'drafts') {
-    const file = writeDraftsFile(paths.dataDir, today, ready);
-    say(`outreach-drafts: outreach is drafts; ${ready.length} draft(s) in ${file}, nothing batched for sending`);
-    for (const line of needsAddressLines(needsAddress)) say(line);
-    return { ids: [], draftsFile: file, ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
+    const toFile = ready.filter((d) => !isApp(d));
+    draftsFile = writeDraftsFile(paths.dataDir, today, toFile);
+    say(`outreach-drafts: outreach is drafts; ${toFile.length} contact draft(s) in ${draftsFile}, none batched for sending`);
   }
-  const items = ready.map(itemOf);
+  const items = batched.map(itemOf);
   const ids = items.length ? writeBatches(paths.dataDir, { date: today, kind: 'outreach', items }) : [];
-  say(`outreach-drafts: ${ready.length} draft(s) in ${ids.length} batch(es)${ids.length ? `: ${ids.join(', ')}` : ''}`);
+  say(`outreach-drafts: ${batched.length} draft(s) in ${ids.length} batch(es)${ids.length ? `: ${ids.join(', ')}` : ''}`);
   for (const line of needsAddressLines(needsAddress)) say(line);
-  return { ids, ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
+  return { ids, ...(draftsFile ? { draftsFile } : {}), ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
 }
 
 function readContacts(dataDir) {

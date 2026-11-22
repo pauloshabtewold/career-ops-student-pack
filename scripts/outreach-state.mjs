@@ -11,7 +11,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { detailValue } from '../lib/action-log.mjs';
-import { contactRecords, followupsDue, isAppFollowup, isMessage, lower, nextAction, oneActivePerCompany, weeklySentBy } from '../lib/outreach-state.mjs';
+import { contactRecords, followupsDue, isAppFollowup, isMessage, lower, nextAction, oneActivePerCompany, weeklySentBy, withPendingSends } from '../lib/outreach-state.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { archiveMessage } from '../lib/thread-archive.mjs';
@@ -34,7 +34,8 @@ function lastChannel(actions, name, company) {
 export async function outreachState(dataDir, now) {
   // A Date or epoch milliseconds.
   const nowMs = Number(now);
-  const actions = await readActionLog(join(dataDir, 'action-log.tsv'));
+  // An unconfirmed gmail.pending counts as its email, so a contact with a pending first email gets no second opener.
+  const actions = withPendingSends(await readActionLog(join(dataDir, 'action-log.tsv')));
   const contacts = contactRecords(parseTsv(readIf(join(dataDir, 'contacts.tsv'))).rows, actions);
   const openPostings = new Set(sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').map(({ row }) => String(row.company).toLowerCase()));
   const all = contacts

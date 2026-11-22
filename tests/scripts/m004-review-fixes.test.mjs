@@ -423,3 +423,88 @@ test('2c sendEmail runs budget check gmail.send first with the caller fields whe
     p.cleanup();
   }
 });
+
+// Round 3 R1: an unconfirmed gmail.pending counts as the email it may have sent.
+test('R1 an unconfirmed pending first email holds the contact: no second opener is due and a second first message exits 3', async () => {
+  const today = realToday();
+  const nowMs = at(today, 12).getTime();
+  const p = await makePack({ rows: [liRow({ ts: ago(9, 12, today), action: 'linkedin.connect', target: C, company: GLOBEX }), liRow({ ts: ago(8, 12, today), action: 'linkedin.accept', target: C, company: GLOBEX })] });
+  try {
+    const paths = resolvePaths({ root: p.root, dataDir: p.dataDir });
+    assert.ok((await outreachState(p.dataDir, nowMs)).due.some((d) => d.name === C && d.action === 'warm-opener'), 'an opener is due before any send');
+    const id = emailBatch(p, today);
+    const res = await sendEmail({ paths, port: 9, email: { batchId: id, item: 1, target: C, company: GLOBEX }, date: today, runner: runResult, browser: async () => 'unconfirmed' });
+    assert.equal(res.code, 5, JSON.stringify(res));
+    const st = await outreachState(p.dataDir, nowMs);
+    assert.ok(!st.due.some((d) => d.name === C && d.action === 'warm-opener'), `no second opener: ${JSON.stringify(st.due)}`);
+    const [id2] = writeBatches(p.dataDir, { date: today, kind: 'outreach', items: [{ company: GLOBEX, role: C, preview: 'Hi again', link: '', message: 'Hi again', action: 'warm-opener', channel: 'email', target: C, to: EMAIL[C], subject: 'Hello' }] });
+    approve(p, '1', { id: id2, today });
+    const again = run(p, ['check', 'gmail.send', '--target', C, '--company', GLOBEX, '--email', EMAIL[C], '--batch-id', id2, '--item', '1'], { today });
+    assert.equal(again.code, 3, `second first message to the same person: ${out(again)}`);
+    assert.match(out(again), /already has a first message/);
+    approve(p, '1', { id: OB, today });
+    const other = run(p, ['check', 'linkedin.connect', '--target', 'Contact Zeta', '--company', GLOBEX, '--pending', '5', '--batch-id', OB, '--item', '1'], { today });
+    assert.equal(other.code, 3, `a new contact at the same company: ${out(other)}`);
+    assert.match(out(other), /already has an active contact/);
+  } finally {
+    p.cleanup();
+  }
+});
+
+test('R1 a confirmed send logs cleanly over its own pending row', async () => {
+  const today = realToday();
+  const p = await makePack();
+  try {
+    const id = emailBatch(p, today);
+    const res = await sendEmail({ paths: resolvePaths({ root: p.root, dataDir: p.dataDir }), port: 9, email: { batchId: id, item: 1, target: C, company: GLOBEX }, date: today, runner: runResult, browser: async () => 'sent' });
+    assert.equal(res.code, 0, JSON.stringify(res));
+    assert.deepEqual((await readLog(p)).filter((r) => r.action.startsWith('gmail.')).map((r) => r.action), ['gmail.pending', 'gmail.send']);
+  } finally {
+    p.cleanup();
+  }
+});
+
+// Round 3 R2: one linkedin.reply row per distinct reply.
+test('R2 readReply logs a reply once however often it is read, and a new reply adds a row', async () => {
+  const { readReply } = await import('../../lib/gmail-chrome.mjs');
+  const p = await makePack({ rows: [row({ ts: ago(7), action: 'gmail.send', target: C, company: GLOBEX, detail: `email=${EMAIL[C]};batch=X;item=1` })] });
+  try {
+    const paths = resolvePaths({ root: p.root, dataDir: p.dataDir });
+    const read = (text, url = 'https://mail.example.com/x') => readReply({ dataDir: p.dataDir, paths, port: 9, url, contact: { name: C, company: GLOBEX }, date: DAY, runner: runResult, browser: async () => ({ text, hrefs: [] }) });
+    await read('Happy to chat. I work on the data team.');
+    await read('Happy to chat. I work on the data team.');
+    const replies = async () => (await readLog(p)).filter((r) => r.action === 'linkedin.reply').length;
+    assert.equal(await replies(), 1, 'the same reply read twice is one row');
+    await read('One more thing: we post roles on Mondays.');
+    assert.equal(await replies(), 2, 'a different reply adds a row');
+    await read('Any text', 'https://mail.google.com/mail/u/0/#inbox/FMfcgzSample0002');
+    await read('Any text, read again later', 'https://mail.google.com/mail/u/0/#inbox/FMfcgzSample0002');
+    assert.equal(await replies(), 3, 'a Gmail message id keys the reply');
+  } finally {
+    p.cleanup();
+  }
+});
+
+// Round 3 R3: application follow-ups are batched under every outreach switch value.
+test('R3 with outreach at drafts or off the application follow-up is still batched and --followup-to still adds one', async () => {
+  const { addFollowupTo } = await import('../../scripts/outreach-drafts.mjs');
+  for (const mode of ['drafts', 'off']) {
+    const r = makeRoot({ config: `switches:\n  outreach: "${mode}"\n` });
+    try {
+      r.write('cv.md', CV);
+      r.write('data/contacts.tsv', serializeTsv(['date', 'company', 'name', 'stage', 'role', 'email'], [{ date: shiftDate(DAY, -5), company: ACME, name: 'Contact Recruiter', stage: 'accepted', role: 'Technical Recruiter', email: 'recruiter@example.com' }]));
+      const state = { due: [{ name: C, company: GLOBEX, action: 'warm-opener' }], followups: FOLLOW_STATE.followups };
+      const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless: followHeadless, state, t6On: false }, say: () => {} });
+      const items = res.ids.flatMap((id) => readBatch(r.data, id).items);
+      assert.deepEqual(items.map((it) => it.action), ['application-follow-up'], `${mode}: only the follow-up is batched: ${JSON.stringify(items)}`);
+      assert.equal(items[0].to, 'recruiter@example.com');
+      const file = join(r.data, 'outreach', `drafts-${DAY}.md`);
+      if (mode === 'drafts') assert.match(readFileSync(file, 'utf8'), new RegExp(`${C} \\| ${GLOBEX} \\| warm-opener`), 'contact drafts go to the file');
+      else assert.equal(existsSync(file), false, 'off: no contact outreach drafted');
+      const added = await addFollowupTo({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, which: ACME, email: 'jobs@example.com', deps: { headless: followHeadless, state: FOLLOW_STATE }, say: () => {} });
+      assert.ok(added.id, `${mode}: --followup-to adds an item`);
+    } finally {
+      r.cleanup();
+    }
+  }
+});
