@@ -333,9 +333,12 @@ async function cmdRead({ dataDir, positionals, flags, deps, say }) {
 }
 
 // Numbered link refs ("[n] text -> href") after the page text, so a script can take job links from a read with no model.
-const REF_LIMIT = 40;
+// Only job and company links are kept, before the cap, so header, nav and filter links cannot push job cards out. The
+// refs go to code (fresh-scan's linkedinJobs), not to a model, so the cap costs no tokens.
+const REF_LIMIT = 200;
+export const REF_SELECTOR = 'a[href*="/jobs/view/"], a[href*="/company/"]';
 export const linkRefs = async (client, sessionId, limit = REF_LIMIT) =>
-  (await evaluate(client, sessionId, `[...document.querySelectorAll('a[href]')].slice(0, ${limit}).map((a, i) => '[' + (i + 1) + '] ' + a.innerText.replace(/\\s+/g, ' ').trim().slice(0, 60) + ' -> ' + a.href)`)) ?? [];
+  (await evaluate(client, sessionId, `[...document.querySelectorAll(${JSON.stringify(REF_SELECTOR)})].slice(0, ${limit}).map((a, i) => '[' + (i + 1) + '] ' + a.innerText.replace(/\\s+/g, ' ').trim().slice(0, 60) + ' -> ' + a.href)`)) ?? [];
 
 // Stops only the PID this CLI recorded, never anything found by name, and only while recordedChromeAlive confirms it:
 // the state file outlives a crash or reboot, after which the recorded PID can belong to another process. The state file

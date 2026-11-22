@@ -141,17 +141,27 @@ export function buildFreshPlist({ nodePath, root }) {
   ].join('\n');
 }
 
-// Windows task script for the hourly fresh scan. schtasks takes the whole command as one /TR string, so --% hands the
-// line to it verbatim and the inner quotes around paths with spaces survive Windows PowerShell's argument passing.
+// schtasks refuses a /TR command over 261 characters.
+export const TR_MAX = 261;
+
+// Windows task script for the hourly fresh scan. The node command goes into a short data\fresh-scan.cmd wrapper, so /TR
+// stays under schtasks' 261-character limit on a long OneDrive path; --% hands /TR to schtasks verbatim so the quotes
+// survive Windows PowerShell's argument passing. Set-ScheduledTask then gives it the daily task's battery settings.
 export function buildFreshTaskScript({ nodePath, root }) {
   const logs = win32.join(root, 'data', 'logs');
   const scheduled = win32.join(root, 'student', 'scripts', 'scheduled.mjs');
-  const tr = `\\"${nodePath}\\" \\"${scheduled}\\" --fresh --log-file \\"${win32.join(logs, 'student-fresh.log')}\\"`;
+  const wrapper = win32.join(root, 'data', 'fresh-scan.cmd');
+  // In a .cmd file a percent sign starts a variable, so a literal one is doubled.
+  const cmdLine = `@"${nodePath}" "${scheduled}" --fresh --log-file "${win32.join(logs, 'student-fresh.log')}"`.replace(/%/g, '%%');
+  const tr = `\\"${wrapper}\\"`;
+  if (tr.length > TR_MAX) throw new Error(`the hourly task command is ${tr.length} characters, over the ${TR_MAX} schtasks allows; move career-ops to a shorter folder path`);
   return [
     "$ErrorActionPreference = 'Stop'",
     `New-Item -ItemType Directory -Force -Path ${psq(logs)} | Out-Null`,
+    `Set-Content -LiteralPath ${psq(wrapper)} -Value ${psq(cmdLine)} -Encoding Oem`,
     `schtasks.exe --% /Create /F /SC HOURLY /MO 1 /TN "${FRESH_TASK_NAME}" /TR "${tr}"`,
     'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
+    `Set-ScheduledTask -TaskName ${psq(FRESH_TASK_NAME)} -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries) | Out-Null`,
     '',
   ].join('\n');
 }
