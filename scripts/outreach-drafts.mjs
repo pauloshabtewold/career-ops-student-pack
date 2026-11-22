@@ -115,8 +115,8 @@ export function draftPrompt({ action, cv, contact, replyText = '', application =
     ask,
     'Use only facts from the CV below and the contact details given. Never invent an employer, title, number, skill or shared connection.',
     `Write ${hints.join(', ')}, exactly with the braces. Never write the company name, job title or date themselves; they are filled in later.`,
+    `Write only the body. The greeting${action === 'application-follow-up' ? ', the sentence saying when you applied' : ''}${channel === 'email' ? ', the closing thanks and the sign-off are' : ' is'} added for you: no greeting, no subject line, no sign-off.`,
     'Plain words, straight quotes, no dashes as punctuation. Reply with the message only.',
-    ...(channel === 'email' ? ['Write only the email body: no subject line, start with the greeting.'] : []),
     '',
     'CV:',
     String(cv ?? '').trim(),
@@ -284,6 +284,55 @@ export function fillPlaceholders(text, job) {
   return String(text ?? '').replace(/\{([a-z_]+)\}/g, (m, k) => (v[k] ? v[k] : m));
 }
 
+// The code-written frame around the model's body, per draft kind. The model never writes a sentence that names the
+// target: the greeting, an application follow-up's opening sentence and an email's closing are these templates.
+// - connect: "Hi {first_name}, <body>" on one line (the note limit counts it);
+// - other LinkedIn messages: "Hi {first_name},", a blank line, the body;
+// - application follow-up: "Hello {company} hiring team,", then "I applied for the {title} role at {company} on
+//   {applied_date}." opening the body's first paragraph, then CLOSING and the sign-off;
+// - other emails: "Hello {first_name},", the body, CLOSING and the sign-off.
+// The sign-off is "Best regards," and the sender's name (profile candidate.full_name, else the cv heading) when known.
+export const CLOSING = 'Thank you for your time and consideration.';
+export function applicationOpening(job) {
+  const v = placeholderValues(job);
+  const what = v.title ? 'the {title} role at {company}' : 'a role at {company}';
+  return `I applied for ${what}${v.applied_date ? ' on {applied_date}' : ''}.`;
+}
+const capitalize = (t) => t.replace(/^\p{Ll}/u, (c) => c.toUpperCase());
+export function assembleDraft(body, job) {
+  const b = String(body ?? '').trim();
+  if (job.action === 'connect') return `Hi {first_name}, ${b}`;
+  if (job.channel !== 'email') return `Hi {first_name},\n\n${capitalize(b)}`;
+  const app = job.action === 'application-follow-up';
+  const greeting = app ? 'Hello {company} hiring team,' : 'Hello {first_name},';
+  const main = app ? `${applicationOpening(job)} ${capitalize(b)}` : capitalize(b);
+  const signOff = job.signature ? `Best regards,\n${job.signature}` : 'Best regards,';
+  return `${greeting}\n\n${main}\n\n${CLOSING}\n\n${signOff}`;
+}
+
+// The model's body: its own greeting (first line or first clause up to the comma), a trailing sign-off line ("Best
+// regards," "Thanks, Sam") with what follows, a trailing name line and trailing thanks-only lines are dropped, since code
+// writes those parts. What is dropped is never sent.
+const GREETING = /^\s*(?:hi|hello|hey|dear|greetings|good\s+(?:morning|afternoon|evening))(?![\p{L}])[^\n,!.:]{0,60}[,!:]?[ \t]*\n*/iu;
+const SIGN_OFF = /^(?:best(?:\s+regards|\s+wishes)?|kind\s+regards|warm(?:est)?\s+regards|warmly|regards|sincerely(?:\s+yours)?|thanks(?:\s+so\s+much|\s+again)?|many\s+thanks|thank\s+you(?:\s+so\s+much|\s+again)?|cheers|all\s+the\s+best|respectfully|yours(?:\s+truly)?)\s*(?:[,!.]\s*[\p{L}' .-]{0,40})?$/iu;
+const NAME_LINE = /^\p{Lu}[\p{L}'.-]*(?:\s+\p{Lu}[\p{L}'.-]*){0,2}$/u;
+const THANKS_LINE = /^(?:thank\s+you|thanks)(?:\s+(?:so\s+much|again|very\s+much))?(?:\s+(?:for|in)\s+[^.!?]*)?[.!]?$/iu;
+export function modelBody(text) {
+  let t = stripSubjectLine(String(text ?? '')).replace(GREETING, '');
+  const lines = t.replace(/\s+$/, '').split('\n');
+  const tail = Math.max(0, lines.length - 4);
+  const at = lines.findIndex((l, i) => i >= tail && SIGN_OFF.test(l.trim()));
+  if (at >= 0) lines.length = at;
+  for (;;) {
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    const last = (lines.at(-1) ?? '').trim();
+    if (lines.length > 1 && (NAME_LINE.test(last) || THANKS_LINE.test(last))) lines.pop();
+    else break;
+  }
+  t = lines.join('\n').trim();
+  return t.replace(EXTRA_BLANK_LINES, '\n\n');
+}
+
 // A leading "Subject: ..." line (plain or **bold**) a model puts on an email draft, with the blank line after it; the item
 // keeps its own subject, so the body never carries a second one. A reply that is only a Subject line leaves ''.
 const LEADING_SUBJECT = /^\s*(?:\*\*|__)?subject:[^\n]*(?:\n(?:[ \t]*\n)?|$)/i;
@@ -294,14 +343,15 @@ const EXTRA_BLANK_LINES = /\n(?:[ \t]*\n){2,}/g;
 // The flags for one placeholder draft (empty when it may be batched): empty text, a note over the limit, a referral ask in
 // a first message, target names written as is, placeholders with no value, claims about {company} or {title}, and the
 // fact gate's unsupported items.
-export function draftChecks(text, job, { cv = '', facts = [] } = {}) {
-  const ownText = [cv, ...facts].join('\n');
+export function draftChecks(raw, job, { cv = '', facts = [] } = {}) {
+  const text = modelBody(raw);
   const flags = [];
   if (!text.trim()) flags.push('the draft is empty');
-  const filled = fillPlaceholders(text, job);
+  const filled = fillPlaceholders(assembleDraft(text, job), job);
   if (job.action === 'connect' && filled.length > job.noteChars) flags.push(`note of ${filled.length} characters exceeds the ${job.noteChars} limit`);
   if (FIRST_MESSAGES.includes(job.action) && REFERRAL_ASK.test(text)) flags.push('asks for a referral in a first message');
-  const again = literalTargets(text, job, ownText);
+  const ownText = [cv, ...facts].join('\n');
+  const again = literalTargets(text, job);
   if (again.length) flags.push(`writes ${again.join(', ')} as is instead of {company}, {title} or {applied_date}`);
   const bad = badPlaceholders(text, job);
   if (bad.length) flags.push(`uses ${bad.map((k) => `{${k}}`).join(', ')}, which this draft has no value for`);
@@ -309,7 +359,7 @@ export function draftChecks(text, job, { cv = '', facts = [] } = {}) {
   if (claims.length) flags.push(`makes a claim about the company or job title: ${claims.map((s) => `"${s}"`).join('; ')}`);
   const acronyms = groundedAcronyms(text, ownText);
   // The gate reads the text with each placeholder blanked: its claims were judged above, and its value is not cv text.
-  const missing = factCheck(text.replace(/\{[a-z_]+\}/g, (m) => ' '.repeat(m.length)), { cv, answers: [...facts, ...acronyms], acronyms, extra: [job.contact.name, ...(job.roles ?? []), job.replyText ?? '', job.application?.target ?? ''] });
+  const missing = factCheck(text.replace(/\{[a-z_]+\}/g, (m) => ' '.repeat(m.length)), { cv, answers: [...facts, ...acronyms], acronyms, outreach: true, extra: [job.contact.name, ...(job.roles ?? []), job.replyText ?? '', job.application?.target ?? ''] });
   if (missing.length) flags.push(`names facts absent from cv.md: ${missing.join(', ')}`);
   return flags;
 }
@@ -324,27 +374,26 @@ const LITERAL_FIX = 'Write {company}, {title} and {applied_date} in their place,
 async function draftOne(job, { cv, agent, dataDir, date, headless, source }) {
   if (job.action === 'connect' && !job.noteChars) return { ...job, text: '', flags: [] };
   const facts = job.facts ?? [];
-  const ownText = [cv, ...facts].join('\n');
   const call = async (prompt) => {
     const res = await headless({ agent, prompt, step: `outreach-${job.action}`, feature: FEATURE[job.action], dataDir, date, source });
-    const t = clean(res.text);
-    return job.channel === 'email' ? stripSubjectLine(t).replace(EXTRA_BLANK_LINES, '\n\n') : t;
+    return modelBody(clean(res.text));
   };
-  const overrun = (t) => (job.action === 'connect' ? fillPlaceholders(t, job).length - job.noteChars : 0);
+  const sentLength = (body) => fillPlaceholders(assembleDraft(body, job), job).length;
   const prompt = draftPrompt({ ...job, cv });
   let text = await call(prompt);
   const reasons = [];
-  if (overrun(text) > 0) {
-    const n = fillPlaceholders(text, job).length;
+  if (job.action === 'connect' && sentLength(text) > job.noteChars) {
+    const n = sentLength(text);
     reasons.push(`Your last note was ${n} characters, ${n - job.noteChars} over the hard limit of ${job.noteChars}. Write a complete note of at most ${job.noteChars} characters.`);
   }
-  const literal = literalTargets(text, job, ownText);
+  const literal = literalTargets(text, job);
   if (literal.length) reasons.push(`Your last draft wrote ${literal.map((x) => `"${x}"`).join(', ')} as is. ${LITERAL_FIX}`);
+  const bad = badPlaceholders(text, job);
+  if (bad.length) reasons.push(`Your last draft wrote ${bad.map((x) => `"${x}"`).join(', ')}, which is not a placeholder this draft has. ${LITERAL_FIX}`);
   if (reasons.length) text = await call(`${prompt}\n\n${reasons.join('\n')}`);
 
   const flags = draftChecks(text, job, { cv, facts });
-  const filled = fillPlaceholders(text, job);
-  let out = filled;
+  let out = fillPlaceholders(assembleDraft(text, job), job).replace(EXTRA_BLANK_LINES, '\n\n');
   if (job.action === 'warm-opener' && out.length > OPENER_CHARS) out = `${out.slice(0, OPENER_CHARS - 1).replace(/\s+\S*$/, '')}.`;
   return { ...job, text: out, flags };
 }
@@ -493,10 +542,11 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   // Contact outreach is batched only while the switch is on, goes to the drafts file at drafts, and is skipped at off.
   const contactJobs = mode === 'off' ? [] : draftJobs({ due: state.due, followups: [], replies, t6On, ...notes });
   const candidate = readCandidate(paths);
-  const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })].map((j) => ({ ...j, facts: draftFacts(j, { candidate }), roles: contactRoles(j, contactRows) }));
+  const cv = readCv(paths.root);
+  const signature = signatureOf(candidate, cv);
+  const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })].map((j) => ({ ...j, facts: draftFacts(j, { candidate }), roles: contactRoles(j, contactRows), signature }));
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
-  const cv = readCv(paths.root);
   const ctx = { cv, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
@@ -522,6 +572,12 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   return { ids, ...(draftsFile ? { draftsFile } : {}), ready: ready.length, flagged: flaggedOut, sorted: sorted.length, needsAddress: needsOut };
 }
 
+// The sender's name for an email sign-off: the profile's candidate.full_name, else the cv.md heading up to a colon.
+function signatureOf(candidate, cv) {
+  const full = String(candidate?.full_name ?? '').trim();
+  return full || (/^#\s+([^:\n]+)/m.exec(String(cv ?? ''))?.[1].trim() ?? '');
+}
+
 // The student's cv.md text, or '' when there is none.
 function readCv(root) {
   const file = join(root, 'cv.md');
@@ -543,8 +599,10 @@ export async function addFollowupTo({ paths, today, which, email, deps = {}, say
   if (!f) throw new UsageError([`no application follow-up is due for ${which}`, ...guidedFooter({ step: 'pick an application whose follow-up is due', prompt: 'show my due outreach', why: 'an application gets its one follow-up 7 to 10 days after the submit.' })].join('\n'));
   const title = f.title || jobTitles(paths.dataDir).get(lower(f.target)) || '';
   const [job] = draftJobs({ due: [], followups: [{ ...f, title, email }], t6On: false });
-  job.facts = draftFacts(job, { candidate: readCandidate(paths) });
+  const candidate = readCandidate(paths);
+  job.facts = draftFacts(job, { candidate });
   const cv = readCv(paths.root);
+  job.signature = signatureOf(candidate, cv);
   const d = await draftOne(job, { cv, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' });
   if (d.flags.length) {
     say(`outreach-drafts: ${f.company} follow-up flagged and kept out of the batch: ${d.flags.join('; ')}`);
