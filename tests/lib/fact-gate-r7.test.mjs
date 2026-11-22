@@ -66,3 +66,20 @@ test('r7 M1: a where clause far from the company name is not a company claim', (
   assert.deepEqual(check("Harborview Institute's work on housing policy connects directly to my class project on local housing prices, where I used R and Excel.", HV), []);
   assert.deepEqual(check("Harborview Institute's work on housing policy connects directly to my class project on local housing prices, where I used R and Excel to build a simple regression model.", HV), []);
 });
+
+test('r7 M2: the role-wish span stops at a comma, and, since, because or but; the title after it is checked', () => {
+  for (const [s, want] of [
+    ['I would love to join your team as an analyst, and I worked as a data analyst before.', ['data analyst']],
+    ['I hope to work as a data analyst, since I worked as a business analyst last summer.', ['business analyst']],
+    ['I am eager to learn from your team, and last summer I worked as a data analyst at Example Logistics.', ['data analyst']],
+    ['I would love to help your team, and I already worked as the Data Analyst Intern at Example Logistics.', ['Data Analyst Intern']],
+    ['I would love to support your team, building on my summer as a data analyst at Example Logistics.', ['data analyst']],
+    ['I hope to work as an analyst because I worked as a business analyst before.', ['business analyst']],
+    ['I would like to grow as an analyst but I was a data analyst already.', ['data analyst']],
+  ]) assert.deepEqual(check(s, NW), want, s);
+  for (const s of [
+    'I would love to join Northwind Health and grow as an analyst.',
+    'I would love to join your team, learn from your analysts and grow as a data analyst.',
+    'I would love to join Northwind Health, where I could grow as an analyst.',
+  ]) assert.deepEqual(check(s, NW), [], s);
+});
