@@ -1,0 +1,23 @@
+{
+  "_note": "Synthetic legitimate postings with emails, employer-paid equipment and optional chat-app lines. Fake companies and .example domains only. None may fail a scam rule.",
+  "legit": [
+    { "company": "Example University Hospital", "text": "Clinical Data Intern at Example University Hospital. Apply through our careers site. If you need a reasonable accommodation during the application process, email accommodations@euh.example." },
+    { "company": "Sample Medical Center", "text": "Research Assistant Intern. Applicants with a disability may request an accommodation by writing to hr-access@smc-health.example. Apply online through the portal." },
+    { "company": "Example Social Inc.", "text": "Software Engineer Intern. Example Social is an equal opportunity employer. Candidates who need assistance can contact accommodations-ext@xsoc.example. For privacy questions email privacy@xsoc.example." },
+    { "company": "Demo Bank & Co.", "text": "Analyst Intern. Questions about benefits? Email benefits-team@dbco-group.example. Apply on our careers page." },
+    { "company": "Example Robotics", "text": "Hardware Intern. Remote role. We provide and pay for your equipment, including a laptop and monitor." },
+    { "company": "Sample Labs", "text": "Data Intern. We will pay for your background check fee. Our company will buy equipment for you before your first day." },
+    { "company": "Demo Works", "text": "Support Intern. Text us via WhatsApp for questions or apply on our site." },
+    { "company": "Example Analytics", "text": "Field Intern. Our team uses WhatsApp groups to coordinate site visits. Apply through our careers page; a recruiter will email you." },
+    { "company": "Sample Health", "text": "Nursing Extern. You must pay attention to detail and follow clinical protocols. Pay is $22 per hour by direct deposit." },
+    { "company": "Example Robotics", "text": "Remote Intern. Purchases for your home office are covered by a stipend. We reimburse internet costs monthly." },
+    { "company": "unknown", "text": "Data Analyst. Questions? Write to talent@acme-careers.example. Apply on LinkedIn." },
+    { "company": "Example Robotics", "text": "Firmware Intern. Send your resume to university@examplerobotics.example. Signal processing experience is a plus." }
+  ],
+  "scam": [
+    { "company": "Sample Labs", "text": "Remote Assistant. Purchase your laptop and printer from our approved vendor with your own funds; we reimburse you after your first check." },
+    { "company": "Demo Works", "text": "Data Entry Clerk. You must buy a software license upfront before you start." },
+    { "company": "Example Analytics", "text": "Virtual Assistant. Pay the onboarding deposit of $80 to secure your spot." },
+    { "company": "Sample Health", "text": "Admin Intern. Interviews take place exclusively over Telegram." }
+  ]
+}
