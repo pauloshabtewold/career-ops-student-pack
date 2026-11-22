@@ -41,12 +41,10 @@ export const ALICE = person('Alice Alpha', ACME);
 export const APP = { action: 'application-follow-up', channel: 'email', to: 'recruiter@example.com', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: TITLE }, signature: 'Sam Placeholder' };
 export const SOURCES = `${CV}\nSam Placeholder\nsam@example.com`;
 
-export const CLEAN_VERDICT = () => '{"unsupported": []}';
-
 // One round. due: outreach-state due items; followups: application follow-ups; replies: incoming replies.
 // drafts(opts, n) answers the n-th drafting call (0-based); verdict(prompt, n) answers the n-th verify call.
 // send: also send item 1 (an email) through sendEmail and return the body the thread archive kept.
-export async function round({ due = [], followups = [], replies = [], drafts, verdict = CLEAN_VERDICT, cv = CV, send = false, extraFiles = {} }) {
+export async function round({ due = [], followups = [], replies = [], drafts, verdict = () => '{"unsupported": []}', cv = CV, send = false, extraFiles = {} }) {
   const r = makeRoot();
   r.write('cv.md', cv);
   r.write('config/profile.yml', PROFILE);
@@ -84,7 +82,7 @@ export async function round({ due = [], followups = [], replies = [], drafts, ve
   }
 }
 
-export const FOLLOWUP = { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', email: 'recruiter@example.com' };
+const FOLLOWUP = { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', email: 'recruiter@example.com' };
 export const dueOf = (job) => ({ name: job.contact.name, company: job.contact.company, action: job.action });
 
 // A round for one job: a contact draft (warm opener, connect, follow-up), a reply (job.replyText) or the Globex
@@ -97,9 +95,8 @@ export function roundFor(job, opts) {
 
 // One fenced block of a prompt (<<<NAME-tag>>> ... <<<END-NAME-tag>>>), or null.
 export const blockIn = (prompt, name) => new RegExp(`\\n<<<${name}-([0-9a-f]+)>>>\\n([\\s\\S]*?)\\n<<<END-${name}-\\1>>>(?:\\n|$)`).exec(prompt)?.[2] ?? null;
-// The DRAFT block of a verify prompt (fix 11 fenced form; the fix 10 "DRAFT:\n<<<\n...\n>>>" form is still read so a
-// revert run judges the same draft).
-export const draftIn = (prompt) => blockIn(prompt, 'DRAFT') ?? /\nDRAFT:\n<<<\n([\s\S]*)\n>>>$/.exec(prompt)?.[1] ?? null;
+// The DRAFT block of a verify prompt.
+export const draftIn = (prompt) => blockIn(prompt, 'DRAFT');
 
 // The KNOWN TRUE block of a verify prompt (the facts code built from the student's records).
 export const knownIn = (prompt) => blockIn(prompt, 'KNOWN');

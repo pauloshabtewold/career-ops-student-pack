@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { clean } from '../../lib/clean-text.mjs';
 import * as od from '../../scripts/outreach-drafts.mjs';
-import { ACME, ALICE, APP, CV, GLOBEX, INITECH, SOURCES, TITLE, draftIn, person, roundFor } from '../helpers/outreach-verify-harness.mjs';
+import { ACME, ALICE, APP, CV, GLOBEX, INITECH, SOURCES, draftIn, person, roundFor } from '../helpers/outreach-verify-harness.mjs';
 
 const NOTION = person('Nina Note', 'Notion');
 const RITA_K = person('Rita Reply', INITECH, 'reply', { replyText: 'Thanks for connecting! Have you worked with Kubernetes or done any internships at Google?' });
@@ -136,6 +136,32 @@ test('fix 10 G the same probes are batched only when the verifier passes them: n
   assert.equal(batched, ALL_PROBES().length);
 });
 
+// Review r7 M1 (folded in from the fix 9 tests): a claim after an early sign-off or a second greeting was stored but
+// never checked. It must reach the verifier inside the final string, and a verdict naming it keeps it out.
+const M1_REPLIES = [
+  "I'm curious about the work at {company}. What do you enjoy most about it?\n\nThanks!\n\nP.S. I interned with your team in 2025 and led 3 projects for {company}.\n\nBest,\nSam",
+  'Hello from a former Globex Example intern, I would love to reconnect.\n\nIs there anything else I can send?',
+  'Regards, everyone I met\n\nI managed the Globex Example data pipeline for two summers.\n\nBest regards,\nSam Placeholder',
+];
+const M1_CLAIM = /interned with your team in 2025 and led 3 projects for \w+ Example|former Globex Example intern|managed the Globex Example data pipeline for two summers/;
+const claimsOf = (re) => (prompt) => {
+  const m = re.exec(draftIn(prompt) ?? '');
+  return JSON.stringify({ unsupported: m ? [m[0]] : [] });
+};
+
+test('fix 10 G (fix 9 M1) a claim after an early sign-off or a second greeting reaches the verifier inside the final string, and its verdict keeps it out', async () => {
+  for (const text of M1_REPLIES) {
+    for (const job of [APP, ALICE]) {
+      const out = await roundFor(job, { drafts: [text], verdict: claimsOf(M1_CLAIM) });
+      assert.ok(out.verifies.length >= 1, `verified: ${text}`);
+      assert.match(draftIn(out.verifies[0].prompt), M1_CLAIM, 'the claim is in the verified string');
+      assert.equal(draftIn(out.verifies[0].prompt), od.checkDraft(text, job, { sources: SOURCES }).text);
+      assert.ok(!out.items.some((i) => M1_CLAIM.test(i.message)), `${job.action} stored: ${JSON.stringify(out.items.map((i) => i.message))}`);
+      assert.equal(out.res.flagged.length, 1);
+    }
+  }
+});
+
 // Malformed verifier replies: each fails closed (flagged, never batched, no redraft on an unreadable verdict; fix 11 N1
 // re-verifies the same draft once).
 const MALFORMED = {
@@ -201,8 +227,10 @@ test('fix 10 E budget: claims still listed after the redraft flag the draft with
 });
 
 // D. Placeholder shapes (r7 S3, r8 S1): each is a rail failure on the final string.
-const SHAPES = ['{company }', '{COMPANY}', '{company_name}', '{{ company }}', '{{company}}', '<company>', '${company}', '\uff5bcompany\uff5d', '(company name)', '[Company Name]', '&lt;company&gt;',
-  '{applied_date}', '[Company]', '{Company}', '{ company }', 'the ___ team', 'XXX', '(Company)', '%company%', '$company', '@company', '#company', ':company', '\u2774company\u2775', '\ufe5bcompany\ufe5c',
+// Fix 12 E: the fullwidth and small brace forms of {company} are no longer pinned here; NFKC turns them into a filled
+// {company} (see the fullwidth test below), and an unknown key in those braces still fails the rail.
+const SHAPES = ['{company }', '{COMPANY}', '{company_name}', '{{ company }}', '{{company}}', '<company>', '${company}', '(company name)', '[Company Name]', '&lt;company&gt;',
+  '{applied_date}', '[Company]', '{Company}', '{ company }', 'the ___ team', 'XXX', '(Company)', '%company%', '$company', '@company', '#company', ':company', '\u2774company\u2775',
   '\u2983company\u2984', 'company_name', 'first_name', 'job_title', '(your name)', '(insert company)', 'COMPANY NAME', 'TBD', '\u3010company\u3011', '\u300acompany\u300b', '{title}', '%s'];
 
 test('fix 10 D every placeholder shape is a rail failure; ordinary words, parentheses and filled names pass', () => {
@@ -212,6 +240,16 @@ test('fix 10 D every placeholder shape is a rail failure; ordinary words, parent
   }
   for (const ok of ['the company culture', 'my role (summer 2026)', 'the data team', 'name a tool', 'the title role', 'a #1 priority', 'a date night', 'an @-mention']) {
     assert.deepEqual(od.checkDraft(`I'd love to learn about ${ok}. What is new at {company}?`, ALICE, { sources: SOURCES }).flags, [], ok);
+  }
+});
+
+test('fix 12 E a fullwidth or small brace {company} gives the filled company after plain NFKC; an unknown key in those braces is a rail failure', () => {
+  for (const [open, close] of [['\uff5b', '\uff5d'], ['\ufe5b', '\ufe5c'], ['\ufe37', '\ufe38']]) {
+    const r = od.checkDraft(`I'd love to learn about the ${open}company${close} work. What is new?`, ALICE, { sources: SOURCES });
+    assert.deepEqual(r.flags, [], open);
+    assert.equal(r.text, `Hi Alice,\n\nI'd love to learn about the ${ACME} work. What is new?`);
+    assert.match(od.checkDraft(`Big fan of the ${open}team${close} work. What is new?`, ALICE, { sources: SOURCES }).flags.join('; '), /placeholder-like text "\{team\}"/, open);
+    assert.match(od.checkDraft(`Since I applied on ${open}applied_date${close}, I kept building tools. I can send samples.`, APP, { sources: SOURCES }).flags.join('; '), /placeholder-like text "\{applied_date\}"/, open);
   }
 });
 

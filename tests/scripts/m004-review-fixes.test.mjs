@@ -26,7 +26,6 @@ const li = (days, action, target, company = ACME) => liRow({ ts: ago(days), acti
 const CV = '# Sample Student\n\nSynthetic fixture resume.\n\nB.S. in Information Systems, expected May 2027.\n\nSkills: Python, SQL, Excel.\n';
 // Fix 10: the model writes the body as prose and a separate verifier call (step outreach-verify) answers
 // {"unsupported": [...]}; CLEAN is the body, which code places after the greeting unchanged.
-const CLEAN_SLOTS = 'Thanks for connecting. How did you choose your field?';
 const CLEAN = 'Thanks for connecting. How did you choose your field?';
 const VERDICT_OK = '{"unsupported": []}';
 const isVerify = (opts) => opts?.step === 'outreach-verify';
@@ -89,7 +88,7 @@ test('M2 a due connect and a due contact follow-up each become a batch item with
     const headless = async (opts) => {
       if (isVerify(opts)) return { text: VERDICT_OK, model: 'sonnet', usage: null };
       calls += 1;
-      return { text: CLEAN_SLOTS, model: 'sonnet', usage: null };
+      return { text: CLEAN, model: 'sonnet', usage: null };
     };
     const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, t6On: false }, say: () => {} });
     const items = res.ids.flatMap((id) => readBatch(r.data, id).items);
@@ -132,7 +131,7 @@ test('S1 with outreach at drafts or off gmail.send exits 3, an application follo
     try {
       r.write('cv.md', CV);
       const state = { due: [{ name: C, company: GLOBEX, action: 'warm-opener' }], followups: [] };
-      const headless = async (opts) => ({ text: isVerify(opts) ? VERDICT_OK : CLEAN_SLOTS, model: 'sonnet', usage: null });
+      const headless = async (opts) => ({ text: isVerify(opts) ? VERDICT_OK : CLEAN, model: 'sonnet', usage: null });
       const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state, t6On: false }, say: () => {} });
       assert.deepEqual(listBatches(r.data), [], `${mode}: no batch is written`);
       const file = join(r.data, 'outreach', `drafts-${DAY}.md`);
@@ -303,7 +302,7 @@ test('S7 a warm opener that asks for a referral is flagged and kept out of the b
     r.write('cv.md', CV);
     const state = { due: [{ name: C, company: GLOBEX, action: 'warm-opener' }, { name: A, company: ACME, action: 'warm-opener' }], followups: [] };
     const referral = 'Thanks for connecting. Would you be open to a referral for the role on your team?';
-    const headless = async (opts) => ({ text: isVerify(opts) ? VERDICT_OK : String(opts.prompt).includes(GLOBEX) ? referral : CLEAN_SLOTS, model: 'sonnet', usage: null });
+    const headless = async (opts) => ({ text: isVerify(opts) ? VERDICT_OK : String(opts.prompt).includes(GLOBEX) ? referral : CLEAN, model: 'sonnet', usage: null });
     const said = [];
     const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state, t6On: false }, say: (s) => said.push(s) });
     const batches = JSON.stringify(listBatches(r.data).map((id) => readBatch(r.data, id)));
@@ -332,8 +331,8 @@ test('M2 outreach-state due carries the channel of the last message on a contact
 
 // Fix round 2b: an application follow-up reaches a batch only with an address.
 const FOLLOW_STATE = { due: [], followups: [{ target: 'https://jobs.example.com/acme/1', company: ACME, submitted: shiftDate(DAY, -8) }] };
-// An application follow-up gets its prose body; any contact draft in the same round gets CLEAN_SLOTS; the verifier passes.
-const followHeadless = async (opts) => ({ text: isVerify(opts) ? VERDICT_OK : String(opts.prompt).includes('\nApplication: ') ? 'The role looks like a great match for practical work.' : CLEAN_SLOTS, model: 'sonnet', usage: null });
+// An application follow-up gets its prose body; any contact draft in the same round gets CLEAN; the verifier passes.
+const followHeadless = async (opts) => ({ text: isVerify(opts) ? VERDICT_OK : String(opts.prompt).includes('\nApplication: ') ? 'The role looks like a great match for practical work.' : CLEAN, model: 'sonnet', usage: null });
 
 test('2b a recruiter email in contacts.tsv lands on the application follow-up item', async () => {
   const r = makeRoot();

@@ -166,14 +166,10 @@ function greetingRe(job) {
 }
 const capitalize = (t) => t.replace(/^\p{Ll}/u, (c) => c.toUpperCase());
 
-// NFKC before the greeting is taken off (a fullwidth "Ｈｉ Alice," folds to "Hi Alice,"), except a brace look-alike (a
-// fullwidth or small brace), which stays as written so it is never filled and the final NFKC pass turns it into a brace
-// the rail flags.
-const BRACE_LIKE = /([\uFE37\uFE38\uFE5B\uFE5C\uFF5B\uFF5D])/u; // every character NFKC turns into { or }
-const nfkcKeepBraces = (t) => t.split(BRACE_LIKE).map((seg) => (BRACE_LIKE.test(seg) ? seg : seg.normalize('NFKC'))).join('');
-
+// NFKC runs before the greeting is taken off, so a fullwidth "Ｈｉ Alice," folds to "Hi Alice," and a fullwidth
+// {company} is filled like a plain one.
 export function modelBody(text, job) {
-  let body = clean(nfkcKeepBraces(String(text ?? ''))).replace(/\r\n?/g, '\n').trim();
+  let body = clean(String(text ?? '').normalize('NFKC')).replace(/\r\n?/g, '\n').trim();
   body = body.replace(/^\s*(?:\*\*|__)?subject\s*:[^\n]*\n*/i, '').trim();
   body = body.replace(greetingRe(job), '');
   const first = placeholderValues(job).first_name;
@@ -264,11 +260,11 @@ const PH = "company|company[ _]?name|title|job[ _]?title|role|position|first[ _]
 const PH_PART = new Set(['company', 'name', 'title', 'date', 'role', 'position', 'manager', 'recruiter', 'contact', 'firstname', 'lastname', 'fullname']);
 const PLACEHOLDER_RAILS = [
   /[{}]/,
-  /\$\{|%s(?![\p{L}])/u,
+  /%s(?![\p{L}])/u,
   /(?![()])[\p{Ps}\p{Pe}]/u,
   /[<>]|&(?:#\d+|#x[\da-f]+|[a-z]+);/i,
   new RegExp(`%\\s*(?:${PH})\\s*%`, 'iu'),
-  new RegExp(`(?<![\\p{L}\\p{N}])[$@#:](?:${PH})(?![\\p{L}\\p{N}])`, 'iu'),
+  new RegExp(`(?<![\\p{L}\\p{N}])[$@#](?:${PH})(?![\\p{L}\\p{N}])`, 'iu'),
   new RegExp(`:(?:${PH})(?![\\p{L}\\p{N}])`, 'iu'),
   new RegExp(`\\(\\s*(?:(?:insert|your|the|their|contact'?s|recipient'?s|company'?s)\\s+)*(?:${PH})(?:\\s+here)?\\s*\\)`, 'iu'),
   /(?<![\p{L}])(?:COMPANY(?: NAME)?|FIRST NAME|JOB TITLE|XXX+|TBD)(?![\p{L}])|_{3,}/u,
@@ -740,7 +736,7 @@ const sourcesOf = (cv, digest, candidate) => [cv, digest, ...valuesOf(candidate)
  * Drafts the due application follow-up named by `which` (its application url or its company) to `email` and adds it to
  * today's open outreach batch (not yet approved, with room), or a new batch. Returns { id, item } where item is the
  * 1-based number in that batch; throws UsageError when no follow-up is due for `which` or the address is not an email.
- * A draft the fact gate flags is reported and not added ({ id: null }).
+ * A draft the checks flag is reported and not added ({ id: null }).
  */
 export async function addFollowupTo({ paths, today, which, email, deps = {}, say = console.log }) {
   if (!EMAIL_RE.test(String(email ?? ''))) throw new UsageError([`--followup-to needs an email address after the application, got "${email ?? ''}"`, ...ADDRESS_FOOTER].join('\n'));

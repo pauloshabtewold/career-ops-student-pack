@@ -116,9 +116,8 @@ test('fix 7 S1 (fix 10) honest follow-ups and openers pass the rails', () => {
   for (const [text, job] of pass) assert.deepEqual(check(text, job).flags, [], text);
 });
 
-test('fix 7 "send my CV first" is a claim to the shared gate with or without the old outreach option; "I finished first" always is', () => {
+test('fix 7 "send my CV first" is a claim to the shared gate; "I finished first" always is', () => {
   assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'] }), ['first'], 'the cover and fill gate is the c9d0be8 gate');
-  assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'], outreach: true }), ['first'], 'fix 9: no outreach exemption');
   assert.deepEqual(factCheck('In the hackathon I finished first.', { cv: CV_LIVE }), ['finished first']);
 });
 
