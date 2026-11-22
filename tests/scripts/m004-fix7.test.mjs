@@ -1,20 +1,18 @@
 // SYNTHETIC FIXTURE: placeholder people, companies and cv text only.
-// M-004 fix 7: target names are structural. The model writes {first_name}, {company}, {title} and {applied_date}; a
-// draft that writes the company (or its initials), the job title or the submit date as is gets one retry, then is
-// flagged. A claim about {company} or {title} (an experience verb in its sentence with no apply, join or wish word
-// between, a where/who/when clause after it, "hired me", "my internship at", back/again/former, "after interning") is
-// flagged per sentence. The submit date is no fact, so its numbers ground nothing. An acronym passes only when cv.md or
-// the profile holds it or its expansion from the fixed table. The real values are filled in only after every check.
-// Scratch roots, synthetic placeholder people and companies, example.com addresses and an injected headless runner:
-// no real model, network, Gmail or LinkedIn. LIVE_DRAFTS are the real-model drafts of live rounds 3 and 4 (synthetic
-// student), with the company, title, date and greeting name turned into placeholders.
+// M-004 fix 7, re-pinned in the fix 9 shape ("slots + facts by id"). The fix 7 probes (claims about the company or
+// title, acronym look-alikes, the submit date as a number source) and the live round 3 and 4 drafts are kept; the model
+// now returns slot JSON, so each probe is shown rejected in every slot of its kind, and each honest live question passes
+// as a question slot while the student facts of those drafts are cv.md lines in the fact list. The cover and fill gate
+// keeps the c9d0be8 reading of "first". Scratch roots, synthetic placeholder people and companies, example.com addresses
+// and an injected headless runner: no real model, network, Gmail or LinkedIn. LIVE_DRAFTS are the real-model drafts of
+// live rounds 3 and 4 (synthetic student), with the company, title, date and greeting name turned into placeholders.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { check as factCheck } from '../../lib/fact-gate.mjs';
 import { readBatch } from '../../lib/batch-file.mjs';
 import { resolvePaths } from '../../lib/paths.mjs';
 import { serializeTsv } from '../../lib/tsv.mjs';
-import { ACRONYMS, contactRoles, draftChecks, draftFacts, draftPrompt, fillPlaceholders, literalTargets, modelBody, outreachDrafts, targetClaims } from '../../scripts/outreach-drafts.mjs';
+import { KINDS, checkDraft, contactRoles, draftFacts, draftPrompt, factList, fillPlaceholders, outreachDrafts, slotProblems } from '../../scripts/outreach-drafts.mjs';
 import { makeRoot } from '../helpers/script-harness.mjs';
 
 const DAY = '2026-11-22';
@@ -63,9 +61,13 @@ const IAN = person('Ian Ito', 'IBM');
 const APP = { action: 'application-follow-up', channel: 'email', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: TITLE } };
 const ROWS = [{ name: 'Carl Chen', company: INITECH, role: 'Data Engineer' }];
 
-const flagsOf = (text, job, cv = CV_PROBE) => draftChecks(text, { ...job, roles: contactRoles(job, ROWS) }, { cv, facts: draftFacts(job, { candidate: { full_name: 'Sam Placeholder' } }) });
+// The flags of one slot reply for a job, against a cv (the probe cv by default).
+const flagsOf = (slots, job, cv = CV_PROBE) => checkDraft(JSON.stringify({ fact_ids: [], ...slots }), { ...job, roles: contactRoles(job, ROWS) }, { facts: factList(cv), cv, own: draftFacts(job, { candidate: { full_name: 'Sam Placeholder' } }) });
 // The placeholder form of a literal probe sentence.
 const toPlaceholders = (text, job) => (job.application?.title ? text.replaceAll(job.application.title, '{title}') : text).replaceAll(job.contact.company, '{company}');
+const asQuestion = (t) => `${t.trim().replace(/[.!]+$/, '')}?`;
+// A slot reply that puts text in one slot (an opener also gets an honest question, so only the probe can fail).
+const inSlot = (slot, text, job) => ({ [slot]: slot === 'question' ? asQuestion(text) : text, ...(slot === 'warm_line' && KINDS[job.action].required.includes('question') ? { question: 'What does a typical week look like for you?' } : {}) });
 
 // Review r4 (A) and r5 (F, C, H) probe sentences that must be flagged, written with the real names.
 const CLAIMS = [
@@ -99,68 +101,66 @@ const CLAIMS = [
   ['H2', 'Hi Ian, I worked at IBM on the data team.', IAN],
 ];
 
-test('fix 7 M1 every probe claim is flagged as a claim in placeholder form and as a literal name in the written form', () => {
+test('fix 7 M1 (fix 9 shape) every probe claim, as written and in placeholder form, is rejected in every slot of its kind', () => {
   for (const [id, text, job] of CLAIMS) {
     const ph = toPlaceholders(text, job);
     assert.notEqual(ph, text, `${id} names a target`);
-    assert.match(flagsOf(ph, job).join('; '), /makes a claim about the company or job title/, `${id}: ${ph}`);
-    // Fix 8: code writes the greeting and drops the model's own, so a name only in the greeting ("Hello Globex Example
-    // hiring team,") is never sent; the rest of the sentence is still judged as a claim.
-    const body = modelBody(text);
-    const named = [job.contact.company, job.application?.title].some((n) => n && body.includes(n));
-    assert.match(flagsOf(text, job).join('; '), named ? /as is instead of \{company\}, \{title\} or \{applied_date\}/ : /makes a claim about the company or job title/, `${id}: ${text}`);
+    for (const form of [text, ph]) {
+      for (const slot of KINDS[job.action].slots) {
+        const r = flagsOf(inSlot(slot, form, job), job);
+        assert.ok(r.flags.length, `${id} ${slot}: ${form}`);
+        assert.equal(r.text, '', `${id}: a flagged draft has no text`);
+      }
+    }
   }
 });
 
-test('fix 7 M1 targetClaims judges each sentence on its own: a true claim elsewhere never flags an honest company sentence', () => {
-  const text = 'Hello hiring team,\n\nI applied for the {title} position at {company} on {applied_date}, and I wanted to follow up. During my internship at Sample Labs I built a Python script.';
-  assert.deepEqual(targetClaims(text), []);
-  assert.deepEqual(flagsOf(text, APP, CV_LIVE), []);
-  const reply = "Hi {first_name}, I'm open to software engineering roles at {company}. This past summer I interned at Sample Labs and built a Python script.";
-  assert.deepEqual(flagsOf(reply, person('Rita Reply', INITECH, 'reply'), CV_LIVE), []);
+test('fix 7 M1 (fix 9 shape) a true cv fact never makes an honest slot fail; the fact is placed word for word', () => {
+  const app = flagsOf({ fact_ids: [3] }, APP, CV_LIVE);
+  assert.deepEqual(app.flags, []);
+  assert.ok(app.text.includes('Software engineering intern at Sample Labs (summer 2026): built a Python script that cut a weekly report from 2 hours to 10 minutes.'), app.text);
+  const reply = flagsOf({ question: 'Which software engineering teams at {company} are growing?', fact_ids: [1, 3] }, person('Rita Reply', INITECH, 'reply'), CV_LIVE);
+  assert.deepEqual(reply.flags, []);
 });
 
-test('fix 7 M2 and M3 acronyms: look-alike cv initials ground nothing, and an acronym company is a literal name or a placeholder claim', () => {
-  for (const [text, term] of [['Hi {first_name}, I hold a CS degree and want to learn more.', 'CS'], ['Hi {first_name}, I build AI models in my spare time.', 'AI'], ['Hi {first_name}, I am finishing my MBA this spring.', 'MBA'], ['Hi {first_name}, I do ML research.', 'ML']]) {
-    assert.match(flagsOf(text, ALICE).join('; '), new RegExp(`names facts absent from cv\\.md: .*\\b${term}\\b`), text);
+test('fix 7 M2 and M3 (fix 9 shape) acronyms: look-alike cv initials ground nothing; an acronym company is named only in a question', () => {
+  for (const [slots, term] of [[{ question: 'Does a CS degree help on your team?' }, 'CS'], [{ question: 'Does an MBA help on your team?' }, 'MBA'], [{ warm_line: 'Builds AI models.', question: 'What is new?' }, /AI|Builds/], [{ warm_line: 'Does ML research.', question: 'What is new?' }, /ML|statement/]]) {
+    assert.match(flagsOf(slots, ALICE).flags.join('; '), term instanceof RegExp ? term : new RegExp(`\\b${term}\\b`), JSON.stringify(slots));
   }
-  assert.match(flagsOf("Hi {first_name}, I'm a CS student.", ALICE, 'BS Computer Science, Example State University, 2027').join('; '), /^$/);
-  assert.deepEqual(flagsOf("Hi {first_name}, I'd love to learn about your work at {company}.", HANA), []);
-  assert.deepEqual(literalTargets('I interned at HP.', HANA), ['HP']);
-  assert.deepEqual(literalTargets('I worked at IBM.', IAN), ['IBM']);
-  assert.deepEqual(literalTargets('I met people from AE at a fair.', ALICE), ['AE'], 'a company of two or more words is caught by its initials too');
-  for (const k of ['CS', 'TA', 'GPA', 'CV', 'AI', 'ML', 'UX', 'UI', 'SQL', 'API']) assert.ok(ACRONYMS[k]?.length, k);
+  assert.ok(!factList(CV_PROBE).some((f) => /\b(?:CS|AI|MBA|HP|IBM)\b/.test(f.text)), 'the probe cv holds none of them, so no fact can carry them');
+  assert.deepEqual(flagsOf({ question: 'What is the work at HP like?' }, HANA).flags, []);
+  assert.match(flagsOf({ warm_line: 'Interned at HP.', question: 'What is new?' }, HANA).flags.join('; '), /names the company/);
+  assert.match(flagsOf({ warm_line: 'Worked at IBM on the data team.', question: 'What is new?' }, IAN).flags.join('; '), /names the company/);
+  assert.match(flagsOf({ question: 'Do you know people from AE?' }, ALICE).flags.join('; '), /not allowed here: AE/, 'the initials of a two-word company are no allowed name');
 });
 
-test('fix 7 M4 the submit date grounds no number; it is written only as {applied_date}', () => {
+test('fix 7 M4 (fix 9 shape) the submit date grounds no number: no slot holds a digit or a date, and only code states the date', () => {
   assert.ok(!draftFacts(APP).includes('2026-11-14'));
-  for (const [text, n] of [['I mentored 14 students last year.', '14'], ['I grew signups by 11% at my club.', '11%'], ['I tutored 2026 students.', '2026']]) {
-    assert.match(flagsOf(text, APP).join('; '), new RegExp(`absent from cv\\.md: .*${n}`), text);
+  for (const t of ['I mentored 14 students last year.', 'Signups grew by 11% at the club.', 'The role on 11/14 stands out.', 'The role posted November 14 stands out.', 'Congrats on the 2026 launch.']) {
+    assert.ok(flagsOf({ warm_line: t }, APP).flags.length, t);
   }
-  for (const text of ['I applied on 14 November 2026.', 'I applied on November 14.', 'I applied on Nov. 14th.', 'I applied on 11/14.', 'I applied for the {title} role at {company} on 2026-11-14.']) {
-    assert.equal(literalTargets(text, APP).length, 1, text);
-  }
-  assert.deepEqual(flagsOf('I applied for the {title} role on {applied_date}.', APP), []);
+  const prompt = draftPrompt({ ...APP, cv: CV_LIVE });
+  assert.ok(!/2026-11-14|\{applied_date\}/.test(prompt), prompt);
+  const r = flagsOf({}, APP, CV_LIVE);
+  assert.deepEqual(r.flags, []);
+  assert.equal(r.text.match(/November 14, 2026/g).length, 1, 'the date once, in the code-written opening');
 });
 
-test('fix 7 S1 honest follow-ups and openers pass', () => {
+test('fix 7 S1 (fix 9 shape) honest follow-ups and openers pass', () => {
   const pass = [
-    ['Hello hiring team,\n\nI recently applied to the {title} role at {company} and wanted to follow up.', APP],
-    ['Hello hiring team,\n\nI applied for the {title} position at {company} on {applied_date}.', APP],
-    ['Hello {company} hiring team,\n\nI applied for the {title} role at {company} on {applied_date}.', APP],
-    ['Dear {company} hiring team,\n\nI am following up on my application.', APP],
-    ['Hi {company} recruiting team,\n\nFollowing up on my {title} application.', APP],
-    ['Good morning {company} hiring team,\n\nI am writing about my application for the {title} role.', APP],
-    ["Hi {first_name}, I'm curious about the work at {company}.", ALICE],
-    ["Hi {first_name}, I'm curious how your team at {company} works.", ALICE],
-    ['Hi {first_name}, I saw that {company} is hiring interns.', ALICE],
+    [{}, APP],
+    [{ warm_line: 'The focus on practical tools in this role stands out.' }, APP],
+    [{ fact_ids: [3, 4] }, APP],
+    [{ question: 'What is the work at {company} like?' }, ALICE],
+    [{ question: 'How does your team at {company} work day to day?' }, ALICE],
+    [{ question: 'Is {company} hiring interns?' }, ALICE],
   ];
-  for (const [text, job] of pass) assert.deepEqual(flagsOf(text, job, CV_LIVE), [], text);
+  for (const [slots, job] of pass) assert.deepEqual(flagsOf(slots, job, CV_LIVE).flags, [], JSON.stringify(slots));
 });
 
-test('fix 7 (fix 8 shape) "send my CV first" is no ordinal claim only with the outreach option; "I finished first" always is', () => {
-  assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'], outreach: true }), []);
+test('fix 7 "send my CV first" is a claim to the shared gate with or without the old outreach option; "I finished first" always is', () => {
   assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'] }), ['first'], 'the cover and fill gate is the c9d0be8 gate');
+  assert.deepEqual(factCheck('Would it be easier to chat briefly, or should I send over my CV first?', { cv: CV_LIVE, answers: ['CV'], outreach: true }), ['first'], 'fix 9: no outreach exemption');
   assert.deepEqual(factCheck('In the hackathon I finished first.', { cv: CV_LIVE }), ['finished first']);
 });
 
@@ -193,22 +193,34 @@ const LIVE_DRAFTS = [
 const LIVE_PEOPLE = { 'warm-opener': 'Alice Alpha', connect: 'Carl Connect', 'follow-up': 'Nora Nudge', reply: 'Rita Reply' };
 const LIVE_COMPANY = { 'warm-opener': ACME, connect: 'Wayne Example', 'follow-up': 'Umbrella Example', reply: INITECH };
 
-test('fix 7 every live round 3 and round 4 real-model draft passes in placeholder form', () => {
+// First-person words, which no slot may hold.
+const FIRST_PERSON = /(?<![\p{L}'])(?:i|me|my|mine|myself|we|us|our|ours)(?![\p{L}])/iu;
+
+test('fix 7 every live round 3 and round 4 draft: its questions with no first-person word pass as a question slot, and its student facts are cv.md lines', () => {
   assert.equal(LIVE_DRAFTS.length, 24);
+  const facts = factList(CV_LIVE).map((f) => f.text).join('\n');
+  let questions = 0;
   for (const d of LIVE_DRAFTS) {
-    const job = d.action === 'application-follow-up' ? APP : { ...person(LIVE_PEOPLE[d.action], LIVE_COMPANY[d.action], d.action), noteChars: 200 };
-    assert.deepEqual(flagsOf(d.text, job, CV_LIVE), [], `${d.src} ${d.action}: ${d.text}`);
+    const job = d.action === 'application-follow-up' ? APP : person(LIVE_PEOPLE[d.action], LIVE_COMPANY[d.action], d.action);
+    for (const q of d.text.split(/(?<=[.!?])\s+|\n+/).filter((x) => /\?$/.test(x) && !FIRST_PERSON.test(x))) {
+      assert.deepEqual(slotProblems('question', q, job), [], `${d.src} ${d.action}: ${q}`);
+      questions += 1;
+    }
+  }
+  assert.ok(questions >= 8, `${questions} live questions`);
+  for (const claim of ['built a Python script that cut a weekly report from 2 hours to 10 minutes', 'Teaching assistant for Data Structures', 'Computer science student at Example State University, graduating May 2027', 'Campus Bus Tracker: a small web app in JavaScript and Python that shows live bus times']) {
+    assert.ok(facts.includes(claim), `${claim} is a fact the model can pick by id`);
   }
 });
 
 test('fix 7 the placeholders are filled in only after the checks, to the exact final text', () => {
   assert.equal(fillPlaceholders('Hello {company} hiring team, I applied for the {title} role on {applied_date}.', APP), `Hello ${GLOBEX} hiring team, I applied for the ${TITLE} role on November 14, 2026.`);
-  assert.equal(fillPlaceholders("Hi {first_name}, I'd love to hear about {company}.", ALICE), `Hi Alice, I'd love to hear about ${ACME}.`);
-  assert.match(flagsOf('Hi {first_name}, I applied for the {title} role.', ALICE).join('; '), /uses \{title\}, which this draft has no value for/);
+  assert.equal(fillPlaceholders("Hi {first_name}, what is new at {company}?", ALICE), `Hi Alice, what is new at ${ACME}?`);
+  assert.match(flagsOf({ question: 'What does the {title} role involve?' }, ALICE).flags.join('; '), /placeholder-like or bracket text "\{"/);
   const prompt = draftPrompt({ ...APP, cv: CV_LIVE });
   assert.match(prompt, /\{company\}/);
-  assert.match(prompt, /\{applied_date\}/);
-  assert.match(prompt, /Never write the company name, job title or date themselves/);
+  assert.match(prompt, /one JSON object/);
+  assert.match(prompt, /Code writes the greeting, any sentence about an application or its date/);
 });
 
 // A round for one Globex follow-up whose fake model answers with the replies in turn.
@@ -232,20 +244,20 @@ async function followupRound(replies) {
 }
 
 const LITERAL_REPLY = `Hello ${GLOBEX} hiring team,\n\nI am still interested in the ${TITLE} role at ${GLOBEX}.\n\nBest regards,\nSam Placeholder`;
-const PLACEHOLDER_REPLY = 'Hello {company} hiring team,\n\nI am still interested in the {title} role at {company}. Is there anything else I can send?\n\nBest regards,\nSam Placeholder';
+// Fact 3 of CV_LIVE is the internship line.
+const SLOT_REPLY = JSON.stringify({ warm_line: 'The focus on practical tools in this role stands out.', fact_ids: [3] });
 
-test('fix 7 a reply that writes the company or title as is gets one retry stating why, then is flagged', async () => {
+test('fix 7 (fix 9 shape) a free-text reply naming the company or title gets one retry stating why, then is flagged; a slot reply is filled', async () => {
   const twice = await followupRound([LITERAL_REPLY, LITERAL_REPLY]);
   assert.equal(twice.prompts.length, 2, 'one retry only');
-  // Fix 8: names match case-sensitively and a cv-held name is no exception, so the title written as is counts too.
-  assert.match(twice.prompts[1], new RegExp(`Your last draft wrote "${GLOBEX}", "${TITLE}" as is`));
+  assert.match(twice.prompts[1], /Your last reply broke these rules:\n- the reply is not one JSON object/);
   assert.equal(twice.items.length, 0);
-  assert.match(twice.res.flagged[0]?.flags.join('; ') ?? '', /as is instead of \{company\}/);
-  const fixed = await followupRound([LITERAL_REPLY, PLACEHOLDER_REPLY]);
+  assert.match(twice.res.flagged[0]?.flags.join('; ') ?? '', /not one JSON object/);
+  const fixed = await followupRound([LITERAL_REPLY, SLOT_REPLY]);
   assert.equal(fixed.prompts.length, 2);
   assert.deepEqual(fixed.res.flagged, []);
-  assert.equal(fixed.items[0].message, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026. I am still interested in the ${TITLE} role at ${GLOBEX}. Is there anything else I can send?\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder`);
-  const first = await followupRound([PLACEHOLDER_REPLY]);
-  assert.equal(first.prompts.length, 1, 'a placeholder draft needs no retry');
+  assert.equal(fixed.items[0].message, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026, and I wanted to follow up. The focus on practical tools in this role stands out.\n\nA bit about my background: Software engineering intern at Sample Labs (summer 2026): built a Python script that cut a weekly report from 2 hours to 10 minutes.\n\nPlease let me know if there is anything else I can send.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder`);
+  const first = await followupRound([SLOT_REPLY]);
+  assert.equal(first.prompts.length, 1, 'a slot reply that keeps every rule needs no retry');
   assert.equal(first.items.length, 1);
 });
