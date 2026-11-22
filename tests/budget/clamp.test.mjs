@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import { writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { evaluate } from '../../scripts/budget.mjs';
-import { DAY, TZ, at, shiftDate, liRow, many, baseConfig, makePack, readLog, run } from '../helpers/budget-harness.mjs';
+import { DAY, TZ, at, shiftDate, row, liRow, many, baseConfig, makePack, readLog, run } from '../helpers/budget-harness.mjs';
 
 const rng = () => 0.5;
+// LinkedIn sends need an approved batch item: the fixture approves item 1 of batch b1, and every send passes those ids.
+const APPROVAL = row({ ts: at(DAY, 7, 0), action: 'batch.approve', detail: 'batch=b1;items=1', approval: 'send all' });
+const APPROVED = ['--batch-id', 'b1', '--item', '1'];
+const pack = (o = {}) => makePack({ ...o, rows: [APPROVAL, ...(o.rows ?? [])] });
 const ev = (action, { args = {}, history = [], config = baseConfig() } = {}) =>
-  evaluate({ action, args, history, config, session: 's1', now: at(DAY, 15, 0), rng });
+  evaluate({ action, args: { batchId: 'b1', item: 1, ...args }, history: [APPROVAL, ...history], config, session: 's1', now: at(DAY, 15, 0), rng });
 const connects = (n) => many(n, (i) => liRow({ ts: at(DAY, 8, 30 + i * 10), action: 'linkedin.connect', target: `ex-${i}`, company: `Example Co ${i}` }));
 const connectArgs = { target: 'ex-new', company: 'Example Robotics', pending: 50 };
 
@@ -26,9 +30,9 @@ test('M-002-S17 a looser min limit is clamped to the ceiling', () => {
 });
 
 test('M-002-S17 CLI logs one clamp row per distinct configured value and session-start prints it', async () => {
-  const p = await makePack({ config: 'limits:\n  connect_per_day: 50\n' });
+  const p = await pack({ config: 'limits:\n  connect_per_day: 50\n' });
   const clampRows = async (needle) => (await readLog(p)).filter((r) => r.detail.includes(needle));
-  const check = () => run(p, ['check', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']);
+  const check = () => run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']);
   try {
     assert.equal(check().code, 0);
     const start = run(p, ['session-start']);
@@ -51,9 +55,9 @@ test('M-002-S17 CLI logs one clamp row per distinct configured value and session
 });
 
 test('M-002-S17 CLI enforces the ceiling when config holds a looser limit', async () => {
-  const p = await makePack({ config: 'limits:\n  connect_per_day: 50\n', rows: connects(20) });
+  const p = await pack({ config: 'limits:\n  connect_per_day: 50\n', rows: connects(20) });
   try {
-    assert.equal(run(p, ['check', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 3);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 3);
   } finally {
     p.cleanup();
   }
@@ -75,9 +79,9 @@ test('M-002-S18 a tighter min limit is enforced as configured', () => {
 });
 
 test('M-002-S18 CLI enforces a tighter configured limit', async () => {
-  const p = await makePack({ config: 'limits:\n  connect_per_day: 5\n', rows: connects(5) });
+  const p = await pack({ config: 'limits:\n  connect_per_day: 5\n', rows: connects(5) });
   try {
-    assert.equal(run(p, ['check', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 3);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 3);
   } finally {
     p.cleanup();
   }

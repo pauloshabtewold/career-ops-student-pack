@@ -3,8 +3,11 @@
 // CEILINGS is frozen and nothing reads the environment: config limits can only tighten a ceiling, and every
 // clamp of a looser value is logged. compat.json carries this file's SHA-256 (scripts/compat-hash.mjs).
 // Model-usage triage is not a ceiling here: the student owns that budget (lib/triage-budget.mjs).
-// Every irreversible send kind also needs its item in a batch the student approved: `log batch.approve` records the
-// approval in the student's words, and a check of a send kind passes only for a listed item not yet sent (approvedItem).
+// Every irreversible send kind (submits, LinkedIn sends, emails and application follow-ups) also needs its item in a batch
+// the student approved: `log batch.approve` records the approval in the student's words, and a check of a send kind passes
+// only for a listed item not yet sent by any kind (approvedItem). Outreach hygiene (one active contact per company, one
+// first message per person, nothing after a no or an unanswered follow-up) uses closedStage() from lib/outreach-state.mjs,
+// the same close rule outreach-state due follows.
 // Exit codes: 0 ok, 2 usage, 3 refused, 4 wait, 5 needs the user.
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -16,7 +19,8 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { loadMerged } from '../lib/presets.mjs';
 import { LOG_HEADER, appendAction, readActionLog, detailValue } from '../lib/action-log.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
-import { escapeCell } from '../lib/tsv.mjs';
+import { closedStage, contactRecords } from '../lib/outreach-state.mjs';
+import { escapeCell, readTsv } from '../lib/tsv.mjs';
 
 const entry = (value, unit, tighten, period) => ({ value, unit, tighten, period });
 const down = (value, unit, period) => entry(value, unit, 'down', period);
@@ -35,6 +39,8 @@ export const CEILINGS = deepFreeze({
   window_start: up('08:00', 'time', 'day'),
   window_end: down('22:00', 'time', 'day'),
   contacts_per_company: down(3, 'count', 'company'),
+  contacts_active_per_company: down(1, 'count', 'company'),
+  first_message_per_target: down(1, 'count', 'target'),
   nudge_per_target: down(1, 'count', 'target'),
   nudge_min_days: up(5, 'days', 'target'),
   notes_free_per_rolling_7d: down(2, 'count', 'rolling-7d'),
@@ -92,14 +98,20 @@ const CHECKABLE = [
   'handshake.page',
   'apply.submit',
   'apply.easy_apply',
+  'apply.followup',
+  'gmail.send',
   'apply.jd_browser',
 ];
 // Events recorded as they happen; they are not budgeted and carry no gap.
+// linkedin.reply and linkedin.declined record what a contact did, so hygiene rules can stop after a no or a silence.
 // apply.pending is logged by chrome.mjs right before a submit click, so an item stays used even when the apply.submit log
 // after the click fails.
-const OBSERVED = ['linkedin.accept', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending'];
-// Send kinds whose check needs a logged, unused approved batch item.
-const SEND_KINDS = ['apply.submit', 'apply.easy_apply'];
+const OBSERVED = ['linkedin.accept', 'linkedin.reply', 'linkedin.declined', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending'];
+// Send kinds whose check needs a logged, unused approved batch item. A follow-up is checked as apply.followup and as its
+// channel (gmail.send with --followup) with the same batch item; both checks run before either is logged.
+const SEND_KINDS = ['apply.submit', 'apply.easy_apply', ...LINKEDIN_SENDS, 'gmail.send', 'apply.followup'];
+const FOLLOWUP_MIN_DAYS = 7;
+const FOLLOWUP_MAX_DAYS = 10;
 const APPROVAL_RE = /^(send|submit) (all|\d+(,\s*\d+)*)$/;
 // apply.submit carries --batch-id and --item instead of approval words; its approval is the logged batch.approve.
 const NEEDS_APPROVAL = [...LINKEDIN_SENDS];
@@ -137,7 +149,7 @@ export function drawGapMs(config, rng) {
 
 const result = (status, reason, extra = {}) => ({ status, reason, remaining: null, earliest: null, ...extra });
 
-function makeContext({ action, args, history, config, session, now }) {
+function makeContext({ action, args, history, contacts = [], config, session, now }) {
   const { values: L } = effectiveLimits(config);
   const local = createClock({ timezone: config.timezone }).localTime(now);
   const nowMs = now.getTime();
@@ -150,7 +162,7 @@ function makeContext({ action, args, history, config, session, now }) {
     return null;
   };
   return {
-    action, args, config, session, L, local, nowMs, rows, remainingFrom, refuse, cap,
+    action, args, config, session, L, local, nowMs, rows, contacts, remainingFrom, refuse, cap,
     group: groupOf(action),
     count: (pred) => rows.filter(pred).length,
     isToday: (r) => r.date === local.date,
@@ -220,23 +232,109 @@ function connectRule(ctx) {
   const stop =
     cap(L.connect_per_day, connects.filter(isToday).length, 'connect requests today') ||
     cap(L.connect_per_rolling_7d, connects.filter(inWeek).length, 'connect requests in the rolling 7 days') ||
-    companyCap(rows, args, L.contacts_per_company, cap);
+    companyCap(rows, args, L.contacts_per_company, cap) ||
+    hygieneRefusal(ctx, 'linkedin.connect');
   return stop || noteRule(ctx, connects);
 }
 
-function messageRule({ args, L, rows, count, isToday, refuse, cap }) {
-  const stop = cap(L.message_per_day, count((r) => r.action === 'linkedin.message' && isToday(r)), 'messages today') || companyCap(rows, args, L.contacts_per_company, cap);
+// Email is outreach too: a gmail.send is keyed by the contact's name (--target, with the address in --email), and one sent
+// with --nudge is that contact's one follow-up, so the hygiene rules below see both channels as one person. One sent with
+// --followup is an application's one follow-up (G6): it is no outreach contact, and the person rules never see it.
+const OUTREACH_SENDS = [...LINKEDIN_SENDS, 'gmail.send'];
+const isAppFollowup = (r) => r.action === 'gmail.send' && detailValue(r.detail, 'followup') === '1';
+const isNudge = (r) => r.action === 'linkedin.nudge' || (r.action === 'gmail.send' && !isAppFollowup(r) && detailValue(r.detail, 'nudge') === '1');
+const isMessage = (r) => r.action === 'linkedin.message' || (r.action === 'gmail.send' && !isAppFollowup(r) && detailValue(r.detail, 'nudge') !== '1');
+const lower = (s) => String(s ?? '').trim().toLowerCase();
+// A person is their lowercased name plus lowercased company, the key lib/outreach-state.mjs uses. A check without
+// --company matches the name at any company, so leaving the flag out never opens a second message.
+const sameCompany = (company) => (r) => !lower(company) || lower(r.company) === lower(company);
+const personRows = (rows, target, company) => rows.filter((r) => !isAppFollowup(r) && lower(r.target) === lower(target) && sameCompany(company)(r));
+const personSheet = (contacts, target, company) => contacts.filter((r) => lower(r.name) === lower(target) && sameCompany(company)(r));
+
+// Outreach hygiene, per person, so a refusal is unlogged and other contacts stay open: a contact who said no or stayed
+// silent after the one follow-up is never messaged again, one person gets one first message, nobody is invited twice, and
+// a company has at most contacts_active_per_company contacts in progress at a time.
+function hygieneRefusal(ctx, action) {
+  const { args, L, rows, contacts, nowMs, refuse } = ctx;
+  if (!args.target) return null;
+  const mine = personRows(rows, args.target, args.company);
+  if (mine.some((r) => r.action === 'linkedin.declined')) return refuse(`${args.target} declined; no more messages`, { unlogged: true });
+  const lastReply = Math.max(-Infinity, ...mine.filter((r) => r.action === 'linkedin.reply').map((r) => r.ms));
+  const nudge = Math.max(-Infinity, ...mine.filter(isNudge).map((r) => r.ms));
+  if (nudge > lastReply && nowMs - nudge >= L.nudge_min_days * DAY_MS) return refuse(`${args.target} did not answer the follow-up; outreach to them has stopped`, { unlogged: true });
+  // Once invited, never again: a connect in the action log or a contacts.tsv connect row refuses a second request to the
+  // same person whatever their stage (declined, withdrawn, ignored or accepted).
+  const sheetConnect = personSheet(contacts, args.target, args.company).some((r) => r.stage === 'connect');
+  if (action === 'linkedin.connect' && (sheetConnect || mine.some((r) => r.action === 'linkedin.connect'))) {
+    return refuse(`${args.target} already had a connection request; never invite the same person twice`, { unlogged: true });
+  }
+  if (action === 'linkedin.message' || action === 'gmail.send') {
+    const firsts = mine.filter(isMessage).length;
+    if (lastReply === -Infinity && firsts >= L.first_message_per_target) return refuse(`${args.target} already has a first message with no reply`, { unlogged: true });
+  }
+  return activeCompanyRefusal(ctx);
+}
+
+// A contact is active from the first send on either channel, or a contacts.tsv connect row, until closedStage() from
+// lib/outreach-state.mjs ends them. Each contact is built from their contacts.tsv rows and action-log rows together, so an
+// invite or accept recorded only in the sheet counts here too.
+function activeCompanyRefusal({ args, L, rows, contacts, nowMs, refuse }) {
+  if (!args.company) return null;
+  const atCompany = (r) => lower(r.company) === lower(args.company);
+  const sends = rows.filter((r) => OUTREACH_SENDS.includes(r.action) && !isAppFollowup(r) && atCompany(r));
+  const names = [...sends.map((r) => r.target), ...contacts.filter((r) => r.stage === 'connect' && atCompany(r)).map((r) => r.name)];
+  const others = [...new Map(names.filter(Boolean).map((t) => [lower(t), t])).entries()].filter(([k]) => k !== lower(args.target)).map(([, t]) => t);
+  const open = (t) => {
+    const [contact] = contactRecords(personSheet(contacts, t, args.company), personRows(rows, t, args.company));
+    return contact && !closedStage(contact, nowMs, { inviteWithdrawDays: L.invite_withdraw_days, nudgeAfterDays: L.nudge_min_days });
+  };
+  const active = others.filter(open);
+  return active.length >= L.contacts_active_per_company ? refuse(`${args.company} already has an active contact (${active[0]}); one at a time`, { unlogged: true }) : null;
+}
+
+function messageRule(ctx) {
+  const { args, L, rows, count, isToday, refuse, cap } = ctx;
+  const stop = cap(L.message_per_day, count((r) => r.action === 'linkedin.message' && isToday(r)), 'messages today') || companyCap(rows, args, L.contacts_per_company, cap) || hygieneRefusal(ctx, 'linkedin.message');
   if (stop) return stop;
   const first = !rows.some((r) => r.action === 'linkedin.message' && r.target === args.target);
   return first && args.length > L.opener_len ? refuse(`first message of ${args.length} characters exceeds ${L.opener_len}`) : null;
 }
 
+// One follow-up per submitted application, 7 to 10 days after its apply.submit. An application is the --target (and,
+// when given, --company) of its apply.submit row.
+function followupRule({ args, rows, nowMs, refuse }) {
+  if (!args.target) return refuse('target missing; pass --target with the application url', { unlogged: true });
+  const app = (r) => lower(r.target) === lower(args.target) && sameCompany(args.company)(r);
+  const submit = Math.min(Infinity, ...rows.filter((r) => (r.action === 'apply.submit' || r.action === 'apply.easy_apply') && app(r)).map((r) => r.ms));
+  if (submit === Infinity) return refuse(`no logged submit for ${args.target}`, { unlogged: true });
+  // Only apply.followup rows count here: its gmail.send --followup twin is logged first for the same send.
+  if (rows.some((r) => r.action === 'apply.followup' && app(r))) return refuse(`${args.target} already had its one follow-up`, { unlogged: true });
+  const days = (nowMs - submit) / DAY_MS;
+  if (days < FOLLOWUP_MIN_DAYS) return refuse(`follow-up is due ${FOLLOWUP_MIN_DAYS} days after the submit; ${Math.floor(days)} have passed`, { unlogged: true });
+  if (days > FOLLOWUP_MAX_DAYS) return refuse(`the follow-up window closed ${FOLLOWUP_MAX_DAYS} days after the submit`, { unlogged: true });
+  return null;
+}
+
 function nudgeRule({ args, L, rows, nowMs, refuse, cap }) {
-  const mine = rows.filter((r) => r.target === args.target);
-  const stop = cap(L.nudge_per_target, mine.filter((r) => r.action === 'linkedin.nudge').length, 'nudges to this target') || companyCap(rows, args, L.contacts_per_company, cap);
+  const mine = personRows(rows, args.target, args.company);
+  if (mine.some((r) => r.action === 'linkedin.declined')) return refuse(`${args.target} declined; no more messages`, { unlogged: true });
+  const stop = cap(L.nudge_per_target, mine.filter(isNudge).length, 'nudges to this target') || companyCap(rows, args, L.contacts_per_company, cap);
   if (stop) return stop;
-  const lastMsg = Math.max(-Infinity, ...mine.filter((r) => r.action === 'linkedin.message').map((r) => r.ms));
+  const lastMsg = Math.max(-Infinity, ...mine.filter(isMessage).map((r) => r.ms));
   return nowMs - lastMsg < L.nudge_min_days * DAY_MS ? refuse(`last message to this target is under ${L.nudge_min_days} days old`) : null;
+}
+
+// An email: --followup makes it an application's one follow-up (once per application, no person rules), --nudge a
+// contact's one follow-up (nudge rules), anything else a message to a contact (hygiene rules).
+function gmailRule(ctx) {
+  const { args, rows, refuse } = ctx;
+  if (args.followup) {
+    if (!args.target) return refuse('target missing; pass --target with the application url', { unlogged: true });
+    const app = (r) => lower(r.target) === lower(args.target) && sameCompany(args.company)(r);
+    return rows.some((r) => isAppFollowup(r) && app(r)) ? refuse(`${args.target} already had its follow-up email`, { unlogged: true }) : null;
+  }
+  if (!args.target) return refuse('target missing; pass --target with the contact name and --email with the address', { unlogged: true });
+  return args.nudge ? nudgeRule(ctx) : hygieneRefusal(ctx, 'gmail.send');
 }
 
 function sessionCap({ cap }, limit, used, what) {
@@ -295,6 +393,8 @@ const ACTION_RULES = {
   'apply.submit': submitRules,
   'linkedin.fresh_search': freshSearchRule,
   'apply.easy_apply': easyApplyRule,
+  'apply.followup': followupRule,
+  'gmail.send': gmailRule,
 };
 
 function gapOrOk({ group, rows, nowMs, remainingFrom }) {
@@ -331,9 +431,9 @@ export function evaluateCheck(opts) {
   return approvalRefusal(opts) ?? evaluate(opts);
 }
 
-/** Decides one action. history is the action-log rows; gaps are drawn at log time, not here. */
-export function evaluate({ action, args = {}, history = [], config = {}, session = '', now = createClock({ timezone: config.timezone }).now() }) {
-  const ctx = makeContext({ action, args, history, config, session, now });
+/** Decides one action. history is the action-log rows, contacts the data/contacts.tsv rows; gaps are drawn at log time, not here. */
+export function evaluate({ action, args = {}, history = [], contacts = [], config = {}, session = '', now = createClock({ timezone: config.timezone }).now() }) {
+  const ctx = makeContext({ action, args, history, contacts, config, session, now });
   if (!CHECKABLE.includes(action)) return ctx.refuse(`unknown action ${action}`);
   for (const check of PREFLIGHT) {
     const refusal = check(ctx);
@@ -399,7 +499,9 @@ function submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refu
 // CLI
 
 // --batch is the integer fill-session size; --batch-id names an approval batch and --item its numbered line.
-const FLAGS = { target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string', 'batch-id': 'string', item: 'int', items: 'string' };
+// --email is the address of a gmail.send whose --target is the contact's name; --nudge marks that email as the contact's
+// follow-up; --followup marks it as an application's follow-up, with the application as --target.
+const FLAGS = { target: 'string', company: 'string', approval: 'string', track: 'string', length: 'int', batch: 'int', score: 'string', search: 'string', pending: 'int', tier: 'string', 'batch-id': 'string', item: 'int', items: 'string', email: 'string', nudge: 'boolean', followup: 'boolean' };
 const COMMANDS = ['check', 'log', 'session-start', 'status', 'warning', 'due-withdrawals'];
 
 function sessionFile(dataDir) {
@@ -429,7 +531,7 @@ function argsFrom(flags, recheck = false) {
     score = Number(flags.score);
     if (!Number.isFinite(score)) throw new UsageError(`--score expects a number, got "${flags.score}"`);
   }
-  return { target: flags.target, company: flags.company, track: flags.track, length: flags.length, batch: flags.batch, score, search: flags.search, pending: flags.pending, tier: flags.tier, batchId: flags.batchId, item: flags.item, recheck };
+  return { target: flags.target, company: flags.company, track: flags.track, length: flags.length, batch: flags.batch, score, search: flags.search, pending: flags.pending, tier: flags.tier, batchId: flags.batchId, item: flags.item, email: flags.email, nudge: Boolean(flags.nudge), followup: Boolean(flags.followup), recheck };
 }
 
 async function logClamps(file, config, clock, session, history) {
@@ -530,6 +632,9 @@ async function logAllowed({ action, now, env, res }) {
   if (flags.track) details.push(`track=${flags.track}`);
   if (flags.batchId) details.push(`batch=${flags.batchId}`);
   if (Number.isInteger(flags.item)) details.push(`item=${flags.item}`);
+  if (flags.email) details.push(`email=${flags.email}`);
+  if (flags.nudge) details.push('nudge=1');
+  if (flags.followup) details.push('followup=1');
   const searchId = flags.search ?? flags.target ?? '';
   if (action === 'handshake.page') details.push(`search=${searchId}`);
   await write([
@@ -545,7 +650,7 @@ async function logAllowed({ action, now, env, res }) {
 }
 
 async function cmdCheckLog(env) {
-  const { command, flags, file, config, clock, session, history, write, mkRow } = env;
+  const { command, flags, paths, file, config, clock, session, history, write, mkRow } = env;
   const action = actionFrom(env);
   const fresh = flags.dryRun ? [] : await logClamps(file, config, clock, session, history);
   const all = [...history, ...fresh.map((r) => ({ ...r, ms: Date.parse(r.ts) }))];
@@ -561,7 +666,8 @@ async function cmdCheckLog(env) {
     return 0;
   }
 
-  const res = evaluateCheck({ action, args: argsFrom(flags, command === 'log'), history: all, config, session, now });
+  const { rows: contacts } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
+  const res = evaluateCheck({ action, args: argsFrom(flags, command === 'log'), history: all, contacts, config, session, now });
   if (res.status === 'refused' && !res.repeat && !res.unlogged) {
     const scope = res.scope ?? action;
     await write([mkRow('budget.refusal', { target: scope, detail: `period=${res.period ?? 'day'};reason=${res.reason}` })]);

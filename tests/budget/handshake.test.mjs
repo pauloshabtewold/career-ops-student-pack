@@ -4,8 +4,10 @@ import { evaluate } from '../../scripts/budget.mjs';
 import { DAY, at, row, many, baseConfig, makePack, run } from '../helpers/budget-harness.mjs';
 
 const rng = () => 0.5;
+// LinkedIn sends need an approved batch item; the fixture approves item 1 of batch b1 so only the switch decides here.
+const APPROVAL = row({ ts: at(DAY, 7, 0), action: 'batch.approve', detail: 'batch=b1;items=1', approval: 'send all' });
 const ev = (action, { args = {}, history = [], config = baseConfig(), now = at(DAY, 15, 0), session = 's1' } = {}) =>
-  evaluate({ action, args, history, config, session, now, rng });
+  evaluate({ action, args: { batchId: 'b1', item: 1, ...args }, history: [APPROVAL, ...history], config, session, now, rng });
 // Handshake page rows carry the search id both as target and as detail search=<id>.
 const pages = (n, search, session = 's1') =>
   many(n, (i) => row({ ts: at(DAY, 9, i), action: 'handshake.page', target: search, session, detail: `search=${search}` }));

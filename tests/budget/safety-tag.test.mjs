@@ -517,3 +517,13 @@ test('extra check: adding the mailbox.schedule key as off passes', () =>
     const v = await verdict(root, () => put(root, 'templates/student.defaults.yml', mailboxDefaults('off')));
     assert.equal(v.ok, true, v.text);
   }));
+
+test('extra check: adding contacts_active_per_company and first_message_per_target ceilings of 1 passes as tightening', () =>
+  withRepo(async (root) => {
+    const v = await verdict(root, () => {
+      const next = budgetSource({ extra: "\n  contacts_active_per_company: down(1, 'count', 'company'),\n  first_message_per_target: down(1, 'count', 'target')," });
+      put(root, 'scripts/budget.mjs', next);
+      put(root, 'compat.json', compatJson(next));
+    });
+    assert.equal(v.ok, true, v.text);
+  }));
