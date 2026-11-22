@@ -193,7 +193,8 @@ const drafts = (r, args, env) => {
   return { code: out.status, stdout: out.stdout ?? '', stderr: out.stderr ?? '' };
 };
 
-test('row 2b outreach-drafts.mjs --followup-to "<Company>" <email> adds the follow-up from the command line', async () => {
+// The fake claude is a shebang script, which Windows cannot run (same skip as review-app R9/R10).
+test('row 2b outreach-drafts.mjs --followup-to "<Company>" <email> adds the follow-up from the command line', { skip: process.platform === 'win32' && 'shebang fake claude is POSIX-only' }, async () => {
   const r = liveRoot();
   try {
     await appendTsv(r.file('data/action-log.tsv'), LOG_HEADER, [row({ ts: at(SUBMITTED, 12, 0), action: 'apply.submit', target: SOYLENT_APP, company: SOYLENT })]);
