@@ -1,57 +1,33 @@
 // SYNTHETIC FIXTURE: placeholder people, companies and cv text only.
-// M-004 fix 8, re-pinned in the fix 9 shape ("slots + facts by id"). The r6 probe sentences (M1, M2, S1-S3, N1) and
-// the live round 5 model replies (ev/r5) are kept: each probe is rejected in every slot of its kind, and each honest live
-// question with no first-person word passes as a question slot. The shared fact gate keeps its c9d0be8 ordinal rules
-// for cover letters and fill plans, and there is no outreach option any more. Code writes the frame (greeting,
-// application opening, closing, sign-off) around the slots and the cv.md facts. Scratch roots, example.com addresses
-// and an injected headless runner: no real model, network, Gmail or LinkedIn.
+// M-004 fix 8 cases, re-pinned in the fix 10 shape ("warm prose + hard rails + independent verifier"). The r6 probe
+// sentences (M1, M2) are no longer judged by a regex claim rule: each reaches the verifier verbatim inside the final
+// string, and a verdict naming it keeps it out. The shared fact gate keeps its c9d0be8 ordinal rules for cover letters
+// and fill plans (M3). The honest r6 S1 lines and every live round 5 model reply (ev/r5) pass the rails with no flag.
+// Code writes the frame (greeting, application opening, closing, sign-off) around the model body. Scratch roots,
+// example.com addresses and an injected headless runner: no real model, network, Gmail or LinkedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { check as factCheck } from '../../lib/fact-gate.mjs';
-import { readBatch } from '../../lib/batch-file.mjs';
-import { resolvePaths } from '../../lib/paths.mjs';
-import { serializeTsv } from '../../lib/tsv.mjs';
 import { writeCover } from '../../scripts/cover.mjs';
-import { KINDS, assembleDraft, checkDraft, contactRoles, draftFacts, factList, fillPlaceholders, outreachDrafts, slotProblems } from '../../scripts/outreach-drafts.mjs';
+import { checkDraft, fillPlaceholders } from '../../scripts/outreach-drafts.mjs';
 import { makeRoot } from '../helpers/script-harness.mjs';
+import { ACME, ALICE, APP, DAY, GLOBEX, SOURCES, TITLE, draftIn, person, roundFor } from '../helpers/outreach-verify-harness.mjs';
 
-const DAY = '2026-11-22';
-const ACME = 'Acme Example';
-const GLOBEX = 'Globex Example';
-const TITLE = 'Software Engineering Intern';
-const GLOBEX_APP = 'https://jobs.example.com/globex/swe-intern';
-
-const CV = `# Sam Placeholder
-
-Computer science student at Example State University, graduating May 2027. GPA 3.6.
-
-## Experience
-- Software engineering intern at Sample Labs (summer 2026): built a Python script that cut a weekly report from 2 hours to 10 minutes.
-- Teaching assistant for Data Structures at Example State University (2025 to 2026).
-
-## Projects
-- Campus Bus Tracker: a small web app in JavaScript and Python that shows live bus times.
-
-## Skills
-Python, JavaScript, SQL, Git
-`;
-
-const person = (name, company, action = 'warm-opener', extra = {}) => ({ action, channel: 'linkedin', contact: { name, company }, ...extra });
-const ALICE = person('Alice Alpha', ACME);
-const APP = { action: 'application-follow-up', channel: 'email', contact: { name: 'Hiring team', company: GLOBEX }, application: { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', title: TITLE } };
-// The result of one slot reply for a job.
-const flagsOf = (slots, job, cv = CV) => checkDraft(JSON.stringify({ fact_ids: [], ...slots }), { ...job, roles: contactRoles(job, []) }, { facts: factList(cv), cv, own: draftFacts(job, { candidate: { full_name: 'Sam Placeholder' } }) });
-const asQuestion = (t) => `${t.trim().replace(/[.!]+$/, '')}?`;
-const inSlot = (slot, text, job) => ({ [slot]: slot === 'question' ? asQuestion(text) : text, ...(slot === 'warm_line' && KINDS[job.action].required.includes('question') ? { question: 'What does a typical week look like for you?' } : {}) });
-// Every slot of the job's kind rejects the text, and a rejected draft has no text.
-function rejectedEverywhere(id, text, job) {
-  for (const slot of KINDS[job.action].slots) {
-    const r = flagsOf(inSlot(slot, text, job), job);
-    assert.ok(r.flags.length, `${id} ${slot}: ${text}`);
-    assert.equal(r.text, '');
-  }
+const check = (text, job = ALICE) => checkDraft(text, job, { sources: SOURCES });
+// The probe as it must appear in the final string: a leading greeting off, the placeholders filled.
+const expected = (text, job) => fillPlaceholders(text.replace(/^(?:hi|hello)\b[^,\n]*,\s*/i, '').replace(/^\p{Ll}/u, (c) => c.toUpperCase()), job);
+// Contact probes run as a follow-up (no length cap, no first-message referral rail), so only the verifier can hold them.
+const NORA = person('Nora Nudge', ACME, 'follow-up');
+// The probe reaches the verify prompt verbatim inside the exact final string, and a verdict naming it keeps it out.
+async function verifiedAndHeld(id, text, job) {
+  const want = expected(text, job);
+  const out = await roundFor(job, { drafts: [text], verdict: (prompt) => JSON.stringify({ unsupported: draftIn(prompt).includes(want) ? [want] : [] }) });
+  assert.ok(out.verifies.length >= 1, `${id} verified: ${JSON.stringify(out.res.flagged)}`);
+  const draft = draftIn(out.verifies[0].prompt);
+  assert.ok(draft.includes(want), `${id}: ${want}\n---\n${draft}`);
+  assert.equal(draft, check(text, job).text);
+  assert.equal(out.items.length, 0, `${id} kept out`);
 }
-const FIRST_PERSON = /(?<![\p{L}'])(?:i|me|my|mine|myself|we|us|our|ours)(?![\p{L}])/iu;
 
 // Review r6 M1: claims about {company}/{title} that are not "I/we + adverb + verb", and no-claim verbs with a claim object.
 const M1 = [
@@ -84,8 +60,8 @@ const M1 = [
   ['W2', 'I got to work with your team last summer.'],
 ];
 
-test('fix 8 M1 (fix 9 shape) every r6 claim about {company} or {title} is rejected in every slot, whatever its wording', () => {
-  for (const [id, text, job = ALICE] of M1) rejectedEverywhere(id, text, job);
+test('fix 8 M1 (fix 10) every r6 claim about {company} or {title} reaches the verifier verbatim and its verdict keeps it out', async () => {
+  for (const [id, text, job = NORA] of M1) await verifiedAndHeld(id, text, job);
 });
 
 // Review r6 M2: the claim sits in a sentence that refers to the target by pronoun ("there", "your team", "with you").
@@ -102,11 +78,8 @@ const M2 = [
   ['P9', 'I was on your team last year.'],
 ];
 
-test('fix 8 M2 (fix 9 shape) a claim that refers to the target as there, your team or with you is rejected in every slot', () => {
-  for (const [id, text, job = ALICE] of M2) {
-    rejectedEverywhere(id, text, job);
-    for (const sentence of text.replace(/^(?:Hi|Hello)[^,]*,\s*/, '').split(/(?<=[.!?])\s+/)) if (/interned|worked|working|was on/.test(sentence)) rejectedEverywhere(`${id} sentence`, sentence, job);
-  }
+test('fix 8 M2 (fix 10) a claim that refers to the target as there, your team or with you reaches the verifier verbatim and is kept out', async () => {
+  for (const [id, text, job = NORA] of M2) await verifiedAndHeld(id, text, job);
 });
 
 // Review r6 M3: invented ranks that the cover-letter and fill-plan gate must flag, exactly as c9d0be8 did.
@@ -174,24 +147,14 @@ const HONEST = [
   ['J4', 'Would it be easier to chat briefly, or should I send over my CV first?'],
 ];
 
-test('fix 8 E (fix 9 shape) the honest lines: questions with no first-person word pass as a question slot; "your first year" takes the retry path', () => {
-  let n = 0;
-  for (const [id, text, job = ALICE] of HONEST) {
-    for (const q of text.split(/(?<=[.!?])\s+/).filter((x) => /\?$/.test(x) && !FIRST_PERSON.test(x) && !/first year/.test(x))) {
-      assert.deepEqual(slotProblems('question', q, job), [], `${id}: ${q}`);
-      n += 1;
-    }
+test('fix 8 E (fix 10) the honest lines, including "your first year" and "a quick 15 minute chat", pass the rails with no flag', () => {
+  for (const [id, text, job = ALICE] of [...HONEST, ['E3', 'Would you be open to a quick 15 minute chat in the next couple of weeks?', NORA]]) {
+    const r = check(text, job);
+    // F1 only restates the application, which code already states: it is taken off, so that body is empty (a redraft).
+    if (id === 'F1') assert.deepEqual(r.flags, ['the message has no body'], r.text);
+    else assert.deepEqual(r.flags, [], `${id}: ${r.text}`);
+    if (job === APP) assert.equal(r.text.match(/applied for/g).length, 1, `${id}: the application once: ${r.text}`);
   }
-  assert.ok(n >= 1, `${n} questions`);
-  // The first-person honest lines in their slot shape: the student part is a fact id, the rest a question or nothing.
-  for (const [id, slots, job = ALICE] of [
-    ['E2', {}, APP], ['H4', { fact_ids: [5] }, APP], ['H5', { fact_ids: [1] }, APP], ['H7', { warm_line: 'The role stands out.' }, APP],
-    ['F7', { question: 'Is {company} hiring interns?' }], ['F8', { warm_line: 'Your post about hiring interns is a great read.', question: 'What does the internship involve?' }],
-    ['H6', { question: 'How did you get started at {company}?', fact_ids: [1] }], ['J2', { question: 'Could that kind of work be useful to your team?', fact_ids: [3] }],
-    ['J3', { question: 'Is there a team there that would be a good fit?', fact_ids: [1] }], ['J4', { question: 'Would a short chat or the CV be easier?' }],
-  ]) assert.deepEqual(flagsOf(slots, job).flags, [], `${id}: ${JSON.stringify(slots)}`);
-  assert.match(slotProblems('question', 'What was the biggest surprise in your first year of engineering work?', ALICE).join('; '), /ordinal "first"/, 'retried with the rule named (m004-fix9)');
-  assert.deepEqual(slotProblems('question', 'What was the biggest surprise when you started out in engineering?', ALICE), []);
 });
 
 // Every live round 5 real-model reply (ev/r5 *-model-texts.txt, synthetic student), as the model wrote it.
@@ -212,103 +175,62 @@ const R5 = [
   ['3a application-follow-up', 'Dear Hiring team,\n\nI applied for the {title} position at {company} on {applied_date}, and I wanted to follow up to say I am still very interested.\n\nOne reason I think I would be a good fit: during my software engineering internship at Sample Labs, I built a Python script that cut a weekly report from 2 hours to 10 minutes. I enjoy finding practical ways to make work faster and simpler, and I would be glad to bring that approach to your team.\n\nIf there is anything else I can send, such as code samples or more details about my projects, I would be happy to share it. There is no rush, and thank you for your time.\n\nBest regards,\nSam Placeholder', 'app'],
   ['3b application-follow-up retry', 'Hello Hiring team at {company},\n\nI applied for the {title} position on {applied_date} and wanted to follow up briefly. I am excited about the role.\n\nOne reason I think I am a good fit is my summer 2026 internship at Sample Labs, where I built a Python script that cut a weekly report from 2 hours to 10 minutes. I enjoy turning slow, manual work into something simple and reliable, and I would be glad to bring that approach to your team.\n\nIf there is anything else I can send, such as code samples or more details about my projects, please let me know. I understand you are busy, so there is no pressure at all.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder', 'app'],
 ];
-const r5Job = (kind) => (kind === 'app' ? APP : person('Rita Reply', ACME, kind ?? 'warm-opener', kind === 'connect' ? { noteChars: 300 } : {}));
+const r5Job = (kind) => (kind === 'app' ? APP : person('Rita Reply', ACME, kind ?? 'warm-opener', kind === 'connect' ? { noteChars: 300 } : kind === 'reply' ? { replyText: 'When do you graduate, and which team interests you?' } : {}));
 
-test('fix 8 F (fix 9 shape) every live round 5 model reply: its questions with no first-person word pass, and its student facts are cv.md lines', () => {
+test('fix 8 F (fix 10) every live round 5 model reply passes the rails with no flag; an email states the application, the date and the thanks once', () => {
   assert.equal(R5.length, 15);
-  const facts = factList(CV).map((f) => f.text).join('\n');
   for (const [src, text, kind] of R5) {
-    for (const q of text.split(/(?<=[.!?])\s+|\n+/).filter((x) => /\?$/.test(x) && !FIRST_PERSON.test(x) && !/first year/.test(x))) {
-      assert.deepEqual(slotProblems('question', q, r5Job(kind)), [], `${src}: ${q}`);
+    const r = check(text, r5Job(kind));
+    assert.deepEqual(r.flags, [], `${src}: ${r.text}`);
+    if (kind === 'app') {
+      assert.equal(r.text.match(/November 14, 2026/g).length, 1, src);
+      assert.equal(r.text.match(/thank/gi).length, 1, `${src}: ${r.text}`);
+      assert.ok(!/Hiring team,\n\n.*Hiring team/s.test(r.text) && r.text.startsWith(`Hello ${GLOBEX} hiring team,\n\nI applied for`), r.text);
     }
-    if (/Python script/.test(text)) assert.ok(facts.includes('built a Python script that cut a weekly report from 2 hours to 10 minutes'), src);
   }
 });
 
-test('fix 8 S2 (fix 9 shape) brace variants in a slot are rejected, and a flagged draft never reaches a batch', async () => {
+test('fix 8 S2 (fix 10) brace variants are rail failures; the redraft names the whole token, and a flagged draft never reaches a batch', async () => {
   for (const t of ['What about the { company } role?', 'What about {company name}?', 'What about {{company}}?', 'What about [Company]?', 'What about {Company}?']) {
-    assert.match(flagsOf({ question: t }, ALICE).flags.join('; '), /placeholder-like or bracket text/, t);
+    assert.match(check(t).flags.join('; '), /placeholder-like text/, t);
   }
-  assert.match(flagsOf({ warm_line: 'The work of {first_name} stands out.' }, APP).flags.join('; '), /placeholder-like/, 'no first name on an application follow-up');
-  const { res, prompts, items } = await followupRound([JSON.stringify({ warm_line: 'The {company name} team stands out.' }), JSON.stringify({ warm_line: 'The {{company}} team stands out.' })]);
-  assert.equal(prompts.length, 2, 'one retry, naming the malformed placeholder');
-  assert.match(prompts[1], /placeholder-like or bracket text "\{company name\}"/);
-  assert.equal(items.length, 0);
-  assert.match(res.flagged[0]?.flags.join('; ') ?? '', /\{\{company\}\}|placeholder-like/);
+  assert.match(check('The work of {first_name} stands out.', APP).flags.join('; '), /placeholder-like/, 'no first name on an application follow-up');
+  const out = await roundFor(APP, { drafts: ['The {company name} team stands out.', 'The {{company}} team stands out.'] });
+  assert.equal(out.drafting.length, 2, 'one redraft, naming the malformed placeholder');
+  assert.match(out.drafting[1].prompt, /placeholder-like text "\{company name\}"/);
+  assert.equal(out.verifies.length, 0);
+  assert.equal(out.items.length, 0);
+  assert.match(out.res.flagged[0]?.flags.join('; ') ?? '', /\{Globex Example\}|placeholder-like/);
 });
 
-test('fix 8 N1 (fix 9 shape) a company name in any case is named only in a question; a statement naming it fails closed', () => {
+test('fix 8 N1 and S3 (fix 10) a company name in any case, or one cv.md holds, is no code rule: the sentence passes the rails and goes to the verifier', async () => {
   const notion = person('Nina Note', 'Notion');
-  assert.deepEqual(flagsOf({ question: 'Is the notion of small teams common at {company}?' }, notion).flags, []);
-  assert.match(flagsOf({ warm_line: 'The notion of small teams is appealing.', question: 'What is new?' }, notion).flags.join('; '), /names the company/);
-  assert.match(flagsOf({ warm_line: 'Big fan of NOTION.', question: 'What is new?' }, notion).flags.join('; '), /names the company/);
+  for (const [job, text] of [[notion, 'The notion of small teams is appealing. Is that common at {company}?'], [notion, 'Big fan of NOTION. What is new?'], [ALICE, 'Acme Example is great. What is new?'], [APP, `The ${TITLE} work stands out.`]]) {
+    assert.deepEqual(check(text, job).flags, [], text);
+    const out = await roundFor(job, { drafts: [text] });
+    assert.equal(draftIn(out.verifies[0].prompt), out.items[0].message);
+  }
 });
 
-test('fix 8 S3 (fix 9 shape) a company or title that cv.md holds is still never named in a statement', () => {
-  const held = `${CV}- Acme Example Scholarship recipient (2025).\n`;
-  assert.match(flagsOf({ warm_line: 'Acme Example is great.', question: 'What is new?' }, ALICE, held).flags.join('; '), /names the company/);
-  const heldTitle = `${CV}- ${TITLE} at Initrode Example (2025).\n`;
-  assert.match(flagsOf({ warm_line: `The ${TITLE} work stands out.` }, APP, heldTitle).flags.join('; '), /names the company or job title/);
-  assert.match(flagsOf({ warm_line: 'The {title} work stands out.' }, APP, heldTitle).flags.join('; '), /names the company or job title/);
-});
-
-test('fix 8 A (fix 9 shape) the code frame gives the exact final text per draft kind, at most one blank line and no Subject line', () => {
-  const sign = { signature: 'Sam Placeholder' };
-  const final = (slots, job) => fillPlaceholders(assembleDraft({ slots, picked: [] }, { ...job, ...sign }), { ...job, ...sign });
-  assert.equal(final({ warm_line: 'Your posts on Python tools are a great read.' }, person('Carl Connect', 'Wayne Example', 'connect')), 'Hi Carl, your posts on Python tools are a great read.');
-  assert.equal(final({ question: 'What do you enjoy most about the work at {company}?' }, ALICE), `Hi Alice,\n\nWhat do you enjoy most about the work at ${ACME}?`);
-  const emailFollow = person('Nora Nudge', 'Umbrella Example', 'follow-up', { channel: 'email' });
-  assert.equal(final({ question: 'Is the team growing?' }, emailFollow), 'Hello Nora,\n\nJust following up on my earlier note in case it got buried. Is the team growing?\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder');
-  const app = final({ warm_line: 'Thank you so much.' }, APP);
-  assert.equal(app, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026, and I wanted to follow up.\n\nPlease let me know if there is anything else I can send.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder`);
+test('fix 8 A (fix 10) the code frame gives the exact final text per draft kind, at most one blank line and no Subject line', () => {
+  assert.equal(check('Your posts on Python tools are a great read.', person('Carl Connect', 'Wayne Example', 'connect', { noteChars: 300 })).text, 'Hi Carl, your posts on Python tools are a great read.');
+  assert.equal(check('Carl, your posts on Python tools are a great read.', person('Carl Connect', 'Wayne Example', 'connect', { noteChars: 300 })).text, 'Hi Carl, your posts on Python tools are a great read.', 'the name once (r8)');
+  assert.equal(check('What do you enjoy most about the work at {company}?').text, `Hi Alice,\n\nWhat do you enjoy most about the work at ${ACME}?`);
+  assert.equal(check('Is the team growing?', person('Nora Nudge', 'Umbrella Example', 'follow-up', { channel: 'email' })).text, 'Hello Nora,\n\nIs the team growing?\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder');
+  const app = check('I would be glad to send code samples.\n\nThank you so much.', APP).text;
+  assert.equal(app, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026, and I wanted to follow up.\n\nI would be glad to send code samples.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder`);
   const noTitle = { ...APP, application: { ...APP.application, title: '' } };
-  assert.match(final({}, noTitle), /^Hello Globex Example hiring team,\n\nI applied for a role at Globex Example on November 14, 2026, and I wanted to follow up\./);
+  assert.match(check('The team looks great.', noTitle).text, /^Hello Globex Example hiring team,\n\nI applied for a role at Globex Example on November 14, 2026, and I wanted to follow up\./);
   assert.ok(!/\n[ \t]*\n[ \t]*\n/.test(app), 'at most one blank line');
   assert.ok(!/^subject:/im.test(app));
-  assert.equal(app.match(/Thank you/g).length, 1, 'the closing thanks once: a thanks-only warm_line is dropped in an email');
+  assert.equal(app.match(/Thank you/g).length, 1, 'the closing thanks once: a thanks-only closing paragraph is taken off in an email');
 });
 
-// A round for one Globex follow-up whose fake model answers with the replies in turn.
-async function followupRound(replies) {
-  const r = makeRoot();
-  r.write('cv.md', CV);
-  r.write('config/profile.yml', 'candidate:\n  full_name: "Sam Placeholder"\n  email: "sam@example.com"\n');
-  r.write('data/contacts.tsv', serializeTsv(['date', 'company', 'name', 'stage', 'role'], []));
-  r.write('data/pipeline.md', `# Pipeline\n\n## Processed\n\n- [x] ${GLOBEX_APP} | ${GLOBEX} | ${TITLE} | Remote\n`);
-  const prompts = [];
-  const headless = async (opts) => {
-    prompts.push(String(opts.prompt));
-    return { text: replies[Math.min(prompts.length - 1, replies.length - 1)], model: 'sonnet', usage: null };
-  };
-  try {
-    const state = { due: [], followups: [{ target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', email: 'recruiter@example.com' }] };
-    const res = await outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, replies: [], deps: { headless, state, t6On: false }, say: () => {} });
-    return { res, prompts, items: res.ids.flatMap((id) => readBatch(r.data, id).items) };
-  } finally {
-    r.cleanup();
-  }
-}
-
-test('fix 8 A (fix 9 shape) a stored application follow-up is the code frame around the slots and the picked fact', async () => {
-  const { res, prompts, items } = await followupRound([JSON.stringify({ warm_line: 'The focus on practical tools in this role stands out.', fact_ids: [3] })]);
-  assert.equal(prompts.length, 1);
-  assert.match(prompts[0], /Code writes the greeting, any sentence about an application or its date, the closing thanks and the sign-off/);
-  assert.deepEqual(res.flagged, []);
-  assert.equal(items[0].message, `Hello ${GLOBEX} hiring team,\n\nI applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026, and I wanted to follow up. The focus on practical tools in this role stands out.\n\nA bit about my background: Software engineering intern at Sample Labs (summer 2026): built a Python script that cut a weekly report from 2 hours to 10 minutes.\n\nPlease let me know if there is anything else I can send.\n\nThank you for your time and consideration.\n\nBest regards,\nSam Placeholder`);
-  assert.ok(!/[{}]/.test(items[0].message));
-});
-
-test('fix 8 retry budget (fix 9 shape): at most 2 model calls per draft, whatever the reasons', async () => {
-  const both = await followupRound([JSON.stringify({ warm_line: `The ${GLOBEX} and {company name} teams stand out.`, fact_ids: [42] })]);
-  assert.equal(both.prompts.length, 2, 'every broken rule shares the one retry');
-  assert.equal(both.items.length, 0);
-  const claim = await followupRound([JSON.stringify({ warm_line: 'Interned with your team last summer.' })]);
-  assert.equal(claim.prompts.length, 2);
-  assert.equal(claim.items.length, 0);
-});
-
-test('fix 8 (fix 9 shape) text outside the kind\'s slots is never placed: a claim in an extra key never reaches the message', () => {
-  const r = checkDraft(JSON.stringify({ body: 'I interned there last summer.', greeting: 'Hello from a former intern,', question: 'What is new on the team?', fact_ids: [] }), ALICE, { facts: factList(CV), cv: CV, own: draftFacts(ALICE) });
-  assert.deepEqual(r.flags, []);
-  assert.equal(r.text, 'Hi Alice,\n\nWhat is new on the team?');
+test('fix 8 (fix 10) a JSON-shaped reply is a rail failure (braces), never stored, and the budget is 2 drafting calls', async () => {
+  const json = JSON.stringify({ body: 'I interned there last summer.', question: 'What is new on the team?' });
+  const out = await roundFor(ALICE, { drafts: [json] });
+  assert.equal(out.drafting.length, 2);
+  assert.equal(out.verifies.length, 0);
+  assert.equal(out.items.length, 0);
+  assert.equal(out.res.flagged.length, 1);
 });

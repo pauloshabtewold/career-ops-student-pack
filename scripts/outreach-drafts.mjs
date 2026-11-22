@@ -146,6 +146,9 @@ const THANKS_ONLY = /^(?:and\s+)?(?:many\s+)?(?:thanks|thank\s+you)(?![\p{L}])[^
 // {applied_date} and wanted to follow up."). Any other word (interest, a claim) keeps the sentence.
 const RESTATE_WORDS = new Set("i i'm i've am have applied apply for to the a an role position job opening internship at with on ph and wanted want would like follow following up briefly politely quickly just my application which submitted writing reaching out about regarding recently this is quick note in".split(' '));
 
+const RESTATE_PREFIX = /^(?:I applied for|I submitted my application for|I wanted to follow up on my application for) (?:the |a )?(?:\{title\} )?(?:role|position|job|internship)(?: at \{company\})?(?:,? which I submitted)?(?: on \{applied_date\})?,?\s+and\s+(?:I\s+)?wanted to follow up(?: briefly| politely)?(?: to say| to let you know)?(?: that)?\s+/i;
+const WISH_WORDS = new Set("how i i'm am in the this position role very still really so excited interested about remain opportunity".split(' '));
+
 function greetingRe(job) {
   const names = [...nameWords(job.contact?.name), ...nameWords(job.contact?.company)].map(escapeRe);
   const word = ['\\{first_name\\}', '\\{company\\}', 'there', 'all', 'everyone', 'folks', 'again', 'hiring', 'team', 'recruiting', 'recruiter', 'manager', 'at', 'the', ...names].join('|');
@@ -181,6 +184,14 @@ export function modelBody(text, job) {
     const m = /^[^.!?\n]*[.!?](?:\s+|$)/.exec(body);
     const words = m ? m[0].replace(/\{[a-z_]+\}/g, ' ph ').toLowerCase().match(/[\p{L}']+/gu) ?? [] : [];
     if (m && !/\p{N}/u.test(m[0]) && words.length && words.every((w) => RESTATE_WORDS.has(w)) && /\bappl(?:ied|ication)\b/.test(m[0])) body = body.slice(m[0].length).trim();
+    else {
+      // "I applied for ... on {applied_date}, and I wanted to follow up to say I am still very interested." keeps only
+      // what follows the restatement; a tail that only says how interested the student is goes with it.
+      const p = RESTATE_PREFIX.exec(body);
+      const tail = p ? /^[^.!?\n]*[.!?]?/.exec(body.slice(p[0].length))[0] : '';
+      if (p && /^I\b/.test(body.slice(p[0].length))) body = body.slice(p[0].length);
+      else if (p && (tail.toLowerCase().match(/[\p{L}']+/gu) ?? []).every((w) => WISH_WORDS.has(w))) body = body.slice(p[0].length + tail.length).trim();
+    }
   }
   return capitalize(body);
 }
