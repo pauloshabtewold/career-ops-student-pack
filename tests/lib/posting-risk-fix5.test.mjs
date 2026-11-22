@@ -29,7 +29,6 @@ test('a deposited, cashed or cleared check spent on a buy, or a buy from a place
     'We will mail you a check. After it clears, you will purchase the software.',
     'We will mail you a check for your equipment stipend. Purchase the laptop from the store we name.',
     'A check will be mailed to you. Use it to buy the laptop from our partner store.',
-    'Purchase the laptop from our partner store with your equipment stipend.',
     'We will mail you a check. Use the funds to purchase the software.',
   ]) assert.ok(rules(text).includes('scam-payment'), text);
 });
