@@ -38,7 +38,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { isOn } from '../lib/levers.mjs';
 import { guidedFooter } from '../lib/next-step.mjs';
-import { lower } from '../lib/outreach-state.mjs';
+import { isAppFollowup, lower } from '../lib/outreach-state.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { SECTION_ORDER, parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { archiveMessage } from '../lib/thread-archive.mjs';
@@ -212,18 +212,26 @@ const lowerFirst = (t, job) => t.replace(/^(\p{Lu})(\p{Ll}+)(?![\p{L}'\u2019])/u
 // Capitalized by convention; a connect note keeps their capital.
 export const TECH_WORDS = Object.freeze(['Python', 'JavaScript', 'TypeScript', 'Java', 'SQL', 'Git', 'GitHub', 'Linux', 'React', 'Node', 'AWS', 'Excel', 'LinkedIn']);
 
+const greetingOf = (job) => (job.action === 'application-follow-up' ? 'Hello {company} hiring team,' : job.channel === 'email' ? 'Hello {first_name},' : 'Hi {first_name},');
+
 export function assembleDraft(body, job) {
   const email = job.channel === 'email';
   if (job.action === 'connect') return `Hi {first_name}, ${lowerFirst(String(body).replace(/\s*\n+\s*/g, ' '), job)}`;
-  let greeting = email ? 'Hello {first_name},' : 'Hi {first_name},';
   const parts = [];
-  if (job.action === 'application-follow-up') {
-    greeting = 'Hello {company} hiring team,';
-    parts.push(applicationOpening(job));
-  }
+  if (job.action === 'application-follow-up') parts.push(applicationOpening(job));
   if (body) parts.push(body);
   const tail = email ? [CLOSING, job.signature ? `Best regards,\n${job.signature}` : 'Best regards,'] : [];
-  return [greeting, ...parts, ...tail].join('\n\n');
+  return [greetingOf(job), ...parts, ...tail].join('\n\n');
+}
+
+// The sentences code writes into a job's message, filled and normalized as they are stored: the greeting, an application
+// follow-up's opening, and an email's closing thanks and sign-off. The verifier is told they are true.
+export function frameSentences(job) {
+  const filled = (s) => fillPlaceholders(s, job).normalize('NFKC');
+  if (job.action === 'connect') return [filled('Hi {first_name},')];
+  const app = job.action === 'application-follow-up' ? [filled(applicationOpening(job))] : [];
+  const tail = job.channel === 'email' ? [CLOSING, 'Best regards,', ...(job.signature ? [job.signature] : [])] : [];
+  return [filled(greetingOf(job)), ...app, ...tail];
 }
 
 // D. The hard rails: deterministic checks that are certain, on the final string. A placeholder or placeholder-like token
@@ -281,17 +289,50 @@ export function checkDraft(reply, job, { sources = '' } = {}) {
   return { text, flags: [...(body ? [] : ['the message has no body']), ...rails(text, job, { sources })] };
 }
 
+// A. What is already true for one job, built by code from the pack's own records and never from model text: an
+// application follow-up's application record (title, company, applied date), else the outreach history with this
+// contact from data/action-log.tsv and data/contacts.tsv (connection request, accept, messages and follow-ups sent,
+// their replies), each with its date. With no logged history it says so, so "circling back on my earlier note" is not
+// backed. Dates are written out ("November 16, 2026"), the way a message states them.
+const HISTORY = {
+  'linkedin.connect': (n, r) => `the student sent ${n} a LinkedIn connection request${Number(detailValue(r.detail, 'note')) > 0 ? ' with a note' : ''}`,
+  'linkedin.accept': (n) => `${n} accepted the student's LinkedIn connection request`,
+  'linkedin.message': (n) => `the student sent ${n} a LinkedIn message`,
+  'linkedin.nudge': (n) => `the student sent ${n} a LinkedIn follow-up message`,
+  'linkedin.reply': (n) => `${n} replied to the student on LinkedIn`,
+  'gmail.send': (n, r) => `the student sent ${n} ${detailValue(r.detail, 'nudge') === '1' ? 'a follow-up email' : 'an email'}`,
+};
+const longDate = (iso) => {
+  const d = isoParts(String(iso ?? '').slice(0, 10));
+  return d ? `${MONTHS[d.mo - 1]} ${d.d}, ${d.y}` : '';
+};
+const onDate = (iso, text) => (longDate(iso) ? `On ${longDate(iso)}, ${text}.` : `${capitalize(text)}.`);
+
+export function knownTrueFacts(job, { actionRows = [], contactRows = [] } = {}) {
+  if (job.action === 'application-follow-up') {
+    const v = placeholderValues(job);
+    return [`The student applied for ${v.title ? `the ${v.title} role` : 'a role'} at ${v.company}${v.applied_date ? ` on ${v.applied_date}` : ''} (the application record).`];
+  }
+  const name = String(job.contact?.name ?? '').trim();
+  const mine = (target, company) => lower(target) === lower(name) && lower(company) === lower(job.contact?.company);
+  const logged = actionRows.filter((r) => HISTORY[r.action] && !isAppFollowup(r) && mine(r.target, r.company)).sort((a, b) => a.ms - b.ms).map((r) => onDate(r.date || r.ts, HISTORY[r.action](name, r)));
+  const sheet = contactRows.filter((r) => r.stage && mine(r.name, r.company)).map((r) => onDate(r.date, `the student's contact sheet records the stage "${r.stage}" for ${name}`));
+  const facts = [...logged, ...sheet];
+  return facts.length ? facts : [`No earlier message between the student and ${name} is logged.`];
+}
+
 // E. The verifier, the claim gate: one separate headless call per draft that passed the rails, given the resume, the
 // reader, the contact's message the draft answers (so "Yes, absolutely." to "do you know Kubernetes?" is a claim), and
 // the final draft. It answers strict JSON {"unsupported": [quoted claims]}. The fixed part (rules, resume) comes first.
 const VERIFY_RULES = [
   'You check a networking message a student is about to send against the student\'s resume. Be strict.',
   'List every statement about the student that the RESUME does not directly support: work, jobs, internships, schooling, degrees, grades, skills, tools, projects, awards, numbers, dates, job titles (an intern written as an engineer is unsupported), and any relationship with or earlier contact with the reader or their company (worked or interned there, was hired, got an offer, met before). An answer to the reader\'s message counts as a statement about the student ("yes" to "do you know X?" claims X).',
+  'The KNOWN TRUE block is written by code from the student\'s own records (the application record, the earlier messages with this reader and their dates, and the sentences code itself writes into every message). A statement backed by it is supported, the same as a resume fact; a statement it contradicts (another date, an earlier message it does not log) is unsupported.',
   'Questions to the reader, wishes, interest, plans, thanks and remarks about the reader or their work are not claims.',
   'Reply with JSON only, one object and nothing else: {"unsupported": ["<exact quote from the draft>", ...]}. Use {"unsupported": []} when every statement is supported.',
 ].join('\n');
 
-export function verifyPrompt({ cv, digest = '', job, draft }) {
+export function verifyPrompt({ cv, digest = '', job, draft, known = [] }) {
   const title = job.application?.title ? `, role: ${job.application.title}` : '';
   return [
     VERIFY_RULES,
@@ -301,6 +342,10 @@ export function verifyPrompt({ cv, digest = '', job, draft }) {
     ...(String(digest ?? '').trim() ? ['', 'ARTICLE DIGEST (article-digest.md):', String(digest).trim()] : []),
     '',
     `Reader: ${job.contact.name} at ${job.contact.company}${title}`,
+    '',
+    'KNOWN TRUE (written by code from the student\'s records, never by a model):',
+    ...known.map((f) => `- ${f}`),
+    ...frameSentences(job).map((f) => `- Code writes this sentence into the message: "${f}"`),
     ...(job.replyText ? ['', 'Their message, which the draft answers:', job.replyText] : []),
     '',
     'DRAFT:',
@@ -335,10 +380,11 @@ export function parseVerdict(text) {
 // empty list passes it, and unsupported claims get one redraft quoting them, then a second verdict. Claims still listed
 // flag the draft, quoted for the student. The stored text is the exact string the rails and the verifier read.
 const DRAFT_CALLS = 2;
-async function draftOne(job, { cv, digest = '', sources = '', agent, dataDir, date, headless, source }) {
+async function draftOne(job, { cv, digest = '', sources = '', records = {}, agent, dataDir, date, headless, source }) {
   if (job.action === 'connect' && !job.noteChars) return { ...job, text: '', flags: [] };
   const run = (prompt, step) => headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source });
   const base = draftPrompt({ ...job, cv, digest });
+  const known = knownTrueFacts(job, records);
   let prompt = base;
   for (let drafts = 1; ; drafts += 1) {
     const { text, flags } = checkDraft((await run(prompt, `outreach-${job.action}`)).text, job, { sources });
@@ -348,7 +394,7 @@ async function draftOne(job, { cv, digest = '', sources = '', agent, dataDir, da
       prompt = `${base}\n\nYour last draft broke these rules:\n${flags.map((f) => `- ${f}`).join('\n')}\nWrite the message again, keeping every rule.`;
       continue;
     }
-    const claims = parseVerdict((await run(verifyPrompt({ cv, digest, job, draft: text }), 'outreach-verify')).text);
+    const claims = parseVerdict((await run(verifyPrompt({ cv, digest, job, draft: text, known }), 'outreach-verify')).text);
     if (claims === null) return { ...job, text: '', flags: ['the claim check did not answer in the required JSON, so the draft is held and never sent unchecked'] };
     if (!claims.length) return { ...job, text, flags: [] };
     if (last) return { ...job, text: '', flags: [`claims your cv.md does not support: ${claims.map((c) => `"${c}"`).join('; ')}`], claims };
@@ -506,7 +552,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
-  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
+  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
   const ready = drafts.filter((d) => !d.flags.length);

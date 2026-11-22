@@ -97,3 +97,6 @@ export function roundFor(job, opts) {
 
 // The DRAFT block of a verify prompt.
 export const draftIn = (prompt) => /\nDRAFT:\n<<<\n([\s\S]*)\n>>>$/.exec(prompt)?.[1] ?? null;
+
+// The KNOWN TRUE block of a verify prompt (the facts code built from the student's records).
+export const knownIn = (prompt) => /\nKNOWN TRUE[^\n]*\n([\s\S]*?)\n\n/.exec(prompt)?.[1] ?? null;
