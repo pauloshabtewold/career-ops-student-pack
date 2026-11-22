@@ -50,6 +50,7 @@ test('fix 11 A the code-written application opening passes a strict verifier: th
   assert.equal(out.items.length, 1, 'batched');
   assert.ok(out.items[0].message.includes(OPENING));
   const known = knownIn(out.verifies[0].prompt);
+  assert.ok(known, 'the verify prompt has a KNOWN TRUE block');
   assert.ok(known.includes(`"${OPENING}"`), known);
   assert.ok(known.includes(`The student applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026 (the application record).`), known);
   assert.ok(known.includes('"Thank you for your time and consideration."') && known.includes('"Hello Globex Example hiring team,"'), known);
@@ -60,6 +61,7 @@ test('fix 11 A "circling back on my earlier note" passes when the action log hol
   const out = await roundFor(NORA, { drafts: [body], verdict: strictVerifier, extraFiles: logOf([['2026-11-16', 'linkedin.message', 'Nora Nudge', 'Umbrella Example']]) });
   assert.deepEqual(out.res.flagged, []);
   assert.equal(out.items.length, 1);
+  assert.ok(knownIn(out.verifies[0].prompt), 'the verify prompt has a KNOWN TRUE block');
   assert.match(knownIn(out.verifies[0].prompt), /On November 16, 2026, the student sent Nora Nudge a LinkedIn message\./);
 });
 
@@ -68,6 +70,7 @@ test('fix 11 A "circling back on my earlier note" is flagged when no earlier mes
   const out = await roundFor(NORA, { drafts: [body], verdict: strictVerifier });
   assert.equal(out.items.length, 0, 'kept out');
   assert.match(out.res.flagged[0].flags.join('; '), /"I wanted to circle back on my earlier note in case it got buried\."/);
+  assert.ok(knownIn(out.verifies[0].prompt), 'the verify prompt has a KNOWN TRUE block');
   assert.match(knownIn(out.verifies[0].prompt), /No earlier message between the student and Nora Nudge is logged\./);
   // Another contact's message is not this contact's history.
   const other = await roundFor(NORA, { drafts: [body], verdict: strictVerifier, extraFiles: logOf([['2026-11-16', 'linkedin.message', 'Rita Reply', 'Umbrella Example']]) });
@@ -167,13 +170,14 @@ test('fix 11 B a block whose text holds the call\'s fence tag is refused (FenceE
 const THREE = [['Alice Alpha', 'Acme Example'], ['Bob Beta', 'Hooli Example'], ['Cara Gamma', 'Initech Example']].map(([name, company]) => ({ name, company, action: 'warm-opener' }));
 const OPENER = "I'm a CS student who automated a weekly report at my internship. What does your team spend the most time on?";
 const companiesOf = (items) => items.map((i) => i.company);
+const goesOn = (p) => p.catch((err) => assert.fail(`the round stopped instead of holding one draft: ${err.message}`));
 
 test('fix 11 C draft 2 of 3 throws on its drafting call: drafts 1 and 3 are batched, draft 2 is flagged with the reason', async () => {
   const drafts = (opts) => {
     if (String(opts.prompt).includes('Contact: Bob Beta at')) throw new Error('claude call failed: spawnSync claude ETIMEDOUT\nmore');
     return OPENER;
   };
-  const out = await round({ due: THREE, drafts });
+  const out = await goesOn(round({ due: THREE, drafts }));
   assert.deepEqual(companiesOf(out.items), ['Acme Example', 'Initech Example']);
   assert.equal(out.res.flagged.length, 1);
   assert.equal(out.res.flagged[0].name, 'Bob Beta');
@@ -183,7 +187,7 @@ test('fix 11 C draft 2 of 3 throws on its drafting call: drafts 1 and 3 are batc
 
 test('fix 11 C draft 2 of 3 throws on its claim check call, or answers malformed twice: the others are batched, draft 2 is flagged', async () => {
   const isBob = (prompt) => /Reader: Bob Beta at/.test(prompt);
-  const thrown = await round({ due: THREE, drafts: [OPENER], verdict: (prompt) => { if (isBob(prompt)) throw new Error('claude call failed: exit 1'); return '{"unsupported": []}'; } });
+  const thrown = await goesOn(round({ due: THREE, drafts: [OPENER], verdict: (prompt) => { if (isBob(prompt)) throw new Error('claude call failed: exit 1'); return '{"unsupported": []}'; } }));
   assert.deepEqual(companiesOf(thrown.items), ['Acme Example', 'Initech Example']);
   assert.match(thrown.res.flagged[0].flags[0], /^the claim check call failed \(claude call failed: exit 1\)/);
   const malformed = await round({ due: THREE, drafts: [OPENER], verdict: (prompt) => (isBob(prompt) ? 'Looks fine.' : '{"unsupported": []}') });
@@ -205,7 +209,7 @@ test('fix 11 C through runHeadless: each call carries the short per-call timeout
     };
     const headless = (opts) => runHeadless({ ...opts, runner, agentPath: '/fake/claude', platform: 'linux' });
     const said = [];
-    const res = await (await import('../../scripts/outreach-drafts.mjs')).outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state: { due: THREE, followups: [] }, t6On: false }, say: (l) => said.push(l) });
+    const res = await goesOn(od.outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state: { due: THREE, followups: [] }, t6On: false }, say: (l) => said.push(l) }));
     assert.equal(res.flagged.length, 1);
     assert.match(res.flagged[0].flags[0], /^the drafting call failed \(claude call failed: spawnSync \/fake\/claude ETIMEDOUT\)/);
     assert.deepEqual(companiesOf(res.ids.flatMap((id) => readBatch(r.data, id).items)), ['Acme Example', 'Initech Example']);
@@ -316,7 +320,7 @@ test('fix 11 F a verifier following the contract sees the exact titles and flags
   const rita = await roundFor(person('Rita Reply', 'Initech Example', 'reply', { replyText: 'Which team interests you?' }), { drafts: [RITA_3A], verdict: titleVerifier });
   assert.equal(rita.items.length, 0);
   assert.match(rita.res.flagged[0].flags.join('; '), /interned as a software engineer at Sample Labs/);
-  assert.ok(blockIn(rita.verifies[0].prompt, 'TITLES').includes('Software engineering intern at Sample Labs'));
+  assert.ok(blockIn(rita.verifies[0].prompt, 'TITLES')?.includes('Software engineering intern at Sample Labs'), 'the verify prompt lists the exact titles');
   const honest = await roundFor(ALICE, { drafts: ['This past summer I was a software engineering intern at Sample Labs. What does your team work on?'], verdict: titleVerifier });
   assert.equal(honest.items.length, 1, JSON.stringify(honest.res.flagged));
 });

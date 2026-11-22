@@ -97,8 +97,9 @@ export function roundFor(job, opts) {
 
 // One fenced block of a prompt (<<<NAME-tag>>> ... <<<END-NAME-tag>>>), or null.
 export const blockIn = (prompt, name) => new RegExp(`\\n<<<${name}-([0-9a-f]+)>>>\\n([\\s\\S]*?)\\n<<<END-${name}-\\1>>>(?:\\n|$)`).exec(prompt)?.[2] ?? null;
-// The DRAFT block of a verify prompt.
-export const draftIn = (prompt) => blockIn(prompt, 'DRAFT');
+// The DRAFT block of a verify prompt (fix 11 fenced form; the fix 10 "DRAFT:\n<<<\n...\n>>>" form is still read so a
+// revert run judges the same draft).
+export const draftIn = (prompt) => blockIn(prompt, 'DRAFT') ?? /\nDRAFT:\n<<<\n([\s\S]*)\n>>>$/.exec(prompt)?.[1] ?? null;
 
 // The KNOWN TRUE block of a verify prompt (the facts code built from the student's records).
 export const knownIn = (prompt) => blockIn(prompt, 'KNOWN');
