@@ -18,6 +18,8 @@ const SNAPSHOT = {
   window_start: {value:"08:00",tighten:'up'},
   window_end: {value:"22:00",tighten:'down'},
   contacts_per_company: {value:3,tighten:'down'},
+  contacts_active_per_company: {value:1,tighten:'down'},
+  first_message_per_target: {value:1,tighten:'down'},
   nudge_per_target: {value:1,tighten:'down'},
   nudge_min_days: {value:5,tighten:'up'},
   notes_free_per_rolling_7d: {value:2,tighten:'down'},

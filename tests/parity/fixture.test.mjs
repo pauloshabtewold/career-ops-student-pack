@@ -25,6 +25,9 @@ test('M-003-S1 the parity fixture parses over the defaults and every listed pres
   assert.ok(Array.isArray(cfg.tracks) && cfg.tracks.length > 0);
   for (const p of cfg.presets) assert.ok(loadMerged([p]), `preset ${p} did not load`);
   assert.ok(loadMerged(cfg.presets));
+  // The connect defaults apply unless the fixture sets its own, and stay within the budget.mjs ceilings.
+  assert.ok(Number.isInteger(cfg.limits.connect_per_day) && cfg.limits.connect_per_day <= 20);
+  assert.ok(Number.isInteger(cfg.limits.connect_per_rolling_7d) && cfg.limits.connect_per_rolling_7d <= 100);
 });
 
 // M-003-S2

@@ -12,6 +12,7 @@ import { parse } from '../lib/approval-grammar.mjs';
 import { listBatches, readBatch, renderBatch, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { readActionLog, detailValue } from '../lib/action-log.mjs';
+import { guidedFooter } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 import { append, zeroRow } from '../lib/usage-ledger.mjs';
@@ -41,6 +42,7 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   const res = parse(words, batch.items.length);
   if (res.error) {
     say(`batch: ${res.error}`);
+    for (const line of guidedFooter({ step: `say again which items of ${id} to approve`, prompt: batch.kind === 'apply' ? 'approve all, or all except 3' : 'send all, or all except 3', why: 'I could not read that reply, and nothing goes out without an approval I can read.' })) say(line);
     return NEEDS_USER;
   }
   const logged = logApproval({ paths, id, items: res.items, words, runner });
@@ -52,21 +54,25 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   updateBatch(paths.dataDir, id, (b) => ({ ...b, approved: { items: [...new Set([...(b.approved?.items ?? []), ...res.items])].sort((x, y) => x - y), words } }));
   await append(paths.dataDir, zeroRow({ date: today, step: 'batch-approve', feature: 'H3', rows: res.items.length, source: 'session' }));
   say(`batch: approved items ${res.items.join(', ')} of ${id}`);
+  const verb = batch.kind === 'apply' ? 'submit' : 'send';
+  for (const line of guidedFooter({ step: `${verb} the approved items of ${id}`, prompt: `${verb} the approved items`, why: `only the items you approved go out, each checked by budget.mjs first; batch.mjs status ${id} shows what went out.` })) say(line);
   return 0;
 }
 
-// One batch's items with their send state, then its finish-these-yourself jobs with their direct links and reasons. An
-// apply.pending row with no send row is a click the page never confirmed: the application may or may not have gone out.
+// One batch's items with their send state (submitted for applications, sent for outreach), then its finish-these-yourself
+// jobs with their direct links and reasons. An apply.pending or gmail.pending row with no send row is a click the page
+// never confirmed: the application or email may or may not have gone out.
 function sayBatchStatus(batch, id, rows, say) {
   const itemsWith = (pred) => new Set(rows.filter((r) => pred(r) && detailValue(r.detail, 'batch') === id).map((r) => Number(detailValue(r.detail, 'item'))));
   const sent = itemsWith((r) => SEND_ACTIONS.has(r.action));
-  const pending = itemsWith((r) => r.action === 'apply.pending');
+  const pending = itemsWith((r) => r.action === 'apply.pending' || r.action === 'gmail.pending');
+  const done = batch.kind === 'apply' ? 'submitted' : 'sent';
   const approved = new Set(batch.approved?.items ?? []);
   const finishReason = new Map((batch.finishYourself ?? []).map((f) => [f.link, f.reason]));
   batch.items.forEach((it, i) => {
     const n = i + 1;
     const finish = finishReason.has(it.link) ? `on finish these yourself${finishReason.get(it.link) ? `: ${finishReason.get(it.link)}` : ''}` : null;
-    const state = sent.has(n) ? 'submitted' : pending.has(n) ? `clicked, not confirmed: check ${it.link}` : finish ?? (approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval');
+    const state = sent.has(n) ? done : pending.has(n) ? `clicked, not confirmed: check ${it.link || 'the Sent folder'}` : finish ?? (approved.has(n) ? 'approved, waiting' : batch.approved ? 'not approved' : 'waiting for approval');
     say(`${n}. ${it.company} | ${it.role} | ${state}`);
   });
   const finish = batch.finishYourself ?? [];

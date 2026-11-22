@@ -26,7 +26,11 @@ linkedin_tier: free
 reviewer: "off"
 # Days a company research note in data/research/ counts as fresh (scripts/research-cache.mjs).
 research_cache_days: 30
-limits: {}
+# Starting LinkedIn connect pace, below the hard ceilings of 20 a day and 100 a rolling week in scripts/budget.mjs. A
+# student may raise either up to its ceiling; anything above is clamped and the clamp is logged.
+limits:
+  connect_per_day: 15
+  connect_per_rolling_7d: 80
 # Model-usage triage budget, owned by the student: daily rows (default 20) and first-run rows (default 60), each a whole
 # number or "all". Change it with node student/scripts/triage-budget.mjs set, which shows the cost first.
 triage_budget: {}

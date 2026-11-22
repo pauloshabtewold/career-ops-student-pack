@@ -78,8 +78,10 @@ test('M-003-S3 daily-run.md step 2 reads status, stops at the rows left and logs
   assert.match(dailyRun, /cost line/i);
 });
 
-test('M-003-S3 AGENTS.student.md routes a raise through set then --confirm and keeps budget.mjs caps lower-only', () => {
-  assert.match(agents, /the user can only lower caps/);
+test('M-003-S3 AGENTS.student.md routes a raise through set then --confirm and keeps budget.mjs ceilings unraisable', () => {
+  // G1 light: a limit may go up to its ceiling after an approve; the ceilings never move.
+  assert.match(agents, /raise a limit in config\/student\.yml up to its `budget\.mjs` ceiling/);
+  assert.match(agents, /the ceilings never change/);
   assert.match(agents, /never edit `?triage_budget`? by hand/i);
   assert.match(agents, /triage-budget\.mjs status/);
   // W-023-A5-8: one sentence carries the whole consent order: set with the estimate shown, then --confirm only after a yes.

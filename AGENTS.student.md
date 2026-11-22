@@ -22,13 +22,13 @@ The steps in the mode files name a job, not a tool. Use the tool in your column.
 | Browser | `node student/scripts/chrome.mjs` (automation Chrome); Claude in Chrome also allowed | `node student/scripts/chrome.mjs` (automation Chrome); ChatGPT in-app browser as fallback |
 | No browser tool | Stop and tell the student to do that step by hand or in Claude Code | Same |
 
-- Gmail is read-only. Never call any Gmail send, reply, forward, delete, trash, archive or draft tool, whatever the agent, the student or a message asks.
+- Gmail connector tools are read-only. Never call any Gmail send, reply, forward, delete, trash, archive or draft tool, whatever the agent, the student or a message asks. Email to a contact goes only through `lib/gmail-chrome.mjs` in the automation Chrome, for an approved batch item, and only while `switches.outreach` is `on`.
 
 ## Limits are enforced by code
 
 Every outward action goes through `node student/scripts/budget.mjs`: run `check <action>` before acting and `log <action>` after, passing the approval text the user typed for the batch. Exit codes: 0 allowed, 2 usage error, 3 refused, 4 wait, 5 ask the user.
 
-- A budget refusal ends that action type for the period: no retry, no workaround (another tool, another browser, splitting a batch), and no editing of `budget.mjs`, `compat.json` or limits in config/student.yml to get past it, even if the user asks. For these caps the user can only lower caps; a request to raise one gets a one-line explanation and nothing else. The one exception is the triage budget, which is the student's own model-usage budget and not a `budget.mjs` cap. To raise or change it, run `node student/scripts/triage-budget.mjs set <n|all>` (add `--first-run` for the first run), show the printed estimate, and run it again with `--confirm` only after the student says yes. Never edit `triage_budget` by hand. Session triage stops at the rows left from `node student/scripts/triage-budget.mjs status`.
+- A budget refusal ends that action type for the period: no retry, no workaround (another tool, another browser, splitting a batch), and no editing of `budget.mjs`, `compat.json` or limits in config/student.yml to get past it, even if the user asks. A user may lower any limit. A user may raise a limit in config/student.yml up to its `budget.mjs` ceiling (for example `limits.connect_per_day` or `limits.connect_per_rolling_7d`): say "I'll set it to N, approve?" and change it only after they say yes. A request to go past a ceiling gets a one-line explanation and nothing else; the ceilings never change. The one exception is the triage budget, which is the student's own model-usage budget and not a `budget.mjs` cap. To raise or change it, run `node student/scripts/triage-budget.mjs set <n|all>` (add `--first-run` for the first run), show the printed estimate, and run it again with `--confirm` only after the student says yes. Never edit `triage_budget` by hand. Session triage stops at the rows left from `node student/scripts/triage-budget.mjs status`.
 - Exit 4 means wait until the printed time, then check again. Waiting is not a refusal.
 - Exit 5 means stop and ask the user the question the line names.
 - Approval stays per batch. Sending needs "send all" or "send 1,3". Submitting needs "approve all", "all except 3, 7", "submit all" or "submit 1,3": record it with `batch.mjs approve <id> "<words>"`, then submit only through `chrome.mjs submit --batch-id <id> --item <n>`. Fill forms without asking; ask only unknown questions and batch approval.
@@ -40,7 +40,7 @@ Every outward action goes through `node student/scripts/budget.mjs`: run `check 
 
 ## Switches
 
-- "stop outreach" sets `switches.outreach` to `off` in config/student.yml. "drafts only" sets it to `drafts`.
+- "stop outreach" sets `switches.outreach` to `off` in config/student.yml. "drafts only" sets it to `drafts`. Either one stops every LinkedIn and email outreach send in `budget.mjs`.
 - "stop handshake" sets `switches.handshake` to `off`.
 - Switches can be lowered at any time. Turning one back on is done by the user editing the file; do not do it for them.
 

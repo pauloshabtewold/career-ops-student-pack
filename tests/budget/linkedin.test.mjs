@@ -1,12 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { evaluate } from '../../scripts/budget.mjs';
+import { contactRecords, nextAction, oneActivePerCompany, stageOf } from '../../lib/outreach-state.mjs';
 import { DAY, at, shiftDate, row, liRow, many, baseConfig, makePack, readLog, run } from '../helpers/budget-harness.mjs';
 
 const NOW = at(DAY, 15, 0);
 const rng = () => 0.5;
-const ev = (action, { args = {}, history = [], config = baseConfig(), now = NOW, session = 's1' } = {}) =>
-  evaluate({ action, args, history, config, session, now, rng });
+// LinkedIn sends need an approved batch item: the fixture approves item 1 of batch b1, and every send passes those ids.
+const APPROVAL = row({ ts: at(DAY, 7, 0), action: 'batch.approve', detail: 'batch=b1;items=1', approval: 'send all' });
+const APPROVED = ['--batch-id', 'b1', '--item', '1'];
+const pack = (o = {}) => makePack({ ...o, rows: [APPROVAL, ...(o.rows ?? [])] });
+const ev = (action, { args = {}, history = [], contacts = [], config = baseConfig(), now = NOW, session = 's1' } = {}) =>
+  evaluate({ action, args: { batchId: 'b1', item: 1, ...args }, history: [APPROVAL, ...history], contacts, config, session, now, rng });
 const connects = (n, day = DAY, startHour = 8, startMin = 30) =>
   many(n, (i) => liRow({ ts: at(day, startHour, startMin + i * 10), action: 'linkedin.connect', target: `ex-${day}-${i}`, company: `Example Co ${day}-${i}` }));
 const connectArgs = { target: 'ex-new', company: 'Example Robotics', pending: 50 };
@@ -29,12 +36,14 @@ test('M-002-S1 connects logged on a previous local day do not count toward today
 
 // M-002-S1 (CLI)
 test('M-002-S1 CLI connect check exits 0 at 19, exits 3 with one stdout line at 20 and logs one refusal row', async () => {
-  const ok = await makePack({ rows: connects(19) });
-  const full = await makePack({ rows: connects(20) });
+  // The student default is 15 a day; this student raised it to the ceiling of 20.
+  const raised = 'limits:\n  connect_per_day: 20\n';
+  const ok = await pack({ config: raised, rows: connects(19) });
+  const full = await pack({ config: raised, rows: connects(20) });
   try {
-    assert.equal(run(ok, ['check', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 0);
+    assert.equal(run(ok, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 0);
     const before = (await readLog(full)).length;
-    const r = run(full, ['check', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']);
+    const r = run(full, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']);
     assert.equal(r.code, 3);
     assert.equal(r.stdout.trim().split('\n').length, 1);
     assert.equal((await readLog(full)).length, before + 1);
@@ -66,9 +75,9 @@ test('M-002-S3 pending invites above 200 or missing refuse; 200 passes', () => {
 });
 
 test('M-002-S3 CLI connect check without --pending exits 3', async () => {
-  const p = await makePack();
+  const p = await pack();
   try {
-    assert.equal(run(p, ['check', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics']).code, 3);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics']).code, 3);
   } finally {
     p.cleanup();
   }
@@ -145,6 +154,62 @@ test('M-002-S5 log of a LinkedIn action stores next_allowed between 45 and 120 s
   }
 });
 
+test('one active contact per company: a second person at a company with an active contact is refused until the first declines', () => {
+  const first = liRow({ ts: at(DAY, 9, 0), action: 'linkedin.connect', target: 'ex-first', company: 'Example Robotics' });
+  assertRefused(ev('linkedin.connect', { args: connectArgs, history: [first] }));
+  const declined = row({ ts: at(DAY, 10, 0), action: 'linkedin.declined', target: 'ex-first', company: 'Example Robotics' });
+  assert.equal(ev('linkedin.connect', { args: connectArgs, history: [first, declined] }).status, 'ok');
+});
+
+// contacts.tsv rows (date, company, name, stage) for an invite recorded only in the sheet.
+const sheetRow = (date, stage, name = 'ex-first') => ({ date, company: 'Example Robotics', name, stage });
+const NOW_MS = NOW.getTime();
+
+test('a contacts.tsv-only connect holds the person and the company: no second invite, a second person is refused', async () => {
+  const sheet = [sheetRow(shiftDate(DAY, -3), 'connect')];
+  const contacts = contactRecords(sheet, []);
+  assert.equal(nextAction(contacts[0], { nowMs: NOW_MS }).action, 'wait');
+  assert.deepEqual(oneActivePerCompany([{ name: 'ex-new', company: 'Example Robotics', action: 'connect' }], contacts, NOW_MS), []);
+  assertRefused(ev('linkedin.connect', { args: connectArgs, contacts: sheet }));
+  const p = await pack();
+  try {
+    writeFileSync(join(p.dataDir, 'contacts.tsv'), `date\tcompany\tname\tstage\n${shiftDate(DAY, -3)}\tExample Robotics\tex-first\tconnect\n`);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 3);
+  } finally {
+    p.cleanup();
+  }
+});
+
+test('a contacts.tsv-only connect older than 21 days with no accept closes the contact and frees the company', () => {
+  const sheet = [sheetRow(shiftDate(DAY, -22), 'connect')];
+  const [contact] = contactRecords(sheet, []);
+  assert.deepEqual(nextAction(contact, { nowMs: NOW_MS }), { stage: 'closed', action: 'stop' });
+  assert.equal(ev('linkedin.connect', { args: connectArgs, contacts: sheet }).status, 'ok');
+});
+
+test('a second connection request to the same person is refused, whether the first is in the action log or only in contacts.tsv', () => {
+  const again = { target: 'ex-first', company: 'Example Robotics', pending: 50 };
+  const first = liRow({ ts: at(shiftDate(DAY, -2), 9, 0), action: 'linkedin.connect', target: 'ex-first', company: 'Example Robotics' });
+  assertRefused(ev('linkedin.connect', { args: again, history: [first] }));
+  assertRefused(ev('linkedin.connect', { args: again, contacts: [sheetRow(shiftDate(DAY, -2), 'connect')] }));
+});
+
+test('a contacts.tsv connect then accepted row keeps the contact active past 21 days', () => {
+  const sheet = [sheetRow(shiftDate(DAY, -22), 'connect'), sheetRow(shiftDate(DAY, -15), 'accepted')];
+  const [contact] = contactRecords(sheet, []);
+  assert.equal(stageOf(contact, NOW_MS), 'connected');
+  assertRefused(ev('linkedin.connect', { args: connectArgs, contacts: sheet }));
+});
+
+test('the student default of 15 connects a day refuses the 16th through the CLI', async () => {
+  const p = await pack({ rows: connects(15) });
+  try {
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-new', '--company', 'Example Robotics', '--pending', '50']).code, 3);
+  } finally {
+    p.cleanup();
+  }
+});
+
 // M-002-S6
 test('M-002-S6 the LinkedIn window is 08:00 inclusive to 22:00 exclusive local time', () => {
   const view = (now) => ev('linkedin.profile_view', { args: { target: 'ex-new' }, now }).status;
@@ -155,11 +220,11 @@ test('M-002-S6 the LinkedIn window is 08:00 inclusive to 22:00 exclusive local t
 });
 
 test('M-002-S6 a refused connect check refuses the next connect check the same day (refusal row rule)', async () => {
-  const p = await makePack();
+  const p = await pack();
   try {
-    assert.equal(run(p, ['check', 'linkedin.connect', '--target', 'ex-a', '--company', 'Example Robotics', '--pending', '500']).code, 3);
-    assert.equal(run(p, ['check', 'linkedin.connect', '--target', 'ex-b', '--company', 'Example Robotics', '--pending', '50']).code, 3);
-    assert.equal(run(p, ['check', 'linkedin.connect', '--target', 'ex-b', '--company', 'Example Robotics', '--pending', '50'], { today: shiftDate(DAY, 1) }).code, 0);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-a', '--company', 'Example Robotics', '--pending', '500']).code, 3);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-b', '--company', 'Example Robotics', '--pending', '50']).code, 3);
+    assert.equal(run(p, ['check', 'linkedin.connect', ...APPROVED, '--target', 'ex-b', '--company', 'Example Robotics', '--pending', '50'], { today: shiftDate(DAY, 1) }).code, 0);
   } finally {
     p.cleanup();
   }
@@ -167,7 +232,11 @@ test('M-002-S6 a refused connect check refuses the next connect check the same d
 
 // M-002-S7
 test('M-002-S7 a company with 3 contacted targets refuses a fourth connect', () => {
-  const contacted = (n) => many(n, (i) => liRow({ ts: at(DAY, 9, i * 5), action: 'linkedin.connect', target: `ex-c${i}`, company: 'Example Robotics' }));
+  // Each earlier contact declined, so the one-active-contact rule does not decide and the 3-per-company cap does.
+  const contacted = (n) => many(n, (i) => [
+    liRow({ ts: at(DAY, 9, i * 5), action: 'linkedin.connect', target: `ex-c${i}`, company: 'Example Robotics' }),
+    row({ ts: at(DAY, 9, i * 5 + 1), action: 'linkedin.declined', target: `ex-c${i}`, company: 'Example Robotics' }),
+  ]).flat();
   assert.equal(ev('linkedin.connect', { args: connectArgs, history: contacted(2) }).status, 'ok');
   assertRefused(ev('linkedin.connect', { args: connectArgs, history: contacted(3) }));
   assert.equal(ev('linkedin.connect', { args: { ...connectArgs, company: 'Other Example Co' }, history: contacted(3) }).status, 'ok');
@@ -218,7 +287,7 @@ test('M-002-S8 a first message of 300 characters refuses and 299 passes', () => 
 
 // M-002-S9
 test('M-002-S9 a logged linkedin warning refuses every LinkedIn action until the next local day', async () => {
-  const p = await makePack();
+  const p = await pack();
   try {
     assert.equal(run(p, ['warning', 'linkedin']).code, 0);
     assert.equal(run(p, ['check', 'linkedin.profile_view', '--target', 'ex-new']).code, 3);
@@ -231,7 +300,7 @@ test('M-002-S9 a logged linkedin warning refuses every LinkedIn action until the
 
 test('M-002-S9 due-withdrawals lists connects older than 21 days with no accept or withdraw row', async () => {
   const old = shiftDate(DAY, -22);
-  const p = await makePack({
+  const p = await pack({
     rows: [
       liRow({ ts: at(old, 10, 0), action: 'linkedin.connect', target: 'due-pending-aaa', company: 'Example Co a' }),
       liRow({ ts: at(old, 10, 10), action: 'linkedin.connect', target: 'due-accepted-bbb', company: 'Example Co b' }),

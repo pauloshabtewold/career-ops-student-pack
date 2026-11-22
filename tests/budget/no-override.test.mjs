@@ -57,14 +57,14 @@ test('M-002-S20 log of a send or submit action without a matching approval exits
 test('M-002-S20 log accepts send or submit approvals with all or item numbers and writes the row', async () => {
   const p = await makePack();
   try {
-    assert.equal(run(p, ['log', 'linkedin.message', '--target', 'ex-new', '--company', 'Example Robotics', '--approval', 'send all']).code, 0);
     assert.equal(run(p, ['log', 'batch.approve', '--batch-id', 'b1', '--items', '1,2', '--approval', 'submit 1,2']).code, 0);
+    assert.equal(run(p, ['log', 'linkedin.message', '--target', 'ex-new', '--company', 'Example Robotics', '--approval', 'send all', '--batch-id', 'b1', '--item', '2']).code, 0);
     assert.equal(run(p, ['log', 'apply.submit', '--target', 'ex-new', '--company', 'Example Robotics', '--track', 'swe-intern', '--batch-id', 'b1', '--item', '1']).code, 0);
     const rows = await readLog(p);
     assert.equal(rows.length, 3);
-    assert.deepEqual(rows.map((r) => r.action), ['linkedin.message', 'batch.approve', 'apply.submit']);
-    assert.equal(rows[0].approval, 'send all');
-    assert.equal(rows[1].approval, 'submit 1,2');
+    assert.deepEqual(rows.map((r) => r.action), ['batch.approve', 'linkedin.message', 'apply.submit']);
+    assert.equal(rows[0].approval, 'submit 1,2');
+    assert.equal(rows[1].approval, 'send all');
     assert.match(rows[2].detail, /batch=b1;item=1/);
   } finally {
     p.cleanup();
@@ -90,6 +90,17 @@ test('a submit check with a logged approved item passes and the same item after 
     assert.equal(run(p, check).code, 0);
     assert.equal(run(p, ['log', 'apply.submit', '--target', 'ex-b2', '--company', 'Example Robotics', '--track', 'swe-intern', '--batch-id', 'b2', '--item', '1']).code, 0);
     assert.equal(run(p, check).code, 3, 'the item was already used');
+  } finally {
+    p.cleanup();
+  }
+});
+
+test('a LinkedIn send logged with the approval words but no approved batch item exits 2 and writes nothing', async () => {
+  const p = await makePack();
+  try {
+    assert.equal(run(p, ['log', 'linkedin.connect', '--target', 'ex-new', '--company', 'Example Robotics', '--approval', 'send all']).code, 2);
+    assert.equal(run(p, ['check', 'linkedin.message', '--target', 'ex-new', '--company', 'Example Robotics', '--length', '100']).code, 3);
+    assert.equal((await readLog(p)).filter((r) => r.action !== 'budget.clamp').length, 0);
   } finally {
     p.cleanup();
   }

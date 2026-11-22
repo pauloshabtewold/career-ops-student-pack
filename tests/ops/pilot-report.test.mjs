@@ -26,7 +26,7 @@ async function fixture() {
   const log = join(root, 'data', 'action-log.tsv');
   await appendAction(log, [
     // week 2026-W42 (Oct 12 to 18)
-    act('2026-10-12T15:00:00.000Z', 'linkedin.connect'),
+    act('2026-10-12T15:00:00.000Z', 'linkedin.connect', { detail: 'next_allowed=2026-10-12T15:01:00.000Z;batch=2026-10-12-outreach-1;item=1' }),
     act('2026-10-13T15:00:00.000Z', 'linkedin.connect'),
     act('2026-10-14T15:00:00.000Z', 'linkedin.connect', { company: COMPANY_B }),
     act('2026-10-15T15:00:00.000Z', 'linkedin.connect', { company: COMPANY_B }),
