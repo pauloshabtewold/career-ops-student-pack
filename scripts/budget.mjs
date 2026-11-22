@@ -537,6 +537,7 @@ async function cmdCheckLog(env) {
 
   if (command === 'log' && action === 'batch.approve') return logBatchApprove(env);
   if (command === 'log' && action === 'apply.pending') return logPending(env);
+  if (command === 'log' && action === 'linkedin.fresh_search') return logFreshSearch(env);
   if (command === 'log' && OBSERVED.includes(action)) {
     const detail = [flags.track && `track=${flags.track}`, flags.batchId && `batch=${flags.batchId}`, Number.isInteger(flags.item) && `item=${flags.item}`].filter(Boolean).join(';');
     await write([mkRow(action, { target: flags.target ?? '', company: flags.company ?? '', detail })]);
@@ -584,6 +585,31 @@ async function logPending({ flags, file, mkRow, config, session, clock }) {
     if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
     appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
     console.log('logged apply.pending');
+    return 0;
+  });
+}
+
+// linkedin.fresh_search is logged before the page read, as a compare-and-set under the action-log lock: the fresh rows
+// must still allow one more read this hour, so a read that fails or times out still counts and a session read beside the
+// hourly one never both pass.
+async function logFreshSearch({ flags, file, mkRow, config, session, clock, rng }) {
+  if (flags.dryRun) {
+    console.log('logged linkedin.fresh_search (dry run)');
+    return 0;
+  }
+  mkdirSync(dirname(file), { recursive: true });
+  return withLock(file, async () => {
+    const rows = await readActionLog(file);
+    const now = clock.now();
+    const res = evaluateCheck({ action: 'linkedin.fresh_search', args: argsFrom(flags, true), history: rows, config, session, now });
+    if (res.status !== 'ok') {
+      console.log(flags.json ? JSON.stringify(res) : describe(res, clock));
+      return EXIT[res.status];
+    }
+    const row = mkRow('linkedin.fresh_search', { target: flags.target ?? '', detail: `next_allowed=${new Date(now.getTime() + drawGapMs(config, rng)).toISOString()}` });
+    if (!existsSync(file) || statSync(file).size === 0) writeFileSync(file, `${LOG_HEADER.join('\t')}\n`);
+    appendFileSync(file, `${LOG_HEADER.map((h) => escapeCell(row[h])).join('\t')}\n`);
+    console.log(flags.json ? JSON.stringify(res) : 'logged linkedin.fresh_search');
     return 0;
   });
 }
