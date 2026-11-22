@@ -5,7 +5,8 @@
 // daily.mjs gets 60 minutes. The triage child gets a timeout that scales with the chunks the student's triage budget
 // allows today and stays under run_lock_hours (triageChildTimeoutMs in daily-triage.mjs); it also gets that timeout as
 // --deadline so it ends cleanly before the kill.
-// Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH] [--check]
+// Usage: scheduled.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--agent claude|codex] [--agent-path PATH] [--claude PATH] [--check] [--fresh]
+// --fresh is the hourly entry: it runs only the zero-token fresh-scan.mjs and nothing else.
 // --check starts nothing: it tests each enabled step (daily run dry run, inbox pass check, triage agent present), prints
 // one 'check <step>: ok|off|failed (<reason>)' line per step and exits 1 when an enabled step failed. schedule.mjs verify uses it.
 // Exit 0 always otherwise: a scheduler that sees a failure retries, and every step already reports its own problems.
@@ -60,6 +61,17 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
   return 0;
 }
 
+// The hourly entry: one child, the fresh-jobs scan, which makes no model call.
+export function freshRun({ root, packRoot, passThrough, runner = defaultRunner, out = (s) => console.log(s) }) {
+  try {
+    const text = runner(process.execPath, [join(packRoot, 'scripts', 'fresh-scan.mjs'), ...passThrough], { cwd: root, timeout: CHILD_TIMEOUT_MS });
+    if (String(text).trim()) out(String(text).trimEnd());
+  } catch (err) {
+    out(`scheduled: fresh-scan.mjs stopped (${stepErrorText(err)})`);
+  }
+  return 0;
+}
+
 // Tests each enabled step without running it: the daily run through its own --dry-run, the inbox pass through its --check
 // (one real Gmail search), the triage agent by looking for its binary. Returns the report lines and whether any failed.
 export async function scheduledCheck({ root, packRoot, passThrough, agent, agentPath, claude, runner = defaultRunner }) {
@@ -106,7 +118,7 @@ function triageTimeout({ config, dataDir, today }) {
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { agent: 'string', 'agent-path': 'string', claude: 'string', 'log-file': 'string', check: 'boolean' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { agent: 'string', 'agent-path': 'string', claude: 'string', 'log-file': 'string', check: 'boolean', fresh: 'boolean' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   // The schedule points --log-file at data/logs, which a student may have deleted since install; both children append to it.
   if (flags.logFile) mkdirSync(dirname(flags.logFile), { recursive: true });
@@ -116,6 +128,7 @@ async function main() {
     ...(flags.today ? ['--today', flags.today] : []),
     ...(flags.logFile ? ['--log-file', flags.logFile] : []),
   ];
+  if (flags.fresh) return freshRun({ root: paths.root, packRoot: paths.packRoot, passThrough });
   if (flags.check) {
     const report = await scheduledCheck({ root: paths.root, packRoot: paths.packRoot, passThrough, agent: flags.agent, agentPath: flags.agentPath, claude: flags.claude });
     for (const line of report.lines) console.log(line);

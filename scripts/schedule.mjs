@@ -9,6 +9,8 @@
 // A real install takes only the pack's own root: --root is for --dry-run, remove and status (assertOwnRoot).
 // --time and the config time are read in the config time zone (timezone in config/student.yml).
 // --dry-run prints the artifact and never starts launchctl or powershell, so tests can run it safely.
+// install also adds an hourly entry (launchd StartInterval 3600, or a schtasks /SC HOURLY task) that runs
+// scheduled.mjs --fresh, the zero-token fresh-jobs scan; remove, status and verify cover both entries.
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, posix, win32 } from 'node:path';
@@ -22,6 +24,9 @@ import { runResult } from '../lib/run.mjs';
 
 export const LABEL = SCHEDULE_LABEL;
 export const TASK_NAME = SCHEDULE_TASK_NAME;
+export const FRESH_LABEL = `${SCHEDULE_LABEL}.fresh`;
+export const FRESH_TASK_NAME = `${SCHEDULE_TASK_NAME}-fresh`;
+const FRESH_INTERVAL_S = 3600;
 const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
 function parseTime(time) {
@@ -107,13 +112,57 @@ export function buildTaskScript({ nodePath, root, time, agent = 'claude', agentP
   ].join('\n');
 }
 
+// The hourly fresh-scan job: same node and folder as the daily job, every hour, no agent flags (the scan uses no model).
+export function buildFreshPlist({ nodePath, root }) {
+  const logs = posix.join(root, 'data', 'logs');
+  const scheduled = posix.join(root, 'student', 'scripts', 'scheduled.mjs');
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0">',
+    '<dict>',
+    '  <key>Label</key>',
+    `  <string>${FRESH_LABEL}</string>`,
+    '  <key>ProgramArguments</key>',
+    '  <array>',
+    `    <string>${xml(nodePath)}</string>`,
+    `    <string>${xml(scheduled)}</string>`,
+    '    <string>--fresh</string>',
+    '    <string>--log-file</string>',
+    `    <string>${xml(posix.join(logs, 'student-fresh.log'))}</string>`,
+    '  </array>',
+    '  <key>WorkingDirectory</key>',
+    `  <string>${xml(root)}</string>`,
+    '  <key>StartInterval</key>',
+    `  <integer>${FRESH_INTERVAL_S}</integer>`,
+    '</dict>',
+    '</plist>',
+    '',
+  ].join('\n');
+}
+
+// Windows task script for the hourly fresh scan. schtasks takes the whole command as one /TR string, so --% hands the
+// line to it verbatim and the inner quotes around paths with spaces survive Windows PowerShell's argument passing.
+export function buildFreshTaskScript({ nodePath, root }) {
+  const logs = win32.join(root, 'data', 'logs');
+  const scheduled = win32.join(root, 'student', 'scripts', 'scheduled.mjs');
+  const tr = `\\"${nodePath}\\" \\"${scheduled}\\" --fresh --log-file \\"${win32.join(logs, 'student-fresh.log')}\\"`;
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    `New-Item -ItemType Directory -Force -Path ${psq(logs)} | Out-Null`,
+    `schtasks.exe --% /Create /F /SC HOURLY /MO 1 /TN "${FRESH_TASK_NAME}" /TR "${tr}"`,
+    'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
+    '',
+  ].join('\n');
+}
+
 // Prints REMOVE_ABSENT and exits 0 when no task is registered, so a missing task is not mistaken for a failed removal.
 export const REMOVE_ABSENT = 'TASK_NOT_REGISTERED';
-export const removeScript = () =>
+export const removeScript = (taskName = TASK_NAME) =>
   [
-    `if (-not (Get-ScheduledTask -TaskName ${psq(TASK_NAME)} -ErrorAction SilentlyContinue)) { Write-Output '${REMOVE_ABSENT}'; exit 0 }`,
+    `if (-not (Get-ScheduledTask -TaskName ${psq(taskName)} -ErrorAction SilentlyContinue)) { Write-Output '${REMOVE_ABSENT}'; exit 0 }`,
     "$ErrorActionPreference = 'Stop'",
-    `Unregister-ScheduledTask -TaskName ${psq(TASK_NAME)} -Confirm:$false`,
+    `Unregister-ScheduledTask -TaskName ${psq(taskName)} -Confirm:$false`,
     '',
   ].join('\n');
 
@@ -126,6 +175,7 @@ export function removeOutcome(res) {
 const statusScript = () => `Get-ScheduledTask -TaskName ${psq(TASK_NAME)} | Select-Object -ExpandProperty State\n`;
 
 const plistPath = () => launchAgentPath();
+const freshPlistPath = (home = homedir()) => join(home, 'Library', 'LaunchAgents', `${FRESH_LABEL}.plist`);
 
 const SCHEDULED_ENTRY = /[\\/]student[\\/]scripts[\\/]scheduled\.mjs$/;
 
@@ -155,10 +205,12 @@ export function foreignOwner({ args, root, platform }) {
 // Says whether the installed job is this folder's and every enabled step passes. readJob() gives { args } or null and
 // runCheck(agentFlags) gives scheduled.mjs --check's { lines, code }, both injected so tests run on any OS. The check
 // uses the agent the installed job was given, since that is the one a scheduled run would start.
-export function verifySchedule({ platform, root, time, label, readJob: read, runCheck }) {
+// readFresh() says whether the hourly entry exists; null skips that check.
+export function verifySchedule({ platform, root, time, label, readJob: read, runCheck, readFresh = null }) {
   const fail = (step, fix) => ({ code: 1, lines: [`schedule check failed: ${step}: ${fix}`] });
   const args = read()?.args;
   if (!scheduledPathOf(args)) return fail('schedule', 'no schedule is installed; run node student/scripts/schedule.mjs install');
+  if (readFresh && !readFresh()) return fail('hourly fresh scan', 'the hourly entry is missing; run node student/scripts/schedule.mjs install');
   const other = foreignOwner({ args, root, platform });
   if (other) return fail('schedule', `the installed job starts ${other}, not this folder; run node student/scripts/schedule.mjs install --replace`);
   const flag = (name) => args[args.indexOf(name) + 1];
@@ -192,30 +244,41 @@ function macCommand(command, { nodePath, root, time, dryRun, agent, agentPath, a
   if (command === 'install') {
     const xmlText = buildPlist({ nodePath, root, time, agent, agentPath });
     for (const line of triageNotes({ automation, agent, agentPath })) console.log(line);
+    const fresh = freshPlistPath();
+    const freshXml = buildFreshPlist({ nodePath, root });
     if (dryRun) {
       console.log(xmlText);
-      console.log(`dry run: would write ${file} and run launchctl bootstrap ${domain} ${file}`);
+      console.log(freshXml);
+      console.log(`dry run: would write ${file} and ${fresh} and run launchctl bootstrap ${domain} for both`);
       return 0;
     }
     mkdirSync(join(root, 'data', 'logs'), { recursive: true });
     mkdirSync(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true });
     writeFileSync(file, xmlText);
+    writeFileSync(fresh, freshXml);
     tryRun('launchctl', ['bootout', domain, file]);
+    tryRun('launchctl', ['bootout', domain, fresh]);
     const res = tryRun('launchctl', ['bootstrap', domain, file]);
+    const hourly = tryRun('launchctl', ['bootstrap', domain, fresh]);
     console.log(res.ok ? `installed ${LABEL} at ${time}` : `launchctl bootstrap failed: ${res.out.split('\n')[0]}`);
-    return res.ok ? 0 : 1;
+    console.log(hourly.ok ? `installed ${FRESH_LABEL} every hour` : `launchctl bootstrap of the hourly scan failed: ${hourly.out.split('\n')[0]}`);
+    return res.ok && hourly.ok ? 0 : 1;
   }
   if (command === 'remove') {
+    const fresh = freshPlistPath();
     if (dryRun) {
-      console.log(`dry run: would run launchctl bootout ${domain} ${file} and delete ${file}`);
+      console.log(`dry run: would run launchctl bootout ${domain} for ${file} and ${fresh} and delete both`);
       return 0;
     }
-    tryRun('launchctl', ['bootout', domain, file]);
-    rmSync(file, { force: true });
-    console.log(`removed ${LABEL}`);
+    for (const f of [file, fresh]) {
+      tryRun('launchctl', ['bootout', domain, f]);
+      rmSync(f, { force: true });
+    }
+    console.log(`removed ${LABEL} and ${FRESH_LABEL}`);
     return 0;
   }
   console.log(existsSync(file) ? `${LABEL} is installed (${file})` : `${LABEL} is not installed`);
+  console.log(existsSync(freshPlistPath()) ? `${FRESH_LABEL} is installed` : `${FRESH_LABEL} is not installed`);
   return 0;
 }
 
@@ -224,24 +287,31 @@ function winCommand(command, { nodePath, root, time, dryRun, agent, agentPath, a
   if (command === 'install') {
     const script = buildTaskScript({ nodePath, root, time, agent, agentPath });
     for (const line of triageNotes({ automation, agent, agentPath })) console.log(line);
+    const freshScript = buildFreshTaskScript({ nodePath, root });
     if (dryRun) {
       console.log(script);
+      console.log(freshScript);
       return 0;
     }
     const res = runPowershell(script);
+    const hourly = runPowershell(freshScript);
     console.log(res.ok ? `installed ${TASK_NAME} at ${time}` : `Register-ScheduledTask failed: ${res.out.split('\n')[0]}`);
-    return res.ok ? 0 : 1;
+    console.log(hourly.ok ? `installed ${FRESH_TASK_NAME} every hour` : `schtasks /Create of the hourly scan failed: ${hourly.out.split('\n')[0]}`);
+    return res.ok && hourly.ok ? 0 : 1;
   }
   const script = command === 'remove' ? removeScript() : statusScript();
   if (dryRun) {
     console.log(script);
+    if (command === 'remove') console.log(removeScript(FRESH_TASK_NAME));
     return 0;
   }
   const res = runPowershell(script);
   if (command === 'remove') {
     const outcome = removeOutcome(res);
     console.log(outcome.line);
-    return outcome.code;
+    const hourly = removeOutcome(runPowershell(removeScript(FRESH_TASK_NAME)));
+    console.log(hourly.line.replace(TASK_NAME, FRESH_TASK_NAME));
+    return Math.max(outcome.code, hourly.code);
   }
   console.log(res.ok ? `${TASK_NAME}: ${res.out.trim()}` : `${TASK_NAME} is not registered`);
   return 0;
@@ -271,10 +341,11 @@ function verify({ platform, paths, time }) {
     const res = runResult(process.execPath, [join(paths.packRoot, 'scripts', 'scheduled.mjs'), '--check', '--root', paths.root, ...agentFlags], { cwd: paths.root, timeout: 30 * 60 * 1000 });
     return { code: res.code, lines: res.stdout.split('\n').map((l) => l.trim()).filter(Boolean) };
   };
+  const readFresh = () => (platform === 'win32' ? tryRun('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Get-ScheduledTask -TaskName ${psq(FRESH_TASK_NAME)} | Out-Null`]).ok : existsSync(freshPlistPath()));
   const result = verifySchedule({ platform, root: paths.root, time, label: platform === 'win32' ? TASK_NAME : LABEL, readJob: () => {
     const args = readJob({ platform });
     return args ? { args } : null;
-  }, runCheck });
+  }, runCheck, readFresh });
   for (const line of result.lines) console.log(line);
   return result.code;
 }
