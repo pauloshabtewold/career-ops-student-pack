@@ -164,8 +164,17 @@ test('row 2 an acronym passes only when the cv or profile holds it as is or spel
   const facts = draftFacts({ action: 'warm-opener', contact: { name: 'Alice Alpha', company: ACME } }, { candidate: { full_name: 'Sam Placeholder' } });
   const gate = (text, own) => factCheck(spellOutAcronyms(text, [own, ...facts].join('\n')), { cv: own, answers: facts, company: ACME, extra: ['Alice Alpha'] });
   assert.deepEqual(gate("Hi Alice, I'm a CS student and a former TA.", cv), []);
-  assert.deepEqual(gate('Happy to send my CV.', cv), ['CV']);
   assert.deepEqual(gate("I'm a CS student.", 'Biology student.'), ['CS']);
+});
+
+test('row 2 CV, résumé and resume name the document and pass in every draft; an acronym claim such as CS degree still flags', () => {
+  const cv = 'Biology student at Example State University.';
+  const facts = draftFacts({ action: 'warm-opener', contact: { name: 'Alice Alpha', company: ACME } });
+  for (const w of ['CV', 'résumé', 'resume']) assert.ok(facts.includes(w), `${w} in ${facts}`);
+  const gate = (text) => factCheck(spellOutAcronyms(text, [cv, ...facts].join('\n')), { cv, answers: facts, company: ACME, extra: ['Alice Alpha'] });
+  assert.deepEqual(gate("I've attached my CV."), []);
+  assert.deepEqual(gate('Happy to send my Résumé or resume.'), []);
+  assert.deepEqual(gate('I hold a CS degree.'), ['CS']);
 });
 
 test('row 2 draftFacts holds the contact, company, role, job title, submit date, profile fields and Hiring team', () => {

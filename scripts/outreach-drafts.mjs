@@ -95,17 +95,19 @@ export function draftPrompt({ action, cv, contact, replyText = '', application =
 }
 
 const HIRING_TEAM = 'Hiring team';
+// Words that name the student's own document and make no claim ("I've attached my CV"); allowed in every draft.
+const DOCUMENT_WORDS = Object.freeze(['CV', 'résumé', 'resume']);
 const valuesOf = (v) => (v === null || v === undefined ? [] : typeof v === 'object' ? Object.values(v).flatMap(valuesOf) : [String(v)]);
 
 // The facts that belong to one draft, given to the fact gate as allowed source next to cv.md: the contact's full and first
 // name, company and contacts.tsv role, the application's job title and submit date, the sender's profile fields, and
-// "Hiring team", the name an application follow-up greets.
+// "Hiring team", the name an application follow-up greets, plus DOCUMENT_WORDS.
 export function draftFacts(job, { candidate = {}, contactRows = [] } = {}) {
   const { name, company } = job.contact;
   const person = job.action !== 'application-follow-up';
   const roles = person ? contactRows.filter((r) => lower(r.name) === lower(name) && lower(r.company) === lower(company)).map((r) => r.role) : [];
   const first = person ? String(name ?? '').trim().split(/\s+/)[0] : '';
-  return [name, first, company, ...roles, job.application?.title, job.application?.submitted, ...valuesOf(candidate), HIRING_TEAM].filter((v) => typeof v === 'string' && v.trim());
+  return [name, first, company, ...roles, job.application?.title, job.application?.submitted, ...valuesOf(candidate), HIRING_TEAM, ...DOCUMENT_WORDS].filter((v) => typeof v === 'string' && v.trim());
 }
 
 const ACRONYM = /(?<![\p{L}\p{N}])\p{Lu}{2,5}(?![\p{L}\p{N}])/gu;
