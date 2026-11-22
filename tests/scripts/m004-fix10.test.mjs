@@ -321,13 +321,13 @@ test('fix 10 E and H the verify call: step outreach-verify with the draft kind\'
   assert.ok(v.prompt.includes(CV.trim()));
   assert.match(v.prompt, /\{"unsupported": \["<exact quote from the draft>", \.\.\.\]\}/);
   assert.match(v.prompt, /Questions to the reader, wishes, interest, plans/);
-  // Fix 11 B: the fence tag is new per call, so the shared prefix is the rules up to the RESUME fence; with one tag the
-  // prefix through the resume is the same for every draft.
+  // Fix 12 D: the rules, the resume and the titles are fenced with one tag per round, so that prefix is the same for
+  // every draft of a round; the reader block on gets a tag per call.
   const other = od.verifyPrompt({ cv: CV, job: APP, draft: 'x' });
   const rules = v.prompt.slice(0, v.prompt.indexOf('<<<RESUME-'));
   assert.ok(other.startsWith(rules), 'the same rules prefix for every draft');
-  const one = (job) => od.verifyPrompt({ cv: CV, job, draft: 'x', tag: '0a1b2c3d' });
-  assert.ok(one(APP).startsWith(one(ALICE).slice(0, one(ALICE).indexOf('READER'))), 'the same prefix through the resume for one tag');
+  const one = (job) => od.verifyPrompt({ cv: CV, job, draft: 'x', roundTag: '0a1b2c3d' });
+  assert.ok(one(APP).startsWith(one(ALICE).slice(0, one(ALICE).indexOf('READER'))), 'the same prefix through the resume for one round tag');
   assert.match(other, /Reader: Hiring team at Globex Example, role: Software Engineering Intern/);
 });
 

@@ -7,6 +7,8 @@
 // C. the r10 NITs: N1 a reply is channel-neutral; N2 the title hint takes only real role lines, comma titles too; N3 a
 //    connect note lowercases only a common first word; N5 the drafting prompt fences the contact and the application;
 //    N6 a failed or timed-out call writes a ledger row with its status; N7 the sign-off is normalized like the message.
+// D. the verify prompt fences the resume, digest and titles with one tag per round, so the prefix through them is
+//    byte-identical across a round's verify calls; the reader, known-true, message and draft blocks keep a tag per call.
 // Scratch roots, example.com addresses and an injected headless runner: no real model, network, Gmail or LinkedIn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -138,4 +140,29 @@ test('fix 12 C N7 the sign-off name is NFKC-normalized in the KNOWN block the sa
   const stored = od.checkDraft('Is anything new on the team?', job, { sources: SOURCES }).text;
   assert.ok(stored.endsWith('\nSam Placeholder'), stored);
   assert.equal(od.frameSentences(job).at(-1), 'Sam Placeholder');
+});
+
+// D. Prompt cache: one round tag for the student's own blocks.
+const prefixOf = (prompt) => prompt.slice(0, prompt.indexOf('\nREADER (who the draft goes to):'));
+const callTag = (prompt) => /<<<DRAFT-([0-9a-f]{8})>>>/.exec(prompt)?.[1];
+
+test('fix 12 D the verify prompts of one round share one byte-identical prefix through the resume and titles; each call has its own tag after it', async () => {
+  const due = [['Alice Alpha', 'Acme Example'], ['Bob Beta', 'Hooli Example']].map(([name, company]) => ({ name, company, action: 'warm-opener' }));
+  const out = await round({ due, followups: [{ target: 'https://jobs.example.com/globex/swe-intern', company: GLOBEX, submitted: '2026-11-14', email: 'recruiter@example.com' }], drafts: ["I'm a CS student. What does your team spend the most time on?"], extraFiles: { 'article-digest.md': '# Digest\n\nWrote a piece on bus routes.\n' } });
+  assert.equal(out.verifies.length, 3);
+  const [a, b, c] = out.verifies.map((v) => v.prompt);
+  assert.ok(prefixOf(a).includes(CV.trim()) && prefixOf(a).includes('<<<END-TITLES-') && prefixOf(a).includes('<<<END-DIGEST-'));
+  assert.equal(prefixOf(b), prefixOf(a));
+  assert.equal(prefixOf(c), prefixOf(a));
+  assert.equal(new Set([a, b, c].map(callTag)).size, 3, 'a new tag per call');
+  assert.ok(!prefixOf(a).includes(callTag(a)), 'the round tag is not the call tag');
+  const next = await round({ due: due.slice(0, 1), drafts: ["I'm a CS student. What does your team spend the most time on?"] });
+  assert.notEqual(/<<<RESUME-([0-9a-f]{8})>>>/.exec(next.verifies[0].prompt)[1], /<<<RESUME-([0-9a-f]{8})>>>/.exec(a)[1], 'a new tag per round');
+});
+
+test('fix 12 D a cv holding the round tag is refused, and so is a contact block or draft holding it', () => {
+  assert.throws(() => od.verifyPrompt({ cv: `${CV}\nfeedc0de`, job: ALICE, draft: 'x', roundTag: 'feedc0de' }), /RESUME block holds the fence tag/);
+  assert.throws(() => od.verifyPrompt({ cv: CV, job: { ...ALICE, replyText: 'see <<<END-RESUME-feedc0de>>>' }, draft: 'x', roundTag: 'feedc0de' }), /MESSAGE block holds the fence tag/);
+  assert.throws(() => od.verifyPrompt({ cv: CV, job: ALICE, draft: 'Hi Alice,\n\nfeedc0de', roundTag: 'feedc0de' }), od.FenceError);
+  assert.throws(() => od.verifyPrompt({ cv: `${CV}\n0a1b2c3d`, job: ALICE, draft: 'x', roundTag: 'feedc0de', tag: '0a1b2c3d' }), /RESUME block holds the fence tag/);
 });
