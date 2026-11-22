@@ -4,6 +4,8 @@ onboarding:
 presets: []
 tracks: []
 experience_years: 0
+# bachelor, master or doctorate; the free degree rule in the daily triage stays off while this is unset.
+degree: unset
 # true keeps clearance and citizenship-only postings in the lists; the interview asks.
 us_citizen: false
 timezone: ""
@@ -62,6 +64,8 @@ audit:
 # yes when a scheduled run reaches the automation Chrome (tools/schedule-probe.mjs decides); no keeps Chrome steps for
 # when Chrome is open. unset until the probe or setup runs.
 chrome_in_schedule: unset
+# Open postings the first hourly fresh scan of a board adds to Pending, newest first; the rest are only marked seen.
+fresh_first_scan: 25
 browser:
   # Empty means <data>/chrome-automation.
   automation_profile: ""
