@@ -327,7 +327,7 @@ test('fix 10 E and H the verify call: step outreach-verify with the draft kind\'
 const SAMPLES = [
   ['warm opener', ALICE, "Thanks for connecting! I'm a CS student, and at my internship this summer I automated a weekly report that used to take a couple of hours, which got me curious about how teams at {company} handle everyday workflow problems. What kind of problems does your work involve most often?"],
   ['reply suggestion', person('Rita Reply', INITECH, 'reply', { replyText: 'Thanks for connecting! When do you graduate, and which team interests you?' }), "Thanks for getting back to me so quickly! I graduate in May 2027 with a computer science degree from Example State University.\n\nI don't have one team in mind yet. I'm most interested in software engineering work where I can use Python and SQL; this past summer I interned at Sample Labs and wrote a small script that turned a two-hour weekly report into a ten-minute one, and I'd love to keep doing that kind of practical work. Is there a team at {company} you would suggest I look at?"],
-  ['referral ask', person('Gina Globex', GLOBEX, 'referral-ask'), "Really enjoyed our conversation about the platform team, and your advice on keeping side projects small was a big help. I'm planning to apply to the {title} opening there. Would you be comfortable referring me? It is completely fine to say no, and I'm grateful for the time either way."],
+  ['referral ask', person('Gina Globex', GLOBEX, 'referral-ask'), "Really enjoyed our conversation about the platform team, and your advice on keeping side projects small was a big help. I'm planning to apply to an open role on that team. Would you be comfortable referring me? It is completely fine to say no, and I'm grateful for the time either way."],
   ['application follow-up', APP, 'I remain very interested in the position. The focus on practical internal tools stands out to me: during my internship at Sample Labs I wrote a Python script that cut a weekly report from hours to minutes, and I enjoyed making a team\'s week a little easier.\n\nIf code samples or anything else would help, I would be glad to send them.'],
 ];
 
@@ -335,7 +335,7 @@ test('fix 10 F four sample drafts from prose replies read like a person wrote th
   const cvLines = CV.split('\n').map((l) => l.replace(/^[-#\s]+/, '').trim()).filter((l) => l.length >= 30);
   const out = [];
   for (const [name, job, body] of SAMPLES) {
-    const sampleJob = name === 'referral ask' ? { ...job, application: { title: TITLE, company: GLOBEX } } : job;
+    const sampleJob = job;
     const r = od.checkDraft(body, sampleJob, { sources: SOURCES });
     assert.deepEqual(r.flags, [], name);
     const first = od.placeholderValues(sampleJob).first_name;
