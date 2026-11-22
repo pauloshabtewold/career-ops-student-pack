@@ -83,3 +83,23 @@ test('r7 M2: the role-wish span stops at a comma, and, since, because or but; th
     'I would love to join Northwind Health, where I could grow as an analyst.',
   ]) assert.deepEqual(check(s, NW), [], s);
 });
+
+test('r7 M3: more title triggers: in my role as, my <title> internship/job, I was the, as their/its, worked at <Company> as', () => {
+  for (const [s, want] of [
+    ['In my role as data analyst at Example Logistics, I wrote SQL queries.', ['data analyst']],
+    ['During my data analyst internship at Example Logistics, I wrote SQL queries.', ['data analyst']],
+    ['My business analyst job at Example Logistics taught me SQL.', ['business analyst']],
+    ['My analyst role at Example Logistics taught me to write SQL.', ['analyst']],
+    ['I was the data analyst for the warehouse team at Example Logistics.', ['data analyst']],
+    ['I worked at Example Logistics as their data analyst.', ['data analyst']],
+    ['As its lead analyst, I tracked shipment delays.', ['lead analyst']],
+    ['I worked at Example Logistics as data analyst.', ['data analyst']],
+    ['I worked for Example Logistics as a business analyst.', ['business analyst']],
+    ['I was the very first analyst hired.', ['first']],
+  ]) assert.deepEqual(check(s, NW), want, s);
+  for (const s of [
+    'In my operations internship, I automated a weekly data pull with a Python script.',
+    'My Operations Intern role at Example Logistics taught me SQL.',
+    'I worked at Example Logistics as an operations intern.',
+  ]) assert.deepEqual(check(s, NW), [], s);
+});
