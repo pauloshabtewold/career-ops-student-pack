@@ -267,7 +267,8 @@ export function slotProblems(slot, text, job) {
   if (NUMBER_WORD.test(t)) out.push(`number word or ordinal "${NUMBER_WORD.exec(t)[0]}"`);
   const v = placeholderValues(job);
   const bare = t.replace(SLOT_PLACEHOLDER, (m, k) => (v[k] ? ' ' : m));
-  const odd = ODD_MARK.exec(bare) ?? /\$\{/.exec(t);
+  // The whole braced token when there is one, so the retry names it as written.
+  const odd = ODD_MARK.test(bare) ? /[{｛]+[^{}｛｝\n]{0,40}[}｝]+/.exec(bare) ?? ODD_MARK.exec(bare) : /\$\{/.exec(t);
   if (odd) out.push(`placeholder-like or bracket text "${odd[0]}"`);
   if (LINK.test(t)) out.push('a link or email address');
   if (PAST_TIME.test(t)) out.push(`past-time or relationship word "${PAST_TIME.exec(t)[0].trim()}"`);
