@@ -141,3 +141,23 @@ test('r7 M5: requirement headers match in any case, with markdown marks and a co
   assert.deepEqual(check('Your team works with kriging every day.', src), ['kriging']);
   assert.deepEqual(check('Your team uses forecasting models.', src), []);
 });
+
+test('r7 M6: posting bullet terms (responsibilities too) are risk words inside a first-person claim clause only', () => {
+  const src = BLUEFIN('Responsibilities:', 'Requirements:');
+  for (const [s, want] of [
+    ['I ran regression analysis on shipment data during my internship.', ['regression']],
+    ['I reconciled vendor invoices and supported month-end close.', ['reconciled', 'vendor', 'invoices']],
+    ['I conducted usability testing and wrote user personas for an internal tool.', ['conducted', 'usability']],
+  ]) assert.deepEqual(check(s, src), want, s);
+  for (const s of [
+    'I am eager to learn regression analysis on your team.',
+    'Your team runs regression analysis on order history.',
+    'I would love to help reconcile vendor invoices.',
+    'I have always wanted to try usability testing.',
+  ]) assert.deepEqual(check(s, src), [], s);
+});
+
+test('r7: a soft-skill word in a requirement bullet is not a claim', () => {
+  const src = BLUEFIN('## Responsibilities', '**Qualifications**\n- Clear communicator who works well with drivers');
+  assert.deepEqual(check('Tutoring each week has made me a clear communicator.', src), []);
+});
