@@ -43,12 +43,14 @@ export const CEILINGS = deepFreeze({
   opener_len: down(299, 'chars', 'message'),
   invite_withdraw_days: down(21, 'days', 'invite'),
   rounds_per_day: down(1, 'count', 'day'),
+  linkedin_fresh_search_per_hour: down(1, 'count', 'hour'),
   // Applications
   submit_per_day: down(10, 'count', 'day'),
   first_week_submit_per_session: down(3, 'count', 'session'),
   first_week_days: down(7, 'days', 'once'),
   batch_size: down(3, 'count', 'batch'),
   approval_batch_max: down(10, 'count', 'batch'),
+  easy_apply_per_day: down(12, 'count', 'day'),
   score_floor: up(3.5, 'score', 'submit'),
   per_company_per_day: down(2, 'count', 'day'),
   jd_browser_per_session: down(10, 'count', 'session'),
@@ -86,8 +88,10 @@ const CHECKABLE = [
   'linkedin.profile_view',
   'linkedin.search_page',
   'linkedin.withdraw',
+  'linkedin.fresh_search',
   'handshake.page',
   'apply.submit',
+  'apply.easy_apply',
   'apply.jd_browser',
 ];
 // Events recorded as they happen; they are not budgeted and carry no gap.
@@ -95,13 +99,14 @@ const CHECKABLE = [
 // after the click fails.
 const OBSERVED = ['linkedin.accept', 'apply.track-confirm', 'apply.policy', 'batch.approve', 'apply.pending'];
 // Send kinds whose check needs a logged, unused approved batch item.
-const SEND_KINDS = ['apply.submit'];
+const SEND_KINDS = ['apply.submit', 'apply.easy_apply'];
 const APPROVAL_RE = /^(send|submit) (all|\d+(,\s*\d+)*)$/;
 // apply.submit carries --batch-id and --item instead of approval words; its approval is the logged batch.approve.
 const NEEDS_APPROVAL = [...LINKEDIN_SENDS];
 const EXIT = { ok: 0, refused: 3, wait: 4, 'needs-user': 5 };
 
-const groupOf = (action) => (action.startsWith('linkedin.') ? 'linkedin' : action.startsWith('handshake.') ? 'handshake' : null);
+// Easy Apply happens on LinkedIn, so it shares LinkedIn's window, gap and warning stop.
+const groupOf = (action) => (action.startsWith('linkedin.') || action === 'apply.easy_apply' ? 'linkedin' : action.startsWith('handshake.') ? 'handshake' : null);
 const toMinutes = (hhmm) => {
   const [h, m] = String(hhmm).split(':').map(Number);
   return h * 60 + m;
@@ -245,6 +250,24 @@ function handshakePageRule(ctx) {
   return sessionCap(ctx, L.pages_per_search_per_session, used, 'handshake pages for this search');
 }
 
+const HOUR_MS = 3600000;
+
+// One past-hour saved-search page per hour: a second read inside the hour waits until the first is an hour old.
+function freshSearchRule({ action, L, rows, nowMs }) {
+  const recent = rows.filter((r) => r.action === action && r.ms > nowMs - HOUR_MS).map((r) => r.ms).sort((a, b) => a - b);
+  if (recent.length < L.linkedin_fresh_search_per_hour) return null;
+  const earliest = new Date(recent[recent.length - L.linkedin_fresh_search_per_hour] + HOUR_MS).toISOString();
+  return result('wait', `fresh search: ${recent.length} of ${L.linkedin_fresh_search_per_hour} this hour; earliest ${earliest}`, { earliest });
+}
+
+// Easy Apply keeps its own daily cap on top of every submit rule. The score floor applies when --score is given;
+// chrome.mjs submit always passes the fill plan's score.
+function easyApplyRule(ctx) {
+  const { action, args, L, count, isToday, cap } = ctx;
+  const scored = typeof args.score === 'number' ? ctx : { ...ctx, args: { ...args, recheck: true } };
+  return cap(L.easy_apply_per_day, count((r) => r.action === action && isToday(r)), 'Easy Apply submits today') || submitRules(scored);
+}
+
 const ACTION_RULES = {
   'linkedin.connect': connectRule,
   'linkedin.message': messageRule,
@@ -254,11 +277,13 @@ const ACTION_RULES = {
   'handshake.page': handshakePageRule,
   'apply.jd_browser': (c) => sessionCap(c, c.L.jd_browser_per_session, c.count((r) => r.action === c.action && r.session === c.session), 'browser job descriptions this session'),
   'apply.submit': submitRules,
+  'linkedin.fresh_search': freshSearchRule,
+  'apply.easy_apply': easyApplyRule,
 };
 
 function gapOrOk({ group, rows, nowMs, remainingFrom }) {
   if (group === 'linkedin') {
-    const next = Math.max(-Infinity, ...rows.filter((r) => r.action.startsWith('linkedin.')).map((r) => Date.parse(detailValue(r.detail, 'next_allowed') ?? '')).filter(Number.isFinite));
+    const next = Math.max(-Infinity, ...rows.filter((r) => groupOf(r.action) === 'linkedin').map((r) => Date.parse(detailValue(r.detail, 'next_allowed') ?? '')).filter(Number.isFinite));
     if (next > nowMs) return result('wait', `LinkedIn gap not elapsed; earliest ${new Date(next).toISOString()}`, { earliest: new Date(next).toISOString() });
   }
   return result('ok', 'within budget', { remaining: remainingFrom.length ? Math.min(...remainingFrom) : null });

@@ -3,8 +3,8 @@
 // (LinkedIn, Gmail, Handshake), driven over the DevTools port by lib/cdp.mjs. Chrome 136+ refuses remote debugging on the
 // default profile, and a separate profile keeps the student's everyday browsing out of reach, so the default profile is
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
-// Usage: chrome.mjs open [--headless] | status [--json] | read <url> | close
-//        chrome.mjs fill --plan FILE | submit --batch-id ID --item N   [--root R] [--data-dir D]
+// Usage: chrome.mjs open [--headless] | status [--json] | read <url> [--links] | close
+//        chrome.mjs fill --plan FILE | submit --batch-id ID --item N [--kind apply|easy-apply]   [--root R] [--data-dir D]
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
@@ -311,7 +311,7 @@ async function cmdStatus({ dataDir, flags, deps, say }) {
   return EXIT.ok;
 }
 
-async function cmdRead({ dataDir, positionals, deps, say }) {
+async function cmdRead({ dataDir, positionals, flags, deps, say }) {
   const url = positionals[0];
   if (!url) throw new UsageError('read needs a url');
   const live = await liveState(dataDir, deps);
@@ -322,7 +322,8 @@ async function cmdRead({ dataDir, positionals, deps, say }) {
   const text = await withBrowser(live.port, async (client) => {
     const { sessionId, targetId } = await openPage(client, url);
     try {
-      return await readText(client, sessionId);
+      const body = await readText(client, sessionId);
+      return flags.links ? [body, '', ...(await linkRefs(client, sessionId))].join('\n') : body;
     } finally {
       await client.send('Target.closeTarget', { targetId }).catch(() => {});
     }
@@ -330,6 +331,11 @@ async function cmdRead({ dataDir, positionals, deps, say }) {
   say(text);
   return EXIT.ok;
 }
+
+// Numbered link refs ("[n] text -> href") after the page text, so a script can take job links from a read with no model.
+const REF_LIMIT = 40;
+export const linkRefs = async (client, sessionId, limit = REF_LIMIT) =>
+  (await evaluate(client, sessionId, `[...document.querySelectorAll('a[href]')].slice(0, ${limit}).map((a, i) => '[' + (i + 1) + '] ' + a.innerText.replace(/\\s+/g, ' ').trim().slice(0, 60) + ' -> ' + a.href)`)) ?? [];
 
 // Stops only the PID this CLI recorded, never anything found by name, and only while recordedChromeAlive confirms it:
 // the state file outlives a crash or reboot, after which the recorded PID can belong to another process. The state file
@@ -540,7 +546,8 @@ export function resolveSubmitPlan(dataDir, batchId, item) {
   return { plan };
 }
 
-export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit' });
+// Easy Apply is checked and logged as apply.easy_apply, which has its own daily cap and LinkedIn pacing in budget.mjs.
+export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit', 'easy-apply': 'apply.easy_apply' });
 
 // budget.mjs exit codes keep their meaning here: 4 wait, 5 needs the user (another track at the company); any other
 // non-zero is a refusal.
@@ -690,7 +697,7 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
 
 export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, close: cmdClose, fill: cmdFill, submit: cmdSubmit };
 export const COMMANDS = Object.keys(HANDLERS);
-export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string' };
+export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string', links: 'boolean' };
 
 // Config is optional: status must work before setup has written config/student.yml.
 async function readConfig(root) {
