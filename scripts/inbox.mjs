@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // Inbox step. Works only on mail the student pastes or the Gmail connector hands over as a JSON file; it never
-// logs in, fetches or follows a link, and nothing it prints carries message text or links.
+// logs in or follows a link, and nothing it prints carries message text or links. The one request it makes on its own is
+// to Handshake's click-tracking links (https://<host>.joinhandshake.com/c/<token>), which carry no job id: one GET each
+// with no cookies and redirect manual, at most 25 per alert, reads the job id from the redirect target
+// (lib/handshake-links.mjs resolveTracked). A failed lookup leaves the link as it was. deps.trackFetch replaces fetch.
 // Usage: inbox.mjs --backend connector --input F | paste --file F | gmail-plugin
 //                  [--root R] [--data-dir D] [--today YYYY-MM-DD] [--dry-run] [--propose-only] [--resolve]
 // --resolve looks each alert job up on the employer's own public board (Greenhouse, Lever or Ashby), so the row can
@@ -11,7 +14,7 @@ import { join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { handshakeIdsIn } from '../lib/handshake-links.mjs';
+import { handshakeIdsIn, resolveMessageLinks } from '../lib/handshake-links.mjs';
 import { classifyMail, compact, squash } from '../lib/mail-classify.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { politeFetch } from '../lib/robots.mjs';
@@ -261,7 +264,8 @@ export async function runInbox(argv, deps = {}) {
     seen.add(m.id);
     fresh.push(m);
   }
-  const results = fresh.map((m) => ({ m, c: classifyMail(m, ctx) }));
+  const results = [];
+  for (const m of fresh) results.push({ m, c: classifyMail(await resolveMessageLinks(m, { fetchFn: deps.trackFetch ?? globalThis.fetch }), ctx) });
   const out = { applied: [], proposed: [], suspicious: [], stagingRows: [], notices: [], failedIds: new Set(), counts: { alerts: 0, employer: 0, handshake: 0, needUrl: 0, checkUrl: 0 } };
   const env = { companies, flags, runner, paths, out, clock, conflicted: conflictChecker(results), lookup: createLookup({ flags, deps, limits }) };
   for (const item of results) await handleResult(item, env);

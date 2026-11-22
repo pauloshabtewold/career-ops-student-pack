@@ -95,7 +95,7 @@ node student/scripts/triage-budget.mjs calibrate 6 --rows 150 --window weekly
 
 ## Mail: the inbox step
 
-`node student/scripts/inbox.mjs` reads mail you give it. It never signs in to Gmail and never opens a link. Pick one backend with `--backend`:
+`node student/scripts/inbox.mjs` reads mail you give it. It never signs in to Gmail and never opens a link, with one exception: a Handshake click-tracking link (`https://<host>.joinhandshake.com/c/...`, which holds no job id) gets one request with no cookies that reads where it redirects, at most 25 per alert, so the job keeps its Handshake id. Pick one backend with `--backend`:
 
 - **connector**: Claude searches your mail through the Gmail connector in a session, saves the results to a JSON file in the data folder, and you run `node student/scripts/inbox.mjs --backend connector --input data/mail.json`. Use this when the connector is set up; it is the best fit for replies and assessments.
 - **paste**: copy the messages into a text file, each with `Id:`, `From:`, `Subject:` and `Date:` lines, a blank line and the body, with a line holding only `---` between messages. Run `node student/scripts/inbox.mjs --backend paste --file data/mail.txt`. Use this when there is no connector.
