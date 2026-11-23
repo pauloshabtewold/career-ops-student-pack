@@ -31,6 +31,7 @@ import { stepErrorText } from '../lib/text.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
+import { KEPT_OUT_OFFER, NO_JOB_TEXT, keptOutCount, keptOutReason } from '../lib/kept-out.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
@@ -194,11 +195,14 @@ function fillHold(text, plan) {
 
 // An approved plan built while its form was not read has no fields (the batch line said "form not read yet"): its form is
 // read now (unless a saved read exists) and `fill-plan.mjs --replan` rebuilds that item's plan in place, with the cover
-// letter when the form has a slot, before any fill. Returns why the item waits, or null when the plan has fields.
+// letter when the form has a slot, before any fill. A posting whose form was given up is not read again (until a read
+// in a session saves its fields). Returns why the item waits, or null when the plan has fields.
 function replanUnread({ paths, child, it }) {
   if (readPlan(it.plan)?.fields?.length) return null;
+  const dir = join(paths.dataDir, FIELDS_DIR);
+  if (formGaveUp(dir, it.link)) return `not submitted: finish these yourself: no application form found in ${EMPTY_READ_TRIES} reads of ${it.link}; apply on the page yourself, or ${KEPT_OUT_OFFER}`;
   try {
-    if (!existsSync(formFieldsFile(join(paths.dataDir, FIELDS_DIR), it.link))) child('chrome.mjs', ['read-form', '--url', it.link]);
+    if (!existsSync(formFieldsFile(dir, it.link))) child('chrome.mjs', ['read-form', '--url', it.link]);
     child('fill-plan.mjs', ['--replan', '--batch-id', it.batchId, '--item', String(it.item)]);
   } catch (err) {
     return `not submitted: its form could not be read and the plan rebuilt (${stepErrorText(err)}); it waits for a session`;
@@ -400,11 +404,17 @@ export async function autopilot({ paths, today, deps = {} }) {
   await step('rank', async () => {
     const cap = effectiveLimits(config).values.submit_per_day;
     const waitingSet = waitingLinks(paths.dataDir, await readActionLog(join(paths.dataDir, 'action-log.tsv')));
-    const ranked = JSON.parse(child('rank-queue.mjs', ['--json', '--n', String(cap + waitingSet.size)]) || '[]');
+    const ranked = JSON.parse(child('rank-queue.mjs', ['--json', '--n', String(cap + waitingSet.size + keptOutCount(paths.dataDir))]) || '[]');
     const fresh = ranked.filter((r) => !waitingSet.has(linkKey(r.url)));
-    rows = fresh.slice(0, cap);
+    // A row kept out for no job text or a given-up form takes no slot: the cap is filled from the next rows, and the
+    // digest names it with the guided offer.
+    const kept = fresh.map((r) => ({ r, why: keptOutReason(paths.dataDir, r.url, today) })).filter((k) => k.why);
+    rows = fresh.filter((r) => !kept.some((k) => k.r === r)).slice(0, cap);
     const already = ranked.length - fresh.length;
-    return [`${rows.length} row(s) ranked for today${already ? `; ${already} already waiting for your approval` : ''}`];
+    const keptLines = kept.map(({ r, why }) => (why === NO_JOB_TEXT
+      ? `kept out: ${r.company} (${r.url}): no job text found; ${KEPT_OUT_OFFER}`
+      : `finish these yourself: ${r.company} (${r.url}): ${why}; apply on the page yourself, or ${KEPT_OUT_OFFER}`));
+    return [`${rows.length} row(s) ranked for today${already ? `; ${already} already waiting for your approval` : ''}${kept.length ? `; ${kept.length} kept out` : ''}`, ...keptLines];
   });
   let live = false;
   if (config.chrome_in_schedule === 'yes') {

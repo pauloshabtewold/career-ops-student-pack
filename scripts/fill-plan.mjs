@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { atsTextProblems, htmlSections } from '../lib/ats-text.mjs';
-import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formGaveUp, mapField, mapForm, readFields } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formGaveUp, mapField, mapForm, readFormDoc } from '../lib/ats-fields.mjs';
 import { readBatch, writeBatches, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -26,6 +26,7 @@ import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { load as loadJd, save as saveJd } from '../lib/jd-store.mjs';
+import { NO_JOB_TEXT, recordKeptOut } from '../lib/kept-out.mjs';
 import { createRobotsChecker } from '../lib/robots.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { isOn, readOverrides, resolve as resolveLever } from '../lib/levers.mjs';
@@ -47,8 +48,7 @@ import { createFetchGate, fetchPosting } from './daily-triage.mjs';
 import { buildReviewPrompt } from './review-app.mjs';
 
 export const FULL_PATH_SCORE = 4.0;
-// The kept-out reason of a row with no job text from any source.
-export const NO_JOB_TEXT = 'no job text';
+export { NO_JOB_TEXT };
 const JD_CHARS = 6000;
 
 // The 0-5 fit score of a ranked row: its triage score. rank-queue's score is the weighted rank (about 40-60), which
@@ -249,10 +249,10 @@ async function coverFor({ row, jobText, ctx, agent }) {
 /**
  * One plan per ranked row. row = { url, company, role, score, triage?, track, jobText? }; the plan's score is the 0-5
  * fit (fitScore) and rank keeps rank-queue's weighted score when the row has a triage score.
- * ctx = { root, dataDir, today, batchId?, item?, form: { url, fields }, answers, candidate, cv, presets, config?,
- *         headless?, writeCover?, buildResume?, atsCheck?, fetchJob?, runner?, outDir? }.
- * Returns { batchId, item, url, link, company, role, score, track, fields, unknown, blocked, uploads, cover, resume, jd,
- * selfCheck, flags, inBatch }. flags and inBatch cover the resume and letter gates; the self-check result is reported in
+ * ctx = { root, dataDir, today, batchId?, item?, form: { url, fields, form?, submit? }, answers, candidate, cv, presets,
+ *         config?, headless?, writeCover?, buildResume?, atsCheck?, fetchJob?, runner?, outDir? }.
+ * Returns { batchId, item, url, link, company, role, score, track, fields, formSelector?, submitSelector?, unknown,
+ * blocked, uploads, cover, resume, jd, selfCheck, flags, inBatch }. flags and inBatch cover the resume and letter gates; the self-check result is reported in
  * selfCheck, and fillPlans batches an item only when inBatch and selfCheck.ok are both true.
  */
 export async function planRow(row, ctx) {
@@ -291,9 +291,11 @@ export async function planRow(row, ctx) {
   );
   // The uploaded letter is the fixed one the self-check reports.
   if (cover.path && check.plan.letter && check.plan.letter !== readFileSync(cover.path, 'utf8')) writeFileSync(cover.path, check.plan.letter);
+  // The form read and its button go with the plan, so chrome.mjs submit clicks only inside the form that was read.
+  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null } : {};
   return {
     batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, score: fit, ...(row.triage !== undefined ? { rank: row.score } : {}), track: row.track,
-    fields: check.plan.fields, unknown, blocked, uploads, cover: cover.path, resume: resume.ok ? resume.path : null, jd,
+    fields: check.plan.fields, ...formRead, unknown, blocked, uploads, cover: cover.path, resume: resume.ok ? resume.path : null, jd,
     selfCheck: { ok: check.ok, fixed: check.fixed, flags: check.flags, notes: check.notes ?? [] }, flags, inBatch: flags.length === 0,
   };
 }
@@ -352,10 +354,10 @@ export async function replanItem({ paths, batchId, item, today, deps = {} }) {
   if (!line?.link || !existsSync(file)) return { code: 3, reasons: [`no fill plan or batch line for item ${item} of ${batchId}`] };
   const old = JSON.parse(readFileSync(file, 'utf8'));
   const row = { url: line.link, company: old.company ?? line.company, role: old.role ?? line.role, track: old.track, ...(old.rank !== undefined ? { triage: old.score, score: old.rank } : { score: old.score }) };
-  const fields = (await (deps.fieldsFor ?? (() => []))(row)) ?? [];
-  if (!fields.length) return { code: 3, reasons: [`the form of ${line.link} has not been read (node student/scripts/chrome.mjs read-form --url ${line.link})`] };
+  const read = formRead(await (deps.fieldsFor ?? (() => []))(row));
+  if (!read.fields.length) return { code: 3, reasons: [`the form of ${line.link} has not been read (node student/scripts/chrome.mjs read-form --url ${line.link})`] };
   const ctx = await planContext(paths, today, deps);
-  const plan = await planRow(row, { ...ctx, form: { url: row.url, fields }, batchId, item, outDir: join(paths.dataDir, 'fill-plans', `${batchId}-work`, String(item)) });
+  const plan = await planRow(row, { ...ctx, form: { ...read, url: row.url }, batchId, item, outDir: join(paths.dataDir, 'fill-plans', `${batchId}-work`, String(item)) });
   if (plan.wait) return { code: EXIT_WAIT, reasons: plan.flags };
   const reasons = [...plan.flags, ...plan.selfCheck.flags];
   if (!plan.inBatch || !plan.selfCheck.ok) return { code: 3, reasons: reasons.length ? reasons : ['the rebuilt plan did not pass the self-check'] };
@@ -364,7 +366,14 @@ export async function replanItem({ paths, batchId, item, today, deps = {} }) {
   return { code: 0, plan: next, reasons: [] };
 }
 
-/** deps: fieldsFor(row) -> raw form fields, fetchJob(row), headless, writeCover, buildResume, atsCheck, runner. */
+// What deps.fieldsFor gave: a raw field list, or a saved read { fields, form?, submit? } (lib/ats-fields.mjs readFormDoc).
+const formRead = (got) => (Array.isArray(got) ? { fields: got } : { ...(got ?? {}), fields: Array.isArray(got?.fields) ? got.fields : [] });
+
+/**
+ * deps: fieldsFor(row) -> raw form fields or a saved read (formRead), fetchJob(row), headless, writeCover, buildResume,
+ * atsCheck, runner. A row kept out for no job text is recorded in data/kept-out.json (lib/kept-out.mjs), so the
+ * autopilot does not rank it again until job text is saved.
+ */
 export async function fillPlans({ paths, rows, today, deps = {}, say = console.log }) {
   const ctxBase = await planContext(paths, today, deps);
   const ready = [];
@@ -377,8 +386,9 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
     }
     const outDir = join(runDir, String(i + 1));
     mkdirSync(outDir, { recursive: true });
-    const form = { url: row.url, fields: (await (deps.fieldsFor ?? (() => []))(row)) ?? [] };
+    const form = { ...formRead(await (deps.fieldsFor ?? (() => []))(row)), url: row.url };
     const plan = await planRow(row, { ...ctxBase, form, item: i + 1, outDir });
+    if (plan.flags.some((f) => f.startsWith(`${NO_JOB_TEXT}:`))) recordKeptOut(paths.dataDir, { url: row.url, reason: NO_JOB_TEXT, date: today });
     const label = `${row.company} | ${plan.role}`;
     if (plan.wait) {
       say(`fill-plan: waiting for a browser slot (${plan.flags.join('; ')}); no batch written, run fill-plan again later`);
@@ -416,10 +426,8 @@ async function main() {
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const today = createClock({ today: flags.today, timezone: config.timezone }).today();
-  const n = flags.n ?? effectiveLimits(config).values.submit_per_day;
-  const rows = flags.rows ? JSON.parse(readFileSync(flags.rows, 'utf8')) : defaultRows(paths, n);
   const fieldsDir = flags.fieldsDir ?? join(paths.dataDir, FIELDS_DIR);
-  const fieldsFor = (row) => readFields(fieldsDir, row.url);
+  const fieldsFor = (row) => readFormDoc(fieldsDir, row.url);
   const fetch = defaultFetch(paths, config);
   const fetchJob = (row) => jobTextFor({ paths, url: row.url, fetch });
   if (flags.replan) {
@@ -429,6 +437,8 @@ async function main() {
     else console.log(`fill-plan: item ${flags.item} of ${flags.batchId} not rebuilt and not submitted: ${res.reasons.join('; ')}`);
     return res.code;
   }
+  const n = flags.n ?? effectiveLimits(config).values.submit_per_day;
+  const rows = flags.rows ? JSON.parse(readFileSync(flags.rows, 'utf8')) : defaultRows(paths, n);
   return (await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor, fetchJob } })).code;
 }
 

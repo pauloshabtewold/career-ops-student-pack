@@ -47,7 +47,9 @@ test('M-007-fix2-S8b read-form and fill open the Lever form page, not the postin
   const posting = 'https://jobs.lever.co/examplerobotics/0a1b2c3d';
   const read = client();
   await readForm(read, posting);
-  assert.deepEqual(read.opened, [`${posting}/apply`]);
+  // The form is read on /apply; since fix3 N3-1 the posting page is opened after it only for its job text.
+  assert.equal(read.opened[0], `${posting}/apply`);
+  assert.deepEqual(read.opened.slice(1), [posting]);
   const fill = client();
   await fillPlan(fill, { url: posting, fields: [] }, { dataDir: '/nonexistent' });
   assert.deepEqual(fill.opened, [`${posting}/apply`]);

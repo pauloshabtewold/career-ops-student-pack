@@ -9,16 +9,19 @@
 // read-form reads the posting's application form (labels, names, types and selectors, never values) into
 // data/form-fields/<url key>.json for fill-plan; it never types or clicks, and a CAPTCHA (exit 6) or a password field
 // (exit 5, a sign-in page) stops it before anything is saved. Only the application form's inputs count (lib/cdp.mjs
-// readFormFields); a page with none saves nothing (exit 3), counts the try in data/form-fields/empty-reads.json and is
-// read again on the next run, up to 3 tries. It also saves the page's job text (the JSON-LD JobPosting description, else
-// the visible main text cut to the jd_trim budget) through the posting guard into data/jds, where fill-plan reads it.
+// readApplicationForm), and the form read and its button are saved with them so submit clicks only that button. A form
+// that renders late is polled for a few seconds; a page with none saves nothing (exit 3), counts the try in
+// data/form-fields/empty-reads.json and is read again on the next run, up to 3 tries, and a later read that works
+// clears the count. When no job text is saved for the posting yet (daily triage's text is never replaced), it saves
+// the job text (the JSON-LD JobPosting description, else the posting page's main text without its forms, never a form
+// route's labels) through the posting guard into data/jds, where fill-plan reads it.
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
 // only after budget.mjs check passes for the approved item, and logs apply.submit only when the page confirms it.
 // Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (an item with no
 // unspent approval, checked before its plan is looked up; budget.mjs refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
-// changed, a plan with text fields that no fill typed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
+// changed, a plan with text fields that no fill typed, no submit button or one outside the form read), 4 wait (browser slot or budget.mjs wait), 5 needs the
 // user (budget.mjs exit 5 passed through, a password or sensitive field left for the student, a form that refused the
 // submit or a submit with no new confirmation, both added to finish these yourself, or a confirmed submit that could not
 // be logged), 6 CAPTCHA or bot check
@@ -29,11 +32,11 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readFormFields, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
+import { attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { save as saveJd } from '../lib/jd-store.mjs';
+import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
 import { guardPosting } from '../lib/posting-guard.mjs';
 import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
@@ -44,6 +47,7 @@ import { runResult } from '../lib/run.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 import { which } from '../lib/which.mjs';
 import { approvedItem } from './budget.mjs';
+import { trimWords } from './daily-triage.mjs';
 
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
@@ -523,18 +527,28 @@ export async function fillPlan(client, plan, { dataDir }) {
 }
 
 // Page script for the job text: the raw JSON-LD blocks and the visible text of main (else article, else body). Read-only.
-export const PAGE_JOB_SCRIPT = `(() => ({
-  ld: [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => s.textContent || ''),
-  main: (document.querySelector('main') || document.querySelector('article') || document.body || { innerText: '' }).innerText || '',
-}))()`;
+// The text of every form inside main is left out, so form labels and questions never count as job text.
+export const PAGE_JOB_SCRIPT = `(() => {
+  const root = document.querySelector('main') || document.querySelector('article') || document.body;
+  let main = root ? String(root.innerText || '') : '';
+  if (root && typeof root.querySelectorAll === 'function') {
+    for (const f of root.querySelectorAll('form')) { const t = String(f.innerText || '').trim(); if (t) main = main.split(t).join(' '); }
+  }
+  return { ld: [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => s.textContent || ''), main };
+})()`;
 
 // Fewer words than this is a form or a page shell, not a posting.
 export const MIN_PAGE_JOB_WORDS = 80;
+// Job text kept from a page when the jd_trim lever is off, the same cut daily triage applies.
+const PAGE_JOB_CHARS = 6000;
 const wordCount = (text) => String(text ?? '').split(/\s+/).filter(Boolean).length;
+// Entities are decoded before tags are stripped, so an entity-encoded description (&lt;p&gt;) loses its tags too; &amp;
+// is decoded last so it never forms a new entity.
 const stripHtml = (html) => String(html ?? '')
+  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
   .replace(/<\s*(br|\/p|\/li|\/h[1-6]|\/div)\b[^>]*>/gi, '\n')
   .replace(/<[^>]+>/g, ' ')
-  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  .replace(/&amp;/g, '&')
   .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
 // The JobPosting nodes of one JSON-LD block (a node, an array, or an @graph); [] for a block that does not parse.
@@ -549,39 +563,88 @@ function jobPostings(block) {
   return nodes.filter((n) => [].concat(n?.['@type'] ?? []).includes('JobPosting'));
 }
 
-// Job text from a page read by PAGE_JOB_SCRIPT: the description of the page's one JSON-LD JobPosting, else the visible
-// main text cut to the jd_trim budget (lib/jd-trim.mjs); '' when neither reaches MIN_PAGE_JOB_WORDS or the page names
-// several postings.
-export function pageJobText(raw) {
+// Job text from a page read by PAGE_JOB_SCRIPT: the description of the page's one JSON-LD JobPosting, else (unless main
+// is false) the visible main text, cut to the resolved jd_trim words (lib/jd-trim.mjs) or, with the lever off, to the
+// characters daily triage keeps; '' when neither reaches MIN_PAGE_JOB_WORDS or the page names several postings.
+export function pageJobText(raw, { main: useMain = true, words = trimWords() } = {}) {
   const postings = (raw?.ld ?? []).flatMap(jobPostings);
   if (postings.length > 1) return '';
   const ld = postings.length ? stripHtml(postings[0].description) : '';
   if (wordCount(ld) >= MIN_PAGE_JOB_WORDS) return postings[0].title ? `${postings[0].title}\n\n${ld}` : ld;
-  const main = String(raw?.main ?? '').trim();
-  return wordCount(main) >= MIN_PAGE_JOB_WORDS ? trimJobText(main) : '';
+  const main = useMain ? String(raw?.main ?? '').trim() : '';
+  if (wordCount(main) < MIN_PAGE_JOB_WORDS) return '';
+  return words ? trimJobText(main, { words }) : main.slice(0, PAGE_JOB_CHARS);
+}
+
+// A form rendered after the load event (a client-side route) is polled for up to FORM_WAIT_MS before a read is empty.
+export const FORM_WAIT_MS = 3000;
+const FORM_POLL_MS = 500;
+
+async function readFormPage(client, sessionId, wait) {
+  let read = await readApplicationForm(client, sessionId);
+  for (let waited = 0; !read.fields.length && waited < FORM_WAIT_MS; waited += FORM_POLL_MS) {
+    await wait(FORM_POLL_MS);
+    read = await readApplicationForm(client, sessionId);
+  }
+  return read;
+}
+
+// The posting's job text for read-form: the JSON-LD JobPosting of the opened form page, else the posting page itself.
+// On a form route (Lever /apply) the posting page is read in its own tab, and the form route's visible text (form labels
+// and questions) never counts. A posting page that is its own form page (Greenhouse) counts its main text without forms.
+async function postingText(client, url, sessionId) {
+  const raw = await evaluate(client, sessionId, PAGE_JOB_SCRIPT);
+  if (formUrl(url) === url) return pageJobText(raw);
+  const fromLd = pageJobText(raw, { main: false });
+  if (fromLd) return fromLd;
+  const tab = await openPage(client, url);
+  try {
+    return pageJobText(await evaluate(client, tab.sessionId, PAGE_JOB_SCRIPT));
+  } finally {
+    await client.send('Target.closeTarget', { targetId: tab.targetId }).catch(() => {});
+  }
 }
 
 // Reads the application form at url in a new tab and closes it again: read-only, it never types, clicks or submits. A
 // visible CAPTCHA or bot check, or a password field (a sign-in or account page), stops it before the fields are read.
-// The page opened is the posting's form page (formUrl). Returns { fields, jobText? } or { stop: 'captcha', detail },
-// { stop: 'password' } or { stop: 'empty' }.
-export async function readForm(client, url) {
+// The page opened is the posting's form page (formUrl). The posting's job text is read only when opts.jobText is true
+// (no text is saved for it yet). Returns { fields, form?, submit?, jobText? } (form and submit name the form read and
+// its button) or { stop: 'captcha', detail }, { stop: 'password' } or { stop: 'empty' }. opts.wait(ms) paces the poll.
+export async function readForm(client, url, { jobText = true, wait = sleep } = {}) {
   const { sessionId, targetId } = await openPage(client, formUrl(url));
   try {
     const captcha = await detectCaptcha(client, sessionId);
     if (captcha) return { stop: 'captcha', detail: captcha };
-    const fields = (await readFormFields(client, sessionId)) ?? [];
+    const read = await readFormPage(client, sessionId, wait);
+    const { fields } = read;
     if (fields.some(isPasswordField)) return { stop: 'password' };
     if (!fields.length) return { stop: 'empty' };
-    const jobText = pageJobText(await evaluate(client, sessionId, PAGE_JOB_SCRIPT));
-    return jobText ? { fields, jobText } : { fields };
+    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null } : {};
+    const text = jobText ? await postingText(client, url, sessionId) : '';
+    return { fields, ...form, ...(text ? { jobText: text } : {}) };
   } finally {
     await client.send('Target.closeTarget', { targetId }).catch(() => {});
   }
 }
 
-// read-form: the posting's form fields (with selectors) into data/form-fields/<url key>.json as { ats, url, fields },
-// which fill-plan reads.
+// True when no job text is saved for the posting yet (data/jds), so read-form may save the page's.
+export const needsJobText = (dataDir, url) => !loadJd(dataDir, url).trim();
+
+// After a read that found fields: saves them with the form read, clears the posting's empty-read count (a later read
+// that works lifts a give-up), and saves the page's job text only when no text is saved yet, so the text daily triage
+// saved is never replaced.
+export function keepRead({ dataDir, url, res, say }) {
+  const file = saveFormFields(dataDir, url, res.fields, res);
+  clearEmptyReads(join(dataDir, FIELDS_DIR), url);
+  say(`chrome: read ${res.fields.length} form field(s) on ${siteOf(url)} into ${file}`);
+  const guarded = res.jobText ? guardPosting(res.jobText).text.trim() : '';
+  if (!needsJobText(dataDir, url)) say(`chrome: kept the posting text already saved for ${siteOf(url)}`);
+  else if (guarded) say(`chrome: saved the posting text from ${siteOf(url)} (${saveJdIfAbsent(dataDir, url, guarded)})`);
+  else say(`chrome: no posting text found on ${siteOf(url)}`);
+}
+
+// read-form: the posting's form fields (with selectors) into data/form-fields/<url key>.json as { ats, url, form,
+// submit, fields }, which fill-plan reads.
 async function cmdReadForm({ dataDir, flags, deps, say }) {
   if (!flags.url) throw new UsageError('read-form needs --url URL');
   const live = await liveState(dataDir, deps);
@@ -589,7 +652,7 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
     say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
     return EXIT.notRunning;
   }
-  const res = await withBrowser(live.port, (client) => readForm(client, flags.url), deps);
+  const res = await withBrowser(live.port, (client) => readForm(client, flags.url, { jobText: needsJobText(dataDir, flags.url) }), deps);
   if (res.stop === 'captcha') {
     say(`chrome: blocked: ${siteOf(flags.url)} shows a ${res.detail}; the form was not read and nothing was typed`);
     return EXIT.captcha;
@@ -604,19 +667,17 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
     say(`chrome: no application form found on ${siteOf(flags.url)} (read ${tries} of ${EMPTY_READ_TRIES}); nothing was saved and ${left}`);
     return EXIT.refused;
   }
-  const file = saveFormFields(dataDir, flags.url, res.fields);
-  say(`chrome: read ${res.fields.length} form field(s) on ${siteOf(flags.url)} into ${file}`);
-  const guarded = res.jobText ? guardPosting(res.jobText).text.trim() : '';
-  if (guarded) say(`chrome: saved the posting text from ${siteOf(flags.url)} (${saveJd(dataDir, flags.url, guarded)})`);
-  else say(`chrome: no posting text found on ${siteOf(flags.url)}`);
+  keepRead({ dataDir, url: flags.url, res, say });
   return EXIT.ok;
 }
 
-// Writes data/form-fields/<url key>.json as { ats, url, fields } and returns its path.
-export function saveFormFields(dataDir, url, fields) {
+// Writes data/form-fields/<url key>.json as { ats, url, form, submit, fields } and returns its path. form and submit
+// (from read, when the read recorded them) are the selectors of the form read and its button; submit clicks only that.
+export function saveFormFields(dataDir, url, fields, read = {}) {
   const file = formFieldsFile(join(dataDir, FIELDS_DIR), url);
   mkdirSync(dirname(file), { recursive: true });
-  writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, fields }, null, 2)}\n`);
+  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null } : {};
+  writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, ...form, fields }, null, 2)}\n`);
   return file;
 }
 
@@ -721,8 +782,13 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const s = plan.tab.sentinel;
   if (s && (await readValue(client, page.sessionId, s.selector)) !== s.value) return { state: 'not-filled', detail: s.selector };
   if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
+  // A plan from a read that recorded its form (formSelector, null for a whole-page read) clicks only the button that read
+  // found, and only inside that form; an older plan keeps the page's first submit button.
+  const scoped = plan.formSelector !== undefined;
+  if (scoped && !plan.submitSelector) return { state: 'no-button' };
   const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
+  if (plan.formSelector && !(await insideForm(client, page.sessionId, plan.formSelector, selector))) return { state: 'outside-form', detail: selector };
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
   if (!signs) return { state: 'no-signs' };
@@ -810,6 +876,7 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     'tab-moved': () => `the tab filled for item ${flags.item} now shows ${clicked.detail ?? 'another page'}; ${REFILL(plan)}`,
     'not-filled': () => `the tab for item ${flags.item} no longer holds its filled ${clicked.detail}; ${REFILL(plan)}`,
     'no-button': () => 'no submit button found',
+    'outside-form': () => `the submit button ${clicked.detail ?? ''} is outside the form that was read; read the form again (node student/scripts/chrome.mjs read-form --url ${link}), rebuild the plan, fill, then submit`,
     'no-signs': () => `the page wording for item ${flags.item} could not be read before the click, so a submit could never be confirmed`,
     'pending-failed': () => `budget.mjs refused or could not record the pending submit (${childLine(clicked.res)})`,
   };
