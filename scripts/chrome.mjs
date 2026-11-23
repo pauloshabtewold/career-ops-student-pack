@@ -26,6 +26,7 @@ import { SENSITIVE_KEY } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
 import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
 import { isSensitive } from '../lib/profile-answers.mjs';
 import { LockTimeoutError, isPidAlive, withLock } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -312,7 +313,11 @@ async function cmdStatus({ dataDir, flags, deps, say }) {
   return EXIT.ok;
 }
 
-async function cmdRead({ dataDir, positionals, flags, deps, say }) {
+// T17 for a student: deps.levers (tests), else the pack's verdict with the student's config/levers.yml, which may turn
+// it off (deps.packRoot for tests).
+export const t17Lever = (deps = {}, root = null) => resolveLever('T17', deps.levers ?? leverOpts(deps.packRoot, root));
+
+async function cmdRead({ dataDir, paths, positionals, flags, deps, say }) {
   const url = positionals[0];
   if (!url) throw new UsageError('read needs a url');
   const live = await liveState(dataDir, deps);
@@ -324,6 +329,9 @@ async function cmdRead({ dataDir, positionals, flags, deps, say }) {
     const { sessionId, targetId } = await openPage(client, url);
     try {
       const body = await readText(client, sessionId);
+      // T17 (off until its A/B verdict): page text capped at the tested character limit, then the link refs.
+      const t17 = t17Lever(deps, paths?.root ?? null);
+      if (t17.on) return [cappedText(body, t17.value), '', ...(await linkRefs(client, sessionId))].join('\n');
       return flags.links ? [body, '', ...(await linkRefs(client, sessionId))].join('\n') : body;
     } finally {
       await client.send('Target.closeTarget', { targetId }).catch(() => {});
@@ -337,6 +345,10 @@ async function cmdRead({ dataDir, positionals, flags, deps, say }) {
 // Only job and company links are kept, before the cap, so header, nav and filter links cannot push job cards out. The
 // refs go to code (fresh-scan's linkedinJobs), not to a model, so the cap costs no tokens.
 const REF_LIMIT = 200;
+// T17's default page-text cap for a read when its verdict recorded no tested value.
+export const READ_CAP_CHARS = 6000;
+// The page text T17 hands an agent: at most cap characters (READ_CAP_CHARS when its verdict recorded none).
+export const cappedText = (body, cap) => String(body ?? '').slice(0, Number(cap) || READ_CAP_CHARS);
 export const REF_SELECTOR = 'a[href*="/jobs/view/"], a[href*="/company/"]';
 export const linkRefs = async (client, sessionId, limit = REF_LIMIT) =>
   (await evaluate(client, sessionId, `[...document.querySelectorAll(${JSON.stringify(REF_SELECTOR)})].slice(0, ${limit}).map((a, i) => '[' + (i + 1) + '] ' + a.innerText.replace(/\\s+/g, ' ').trim().slice(0, 60) + ' -> ' + a.href)`)) ?? [];

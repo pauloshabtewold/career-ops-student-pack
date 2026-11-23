@@ -148,3 +148,11 @@ The scheduled `claude -p` call runs in an empty temp folder and passes `--settin
 ## Long budgets and the schedule timeout
 
 The scheduled run starts the triage as its own process with a timeout that grows with the chunks the budget allows: 25 minutes of worst case per chunk plus 10 minutes, never less than 60 minutes, and never more than the `run_lock_hours` limit minus 30 minutes. A budget of `all` on a 250-row catch-up is 13 chunks and a 335-minute timeout. The triage is also told when that timeout ends and does not start a chunk that could not finish before it, so it stops with a "stopped at chunk" line instead of being killed in the middle of a call. Each chunk writes its ledger row and a digest line before the next call starts, so a stop in the middle keeps the counts so far.
+
+## Measured usage and token levers
+
+Every model call the pack makes writes one row to `data/usage-ledger.tsv`: date, step, feature, agent, model, rows and the input, cache-read, cache-write and output tokens the agent reported (`unmeasured` when it reported none, never 0). Steps that use no model write a zero-token row, so the token report can show from data that a feature has no AI cost. `data/triage-usage.tsv` keeps its format beside it. Once the ledger holds measured days in the last week (a 7-day window; a day with an unmeasured call is left out), `triage-budget.mjs status --per-day` shows their mean instead of the constants above; it is still an estimate.
+
+Ways to spend fewer tokens are levers, listed in `lib/levers.mjs`. Plumbing levers (only new or changed postings are triaged, duplicates are dropped before any fetch, setup reads the resume once) are on. Every other lever stays off until `tools/lever-ab.mjs` has run its A/B against the frozen P0 baseline with the bars in [quality-gate.md](quality-gate.md) and recorded a pass in `docs/lever-verdicts.json`, first alone and then with every passing lever on together. You can turn any lever off in `config/levers.yml`; no setting turns a lever on. With two-step triage (T2) on, a cheaper model only pre-screens: every final score for a top or borderline row still comes from the standard tier.
+
+The per-feature numbers before and after the levers, and the verdict for each, are in [token-report.md](token-report.md).

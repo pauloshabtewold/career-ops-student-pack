@@ -23,7 +23,7 @@ import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { jdFileName, save as saveJd } from '../lib/jd-store.mjs';
-import { isOn, readOverrides } from '../lib/levers.mjs';
+import { isOn, readOverrides, resolve as resolveLever } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { extractPdfText } from '../lib/pdf-text.mjs';
 import { formatRow, getSection, parsePipeline, sectionRows, serializePipeline } from '../lib/pipeline-md.mjs';
@@ -116,11 +116,37 @@ export async function atsCheck({ pdf, html }) {
   return { ok: problems.length === 0, problems };
 }
 
+// T4 (off until its A/B verdict): a tailored resume that passed the ATS check is reused for a posting whose job-text word
+// overlap (Jaccard) with the posting it was tailored for is at or above the tested threshold, so near-identical postings
+// do not each cost a tailoring call. Off, every full-path row is tailored as before.
+export const REUSE_THRESHOLD = 0.85;
+const wordSet = (text) => new Set(String(text ?? '').toLowerCase().match(/[a-z][a-z0-9+#]{2,}/g) ?? []);
+// Jaccard similarity of the word sets of a and b.
+export function jaccard(a, b) {
+  const [x, y] = [wordSet(a), wordSet(b)];
+  const inter = [...x].filter((w) => y.has(w)).length;
+  return x.size + y.size ? inter / (x.size + y.size - inter) : 0;
+}
+
+const REUSE_INDEX_MAX = 200;
+const reuseIndexFile = (dataDir) => join(dataDir, 'fill-plans', 'tailored-index.json');
+const readReuseIndex = (dataDir) => (existsSync(reuseIndexFile(dataDir)) ? JSON.parse(readFileSync(reuseIndexFile(dataDir), 'utf8')) : []);
+function findReusable(dataDir, jobText, threshold) {
+  return readReuseIndex(dataDir).find((e) => e.pdf && existsSync(e.pdf) && jaccard(e.jobText, jobText) >= threshold) ?? null;
+}
+function rememberTailored(dataDir, jobText, pdf) {
+  const index = [...readReuseIndex(dataDir), { jobText: String(jobText).slice(0, JD_CHARS), pdf }].slice(-REUSE_INDEX_MAX);
+  writeAtomic(reuseIndexFile(dataDir), `${JSON.stringify(index)}\n`);
+}
+
 // Renders and checks one resume; a failed tailored build retries once from the untailored cv and section order, a
 // second failure flags the item naming the failed check. build(opts) and checker({ pdf, html }) may be sync or async.
-async function resumeFor({ row, cv, outDir, root, full, deps, date, dataDir, agent }) {
+// reuseAt is the T4 threshold, or null while T4 is off.
+async function resumeFor({ row, cv, outDir, root, full, deps, date, dataDir, agent, reuseAt = null }) {
   const build = deps.buildResume ?? buildResume;
   const checker = deps.atsCheck ?? atsCheck;
+  const reuse = full && reuseAt ? findReusable(dataDir, row.jobText, reuseAt) : null;
+  if (reuse) return { ok: true, path: reuse.pdf, tailored: true, reused: true };
   let text = cv;
   let order = DEFAULT_ORDER;
   if (full) {
@@ -142,7 +168,9 @@ async function resumeFor({ row, cv, outDir, root, full, deps, date, dataDir, age
     if (built?.pdf && (built.code ?? 0) === 0) {
       const res = await checker(built);
       lastProblems = Array.isArray(res) ? res : res?.problems ?? [];
-      if (!lastProblems.length) return { ok: true, path: built.pdf, tailored: i === 0 && (attempt.text !== cv || attempt.order !== DEFAULT_ORDER) };
+      const tailored = i === 0 && (attempt.text !== cv || attempt.order !== DEFAULT_ORDER);
+      if (!lastProblems.length && tailored && reuseAt) rememberTailored(dataDir, row.jobText, built.pdf);
+      if (!lastProblems.length) return { ok: true, path: built.pdf, tailored };
     } else lastProblems = [`render: ${built?.error ?? 'PDF render failed'}`];
     if (i === 0 && !full) break;
   }
@@ -174,7 +202,8 @@ async function noteJd(dataDir, url, token) {
   });
 }
 
-const reviewWith = (deps, { cv, agent, dataDir, date }) => async (plan) => {
+// The reviewer call of one plan (modes/review.md through buildReviewPrompt); tools/lever-ab.mjs T8 uses the same one.
+export const reviewWith = (deps, { cv, agent, dataDir, date }) => async (plan) => {
   const res = await (deps.headless ?? runHeadless)({ agent, prompt: buildReviewPrompt({ cv, posting: plan.jobText, resume: plan.resumeText ?? '', cover: plan.letter ?? (plan.cover && existsSync(plan.cover) ? readFileSync(plan.cover, 'utf8') : '') }), step: 'review', feature: 'H2', dataDir, date });
   const ok = /VERDICT:\s*CLEAN/.test(res.text);
   return { ok, notes: ok ? [] : res.text.split('\n').filter((l) => /^UNGROUNDED|^EDIT/.test(l)).slice(0, 3) };
@@ -212,7 +241,9 @@ export async function planRow(row, ctx) {
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
   const full = (row.score ?? 0) >= FULL_PATH_SCORE;
-  const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root, full, deps: ctx, date: today, dataDir, agent });
+  const t4 = resolveLever('T4', { overrides });
+  const reuseAt = t4.on ? Number(t4.value ?? REUSE_THRESHOLD) : null;
+  const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root, full, deps: ctx, date: today, dataDir, agent, reuseAt });
   if (!resume.ok) flags.push(...resume.flags);
   // A refused browser slot stops the run before any model call for the letter.
   if (resume.wait) return { batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, wait: true, flags, unknown, blocked, selfCheck: { ok: false, fixed: [], flags: [] }, inBatch: false };

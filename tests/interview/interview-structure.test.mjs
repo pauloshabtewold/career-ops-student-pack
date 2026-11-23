@@ -162,3 +162,10 @@ test('Part D shows the per-day token estimate, labelled an estimate', () => {
   assert.match(partD, /triage-budget\.mjs status --per-day/);
   assert.match(partD, /labelled an estimate/);
 });
+
+test('the per-day estimate wording stays an estimate whether it comes from the constants or the 7-day ledger mean', () => {
+  const partD = section(HEADINGS[3]);
+  const line = partD.split('\n').find((l) => l.includes('--per-day')) ?? '';
+  assert.match(line, /estimate/);
+  assert.doesNotMatch(line, /\bcap\b|\blimit\b/);
+});

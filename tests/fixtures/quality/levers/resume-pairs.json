@@ -1,0 +1,37 @@
+[
+  {
+    "profile": "software-cs",
+    "base": "Data Analyst Intern at Example Analytics Co. Location: Remote. Clean and join survey data in SQL and Python, build weekly dashboards, and write short summaries for the product team. Requirements: coursework in statistics, SQL, Python or R, clear writing. Students graduating in 2027 are welcome. Equal opportunity employer.",
+    "near": "Data Analyst Intern at Example Insights Co. Location: Remote. Clean and join survey data in SQL and Python, build weekly dashboards, and write short summaries for the product team. Requirements: coursework in statistics, SQL, Python or R, clear writing. Students graduating in 2027 are welcome. Equal opportunity employer."
+  },
+  {
+    "profile": "nursing",
+    "base": "Patient Care Technician at Example Nursing Co 9. Location: Chicago, IL. Take vitals, help patients with mobility and comfort, and record observations for the nursing team. Requirements: CNA certificate or current nursing student, basic life support, reliable weekend availability. Equal opportunity employer.",
+    "near": "Patient Care Technician at Example Nursing Co 12. Location: Chicago, IL. Take vitals, help patients with mobility and comfort, and record observations for the nursing team. Requirements: CNA certificate or current nursing student, basic life support, reliable weekend availability. Equal opportunity employer."
+  },
+  {
+    "profile": "finance-economics",
+    "base": "Financial Analyst Intern at Example Capital Partners. Location: New York, NY. Build spreadsheet models, reconcile monthly reports, and prepare charts for the finance team. Requirements: coursework in accounting or finance, Excel, attention to detail, clear writing. Students graduating in 2027 are welcome. Equal opportunity employer.",
+    "near": "Financial Analyst Intern at Example Capital Group. Location: New York, NY. Build spreadsheet models, reconcile monthly reports, and prepare charts for the finance team. Requirements: coursework in accounting or finance, Excel, attention to detail, clear writing. Students graduating in 2027 are welcome. Equal opportunity employer."
+  },
+  {
+    "profile": "policy-government",
+    "base": "Policy Analyst Intern at Example Civic Lab. Location: Washington, DC. Summarize legislation, track public comments, draft short memos and maintain a briefing calendar for the research team. Requirements: coursework in public policy, economics or political science, strong writing, Excel, comfort with public datasets and deadlines. Students graduating in 2027 are welcome. Equal opportunity employer.",
+    "near": "Policy Analyst Intern at Example Civic Lab. Location: Washington, DC. Summarize regulations, track public comments, draft short briefs and maintain a briefing calendar for the research team. Requirements: coursework in public policy, economics or political science, strong writing, Stata, comfort with public datasets and deadlines. Students graduating in 2027 are welcome. Equal opportunity employer."
+  },
+  {
+    "profile": "mis-business-analytics",
+    "base": "Business Analyst Intern at Example Retail Group. Location: Columbus, OH. Gather requirements from store teams, map current processes, build Excel and Tableau reports and present findings to managers each month. Requirements: coursework in information systems or business analytics, SQL basics, clear presentations, teamwork. Students graduating in 2027 are welcome. Equal opportunity employer.",
+    "near": "Business Analyst Intern at Example Retail Group. Location: Columbus, OH. Gather requirements from store teams, map current processes, build Excel and Looker reports and present findings to managers each quarter. Requirements: coursework in information systems or business analytics, Python basics, clear presentations, teamwork. Students graduating in 2027 are welcome. Equal opportunity employer."
+  },
+  {
+    "profile": "nursing",
+    "base": "Clinical Research Assistant at Example Health Institute. Location: Boston, MA. Screen study participants, collect consent forms, enter case report data and keep the trial binder current for the study coordinator. Requirements: nursing or biology coursework, attention to detail, HIPAA training, reliable weekday availability. Equal opportunity employer.",
+    "near": "Clinical Research Assistant at Example Health Institute. Location: Boston, MA. Screen study participants, collect consent forms, enter case report data and keep the trial binder current for the study coordinator. Requirements: nursing or biology coursework, attention to detail, CITI training, reliable evening availability. Equal opportunity employer."
+  },
+  {
+    "profile": "software-cs",
+    "base": "Software Engineering Intern at Example Logistics Co. Location: Austin, TX. Build internal web tools in JavaScript, write unit tests, fix bugs reported by warehouse staff and document each release. Requirements: coursework in data structures, JavaScript or TypeScript, Git, clear communication. Students graduating in 2027 are welcome. Equal opportunity employer.",
+    "near": "Software Engineering Intern at Example Logistics Co. Location: Austin, TX. Build internal web tools in JavaScript, write unit tests, fix bugs reported by delivery staff and document each release. Requirements: coursework in data structures, JavaScript or TypeScript, Docker, clear communication. Students graduating in 2027 are welcome. Equal opportunity employer."
+  }
+]

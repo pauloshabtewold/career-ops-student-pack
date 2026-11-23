@@ -10,7 +10,7 @@ the same numbers as `lib/quality-bars.mjs`, and a test keeps the two equal.
 | Bar | Key | Stated | A/A value | Effective |
 | --- | --- | --- | --- | --- |
 | Triage top-10 overlap with the baseline, at least | OVERLAP_MIN | 0.9 | 0.8 | 0.8 |
-| Invented facts in any draft, at most | INVENTED_FACTS_MAX | 0 | 2 | 0 |
+| Invented facts in any draft, at most (drafts: plus the same-day allowance below) | INVENTED_FACTS_MAX | 0 | 2 | 0 |
 | Blind Opus judge says the lever is not worse, share of pairs at least | JUDGE_NOT_WORSE_MIN | 0.9 | 0.556 | 0.556 |
 | Form-field accuracy drop below the base, at most | FORM_ACCURACY | 0 | 0 | 0 |
 | Outcome classification accuracy drop below the base, at most | CLASSIFY_ACCURACY | 0 | 0 | 0 |
@@ -57,14 +57,31 @@ and lever-better.
 ## Invented facts
 
 An invented fact is any number, year, organization, credential or skill in a draft that the fake student's resume,
-application answers and the input do not support. Each one counts once. The bar is zero for every lever.
+application answers and the input do not support. Each one counts once. The bar is zero for every lever, with one
+allowance for the drafts (below).
+
+### The same-day allowance for drafts
+
+Two drafts written with the lever off still differ a little, so a second lever-off draft already adds a few unsupported
+items on its own. On the same day as the lever runs, `tools/lever-ab.mjs campaign` writes every cover paragraph,
+outreach message and reply draft one more time with every lever off and counts what that second draft adds over the
+first, the same way it counts a lever draft. That count, per agent and per draft step, is the allowance: a lever passes
+the invented-facts check on a step when it adds no more than the allowance for that step. A step with no measurement gets
+an allowance of 0, and so does a `stacked` run started on its own when the stored count was not measured that day at the
+same model ids. Every other check, the judge share included, stays exactly as it was. The tool's records call this rule
+option A.
+
+This only decides whether a lever ships. The live fact gate in `lib/fact-gate.mjs` still blocks every unverified claim
+before anything is saved or sent, with or without a lever.
 
 ## Noise floor
 
 The baseline capture runs twice on the same sample (the A/A repeat) and the judge compares the two runs. Two runs of the
 same prompt and model differ a little; that difference is the noise floor. `node tools/quality-baseline.mjs freeze`
 writes the A/A value of each bar and the effective bar: the stated bar, moved to the A/A value only when the A/A value
-is worse (a lower overlap or judge share, a wider accuracy spread). Invented facts and scam false positives never move.
+is worse (a lower overlap or judge share, a wider accuracy spread). The invented-facts and scam bars never move here: the
+invented-facts bar stays 0 wherever no same-day A/A count exists, and on the drafts the allowance is that same-day count
+(above). The live fact gate is unchanged.
 
 ## Mechanical features
 
@@ -94,5 +111,6 @@ measures only the arms that were not parked.
 ## Pinning
 
 This file and `lib/quality-bars.mjs` are written once more by `freeze` and then pinned by sha256 in the baseline
-manifest, with the captured commit and its release tag. They never change after a run; `tools/lever-ab.mjs` refuses
+manifest, with the captured commit and its release tag. They change only by a recorded decision (option A was added on
+2026-11-23 and both hashes were pinned again); `tools/lever-ab.mjs` refuses
 to run when either hash differs, and `node tools/quality-baseline.mjs verify` exits 3 naming any changed file.

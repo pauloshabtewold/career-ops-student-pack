@@ -1,0 +1,95 @@
+{
+  "_note": "Synthetic fill plans for lever T8 (checks first, review only items they pass). Fake companies; example.com addresses; 555-01xx phone.",
+  "items": [
+    {
+      "profile": "software-cs",
+      "plan": {
+        "company": "Example Logistics Co",
+        "role": "Software Engineering Intern",
+        "fields": [
+          {
+            "label": "First Name",
+            "required": true,
+            "value": "Sam"
+          },
+          {
+            "label": "Email",
+            "required": true,
+            "value": "sam@example.com"
+          }
+        ],
+        "letter": "Dear hiring team,\n\nI am applying to the Software Engineering Intern role at Example Logistics Co. My coursework and campus projects match the work you describe.\n\nThank you for your time and consideration.",
+        "resumeText": "Python, JavaScript, Git, data structures, unit tests, web tools",
+        "jobText": "Build internal web tools in JavaScript, write unit tests, Git, data structures"
+      }
+    },
+    {
+      "profile": "nursing",
+      "plan": {
+        "company": "Example Health Institute",
+        "role": "Clinical Research Assistant",
+        "fields": [
+          {
+            "label": "First Name",
+            "required": true,
+            "value": ""
+          }
+        ],
+        "letter": "Dear hiring team,\n\nI am applying to the Clinical Research Assistant role at Example Health Institute. My coursework and campus projects match the work you describe.\n\nThank you for your time and consideration.",
+        "resumeText": "patient care, vitals, CNA, consent forms, case report data",
+        "jobText": "Screen participants, consent forms, case report data, HIPAA"
+      }
+    },
+    {
+      "profile": "finance-economics",
+      "plan": {
+        "company": "Example Capital Group",
+        "role": "Financial Analyst Intern",
+        "fields": [
+          {
+            "label": "Email",
+            "required": true,
+            "value": "sam@example.com"
+          }
+        ],
+        "letter": "Dear hiring team,\n\nI am applying to the Financial Analyst Intern role at Another Example Firm. My coursework and campus projects match the work you describe.\n\nThank you for your time and consideration.",
+        "resumeText": "Excel, accounting, reconciliation, charts, finance coursework",
+        "jobText": "Spreadsheet models, reconcile monthly reports, Excel, accounting"
+      }
+    },
+    {
+      "profile": "policy-government",
+      "plan": {
+        "company": "Example Civic Lab",
+        "role": "Policy Analyst Intern",
+        "fields": [
+          {
+            "label": "Email",
+            "required": true,
+            "value": "sam@example.com"
+          }
+        ],
+        "letter": "Dear hiring team,\n\nI am applying to the Policy Analyst Intern role at Example Civic Lab. My coursework and campus projects match the work you describe.\n\nThank you for your time and consideration.",
+        "resumeText": "public policy, memos, legislation tracking, Excel, writing",
+        "jobText": "Summarize legislation, draft memos, public policy coursework, Excel"
+      }
+    },
+    {
+      "profile": "mis-business-analytics",
+      "plan": {
+        "company": "Example Retail Group",
+        "role": "Business Analyst Intern",
+        "fields": [
+          {
+            "label": "Phone",
+            "required": true,
+            "value": "555-0100"
+          }
+        ],
+        "letter": "Dear hiring team,\n\nI am applying to the Business Analyst Intern role at Example Retail Group. My coursework and campus projects match the work you describe.\n\nThank you for your time and consideration.",
+        "resumeText": "gardening, piano, choir, travel",
+        "jobText": "Requirements gathering, process maps, Tableau reports, SQL basics"
+      }
+    }
+  ]
+}

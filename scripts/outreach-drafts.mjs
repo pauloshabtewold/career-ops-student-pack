@@ -44,7 +44,7 @@ import { COMMON_WORDS } from '../lib/common-words.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { runHeadless } from '../lib/headless.mjs';
-import { isOn } from '../lib/levers.mjs';
+import { isOn, leverOpts } from '../lib/levers.mjs';
 import { guidedFooter } from '../lib/next-step.mjs';
 import { readLessons } from '../lib/outreach-lessons.mjs';
 import { closedStage, contactRecords, isAppFollowup, lower } from '../lib/outreach-state.mjs';
@@ -55,6 +55,31 @@ import { readTsv } from '../lib/tsv.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { effectiveLimits } from './budget.mjs';
 import { outreachState } from './outreach-state.mjs';
+
+// T5 (off until its A/B verdict): a code-written base sentence per contact type opens a warm opener's body and the model
+// writes one personal sentence after it. The bases state interest only, never a fact about the student, and the verifier
+// is told code wrote them. A contact whose type is not known keeps the off path (the model writes the whole body).
+export const OUTREACH_BASE = Object.freeze({
+  recruiter: 'I am exploring early-career roles at {company} and would value your view on how your team hires.',
+  engineer: 'I am interested in the work your team does at {company} and would like to hear how you got started there.',
+  alum: 'I saw that you work at {company} and would like to hear about your path there.',
+  'hiring manager': 'I am interested in your team at {company} and would value a few minutes of your perspective.',
+});
+const CONTACT_TYPES = [
+  ['recruiter', /\b(recruit\w*|talent|sourcer|hr|people partner)\b/i],
+  ['alum', /\balum(na|nus|ni|nae)?\b/i],
+  ['hiring manager', /\b(manager|director|head of|lead)\b/i],
+  ['engineer', /\b(engineer\w*|developer|scientist|analyst|designer|researcher)\b/i],
+];
+// The contact type of a role or type string, or null when none matches.
+export const contactType = (role) => CONTACT_TYPES.find(([, re]) => re.test(String(role ?? '')))?.[0] ?? null;
+// The drafting prompt with the T5 opener task added; the prompt unchanged when there is no opener.
+export const withOpenerPrompt = (prompt, opener) => (opener ? `${prompt}\n\nThe body already opens with this sentence code writes: "${opener}" Write only one more short, true, personal sentence that follows it; do not repeat it.` : prompt);
+// The filled T5 base for a job, or '' when T5 is off, the action is not a warm opener or the contact type is unknown.
+export function t5Opener(job, t5On) {
+  const type = t5On && job.action === 'warm-opener' ? contactType(job.contact?.type ?? job.contact?.role) : null;
+  return type ? OUTREACH_BASE[type].replace('{company}', job.contact.company) : '';
+}
 
 const FEATURE = { connect: 'M7', 'warm-opener': 'M7', 'follow-up': 'M7', reply: 'U4', 'referral-ask': 'U4', 'application-follow-up': 'G6' };
 const DAY_MS = 86400000;
@@ -124,12 +149,17 @@ const BODY_SKIP = ['applied_date'];
 // student's cv.md (and article-digest.md when the pack has one), which are the only allowed source of facts. The fixed
 // part (rules, then the resume) comes first, so it is the same for every draft of a round and can be cached; the task and
 // the contact data come last.
-const DRAFT_RULES = [
+// The voice and facts rules of the drafting prompt; lever T10 puts the lean headless brief in their place. The frame
+// rules (code writes the greeting, closing and placeholders) always stay, so the code-built frame is unchanged.
+export const DRAFT_STYLE_RULES = [
   'You write one short networking message for a student, in the student\'s own voice: warm, natural and specific, the way a friendly person writes to someone they would like to get to know. Not a form letter.',
   'Facts about the student come only from the RESUME below. Mention one or two real things from it in your own words; never paste resume lines. Never add, stretch or guess a fact: no other jobs, internships, schools, degrees, skills, tools, projects, awards, numbers, dates or job titles, a title only as the resume states it (an intern is an intern), and no earlier contact with the reader or their company. If the resume does not hold something, leave it out.',
+].join('\n');
+const DRAFT_FRAME_RULES = [
   'Write the body only. Code adds the greeting with their name, any sentence about an application and its date, the closing thanks and the sign-off. So never write a greeting, a Subject line, a sign-off, the student\'s name, the application or its date, and do not use the reader\'s name (the greeting has it).',
   'Write {company} for the company where you need it; no other placeholders (the task names any other one you may use), brackets or links. Plain words, straight quotes, short paragraphs with at most one blank line between them.',
 ].join('\n');
+const DRAFT_RULES = `${DRAFT_STYLE_RULES}\n${DRAFT_FRAME_RULES}`;
 
 const ASK = {
   connect: ({ noteChars }) => `A LinkedIn connection note. The whole note, with "Hi <first name>, " in front, must stay under ${noteChars} characters, so write one or two short sentences: a specific, friendly reason to connect. No referral or job ask.`,
@@ -527,10 +557,11 @@ async function draftOne(job, ctx) {
   }
 }
 
-async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source }) {
+async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source, t5On = false, root = null }) {
   const call = async (prompt, step) => {
     try {
-      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, timeoutMs: OUTREACH_CALL_TIMEOUT_MS })).text;
+      const instructions = step === 'outreach-verify' ? '' : DRAFT_STYLE_RULES;
+      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, root, timeoutMs: OUTREACH_CALL_TIMEOUT_MS, ...(instructions ? { instructions } : {}) })).text;
     } catch (err) {
       const what = step === 'outreach-verify' ? 'the claim check call' : 'the drafting call';
       throw new CallFailed(`${what} failed (${String(err?.message ?? err).split('\n')[0]}), so the draft is held and never sent unchecked`);
@@ -539,13 +570,16 @@ async function draftLoop(job, { cv, digest = '', sources = '', records = {}, les
   const held = (flags, claims) => ({ ...job, text: '', flags, ...(claims ? { claims } : {}) });
   let tag = fenceTag();
   while (tag === roundTag) tag = fenceTag();
-  const base = draftPrompt({ ...job, cv, digest, lessons, roundTag, tag });
-  const known = knownTrueFacts(job, records);
+  const opener = t5Opener(job, t5On);
+  const plainBase = draftPrompt({ ...job, cv, digest, lessons, roundTag, tag });
+  const base = withOpenerPrompt(plainBase, opener);
+  const known = [...knownTrueFacts(job, records), ...(opener ? [`Code writes this sentence into the message: "${opener}"`] : [])];
   let prompt = base;
   let verifies = 0;
   let earlier = null;
   for (let drafts = 1; ; drafts += 1) {
-    const { text, flags } = checkDraft(await call(prompt, `outreach-${job.action}`), job, { sources });
+    const reply = await call(prompt, `outreach-${job.action}`);
+    const { text, flags } = checkDraft(opener ? `${opener} ${reply}` : reply, job, { sources });
     const last = drafts >= DRAFT_CALLS;
     if (flags.length) {
       if (last) return earlier ? held([...flags, claimsFlag(earlier)], earlier) : held(flags);
@@ -568,6 +602,16 @@ async function draftLoop(job, { cv, digest = '', sources = '', records = {}, les
   }
 }
 
+// The contact's role or kind from contacts.tsv (the latest row that names one), keyed name|company; T5 reads its type.
+export function contactRoles(contactRows = []) {
+  const roles = new Map();
+  for (const r of contactRows) {
+    const role = r.role ?? r.kind ?? r.title;
+    if (r.name && r.company && role) roles.set(`${lower(r.name)}|${lower(r.company)}`, role);
+  }
+  return roles;
+}
+
 // Replies T6 sorts out of the AI step: none while T6 is off; with T6 on, the thanks and no replies.
 const sortedOut = (replies, t6On) => (t6On ? replies.map((r) => ({ ...r, kind: sortReply(r.text) })).filter((r) => r.kind !== 'needs-answer') : []);
 
@@ -581,7 +625,7 @@ export function draftJobs({ due, followups, replies = [], t6On, noteSlots = 0, n
   const jobs = [];
   let notesLeft = noteSlots;
   for (const d of due) {
-    const contact = { name: d.name, company: d.company };
+    const contact = { name: d.name, company: d.company, ...(d.role || d.type ? { role: d.role ?? d.type } : {}) };
     if (d.action === 'warm-opener' || d.action === 'referral-ask') jobs.push({ action: d.action, channel: 'linkedin', contact });
     if (d.action === 'connect') {
       const withNote = noteChars > 0 && notesLeft > 0;
@@ -711,10 +755,14 @@ const jobKey = (j) => `${lower(j.contact?.company ?? j.application?.company)}|${
 
 // deps.skipWaiting (the autopilot's --skip-waiting): a due item already on an outreach batch waiting for approval is not
 // drafted again, so an unattended day does not pay for the same drafts twice.
+// T5 for a student: the pack's verdict, and the student's config/levers.yml may turn it off (deps.packRoot for tests).
+export const t5Setting = (root, deps = {}) => deps.t5On ?? isOn('T5', leverOpts(deps.packRoot, root));
+
 export async function outreachDrafts({ paths, today, replies = [], deps = {}, say = console.log }) {
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const nowMs = deps.nowMs ?? createClock({ today, timezone: config.timezone }).now().getTime();
   const t6On = deps.t6On ?? isOn('T6');
+  const t5On = t5Setting(paths.root, deps);
   const mode = config.switches?.outreach ?? 'on';
   for (const r of replies) if (r.name && r.company) archiveMessage(paths.dataDir, { name: r.name, company: r.company, direction: 'received', channel: r.channel ?? 'linkedin', text: r.text });
   const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
@@ -726,7 +774,9 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const needsAddress = resolved.filter((f) => !f.email);
   // Application follow-ups belong to the apply side: they are drafted and batched whatever the outreach switch says.
   // Contact outreach is batched only while the switch is on, goes to the drafts file at drafts, and is skipped at off.
-  const contactJobs = mode === 'off' ? [] : draftJobs({ due: state.due, followups: [], replies, t6On, ...notes });
+  const roles = contactRoles(contactRows);
+  const due = (state.due ?? []).map((d) => ({ ...d, role: d.role ?? roles.get(`${lower(d.name)}|${lower(d.company)}`) }));
+  const contactJobs = mode === 'off' ? [] : draftJobs({ due, followups: [], replies, t6On, ...notes });
   const candidate = readCandidate(paths);
   const cv = readCv(paths.root);
   const signature = signatureOf(candidate, cv);
@@ -737,7 +787,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
-  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
+  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On, root: paths.root };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
   const ready = drafts.filter((d) => !d.flags.length);
@@ -806,7 +856,7 @@ export async function addFollowupTo({ paths, today, which, email, deps = {}, say
   const cv = readCv(paths.root);
   const digest = readDigest(paths.root);
   job.signature = signatureOf(candidate, cv);
-  const d = await draftOne(job, { cv, digest, sources: sourcesOf(cv, digest, candidate), lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' });
+  const d = await draftOne(job, { cv, digest, sources: sourcesOf(cv, digest, candidate), lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', root: paths.root });
   if (d.flags.length) {
     say(`outreach-drafts: ${f.company} follow-up flagged and kept out of the batch: ${d.flags.join('; ')}`);
     for (const line of guidedFooter({ step: `the ${f.company} follow-up was flagged and kept out of the batch; add a true fact it names to cv.md, then draft it again`, prompt: `follow up with ${f.company} at ${email}`, why: 'a draft that names something your cv.md does not hold is never sent.' })) say(line);
