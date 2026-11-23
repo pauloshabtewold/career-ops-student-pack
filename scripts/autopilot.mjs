@@ -5,8 +5,9 @@
 // again. When the schedule reaches Chrome (chrome_in_schedule yes and the automation Chrome is up) it also fills and
 // submits approved, unsent items of apply batches through `chrome.mjs fill --plan` and `chrome.mjs submit`, whose
 // budget.mjs check (with the plan's score) refuses any item not approved or already used, and never submits a link that
-// was already submitted. Only a plan that carries the form's fields (today those come from a session that read the form)
-// is filled and submitted; any other approved item waits for a fill in a session. It also reads outcome mail through the
+// was already submitted. Before the fill plans are built it reads each ranked posting's form with `chrome.mjs read-form`
+// into data/form-fields. Only a plan that carries the form's fields is filled and submitted; any other approved item
+// waits for a fill in a session. It also reads outcome mail through the
 // Gmail path into inbox.mjs. Without Chrome those steps wait and the digest names them. On the weekly lessons day it runs the outreach lessons step (lib/outreach-lessons.mjs).
 // A failing step becomes one digest line; the section ends with the guided footer; the run always exits 0.
 // Usage: autopilot.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
@@ -15,6 +16,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { detailValue, readActionLog } from '../lib/action-log.mjs';
+import { FIELDS_DIR, formFieldsFile } from '../lib/ats-fields.mjs';
 import { listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
 import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
@@ -51,8 +53,9 @@ const FILL_PROBLEM = /^chrome: (?:could not fill (.+)|blocked-on-user: (.+?) is 
 const GMAIL_PAGE = 50;
 // Gmail's standard page sizes: a list exactly this long may be one page of more, so its count is a lower bound.
 const GMAIL_PAGE_SIZES = [25, 50, 100];
-// Form fields per posting, read by fill-plan --fields-dir (<url key>.json); plans without a file there carry no fields.
-export const FIELDS_DIR = 'form-fields';
+// Form fields per posting (chrome.mjs read-form writes them), read by fill-plan --fields-dir; plans without a file there
+// carry no fields.
+export { FIELDS_DIR };
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
 
 // Approved apply items not yet submitted, in batch order: the same rule budget.mjs checks (a logged batch.approve lists
@@ -111,6 +114,26 @@ function childRunner({ paths, today, runner }) {
   return (script, extra = []) => String(runner(process.execPath, [join(paths.packRoot, 'scripts', script), ...extra, '--root', paths.root, '--data-dir', paths.dataDir, '--today', today], { cwd: paths.root, timeout: CHILD_TIMEOUT_MS }) ?? '');
 }
 
+// While the automation Chrome is up, each ranked posting with no saved form yet gets its form read by `chrome.mjs
+// read-form` (read-only: it never types or clicks), so fill-plan maps real fields with selectors, writes a cover letter
+// for a form with a cover slot and plans the resume upload. A row whose form cannot be read keeps a plan without fields,
+// which waits for a fill in a session.
+function readForms({ paths, child, rows }) {
+  const dir = join(paths.dataDir, FIELDS_DIR);
+  const todo = rows.filter((r) => /^https?:\/\//i.test(String(r.url ?? '')) && !existsSync(formFieldsFile(dir, r.url)));
+  const notes = [];
+  let read = 0;
+  for (const r of todo) {
+    try {
+      child('chrome.mjs', ['read-form', '--url', r.url]);
+      read++;
+    } catch (err) {
+      notes.push(`${r.company}: form not read (${stepErrorText(err)}); its plan waits for a fill in a session`);
+    }
+  }
+  return [`read ${read} of ${todo.length} form(s)${rows.length > todo.length ? `; ${rows.length - todo.length} already read or with no link` : ''}`, ...notes];
+}
+
 // fill-plan writes today's apply batches. When it printed no ready count (a fill-plan that could not report, so nothing
 // says which rows it prepared), the ranked rows go into one review batch with no fill plans: the student still sees the
 // day's picks, and chrome.mjs submit refuses any item without a fill plan, so nothing can be submitted from it.
@@ -143,7 +166,7 @@ const readPlan = (file) => {
 // Why a plan cannot be filled and submitted by the autopilot, as the waiting line's tail, or null when it can: it must
 // carry the form's fields, no field only the student fills (plan.blocked, named by label, never by value), no unknown
 // question, and every resume or cover letter upload it names on disk. fill-plan writes fields only from a form that was
-// read (data/form-fields, written today by a session), so a plan without fields means no form was read for that posting.
+// read (data/form-fields, written by chrome.mjs read-form), so a plan without fields means no form was read for it.
 export function planWait(plan) {
   if (!Array.isArray(plan?.fields) || !plan.fields.length) return 'waits for a fill in a session (no form was read for it)';
   if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).replace(/\s+/g, ' ').trim().slice(0, 60)).join(', ')})`;
@@ -359,13 +382,6 @@ export async function autopilot({ paths, today, deps = {} }) {
     const already = ranked.length - fresh.length;
     return [`${rows.length} row(s) ranked for today${already ? `; ${already} already waiting for your approval` : ''}`];
   });
-  await step('prepare applications', () => prepareApplications({ paths, today, child, rows }));
-  await step('outreach drafts', async () => {
-    const text = child('outreach-drafts.mjs', ['--source', 'scheduled', '--skip-waiting']);
-    const report = String(text).split('\n').filter((l) => DRAFTS_REPORT.test(l)).map((l) => l.replace(/^outreach-drafts: /, ''));
-    return report.length ? report : [lastLine(text) || 'done'];
-  });
-  await step('outreach lessons', () => lessonsStep({ paths, today, config, deps }));
   let live = false;
   if (config.chrome_in_schedule === 'yes') {
     try {
@@ -374,6 +390,14 @@ export async function autopilot({ paths, today, deps = {} }) {
       live = false;
     }
   }
+  if (live && rows.length) await step('read forms', () => readForms({ paths, child, rows }));
+  await step('prepare applications', () => prepareApplications({ paths, today, child, rows }));
+  await step('outreach drafts', async () => {
+    const text = child('outreach-drafts.mjs', ['--source', 'scheduled', '--skip-waiting']);
+    const report = String(text).split('\n').filter((l) => DRAFTS_REPORT.test(l)).map((l) => l.replace(/^outreach-drafts: /, ''));
+    return report.length ? report : [lastLine(text) || 'done'];
+  });
+  await step('outreach lessons', () => lessonsStep({ paths, today, config, deps }));
   const waiting = [];
   const tally = { fillWaiting: 0 };
   if (live) {

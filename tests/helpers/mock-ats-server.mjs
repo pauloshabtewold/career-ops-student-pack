@@ -1,6 +1,7 @@
 // Local Greenhouse-style mock application form for the Chrome e2e tests: 127.0.0.1 on a random port, fake content only.
 // GET /greenhouse/form?job=N serves the form for job N (job 1 when absent), and GET / serves the job-1 form; &captcha=1 adds a reCAPTCHA-style widget that
-// loads nothing from the network. POST /greenhouse/submit?job=N records { job: N } and answers with a confirmation page.
+// loads nothing from the network. POST /greenhouse/submit?job=N records { job: N } (submissions()) plus the text fields
+// and attached file names it carried (posted()), and answers with a confirmation page.
 // Variants, all off by default: &badge=1 adds only an invisible reCAPTCHA badge (as most real Greenhouse forms carry),
 // &submitcaptcha=1 makes the submit answer with a visible challenge page and record nothing, &required=1 adds a
 // required "School" field no plan fills, so the browser's own validation blocks the submit.
@@ -49,8 +50,32 @@ export function formHtml(job, { captcha = false, badge = false, submitCaptcha = 
   ].join('\n');
 }
 
+// The parts of a multipart/form-data body: text fields by name, and the file name of every file part that carries bytes.
+export function multipartParts(body, contentType) {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(String(contentType ?? ''));
+  const fields = {};
+  const files = {};
+  if (!boundary) return { fields, files };
+  for (const part of body.toString('latin1').split(`--${boundary[1] ?? boundary[2]}`)) {
+    const split = part.indexOf('\r\n\r\n');
+    if (split < 0) continue;
+    const head = part.slice(0, split);
+    const value = part.slice(split + 4).replace(/\r\n$/, '');
+    const name = /name="([^"]*)"/i.exec(head)?.[1];
+    if (!name) continue;
+    const file = /filename="([^"]*)"/i.exec(head);
+    if (file) {
+      if (file[1] && value.length) files[name] = file[1];
+    } else fields[name] = Buffer.from(value, 'latin1').toString('utf8');
+  }
+  return { fields, files };
+}
+
 export async function startMockAts() {
   const records = [];
+  // Every recorded submit with the text fields and attached file names it carried (posted()); submissions() keeps its
+  // { job } shape.
+  const posts = [];
   const server = createServer((req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const job = jobOf(url);
@@ -61,7 +86,8 @@ export async function startMockAts() {
       return;
     }
     if (req.method === 'POST' && url.pathname === '/greenhouse/submit') {
-      req.resume();
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
       req.on('end', () => {
         if (url.searchParams.get('challenge') === '1') {
           res.setHeader('content-type', 'text/html; charset=utf-8');
@@ -69,6 +95,7 @@ export async function startMockAts() {
           return;
         }
         records.push({ job });
+        posts.push({ job, ...multipartParts(Buffer.concat(chunks), req.headers['content-type']) });
         res.setHeader('content-type', 'text/html; charset=utf-8');
         res.end(`<!doctype html><html><body><h1>Application received</h1><p>Job ${job}</p></body></html>`);
       });
@@ -83,6 +110,7 @@ export async function startMockAts() {
     url: `http://127.0.0.1:${port}`,
     formText: FORM_TEXT,
     submissions: () => records.map((r) => ({ ...r })),
+    posted: () => posts.map((p) => ({ job: p.job, fields: { ...p.fields }, files: { ...p.files } })),
     close: () =>
       new Promise((resolve) => {
         server.closeAllConnections?.();

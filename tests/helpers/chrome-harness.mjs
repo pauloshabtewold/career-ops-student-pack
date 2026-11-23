@@ -41,7 +41,8 @@ export async function gate({ env = process.env } = {}) {
 // Opens the automation Chrome for one test root. A slot hook that answers non-zero becomes { skip } with its exit code.
 export async function openChrome({ root, dataDir, env = process.env }) {
   if (recorded.size > 0) throw new Error('chrome-harness: one automation Chrome per test file');
-  const out = await runChromeCli(['open'], { root, dataDir, env });
+  // Headless: no test needs a window, and a visible Chrome on a locked or busy desktop can stall its first navigation.
+  const out = await runChromeCli(['open', '--headless'], { root, dataDir, env });
   const wait = out.stdout.match(/waiting for a browser slot \(hook exit (\d+)\)/);
   if (out.code === 4) return { ...out, skip: `browser slot hook exit ${wait ? wait[1] : 'non-zero'}` };
   const state = out.code === 0 ? readState(dataDir) : null;

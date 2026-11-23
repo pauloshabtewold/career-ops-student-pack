@@ -3,9 +3,12 @@
 // (LinkedIn, Gmail, Handshake), driven over the DevTools port by lib/cdp.mjs. Chrome 136+ refuses remote debugging on the
 // default profile, and a separate profile keeps the student's everyday browsing out of reach, so the default profile is
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
-// Usage: chrome.mjs open [--headless] | status [--json] | read <url> [--links] | close
+// Usage: chrome.mjs open [--headless] | status [--json] | read <url> [--links] | read-form --url URL | close
 //        chrome.mjs fill --plan FILE | submit --batch-id ID --item N [--kind apply|easy-apply]   [--root R] [--data-dir D]
 // read --links lists only the page's LinkedIn job and company links (jobs/view and company hrefs), up to 200.
+// read-form reads the posting's application form (labels, names, types and selectors, never values) into
+// data/form-fields/<url key>.json for fill-plan; it never types or clicks, and a CAPTCHA (exit 6) or a password field
+// (exit 5, a sign-in page) stops it before anything is read.
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
@@ -23,9 +26,9 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { SENSITIVE_KEY } from '../lib/ats-fields.mjs';
+import { FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
+import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readFormFields, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
 import { isSensitive } from '../lib/profile-answers.mjs';
@@ -512,6 +515,53 @@ export async function fillPlan(client, plan, { dataDir }) {
   return { code: blocked.length ? EXIT.needsUser : EXIT.ok, filled, problems: [...problems, ...blocked], tab };
 }
 
+// Reads the application form at url in a new tab and closes it again: read-only, it never types, clicks or submits. A
+// visible CAPTCHA or bot check, or a password field (a sign-in or account page), stops it before the fields are read.
+// Returns { fields } or { stop: 'captcha', detail } or { stop: 'password' }.
+export async function readForm(client, url) {
+  const { sessionId, targetId } = await openPage(client, url);
+  try {
+    const captcha = await detectCaptcha(client, sessionId);
+    if (captcha) return { stop: 'captcha', detail: captcha };
+    const fields = (await readFormFields(client, sessionId)) ?? [];
+    if (fields.some(isPasswordField)) return { stop: 'password' };
+    return { fields };
+  } finally {
+    await client.send('Target.closeTarget', { targetId }).catch(() => {});
+  }
+}
+
+// read-form: the posting's form fields (with selectors) into data/form-fields/<url key>.json as { ats, url, fields },
+// which fill-plan reads.
+async function cmdReadForm({ dataDir, flags, deps, say }) {
+  if (!flags.url) throw new UsageError('read-form needs --url URL');
+  const live = await liveState(dataDir, deps);
+  if (!live) {
+    say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
+    return EXIT.notRunning;
+  }
+  const res = await withBrowser(live.port, (client) => readForm(client, flags.url), deps);
+  if (res.stop === 'captcha') {
+    say(`chrome: blocked: ${siteOf(flags.url)} shows a ${res.detail}; the form was not read and nothing was typed`);
+    return EXIT.captcha;
+  }
+  if (res.stop === 'password') {
+    say(`chrome: blocked-on-user: ${siteOf(flags.url)} shows a password field (a sign-in or account page); sign-ins stay with you, nothing was typed. Read the form again once you are signed in.`);
+    return EXIT.needsUser;
+  }
+  const file = saveFormFields(dataDir, flags.url, res.fields);
+  say(`chrome: read ${res.fields.length} form field(s) on ${siteOf(flags.url)} into ${file}`);
+  return EXIT.ok;
+}
+
+// Writes data/form-fields/<url key>.json as { ats, url, fields } and returns its path.
+export function saveFormFields(dataDir, url, fields) {
+  const file = formFieldsFile(join(dataDir, FIELDS_DIR), url);
+  mkdirSync(dirname(file), { recursive: true });
+  writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, fields }, null, 2)}\n`);
+  return file;
+}
+
 async function cmdFill({ dataDir, flags, deps, say }) {
   if (!flags.plan) throw new UsageError('fill needs --plan FILE');
   const plan = JSON.parse(readFileSync(flags.plan, 'utf8'));
@@ -729,9 +779,9 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
   return EXIT.ok;
 }
 
-export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, close: cmdClose, fill: cmdFill, submit: cmdSubmit };
+export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, 'read-form': cmdReadForm, close: cmdClose, fill: cmdFill, submit: cmdSubmit };
 export const COMMANDS = Object.keys(HANDLERS);
-export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string', links: 'boolean' };
+export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string', links: 'boolean', url: 'string' };
 
 // Config is optional: status must work before setup has written config/student.yml.
 async function readConfig(root) {

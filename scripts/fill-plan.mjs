@@ -5,8 +5,9 @@
 // rendered from the template and passed through the ATS text checks, the guarded job text saved under data/jds, and the
 // self-check result. Items that pass go into one-page apply batches; flagged items stay out and say why.
 // Usage: fill-plan.mjs [--rows FILE] [--fields-dir DIR] [--n N] [--root R] [--data-dir D] [--today YYYY-MM-DD]
-//   --rows: JSON array of ranked rows (default: rank-queue.mjs --json); --fields-dir: <url-key-file>.json form fields
-//   per row when the automation Chrome is not used.
+//   --rows: JSON array of ranked rows (default: rank-queue.mjs --json); --fields-dir: the folder of <url-key-file>.json
+//   form fields per row (default data/form-fields, written by chrome.mjs read-form), each a list of fields or
+//   { ats, url, fields }.
 // Exit 0 for a finished run (flags are printed); 4 when the browser slot refused a resume render (the run stops there
 // and writes no batch, so a scheduled caller retries later); 2 usage.
 import { randomUUID } from 'node:crypto';
@@ -15,14 +16,14 @@ import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { atsTextProblems, htmlSections } from '../lib/ats-text.mjs';
-import { SENSITIVE_KEY, atsOf, mapField, mapForm } from '../lib/ats-fields.mjs';
+import { FIELDS_DIR, SENSITIVE_KEY, atsOf, mapField, mapForm, readFields } from '../lib/ats-fields.mjs';
 import { writeBatches, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
-import { jdFileName, save as saveJd } from '../lib/jd-store.mjs';
+import { save as saveJd } from '../lib/jd-store.mjs';
 import { isOn, readOverrides, resolve as resolveLever } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { extractPdfText } from '../lib/pdf-text.mjs';
@@ -341,10 +342,8 @@ async function main() {
   const today = createClock({ today: flags.today, timezone: config.timezone }).today();
   const n = flags.n ?? effectiveLimits(config).values.submit_per_day;
   const rows = flags.rows ? JSON.parse(readFileSync(flags.rows, 'utf8')) : defaultRows(paths, n);
-  const fieldsFor = (row) => {
-    const file = flags.fieldsDir ? join(flags.fieldsDir, jdFileName(row.url).replace(/\.txt$/, '.json')) : null;
-    return file && existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : [];
-  };
+  const fieldsDir = flags.fieldsDir ?? join(paths.dataDir, FIELDS_DIR);
+  const fieldsFor = (row) => readFields(fieldsDir, row.url);
   return (await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor } })).code;
 }
 
