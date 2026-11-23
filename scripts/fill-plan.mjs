@@ -44,6 +44,11 @@ import { buildReviewPrompt } from './review-app.mjs';
 export const FULL_PATH_SCORE = 4.0;
 const JD_CHARS = 6000;
 
+// The 0-5 fit score of a ranked row: its triage score. rank-queue's score is the weighted rank (about 40-60), which
+// would send every row down the full path, show "fit 47.0" on the batch page and never meet budget.mjs's score floor.
+// A row without a triage score (a hand-made row list) keeps its score.
+export const fitScore = (row) => Number(row.triage ?? row.score ?? 0) || 0;
+
 function readCandidate(root) {
   const file = join(resolvePaths({ root }).configDir, 'profile.yml');
   if (!existsSync(file)) return {};
@@ -235,7 +240,8 @@ async function coverFor({ row, jobText, ctx, agent }) {
 }
 
 /**
- * One plan per ranked row. row = { url, company, role, score, track, jobText? }.
+ * One plan per ranked row. row = { url, company, role, score, triage?, track, jobText? }; the plan's score is the 0-5
+ * fit (fitScore) and rank keeps rank-queue's weighted score when the row has a triage score.
  * ctx = { root, dataDir, today, batchId?, item?, form: { url, fields }, answers, candidate, cv, presets, config?,
  *         headless?, writeCover?, buildResume?, atsCheck?, fetchJob?, runner?, outDir? }.
  * Returns { batchId, item, url, link, company, role, score, track, fields, unknown, blocked, uploads, cover, resume, jd,
@@ -254,7 +260,9 @@ export async function planRow(row, ctx) {
   const { fields, unknown, blocked } = resolveFields({ url: row.url, fields: form.fields }, { answers, candidate });
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
-  const full = (row.score ?? 0) >= FULL_PATH_SCORE;
+  const fit = fitScore(row);
+  // A tailoring call needs the posting: with no job text the row takes the lean path (base resume).
+  const full = fit >= FULL_PATH_SCORE && jobText.trim() !== '';
   const t4 = resolveLever('T4', { overrides });
   const reuseAt = t4.on ? Number(t4.value ?? REUSE_THRESHOLD) : null;
   const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root, full, deps: ctx, date: today, dataDir, agent, reuseAt });
@@ -273,9 +281,9 @@ export async function planRow(row, ctx) {
   // The uploaded letter is the fixed one the self-check reports.
   if (cover.path && check.plan.letter && check.plan.letter !== readFileSync(cover.path, 'utf8')) writeFileSync(cover.path, check.plan.letter);
   return {
-    batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, score: row.score, track: row.track,
+    batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, score: fit, ...(row.triage !== undefined ? { rank: row.score } : {}), track: row.track,
     fields: check.plan.fields, unknown, blocked, uploads, cover: cover.path, resume: resume.ok ? resume.path : null, jd,
-    selfCheck: { ok: check.ok, fixed: check.fixed, flags: check.flags }, flags, inBatch: flags.length === 0,
+    selfCheck: { ok: check.ok, fixed: check.fixed, flags: check.flags, notes: check.notes ?? [] }, flags, inBatch: flags.length === 0,
   };
 }
 
@@ -310,6 +318,7 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
       return { code: EXIT_WAIT, ids: [], ready: 0, flagged: 0, unknown: [] };
     }
     for (const f of [...plan.flags, ...plan.selfCheck.flags]) say(`fill-plan: ${label}: flagged: ${f}`);
+    for (const n of plan.selfCheck.notes ?? []) say(`fill-plan: ${label}: note: ${n}`);
     for (const b of plan.blocked) say(`fill-plan: ${label}: blocked-on-user: "${b}" is a field you fill yourself; it is never filled for you`);
     if (plan.inBatch && plan.selfCheck.ok) ready.push(plan);
   }

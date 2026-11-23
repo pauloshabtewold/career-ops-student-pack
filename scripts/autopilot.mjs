@@ -33,6 +33,7 @@ import { readTsv, writeAtomic } from '../lib/tsv.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
+import { fitScore } from './fill-plan.mjs';
 
 // Positive terms only: a negated phrase once hid real rejection mail. regret, candidates, selected, invitation, invited and
 // call reach outcome mails that name no application, interview or offer (tests/fixtures/quality/outcome-mails.json).
@@ -150,7 +151,7 @@ function prepareApplications({ paths, today, child, rows }) {
   }
   const made = listBatches(paths.dataDir).filter((id) => !before.has(id) && readBatch(paths.dataDir, id)?.kind === 'apply');
   if (made.length || FILL_REPORT.test(text)) return [lastLine(text) || `apply batches: ${made.join(', ')}`];
-  const items = rows.map((r) => ({ company: r.company, role: r.title, score: r.score, preview: 'fill plan not ready yet; open the link to apply yourself, or ask me to prepare it', link: r.url }));
+  const items = rows.map((r) => ({ company: r.company, role: r.title, score: fitScore(r), preview: 'fill plan not ready yet; open the link to apply yourself, or ask me to prepare it', link: r.url }));
   const ids = writeBatches(paths.dataDir, { date: today, kind: 'apply', items });
   return [`review batch ${ids.join(', ')} with ${items.length} ranked row(s) and no fill plans yet`];
 }
