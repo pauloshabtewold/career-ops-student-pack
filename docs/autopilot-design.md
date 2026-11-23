@@ -4,7 +4,7 @@ Why the daily pipeline is built the way it is. The code shows what each step doe
 
 ## Flow
 
-scheduled.mjs (daily) -> daily.mjs (zero-token ingest: feeds, scan, merge, prefilter, jd-rules, posting-risk, triage-cache, digest) -> inbox-pass.mjs when `mailbox.schedule` is on -> daily-triage.mjs (model only for survivors) when `automation` is `scheduled-discovery-plus-triage` -> autopilot.mjs once setup has recorded `chrome_in_schedule` (rank, fill plans, cover letters, tailored resumes, outreach drafts, follow-ups, weekly outreach lessons) -> one-page batches -> student reply -> batch.mjs approve -> chrome.mjs fill and submit, or gmail-chrome send, for approved items only -> digest.
+scheduled.mjs (daily) -> daily.mjs (zero-token ingest: feeds, scan, merge, prefilter, jd-rules, posting-risk, triage-cache, digest) -> inbox-pass.mjs when `mailbox.schedule` is on -> daily-triage.mjs (model only for survivors) when `automation` is `scheduled-discovery-plus-triage` -> autopilot.mjs once setup has recorded `chrome_in_schedule` (rank, fill plans, cover letters, tailored resumes, outreach drafts, follow-ups, weekly outreach lessons) -> one-page batches -> student reply -> batch.mjs approve -> chrome.mjs fill and submit, or gmail.mjs send (lib/gmail-chrome.mjs), for approved items only -> digest.
 
 The hourly entry (`scheduled.mjs --fresh`) runs only fresh-scan.mjs, which makes no model call.
 
