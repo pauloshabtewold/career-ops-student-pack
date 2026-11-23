@@ -191,6 +191,20 @@ function fillHold(text, plan) {
   return null;
 }
 
+// An approved plan built while its form was not read has no fields (the batch line said "form not read yet"): its form is
+// read now (unless a saved read exists) and `fill-plan.mjs --replan` rebuilds that item's plan in place, with the cover
+// letter when the form has a slot, before any fill. Returns why the item waits, or null when the plan has fields.
+function replanUnread({ paths, child, it }) {
+  if (readPlan(it.plan)?.fields?.length) return null;
+  try {
+    if (!existsSync(formFieldsFile(join(paths.dataDir, FIELDS_DIR), it.link))) child('chrome.mjs', ['read-form', '--url', it.link]);
+    child('fill-plan.mjs', ['--replan', '--batch-id', it.batchId, '--item', String(it.item)]);
+  } catch (err) {
+    return `not submitted: its form could not be read and the plan rebuilt (${stepErrorText(err)}); it waits for a session`;
+  }
+  return readPlan(it.plan)?.fields?.length ? null : 'not submitted: the rebuilt plan still has no form fields; it waits for a session';
+}
+
 // Each approved, unsent item whose plan is ready: chrome.mjs fill --plan, then chrome.mjs submit, whose budget.mjs check
 // passes the plan's score and refuses an item not approved or already used. The batch approval covers both. Submit runs
 // only after a clean fill that typed a text field (fillHold); an item whose plan is not ready (planWait), whose fill
@@ -213,6 +227,11 @@ async function submitApproved({ paths, child, tally }) {
       continue;
     }
     if (it.plan && existsSync(it.plan)) {
+      const unread = replanUnread({ paths, child, it });
+      if (unread) {
+        wait(`${name} ${unread}`);
+        continue;
+      }
       const why = planWait(readPlan(it.plan));
       if (why) {
         wait(`${name} ${why}`);

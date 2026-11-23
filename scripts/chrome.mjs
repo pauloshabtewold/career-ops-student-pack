@@ -767,6 +767,10 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
     say(`chrome: batch ${flags.batchId} has no batch file, so item ${flags.item} cannot be matched to the approved line; nothing was clicked`);
     return EXIT.refused;
   }
+  if (!plan.fields?.length) {
+    say(`chrome: item ${flags.item} of ${flags.batchId} has no form fields: read the form first (node student/scripts/chrome.mjs read-form --url ${plan.link ?? plan.url}), rebuild the plan (node student/scripts/fill-plan.mjs --replan --batch-id ${flags.batchId} --item ${flags.item}), fill, then submit; nothing was clicked`);
+    return EXIT.refused;
+  }
   if (unfilled(plan)) {
     say(`chrome: item ${flags.item} of ${flags.batchId} has text fields but no fill typed one (no fill sentinel); ${REFILL(plan)}; nothing was clicked`);
     return EXIT.refused;

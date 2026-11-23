@@ -8,16 +8,18 @@
 //   --rows: JSON array of ranked rows (default: rank-queue.mjs --json); --fields-dir: the folder of <url-key-file>.json
 //   form fields per row (default data/form-fields, written by chrome.mjs read-form), each a list of fields or
 //   { ats, url, fields }.
+//        fill-plan.mjs --replan --batch-id ID --item N   rebuilds one approved item's plan from its form read since
+//   (replanItem); exit 3 when it was not rebuilt (the printed reason goes back to the student, nothing is submitted).
 // Exit 0 for a finished run (flags are printed); 4 when the browser slot refused a resume render (the run stops there
 // and writes no batch, so a scheduled caller retries later); 2 usage.
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as yaml from 'js-yaml';
-import { isMain, parseArgs, runCli } from '../lib/args.mjs';
+import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { atsTextProblems, htmlSections } from '../lib/ats-text.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formGaveUp, mapField, mapForm, readFields } from '../lib/ats-fields.mjs';
-import { writeBatches, updateBatch } from '../lib/batch-file.mjs';
+import { readBatch, writeBatches, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
@@ -313,18 +315,52 @@ function defaultRows(paths, n) {
   return res.code === 0 ? JSON.parse(res.stdout || '[]') : [];
 }
 
-const previewOf = (plan) => {
+// The batch line's preview: the letter's first real line, or why there is none. A plan built before its form was read
+// has no fields, so whether the form has a cover slot is not known yet.
+export const UNREAD_PREVIEW = 'form not read yet (fields and cover letter are added before submit)';
+export const previewOf = (plan) => {
+  if (!plan.fields?.length) return UNREAD_PREVIEW;
   if (!plan.cover || !existsSync(plan.cover)) return 'no cover letter slot';
   return readFileSync(plan.cover, 'utf8').split('\n').find((l) => l.length > 40) ?? '';
 };
 
-/** deps: fieldsFor(row) -> raw form fields, fetchJob(row), headless, writeCover, buildResume, atsCheck, runner. */
-export async function fillPlans({ paths, rows, today, deps = {}, say = console.log }) {
+async function planContext(paths, today, deps) {
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
-  const ctxBase = {
+  return {
     ...deps, root: paths.root, dataDir: paths.dataDir, today, config, presets: config.presets ?? [],
     answers: readProfileAnswers(paths.root) ?? {}, candidate: readCandidate(paths.root), cv: readFileSync(join(paths.root, 'cv.md'), 'utf8'),
   };
+}
+
+/**
+ * Rebuilds the plan of one approved batch item from its form read since (data/form-fields): fields, the cover letter when
+ * the form has a slot, and the uploads, in the item's own plan file with the same batch id, item number and link, so the
+ * approval still binds it. A rebuilt plan that fails the resume, letter or self-check gate is not written and the reason
+ * is returned. deps as fillPlans (fieldsFor, fetchJob, headless, writeCover, buildResume, atsCheck).
+ * Returns { code, plan?, reasons }: 0 rebuilt, 3 not rebuilt (no plan or batch line, no form read, a failed gate), 4 the
+ * browser slot refused the resume render.
+ */
+export async function replanItem({ paths, batchId, item, today, deps = {} }) {
+  const file = join(paths.dataDir, 'fill-plans', batchId, `${item}.json`);
+  const line = readBatch(paths.dataDir, batchId)?.items?.[item - 1];
+  if (!line?.link || !existsSync(file)) return { code: 3, reasons: [`no fill plan or batch line for item ${item} of ${batchId}`] };
+  const old = JSON.parse(readFileSync(file, 'utf8'));
+  const row = { url: line.link, company: old.company ?? line.company, role: old.role ?? line.role, track: old.track, ...(old.rank !== undefined ? { triage: old.score, score: old.rank } : { score: old.score }) };
+  const fields = (await (deps.fieldsFor ?? (() => []))(row)) ?? [];
+  if (!fields.length) return { code: 3, reasons: [`the form of ${line.link} has not been read (node student/scripts/chrome.mjs read-form --url ${line.link})`] };
+  const ctx = await planContext(paths, today, deps);
+  const plan = await planRow(row, { ...ctx, form: { url: row.url, fields }, batchId, item, outDir: join(paths.dataDir, 'fill-plans', `${batchId}-work`, String(item)) });
+  if (plan.wait) return { code: EXIT_WAIT, reasons: plan.flags };
+  const reasons = [...plan.flags, ...plan.selfCheck.flags];
+  if (!plan.inBatch || !plan.selfCheck.ok) return { code: 3, reasons: reasons.length ? reasons : ['the rebuilt plan did not pass the self-check'] };
+  const next = { ...plan, batchId, item, link: line.link };
+  writeAtomic(file, `${JSON.stringify(next, null, 2)}\n`);
+  return { code: 0, plan: next, reasons: [] };
+}
+
+/** deps: fieldsFor(row) -> raw form fields, fetchJob(row), headless, writeCover, buildResume, atsCheck, runner. */
+export async function fillPlans({ paths, rows, today, deps = {}, say = console.log }) {
+  const ctxBase = await planContext(paths, today, deps);
   const ready = [];
   // One work folder per run: a second run on the same day never overwrites a resume an earlier batch still uploads.
   const runDir = join(paths.dataDir, 'fill-plans', `${today}-run-${deps.runId ?? randomUUID().slice(0, 8)}`);
@@ -370,7 +406,7 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
 }
 
 async function main() {
-  const { flags } = parseArgs(process.argv.slice(2), { flags: { rows: 'string', 'fields-dir': 'string', n: 'int' } });
+  const { flags } = parseArgs(process.argv.slice(2), { flags: { rows: 'string', 'fields-dir': 'string', n: 'int', replan: 'boolean', 'batch-id': 'string', item: 'int' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const today = createClock({ today: flags.today, timezone: config.timezone }).today();
@@ -380,6 +416,13 @@ async function main() {
   const fieldsFor = (row) => readFields(fieldsDir, row.url);
   const fetch = defaultFetch(paths, config);
   const fetchJob = (row) => jobTextFor({ paths, url: row.url, fetch });
+  if (flags.replan) {
+    if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('--replan needs --batch-id ID --item N');
+    const res = await replanItem({ paths, batchId: flags.batchId, item: flags.item, today, deps: { fieldsFor, fetchJob } });
+    if (res.code === 0) console.log(`fill-plan: item ${flags.item} of ${flags.batchId} rebuilt from its read form (${res.plan.fields.length} field(s)${res.plan.cover ? ', cover letter' : ''})`);
+    else console.log(`fill-plan: item ${flags.item} of ${flags.batchId} not rebuilt and not submitted: ${res.reasons.join('; ')}`);
+    return res.code;
+  }
   return (await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor, fetchJob } })).code;
 }
 
