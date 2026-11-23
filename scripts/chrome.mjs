@@ -15,7 +15,7 @@
 // only after budget.mjs check passes for the approved item, and logs apply.submit only when the page confirms it.
 // Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (an item with no
 // unspent approval, checked before its plan is looked up; budget.mjs refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
-// changed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
+// changed, a plan with text fields that no fill typed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
 // user (budget.mjs exit 5 passed through, a password or sensitive field left for the student, a form that refused the
 // submit or a submit with no new confirmation, both added to finish these yourself, or a confirmed submit that could not
 // be logged), 6 CAPTCHA or bot check
@@ -709,6 +709,10 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
     say(`chrome: batch ${flags.batchId} has no batch file, so item ${flags.item} cannot be matched to the approved line; nothing was clicked`);
     return EXIT.refused;
   }
+  if (unfilled(plan)) {
+    say(`chrome: item ${flags.item} of ${flags.batchId} has text fields but no fill typed one (no fill sentinel); ${REFILL(plan)}; nothing was clicked`);
+    return EXIT.refused;
+  }
   const live = await liveState(dataDir, deps);
   if (!live) {
     say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
@@ -732,6 +736,10 @@ function finishAfterClick(addFinish, dataDir, flags, entry, say) {
 }
 
 const REFILL = (plan) => `fill it again with node student/scripts/chrome.mjs fill --plan ${plan.planFile}, then submit`;
+
+// A plan with a text field to type whose last fill typed none (its tab has no sentinel): submitting would click on a
+// blank or half-filled form, the same rule the autopilot's fill hold applies.
+export const unfilled = (plan) => !plan.tab?.sentinel && (plan.fields ?? []).some((f) => f.selector && !f.slot && TEXT_TYPES.has(String(f.type ?? '').toLowerCase()));
 
 export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps = {}, say }) {
   const link = plan.link ?? plan.url;
