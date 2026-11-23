@@ -84,7 +84,8 @@ function fixture(ats) {
   const rows = JOBS.map((j) => ({ ...j, url: `${ats.url}/greenhouse/form?job=${j.job}` }));
   r.write('data/pipeline.md', pipelineText({ pending: rows.map((j) => line(j.url, j.company, 'Software Engineering Intern', 'Remote', `triage=${j.triage}`)) }));
   mkdirSync(join(r.data, FIELDS_DIR), { recursive: true });
-  for (const j of rows) writeFileSync(join(r.data, FIELDS_DIR, jdFileName(j.url).replace(/\.txt$/, '.json')), JSON.stringify(FORM_FIELDS));
+  // Saved in the shape read-form writes since fix3 (form + submit + fields), so plans carry a formSelector.
+  for (const j of rows) writeFileSync(join(r.data, FIELDS_DIR, jdFileName(j.url).replace(/\.txt$/, '.json')), JSON.stringify({ form: '#application_form', submit: '#submit_app', fields: FORM_FIELDS }));
   // The job text triage saves for each row (data/jds/<key>.txt); the fixture's triage is faked, so it is seeded here.
   mkdirSync(join(r.data, 'jds'), { recursive: true });
   for (const j of rows) writeFileSync(join(r.data, 'jds', jdFileName(j.url)), `${j.company} is hiring a Software Engineering Intern (remote, summer 2026). You will build internal tools in Python, write SQL queries against our analytics store, ship small features with code review, and work with a mentor on one scoped project. Requirements: pursuing a B.S. in Computer Science or a related field, coursework or projects in Python, basic SQL. Nice to have: scheduling or automation tools.\n`);
