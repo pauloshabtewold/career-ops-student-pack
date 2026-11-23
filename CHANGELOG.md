@@ -4,6 +4,12 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.11.0 (2026-11-22)
+
+- Merge branch 'claude/v2-p4'
+
+### Details
+
 - M-005 (P4 Autopilot): each scheduled run ends with `scripts/autopilot.mjs` once setup has recorded `chrome_in_schedule`. It ranks the day, prepares fill plans, cover letters, outreach drafts and due follow-ups as one-page batches, and submits nothing without your approval. When the schedule reaches the automation Chrome it fills and submits approved, unsent items through `chrome.mjs` (whose `budget.mjs` check uses the plan's score; a posting is never submitted twice), but only items whose fill plan carries the form's fields, which today come from a session that read the form, and has no unknown question and no field only you fill (a government id, card or bank field). After the fill it submits only when every field was filled and a text field was typed; a field it could not fill, or an upload-only fill, holds the item. Any held item waits with its reason (fields only you fill are named, never their values) and the footer offers a session fill. It reads outcome mail with the newest message's sender address, at most 10 new conversations a run, and says how many more the next run reads; otherwise the digest names the steps waiting for Chrome and ends with Next, Type and Why. Rows and contacts already waiting for approval are not prepared again. Outcome mail sets a row only from the company's own registrable domain, for one clear row, with no conflicting same-day mail and never backwards.
 - `node student/scripts/schedule.mjs pause` and `resume` stop and restart scheduled runs without removing them ("pause my schedule" now pauses; "remove my schedule" uninstalls). Missed runs are recorded in `data/student-runs.tsv`; the next run runs once and the digest lists the missed dates (7 at most, then a count).
 - Outcome mail: a rejection, interview or offer from the tracked company's own domain sets the status when the phrase rules, the domain and (while T7 is off) the agent classifier agree; the prior status goes in the set-status note. Anything else stays a proposal. The scheduled inbox pass classifies outcome mail with its own agent.
