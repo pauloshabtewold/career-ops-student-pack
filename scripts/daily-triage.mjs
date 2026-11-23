@@ -10,6 +10,10 @@
 // model's verdict into a FAIL after the call). Calls go through lib/headless.mjs, which writes a usage-ledger row.
 // With T1 on, Pending rows already triaged by this script are fetched again while today's budget has room, and only a
 // row whose job text changed since its verdict is sent again.
+// Tuning levers, each off until docs/lever-verdicts.json in the pack records a pass: jd_trim sends only the requirement,
+// eligibility, location and pay sections of each posting, batch_size sends the tested rows per call, and T2 scores in two
+// steps (a cheaper model pre-screens every row, the standard tier makes the final score of every PASS and MARGINAL row).
+// No lever lowers the tier of a final score below budget.mjs triage_tier_min (standard).
 // Usage: daily-triage.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--agent claude|codex] [--agent-path PATH]
 //        [--claude PATH] [--log-file F] [--deadline EPOCH_MS]
 //        (--claude PATH is the older spelling of --agent claude --agent-path PATH; --deadline is the time scheduled.mjs
@@ -24,7 +28,8 @@ import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { HeadlessError, runHeadless } from '../lib/headless.mjs';
 import { jdRule, studentFromConfig } from '../lib/jd-rules.mjs';
-import { isOn } from '../lib/levers.mjs';
+import { trimJobText, DEFAULT_WORDS as TRIM_WORDS } from '../lib/jd-trim.mjs';
+import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
 import { isRisky, riskReason, riskRules } from '../lib/posting-risk.mjs';
 import { loadCache, record as recordCache, status as cacheStatus } from '../lib/triage-cache.mjs';
 import { urlKey } from '../lib/url-key.mjs';
@@ -243,15 +248,23 @@ function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
   return { configured, hint, file };
 }
 
-// One call to the configured agent; the model follows spend_tier (premium opus or high effort, otherwise sonnet or medium).
-// The student chose premium, so opus is allowed here as it was before the ledger existed. A HeadlessError is unwrapped so
-// the failure reasons below see the agent's own exit status and stderr.
-async function callAgent({ configured, file, config, prompt, packRoot, runner, platform, dataDir, today, rows }) {
-  const premium = config.spend_tier === 'premium';
+// The model of one call follows spend_tier (premium opus or high effort, otherwise sonnet or medium). Tier 'prescreen' is
+// T2's first pass (haiku, codex low effort); it never makes a final score for a top or borderline row, so triage_tier_min
+// (standard) still holds for every final score. A premium student's pre-screen stays premium.
+export function tierFor(config, tier = 'standard') {
+  if (config.spend_tier === 'premium') return { model: 'opus', effort: 'high', allowTop: true };
+  if (tier === 'prescreen') return { model: 'haiku', effort: 'low', allowTop: false };
+  return { model: 'sonnet', effort: 'medium', allowTop: false };
+}
+
+// One call to the configured agent at the tier tierFor names. The student chose premium, so opus is allowed there as it
+// was before the ledger existed. A HeadlessError is unwrapped so the failure reasons below see the agent's own exit
+// status and stderr.
+async function callAgent({ configured, file, config, prompt, packRoot, runner, platform, dataDir, today, rows, tier = 'standard' }) {
   try {
     const res = await runHeadless({
       agent: configured, agentPath: file, prompt, runner, platform, packRoot, dataDir, date: today, rows,
-      step: 'triage', feature: 'M1', model: premium ? 'opus' : 'sonnet', effort: premium ? 'high' : 'medium', allowTop: premium, tempPrefix: `daily-triage-${configured}-`,
+      step: tier === 'prescreen' ? 'triage-prescreen' : 'triage', feature: 'M1', ...tierFor(config, tier), tempPrefix: `daily-triage-${configured}-`,
     });
     if (configured === 'codex' && !res.text.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
     return res.text;
@@ -353,10 +366,25 @@ function budgetGate({ config, dataDir, today }) {
 }
 
 // How many agent calls today's budget allows, for the child timeout in scheduled.mjs. 0 when triage is off or stopped.
-export function plannedChunks({ config, dataDir, today }) {
+// With T2 on each chunk makes two calls (the pre-screen and the standard-tier re-check).
+export function plannedChunks({ config, dataDir, today, levers = leverOpts() }) {
   const { left, stop } = budgetGate({ config, dataDir, today });
   if (stop) return 0;
-  return Math.ceil(Math.min(left, selectUntriagedRows(dataDir, Infinity).length) / CHUNK_ROWS);
+  const chunks = Math.ceil(Math.min(left, selectUntriagedRows(dataDir, Infinity).length) / chunkRows(levers));
+  return resolveLever('T2', levers).on ? chunks * 2 : chunks;
+}
+
+// Rows per agent call: the batch_size lever's tested value when it passed, else CHUNK_ROWS.
+export function chunkRows(levers = leverOpts()) {
+  const n = Number(resolveLever('batch_size', levers).value);
+  return resolveLever('batch_size', levers).on && Number.isInteger(n) && n > 0 ? n : CHUNK_ROWS;
+}
+
+// Words of job text sent per posting with jd_trim on, or null when the lever is off (the text is cut at JD_CHARS only).
+export function trimWords(levers = leverOpts()) {
+  const r = resolveLever('jd_trim', levers);
+  const n = Number(r.value);
+  return r.on ? (Number.isInteger(n) && n > 0 ? n : TRIM_WORDS) : null;
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -364,6 +392,8 @@ const MINUTE_MS = 60 * 1000;
 // apply-triage and startup, and the cap keeps the child inside run_lock_hours so a later run is not locked out.
 // WORST_CHUNK_MS is the same worst case for one chunk: daily-triage stops starting chunks that could not end by its deadline.
 export const WORST_CHUNK_MS = AGENT_TIMEOUT_MS + CHUNK_ROWS * FETCH_TIMEOUT_MS;
+// A chunk larger than CHUNK_ROWS (batch_size) adds its extra fetches; T2 adds its second agent call.
+const worstChunkMs = (rows, levers) => WORST_CHUNK_MS + Math.max(0, rows - CHUNK_ROWS) * FETCH_TIMEOUT_MS + (resolveLever('T2', levers).on ? AGENT_TIMEOUT_MS : 0);
 export function triageChildTimeoutMs({ chunks, runLockHours }) {
   const wanted = chunks * (AGENT_TIMEOUT_MS + CHUNK_ROWS * FETCH_TIMEOUT_MS) + 10 * MINUTE_MS;
   // A tight run_lock_hours must still give a whole, positive timeout: 0 would mean no limit and a negative or fractional
@@ -378,11 +408,11 @@ export function triageChildTimeoutMs({ chunks, runLockHours }) {
 // failure { kind, reason }.
 // Fetches the chunk's postings and runs the free rules; returns the rows still bound for the model and the lines decided
 // without one.
-async function prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today }) {
+async function prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today, levers }) {
   const fetched = [];
   for (const row of chunk) fetched.push({ row, ...(await fetchPosting({ root, row, runner, mayFetch })) });
   const closed = fetched.filter((f) => f.closed !== undefined).map((f) => expiredLine(f.row.url, f.closed));
-  const pre = preModel(fetched.filter((f) => f.closed === undefined), { student: studentFromConfig(config), cache, t1On: isOn('T1'), t16On: isOn('T16'), recheck, today });
+  const pre = preModel(fetched.filter((f) => f.closed === undefined), { student: studentFromConfig(config), cache, t1On: resolveLever('T1', levers).on, t16On: resolveLever('T16', levers).on, recheck, today });
   const guard = { removed: fetched.reduce((acc, f) => addRemoved(acc, f.removed), {}), flagged: fetched.filter((f) => f.flagged.length).length };
   return { pre, open: pre.send, expired: [...closed, ...pre.decided], guard };
 }
@@ -397,8 +427,8 @@ async function finishChunk({ held, expired, open, lines, passed, ignored, guard,
   return { triaged: lines.length + expired.length, passed, ignored, guard, sent: open.length };
 }
 
-async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck }) {
-  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today });
+async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck, levers }) {
+  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today, levers });
   // A chunk of unchanged rechecks decides nothing, so apply-triage is not started for it.
   const apply = (lines) => (lines.length ? runApplyTriage({ lines, root, dataDir, packRoot, runner }) : null);
   if (!open.length) {
@@ -406,12 +436,15 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
     return reason ? { failure: { kind: 'apply', reason }, sent: 0 } : { triaged: expired.length, passed: 0, ignored: 0, guard, sent: 0 };
   }
   const flagsByUrl = new Map(open.filter((f) => f.flagged.length).map((f) => [f.row.url, f.flagged]));
-  const postings = open.map(({ row, text }) => ({ url: row.url, company: row.company, title: row.title, text }));
-  const prompt = buildPrompt({ brief: readIf(join(root, 'modes', '_brief.md')), postings });
+  const words = trimWords(levers);
+  const postingsOf = (list) => list.map(({ row, text }) => ({ url: row.url, company: row.company, title: row.title, text: words && text ? trimJobText(text, { words }) : text }));
+  const brief = readIf(join(root, 'modes', '_brief.md'));
+  const twoStep = resolveLever('T2', levers).on;
+  const call = (list, tier) => callAgent({ configured, file, config, prompt: buildPrompt({ brief, postings: postingsOf(list) }), packRoot, runner, platform, dataDir, today, rows: list.length, tier });
   const record = (outcome) => appendTriageUsage(dataDir, { date: today, source: 'scheduled', rows: open.length, outcome });
   let output;
   try {
-    output = await callAgent({ configured, file, config, prompt, packRoot, runner, platform, dataDir, today, rows: open.length });
+    output = await call(open, twoStep ? 'prescreen' : 'standard');
   } catch (err) {
     // An empty answer spent the call but is not a sign-in or timeout failure, so it must not end the day's scheduled triage.
     const sent = err.code !== 'ENOENT' && !cannotStart(err);
@@ -420,14 +453,16 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
   }
   const kept = filterVerdicts(output, new Set(open.map((f) => f.row.url)));
   const { ignored } = kept;
-  const lines = applyRiskAfter(kept.lines, pre.riskAfter);
+  const scored = twoStep ? await finalScores({ lines: kept.lines, open, call }) : kept.lines;
+  const lines = applyRiskAfter(scored, pre.riskAfter);
   const held = holdFlagged(lines, flagsByUrl);
   // PASS verdicts are counted after applyRiskAfter turned risky ones into FAIL, minus the ones held for a person.
   const passed = lines.filter((l) => VERDICT_RE.exec(l)?.[1] === 'PASS').length - held.passed;
   // A refusal, limit or login message arrives as prose with exit 0; counting it as a good chunk would send every later chunk too.
   if (!lines.length) {
     await record('failed');
-    return { failure: { kind: 'call', reason: `${configured} answered with no verdict lines (${oneLine(output) || 'empty answer'})` }, sent: open.length };
+    const reason = kept.lines.length ? `the standard-tier re-check scored none of the ${kept.lines.length} pre-screened top or borderline rows; they stay untriaged` : `${configured} answered with no verdict lines (${oneLine(output) || 'empty answer'})`;
+    return { failure: { kind: 'call', reason }, sent: open.length };
   }
   return finishChunk({ held, expired, open, lines, passed, ignored, guard, apply, record, dataDir, today });
 }
@@ -438,7 +473,7 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
 async function runChunks({ chunks, note, deadline, now, ...ctx }) {
   const run = { triaged: 0, passed: 0, ignored: 0, sent: 0, failure: null, timeLimit: null };
   for (const [i, chunk] of chunks.entries()) {
-    if (deadline !== null && now() + WORST_CHUNK_MS > deadline) {
+    if (deadline !== null && now() + worstChunkMs(chunk.length, ctx.levers) > deadline) {
       run.timeLimit = { chunk: i + 1, rowsLeft: chunks.slice(i).reduce((n, c) => n + c.length, 0) };
       break;
     }
@@ -457,6 +492,27 @@ async function runChunks({ chunks, note, deadline, now, ...ctx }) {
 }
 
 const failureText = ({ kind, reason }) => (kind === 'apply' ? `could not apply its verdicts: ${reason}` : reason);
+
+const topOrBorderline = (line) => {
+  const m = VERDICT_RE.exec(line);
+  return Boolean(m && (m[1] === 'PASS' || m[1] === 'MARGINAL'));
+};
+
+// T2: after the cheap pre-screen of all rows, the standard tier makes the final score of every PASS and MARGINAL row, so
+// the standard model sees only the rows whose verdict matters most. A top or borderline row the standard tier did not
+// score (a failed or partial re-check) has no final score and stays untriaged for a later run; FAIL lines stand.
+async function finalScores({ lines, open, call }) {
+  const recheckUrls = new Set(lines.filter(topOrBorderline).map((l) => VERDICT_RE.exec(l)[2]));
+  if (!recheckUrls.size) return lines;
+  let byUrl = new Map();
+  try {
+    const second = filterVerdicts(await call(open.filter((f) => recheckUrls.has(f.row.url)), 'standard'), recheckUrls);
+    byUrl = new Map(second.lines.map((l) => [VERDICT_RE.exec(l)[2], l]));
+  } catch {
+    // byUrl stays empty: every top or borderline row waits for a later run, and the re-check's ledger row is written.
+  }
+  return lines.map((l) => (topOrBorderline(l) ? byUrl.get(VERDICT_RE.exec(l)[2]) : l)).filter(Boolean);
+}
 
 // The rows sent per run are the student's own triage budget (lib/triage-budget.mjs): 20 unless the student chose another
 // number or "all", minus the rows already sent today. `deadline` is an epoch-ms time (null for none) that a chunk must be
@@ -490,13 +546,14 @@ export async function dailyTriage({ root, dataDir, packRoot, today, runner = def
   }
   try {
     const mayFetch = createFetchGate({ robots, sleep, now, gapMs: effectiveLimits(config).values.request_gap_ms });
-    return await triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now, mayFetch });
+    const levers = leverOpts(packRoot, root);
+    return await triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now, mayFetch, levers });
   } finally {
     lock.release();
   }
 }
 
-async function triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now, mayFetch }) {
+async function triageToday({ config, configured, file, note, root, dataDir, packRoot, today, runner, platform, deadline, now, mayFetch, levers }) {
   const { daily, calibration, left, stop } = budgetGate({ config, dataDir, today });
   // Rows sent today come from the ledger after this run's chunks are written to it.
   const costLine = (rows) => `daily triage cost: ${readTriageUsage(dataDir, today).today} rows sent today (counted against the budget of ${daily}); ${formatCostLine({ agent: configured, plan: config.plan, rows, spendTier: config.spend_tier, calibration })}`;
@@ -505,13 +562,13 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     return { ran: false };
   }
   const selected = selectUntriagedRows(dataDir, left);
-  const { keep, dupes } = isOn('T13') ? dedupeRows(selected) : { keep: selected, dupes: [] };
+  const { keep, dupes } = resolveLever('T13', levers).on ? dedupeRows(selected) : { keep: selected, dupes: [] };
   if (dupes.length) {
     const reason = runApplyTriage({ lines: dupes, root, dataDir, packRoot, runner });
     note([reason ? `daily triage could not apply duplicate lines: ${reason}` : `daily triage: ${dupes.length} duplicate row(s) failed before any fetch`]);
   }
   const cache = await loadCache(dataDir);
-  const rechecks = isOn('T1') ? selectRecheckRows(dataDir, cache, left - selected.length) : [];
+  const rechecks = resolveLever('T1', levers).on ? selectRecheckRows(dataDir, cache, left - selected.length) : [];
   const rows = [...keep, ...rechecks];
   if (!rows.length) {
     note(['daily triage: triaged 0, passed 0, ignored 0 (no untriaged Pending rows)', costLine(0)]);
@@ -521,9 +578,10 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     note([`daily triage skipped: ${configured} was not found; install it, ${signInHint(configured)}, then run node student/scripts/schedule.mjs install again`]);
     return { ran: false };
   }
-  const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK_ROWS) }, (_, i) => rows.slice(i * CHUNK_ROWS, (i + 1) * CHUNK_ROWS));
+  const size = chunkRows(levers);
+  const chunks = Array.from({ length: Math.ceil(rows.length / size) }, (_, i) => rows.slice(i * size, (i + 1) * size));
   const recheck = new Set(rechecks.map((r) => r.url));
-  const run = await runChunks({ chunks, note, deadline, now, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck });
+  const run = await runChunks({ chunks, note, deadline, now, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck, levers });
   const { failure } = run;
   if (failure && failure.chunk === 1) {
     note([failure.kind === 'apply' ? `daily triage ${failureText(failure)}` : `daily triage skipped: ${failureText(failure)}`]);
