@@ -19,6 +19,7 @@ import { join, posix, win32 } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { resolveAgentPath, signInHint } from '../lib/agent.mjs';
 import { createClock, zonedInstant } from '../lib/clock.mjs';
+import { guidedFooter } from '../lib/next-step.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { SCHEDULE_LABEL, SCHEDULE_TASK_NAME, installedScheduleArgs, launchAgentPath, plistArguments } from '../lib/schedule-check.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -47,15 +48,15 @@ export function pauseCommand(command, dataDir, { installed = () => true, say = (
   if (command === 'pause') {
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(file, `${new Date().toISOString()}\n`);
-    for (const l of ['schedule paused: the installed schedule stays, and scheduled runs start nothing until you resume', 'Next: nothing runs until you resume', 'Type: resume my schedule', 'Why: pausing keeps your schedule; resuming catches up once on the next run.']) say(l);
+    for (const l of ['schedule paused: the installed schedule stays, and scheduled runs start nothing until you resume', ...guidedFooter({ step: 'nothing runs until you resume', prompt: 'resume my schedule', why: 'pausing keeps your schedule; resuming catches up once on the next run.' })]) say(l);
     return 0;
   }
   rmSync(file, { force: true });
   if (!installed()) {
-    for (const l of ['schedule resumed, but no schedule is installed, so nothing runs on its own yet', 'Next: turn on the daily schedule', 'Type: turn on my daily schedule', 'Why: I\'ll run node student/scripts/schedule.mjs install, approve?']) say(l);
+    for (const l of ['schedule resumed, but no schedule is installed, so nothing runs on its own yet', ...guidedFooter({ step: 'turn on the daily schedule', prompt: 'turn on my daily schedule', why: 'I\'ll run node student/scripts/schedule.mjs install, approve?' })]) say(l);
     return 0;
   }
-  for (const l of ['schedule resumed: the next scheduled run catches up once', 'Next: let the next scheduled run go', 'Type: check my schedule', 'Why: the check proves the installed job starts and each step passes.']) say(l);
+  for (const l of ['schedule resumed: the next scheduled run catches up once', ...guidedFooter({ step: 'let the next scheduled run go', prompt: 'check my schedule', why: 'the check proves the installed job starts and each step passes.' })]) say(l);
   return 0;
 }
 
