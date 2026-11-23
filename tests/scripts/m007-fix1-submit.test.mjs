@@ -1,6 +1,7 @@
 // M-007 fix round 1, S-1: chrome.mjs submit refuses (exit 3, "fill it again") an approved item whose plan has a text
-// field but whose last fill typed none (no fill sentinel). budget.mjs is a fake runner that passes every check; the
-// automation Chrome is never reached (a liveness probe would print "not running" and exit 7). Fake data only.
+// field but whose last fill typed none (no fill sentinel). S-4: the batch approval footer says what goes out now, with no
+// third ask. budget.mjs is a fake runner that passes every check; the automation Chrome is never reached (a liveness
+// probe would print "not running" and exit 7). Fake data only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateBatch, writeBatches } from '../../lib/batch-file.mjs';
 import { appendTsv } from '../../lib/tsv.mjs';
+import { main as batchMain } from '../../scripts/batch.mjs';
 import { EXIT, main, unfilled } from '../../scripts/chrome.mjs';
 import { LOG_HEADER, row } from '../helpers/budget-harness.mjs';
 
@@ -49,6 +51,25 @@ test('S-1 submit refuses an approved item with a text field and no fill sentinel
     assert.ok(!res.budget.includes('apply.pending'), 'no pending row was logged');
   } finally {
     r.cleanup();
+  }
+});
+
+test('S-4 after "approve all except 2" the footer says what goes out now and asks nothing more', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'pack-m007-approve-'));
+  const dataDir = join(root, 'data');
+  try {
+    for (const kind of ['apply', 'outreach']) {
+      const [id] = writeBatches(dataDir, { date: '2026-11-03', kind, items: [1, 2, 3].map((n) => ({ company: `Example Co ${n}`, role: 'Intern', score: 4.1, preview: 'Fake.', link: `${LINK}${n}` })) });
+      const said = [];
+      const code = await batchMain(['approve', id, 'approve all except 2', '--root', root, '--data-dir', dataDir], { say: (l) => said.push(String(l)), runner: () => ({ code: 0, stdout: '', stderr: '' }) });
+      assert.equal(code, 0, said.join('\n'));
+      const verb = kind === 'apply' ? 'submitting' : 'sending';
+      assert.ok(said.includes(`Next: I'm ${verb} items 1, 3 of ${id} now; nothing else goes out`), said.join('\n'));
+      assert.ok(said.includes(`Type: show the status of ${id}`), said.join('\n'));
+      assert.ok(!said.some((l) => /^Type: (submit|send) the approved/.test(l)), 'no third ask');
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

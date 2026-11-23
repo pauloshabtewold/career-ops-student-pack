@@ -13,7 +13,7 @@ The autopilot needs `chrome_in_schedule`: setup-flow runs tools/schedule-probe.m
 ## Invariants
 
 - Script first, model last. Fetching, filtering, dedupe, known-ATS field mapping, ranking, reply-rate stats and tracker writes are plain code. A model runs only for fit judgment, the tailored resume and the one tailored cover paragraph, outreach personal lines, unknown form questions, outcome-mail classification and reply sorting, the weekly outreach lessons (one call over new or changed threads only), and the opt-in pre-submit reviewer (`reviewer: "off"` by default).
-- Nothing is submitted or sent outside a batch the student approved. Every submit and send first asks budget.mjs, which refuses an item with no unused logged approval (exit 3); one approval item is spent once. Filling never asks for approval; the two asks are unknown questions (saved to the answer bank) and "submit this batch?".
+- Nothing is submitted or sent outside a batch the student approved. Every submit and send first asks budget.mjs, which refuses an item with no unused logged approval (exit 3); one approval item is spent once. Filling never asks for approval; the two asks are unknown questions (saved to the answer bank) and "submit this batch?". The approval is the submit decision: once it is logged the approved items go out with no third ask.
 - A CAPTCHA or bot check is never solved or bypassed. The job goes to a "finish these yourself" list with a direct link.
 - Passwords, card numbers and API keys are never typed. Sign-ins are the student's.
 - The automation Chrome profile is separate from the default profile because Chrome blocks remote debugging on the default one. The debugging endpoint is accepted on loopback only.
