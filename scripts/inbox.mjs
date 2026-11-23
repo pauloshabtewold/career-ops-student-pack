@@ -248,12 +248,12 @@ export function agentClassifier({ agent = 'claude', agentPath, runner, dataDir, 
 }
 
 // Outcome-candidate mail: a rejection or interview mail from a tracked company, offer wording from one, and outcome
-// wording from another sender that names a tracked company, which can only be a proposal. The last kind needs a
-// classifier, except for a mail with no sender address (a row read only as list text), which is never dropped silently.
+// wording from another sender that names a tracked company (an ATS relay, a no-sender list row), which can only be a
+// proposal, with or without a classifier, so it is never dropped silently.
 function outcomeCandidate({ m, c }, env) {
   const text = `${m.subject} ${m.snippet}`;
   if (c.company && (OUTCOME_KINDS.includes(c.kind) || (c.kind !== 'assessment' && phraseClass(text) === 'offer'))) return c.company;
-  if (c.kind !== 'ignore' || (!env.classify && m.from) || !phraseClass(text)) return null;
+  if (c.kind !== 'ignore' || !phraseClass(text)) return null;
   return companyInText(text, env.companies)?.name ?? null;
 }
 
