@@ -318,8 +318,18 @@ const short = (s) => String(s).replace(/\s+/g, ' ').slice(0, 160);
 
 // One metered call. Each agent and the judge have their own stop at STOP_FACTOR times their estimate, checked before
 // the call; an unmeasured call counts at its estimate for the stop. A quota, limit or sign-in answer stops at once, any
-// other failure is retried once and then stops; every stop is a BlockedError naming the agent (exit 5).
+// other failure is retried once and then stops; every stop is a BlockedError naming the agent (exit 5). The stop is kept
+// on ctx.blocked too, because a shipped helper that catches its call's error (digest aiSummaryLine) would hide it.
 function runCall(ctx, call) {
+  try {
+    return meteredCall(ctx, call);
+  } catch (err) {
+    if (err instanceof BlockedError) ctx.blocked ??= err;
+    throw err;
+  }
+}
+
+function meteredCall(ctx, call) {
   const key = call.judge ? 'judge' : call.agent;
   if (ctx.meter) ctx.meter.before();
   else if (ctx.spent[key] > ctx.limit[key] * STOP_FACTOR) throw new BlockedError(`${meterName(key)} real usage ${ctx.spent[key]} tokens passed ${STOP_FACTOR} x its estimate of ${ctx.limit[key]}; stopped before the next arm`);
@@ -1077,6 +1087,7 @@ async function trial(env, id, value) {
   }
   if (['review', 'digest', 'guided'].includes(spec.kind)) {
     const r = await { review: reviewMetrics, digest: digestMetrics, guided: guidedMetrics }[spec.kind](ctx);
+    if (ctx.blocked) throw ctx.blocked;
     const required = { review: ['DECISION_MATCH'], digest: REQUIRED.draft, guided: ['PATTERN_PASS', 'JUDGE_NOT_WORSE_MIN'] }[spec.kind];
     const names = { review: 'review every item, then the checks (T8 off path)', digest: 'code-built digest (T9 off path)', guided: 'agent-written block from the pattern rule (T14 off path)' };
     const note = spec.kind === 'review' ? '; each item is reviewed once and the answer reused by both orders, so DECISION_MATCH checks the order alone and is 1 whenever the checks agree with the review; the reviewer calls price the tokens before' : '';
@@ -1231,8 +1242,12 @@ function qualityOf(v) {
 
 // Quality lost in a lever's solo run: the drop of every at-least and accuracy measure plus the rise of every at-most
 // measure from before to after. A measure with no before is compared with the reference (1 for at-least and accuracy
-// measures, 0 for at-most ones). A gain counts negative, so it ranks below a lever that changed nothing.
+// measures, 0 for at-most ones); plain-number quality before and after is one score. A gain counts negative, so it ranks
+// below a lever that changed nothing.
 export function soloLoss(v) {
+  const q = v?.quality;
+  // A single quality score per side: the drop from before (1 when absent) to after.
+  if (q && typeof q === 'object' && typeof q.after === 'number') return (typeof q.before === 'number' ? q.before : 1) - q.after;
   const { before, after } = qualityOf(v);
   let loss = 0;
   for (const [key, a] of Object.entries(after)) {

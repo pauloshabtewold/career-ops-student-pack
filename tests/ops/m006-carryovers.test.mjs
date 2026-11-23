@@ -371,3 +371,30 @@ test('R2-N1: campaign --dry-run prints a stacked preview with the solo control r
     assert.doesNotMatch(text, /no stacked run was made/);
   });
 });
+
+// Fix 2b (verify r3): plain-number quality scores, and a returned limit error inside a shipped helper that catches it.
+test('2b: soloLoss reads plain-number quality before and after', async () => {
+  const { soloLoss } = await fix2();
+  const v = (before, after) => ({ verdict: 'pass', tokens: { before: 100, after: 80 }, quality: { before, after } });
+  assert.ok(soloLoss(v(0.92, 0.7)) > soloLoss(v(0.92, 0.88)));
+  assert.ok(soloLoss(v(0.92, 0.88)) > soloLoss(v(0.8, 0.86)), 'a gain ranks lowest');
+});
+
+test('2b: a returned rate-limit error in the T9 digest helper stops runSolo with exit 5 naming claude, after the estimate', async () => {
+  const { runSolo } = await fix2();
+  await withPack(async (dir, h) => {
+    const out = h.sayer();
+    let before = null;
+    const calls = [];
+    const runner = (call) => {
+      before ??= out.lines.slice();
+      calls.push(call);
+      return { text: '', model: null, usage: null, error: '429 Too Many Requests: rate limit reached for this account' };
+    };
+    const code = await runSolo({ root: dir, levers: ['T9'], runner, judge: runner, resolve: (a) => `/fake/bin/${a}`, say: out.say, seed: 'fix2b', today: '2026-11-22' });
+    assert.ok(before && /estimate/.test(before.join('\n')) && /opus judge/.test(before.join('\n')), 'estimate before the first call');
+    assert.equal(code, 5, out.lines.join('\n'));
+    assert.match(out.lines.join('\n'), new RegExp(`blocked-on-user.*${calls[0].agent === 'codex' ? 'codex' : 'claude'}`));
+    assert.notEqual(h.verdictJson(dir).levers?.T9?.verdict, 'pass');
+  });
+});
