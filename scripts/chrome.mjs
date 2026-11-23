@@ -10,8 +10,8 @@
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
 // only after budget.mjs check passes for the approved item, and logs apply.submit only when the page confirms it.
-// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (budget.mjs
-// refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
+// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (an item with no
+// unspent approval, checked before its plan is looked up; budget.mjs refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
 // changed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
 // user (budget.mjs exit 5 passed through, a password or sensitive field left for the student, a form that refused the
 // submit or a submit with no new confirmation, both added to finish these yourself, or a confirmed submit that could not
@@ -21,6 +21,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { SENSITIVE_KEY } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
@@ -33,6 +34,7 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 import { which } from '../lib/which.mjs';
+import { approvedItem } from './budget.mjs';
 
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
@@ -562,6 +564,17 @@ export function resolveSubmitPlan(dataDir, batchId, item) {
   return { plan };
 }
 
+// Why a numbered line with no unspent logged approval is refused, or null. Checked before the fill-plan lookup, so an item
+// left out of the approval exits 3 whether or not it has a plan. A missing batch or line, or a line on finish these
+// yourself, is left to resolveSubmitPlan, which names that problem.
+export async function approvalProblem(dataDir, batchId, item) {
+  const batch = readBatch(dataDir, batchId);
+  const line = batch?.items?.[item - 1];
+  if (!line || (batch.finishYourself ?? []).some((f) => f.link === line.link)) return null;
+  const rows = await readActionLog(join(dataDir, 'action-log.tsv'));
+  return approvedItem(rows, batchId, item) ? null : `item ${item} of batch ${batchId} has no unspent approval`;
+}
+
 // Easy Apply is checked and logged as apply.easy_apply, which has its own daily cap and LinkedIn pacing in budget.mjs.
 export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit', 'easy-apply': 'apply.easy_apply' });
 
@@ -625,7 +638,12 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('submit needs --batch-id ID --item N');
   const action = SUBMIT_KINDS[flags.kind ?? 'apply'];
   if (!action) throw new UsageError(`--kind must be one of ${Object.keys(SUBMIT_KINDS).join(', ')}`);
-  const found = resolveSubmitPlan(dataDir, flags.batchId, flags.item);
+  const unapproved = await approvalProblem(dataDir, flags.batchId, flags.item);
+  if (unapproved) {
+    say(`chrome: ${unapproved}; nothing was clicked`);
+    return EXIT.refused;
+  }
+  const found =resolveSubmitPlan(dataDir, flags.batchId, flags.item);
   if (found.problem) {
     say(`chrome: ${found.problem}; nothing was clicked`);
     return found.refused ? EXIT.refused : EXIT.usage;
