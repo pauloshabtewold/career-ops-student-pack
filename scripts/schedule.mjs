@@ -35,6 +35,12 @@ function parseTime(time) {
   return { hour: Number(m[1]), minute: Number(m[2]), text: `${m[1].padStart(2, '0')}:${m[2]}` };
 }
 
+export const PAUSE_FILE = '.schedule-paused';
+
+export function pauseCommand(command, dataDir) {
+  throw new Error('not implemented');
+}
+
 // launchd and Task Scheduler both fire on this computer's clock, while the student picks the time in the time zone of
 // config/student.yml; the two differ for a student whose laptop is set to another zone. Converted with today's offsets,
 // which holds until one of the two zones changes daylight saving time without the other.

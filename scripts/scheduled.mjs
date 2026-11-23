@@ -31,6 +31,8 @@ const INBOX_DEADLINE_MARGIN_MS = 60 * 1000;
 // A schedule installed before the agent flags existed passes only --claude; it keeps working until reinstalled.
 const agentFlagsFor = ({ agent, agentPath, claude }) => (agentPath ? ['--agent', agent, '--agent-path', agentPath] : claude ? ['--claude', claude] : []);
 
+export const MISSED_FILE = '.missed-runs.txt';
+
 // Each script runs as its own child process, so a crash or timeout in the daily run cannot stop triage and the reverse.
 // daily.mjs gets --via-scheduled so it knows this wrapper already starts triage.
 export async function scheduledRun({ root, packRoot, passThrough, agent, agentPath, claude, dataDir = resolvePaths({ root }).dataDir, today, runner = defaultRunner, out = (s) => console.log(s) }) {

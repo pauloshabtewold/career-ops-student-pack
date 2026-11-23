@@ -298,6 +298,14 @@ function blockRules({ config, pending, keyOf, history, submitted }) {
   };
 }
 
+export function trackerApps(applicationsText) {
+  throw new Error('not implemented');
+}
+
+export function replyBoost(row, rates, base) {
+  throw new Error('not implemented');
+}
+
 export function rankQueue({ doc, config, today, actionRows = [], contactsText = '', connectionsText = '', applicationsText = '', sidecarText = '', n }) {
   const { values: limits } = effectiveLimits(config);
   const pending = sectionRows(doc, 'Pending');
