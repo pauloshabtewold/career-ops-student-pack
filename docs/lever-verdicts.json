@@ -470,5 +470,5 @@
     "rounds": [],
     "final": []
   },
-  "invented_facts_rule": "lever-added over control, inputs as sources"
+  "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar"
 }

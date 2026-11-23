@@ -57,7 +57,20 @@ and lever-better.
 ## Invented facts
 
 An invented fact is any number, year, organization, credential or skill in a draft that the fake student's resume,
-application answers and the input do not support. Each one counts once. The bar is zero for every lever.
+application answers and the input do not support. Each one counts once. The bar is zero for every lever, with one
+allowance for the drafts (option A, below).
+
+### Option A: the same-day allowance for drafts
+
+Two drafts written with the lever off still differ a little, so a second lever-off draft already adds a few unsupported
+items on its own. On the same day as the lever runs, `tools/lever-ab.mjs campaign` writes every cover paragraph,
+outreach message and reply draft one more time with every lever off and counts what that second draft adds over the
+first, the same way it counts a lever draft. That count, per agent and per draft step, is the allowance: a lever passes
+the invented-facts check on a step when it adds no more than the allowance for that step. A step with no measurement gets
+an allowance of 0. Every other check, the judge share included, stays exactly as it was.
+
+This only decides whether a lever ships. The live fact gate in `lib/fact-gate.mjs` still blocks every unverified claim
+before anything is saved or sent, with or without a lever.
 
 ## Noise floor
 
@@ -94,5 +107,6 @@ measures only the arms that were not parked.
 ## Pinning
 
 This file and `lib/quality-bars.mjs` are written once more by `freeze` and then pinned by sha256 in the baseline
-manifest, with the captured commit and its release tag. They never change after a run; `tools/lever-ab.mjs` refuses
+manifest, with the captured commit and its release tag. They change only by a recorded decision (option A was added on
+2026-11-23 and both hashes were pinned again); `tools/lever-ab.mjs` refuses
 to run when either hash differs, and `node tools/quality-baseline.mjs verify` exits 3 naming any changed file.

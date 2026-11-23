@@ -13,17 +13,22 @@
 // guided pattern plus the judge, T17 the fields a capped read keeps. Plumbing levers (T1, T13, T15) get a zero-call trial
 // the tool computes itself: the shipped code on the fixture sample, the rows or reads it saves priced at P0 tokens, and a
 // check that no output changed. Levers no shipped call reaches (economy_tier, T12) are written as a fail, "not wired".
-// Every draft verdict stores its per-step added invented counts and the free A/A noise of the P0 baseline (A vs AA), so
-// a later rule on the noise can be applied from the file. An arm that measured nothing is "not measured", never a pass. The stacked run puts every solo-passing lever on together and drops the lever with the largest solo
+// Invented facts follow option A (lib/quality-bars.mjs): on a draft step a lever may add at most what the A/A control arm
+// (the control's draft calls once more, judged against the control the same day) adds on that agent and step, 0 with no
+// measurement; every other step stays at the bar. Every draft verdict stores its per-step added counts with the allowance
+// used, beside the free A/A noise of the P0 baseline (informational), and `rejudge` re-applies the bars to a stored file. An arm that measured nothing is "not measured", never a pass. The stacked run puts every solo-passing lever on together and drops the lever with the largest solo
 // quality loss while a bar is missed, for at most MAX_STACKED_ROUNDS rounds.
-// Usage: lever-ab.mjs solo [--lever ID] [--dry-run] [--aa-control] | stacked [--dry-run] | campaign [--dry-run] [--aa-control]
-//        | report [--ledger DIR]
+// Usage: lever-ab.mjs solo [--lever ID] [--dry-run] [--aa-control] | stacked [--dry-run] | campaign [--dry-run] [--no-aa-control]
+//        | rejudge [--data PATH] [--dry-run] | report [--ledger DIR]
 //        model flags: --claude-model ID --codex-model ID --judge-model ID --cheap-model ID
-//        --aa-control adds one control re-run of the draft steps, judged against the control like a lever arm (opt-in).
+//        The A/A control arm (one control re-run of the draft steps, judged against the control like a lever arm) runs by
+//        default in campaign (--no-aa-control skips it) and only with --aa-control in solo; without it the allowance is 0.
+//        rejudge reads a stored verdict file (PATH: the file or a folder holding it; default docs/lever-verdicts.json) and
+//        re-applies the current bars with zero runner calls; --dry-run prints the before and after table only.
 // Exit codes follow the pack convention: 0 ok, 2 usage, 3 refused (a pinned file or the sample changed), 5
 // blocked-on-user (usage passed 1.5 times an agent's estimate, a quota, limit or sign-in answer, a call failing after its
 // retry, no agent found).
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS, resolveAgentPath } from '../lib/agent.mjs';
@@ -40,7 +45,7 @@ import { LEVERS, LEVER_IDS, leverPins } from '../lib/levers.mjs';
 import { guidedFooter, nextStep, patternRule } from '../lib/next-step.mjs';
 import { phraseClass } from '../lib/outcome-rules.mjs';
 import { riskRules } from '../lib/posting-risk.mjs';
-import { STATED } from '../lib/quality-bars.mjs';
+import { INVENTED_FACTS_OPTION, STATED, inventedAllowance } from '../lib/quality-bars.mjs';
 import { runText } from '../lib/run.mjs';
 import { checkAndReview } from '../lib/self-check.mjs';
 import { withTempDir } from '../lib/temp-dir.mjs';
@@ -67,7 +72,7 @@ export const VERDICTS = join('docs', 'lever-verdicts.json');
 export const REPORT = join('docs', 'token-report.md');
 export const EXIT = Object.freeze({ ok: 0, usage: 2, refused: 3, blocked: 5 });
 export const MAX_STACKED_ROUNDS = 3;
-export const INVENTED_FACTS_RULE = 'lever-added over control, inputs as sources';
+export const INVENTED_FACTS_RULE = `option ${INVENTED_FACTS_OPTION}: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar`;
 const STOP_FACTOR = 1.5;
 // Quota, limit and rate-limit wordings of the claude and codex clients and their APIs.
 export const QUOTA_RE = /rate[ _-]?limit|quota|usage[ _-]?limit|limit reached|hit your (?:usage )?limit|session limit|too many requests|\b429\b|overloaded/i;
@@ -921,10 +926,27 @@ export function perStepCounts(judged = []) {
   return out;
 }
 
+const addedOf = (s) => (Number(s?.judge_added) || 0) + (Number(s?.gate_added) || 0);
+
+// Option A on an arm's invented facts: each draft step's added count (judge plus gate) beside its allowance from the A/A
+// per-step map (0 when none was measured), and the rest of the total (non-draft pairs such as digests or resumes, which
+// keep the plain bar). steps is the per-step record stored on a verdict, each entry with the allowance used.
+export function inventedCheck(total, perStep, aaPerStep) {
+  const steps = {};
+  let draft = 0;
+  for (const [key, s] of Object.entries(perStep ?? {})) {
+    steps[key] = { ...s, allowance: inventedAllowance(aaPerStep, key) };
+    draft += addedOf(s);
+  }
+  const over = Object.entries(steps).filter(([, s]) => addedOf(s) > s.allowance).map(([key, s]) => `${key} ${addedOf(s)} over ${s.allowance}`);
+  return { steps, other: Math.max(0, (Number(total) || 0) - draft), over };
+}
+
 // The first bar a metric set misses (with the others under also), or null when every bar holds. Only keys present in
 // metrics are checked; an accuracy bar with no recorded base misses. A reused resume failing the ATS check misses
-// ATS_CHECK: every tailored resume must pass it (G7).
-export function missedBar(metrics, bars, base = {}) {
+// ATS_CHECK: every tailored resume must pass it (G7). invented (inventedCheck) applies option A to INVENTED_FACTS_MAX:
+// every draft step within its allowance and the non-draft rest within the bar.
+export function missedBar(metrics, bars, base = {}, invented = null) {
   const misses = [];
   const all = { ...EXTRA_BARS, ...bars };
   const baseAll = { ...Object.fromEntries(Object.keys(EXTRA_BARS).map((k) => [k, 1])), ...base };
@@ -932,6 +954,12 @@ export function missedBar(metrics, bars, base = {}) {
   for (const [key, value] of Object.entries(metrics ?? {})) {
     if (typeof value !== 'number' || typeof all[key] !== 'number') continue;
     const limit = all[key];
+    if (key === 'INVENTED_FACTS_MAX' && invented) {
+      const over = [...invented.over, ...(invented.other > limit ? [`non-draft items ${invented.other} over ${limit}`] : [])];
+      const allowed = Object.values(invented.steps).reduce((n, s) => n + s.allowance, 0) + limit;
+      if (over.length) misses.push({ bar: key, value, limit: allowed, steps: over });
+      continue;
+    }
     if (MIN_KEYS.includes(key) && value < limit) misses.push({ bar: key, value, limit });
     if (MAX_KEYS.includes(key) && value > limit) misses.push({ bar: key, value, limit });
     if (!ACC_KEYS.includes(key)) continue;
@@ -942,7 +970,7 @@ export function missedBar(metrics, bars, base = {}) {
 }
 
 const r3 = (v) => Math.round(v * 1000) / 1000;
-const missText = (m) => (m ? `${m.bar} ${typeof m.value === 'number' ? r3(m.value) : m.value}${typeof m.base === 'number' ? ` (base ${r3(m.base)})` : ''} against ${r3(m.limit)}${m.also?.length ? `; also ${m.also.join(', ')}` : ''}` : null);
+const missText = (m) => (m ? `${m.bar} ${typeof m.value === 'number' ? r3(m.value) : m.value}${typeof m.base === 'number' ? ` (base ${r3(m.base)})` : ''} against ${r3(m.limit)}${m.steps?.length ? ` (option A per step: ${m.steps.join(', ')})` : ''}${m.also?.length ? `; also ${m.also.join(', ')}` : ''}` : null);
 
 // Verdict file, or an empty record when none exists.
 export function readVerdictFile(root) {
@@ -957,7 +985,8 @@ function headline(data) {
   const stop = runs.find(([, st]) => /^blocked-on-user/.test(String(st)));
   return stop ? String(stop[1]) : runs.map(([k, st]) => `${k}: ${st}`).join('; ');
 }
-const writeVerdicts = (root, data) => writeFileSync(join(root, VERDICTS), `${JSON.stringify({ ...data, status: headline(data), invented_facts_rule: INVENTED_FACTS_RULE }, null, 2)}\n`);
+const writeVerdictFile = (file, data) => writeFileSync(file, `${JSON.stringify({ ...data, status: headline(data), invented_facts_rule: INVENTED_FACTS_RULE }, null, 2)}\n`);
+const writeVerdicts = (root, data) => writeVerdictFile(join(root, VERDICTS), data);
 
 // The base arm's own quality on the keys an arm measured (agreement with itself is 1, it adds no invented fact).
 function referenceQuality(metrics, baseAcc = {}) {
@@ -1023,16 +1052,16 @@ function leverEstimate(root, id, value, agents) {
 
 // Solo plan: the control arm and each lever's first-setting arm (the stop base); the milder arms are a reserve that is
 // added to the stop only when a miss schedules one.
-function soloPlan(root, levers, agents, { aaControl = false } = {}) {
+function soloPlan(root, levers, agents, { aaControl = false, aaDefault = false } = {}) {
   const steps = judgedSteps(levers);
   const control = steps.length ? plannedCalls(root, { steps }) : [];
   let est = armEstimate(root, control, agents, { judged: false });
-  // The opt-in A/A arm: the control's draft calls once more, judged against the control.
+  // The A/A arm (campaign default, solo opt-in): the control's draft calls once more, judged against the control.
   const aa = aaControl ? control.filter((c) => DRAFT_FILES[c.step]) : [];
   if (aa.length) est = addEst(est, armEstimate(root, aa, agents));
   let reserve = ZERO();
   const milder = {};
-  const arms = [`control (${steps.join(', ') || 'no model step'})`, ...(aa.length ? [`A/A control re-run (${[...new Set(aa.map((c) => c.step))].join(', ')}; opt-in)`] : aaControl ? ['A/A control re-run skipped: no draft step in this run'] : [])];
+  const arms = [`control (${steps.join(', ') || 'no model step'})`, ...(aa.length ? [`A/A control re-run (${[...new Set(aa.map((c) => c.step))].join(', ')}; ${aaDefault ? 'campaign default, sets the option A allowance' : 'opt-in'})`] : aaControl ? ['A/A control re-run skipped: no draft step in this run'] : [])];
   for (const id of levers) {
     const spec = LEVER_SPECS[id];
     if (!spec) continue;
@@ -1126,7 +1155,9 @@ const noiseFor = (noise, steps) => Object.fromEntries(Object.entries(noise ?? {}
 // that measured nothing is "not measured", never a pass or milder. A plumbing lever passes when its zero-call trial
 // changed no output and fails to its off path otherwise (PD-030). A lever no shipped call reaches is a fail, not wired,
 // with zero tokens on both sides. A draft lever keeps the per-step added counts of its first setting and, when one ran,
-// of its milder setting, beside the A/A noise of those steps.
+// of its milder setting, each with the option A allowance used, beside the free A/A noise of those steps; after a miss
+// (an invented-only miss included) the milder setting still runs, and the first setting's tokens and quality are kept so
+// rejudge can apply other bars later.
 async function soloOne(env, id) {
   const spec = LEVER_SPECS[id];
   if (!spec) return { verdict: 'not measured', basis: 'no A/B arm is defined for this lever' };
@@ -1139,19 +1170,22 @@ async function soloOne(env, id) {
     return out(missed ? 'fail' : 'pass', r, null, missed);
   }
   const draft = (spec.steps ?? []).some((s) => DRAFT_STEPS.includes(s));
+  const check = (r) => inventedCheck(r.metrics?.INVENTED_FACTS_MAX, perStepCounts(r.judged), env.aaPerStep);
   const first = await trial(env, id, spec.setting);
-  const steps = draft ? { per_step_first: perStepCounts(first.judged), aa_noise: noiseFor(env.aaNoise, spec.steps) } : {};
+  const firstCheck = check(first);
+  const steps = draft ? { per_step_first: firstCheck.steps, aa_noise: noiseFor(env.aaNoise, spec.steps) } : {};
   if (first.vacuous) return { ...out('not measured', first, spec.setting, null, steps), basis: `not measured: ${first.vacuous}` };
-  const missed = missedBar(first.metrics, env.bars, first.baseAcc);
+  const missed = missedBar(first.metrics, env.bars, first.baseAcc, firstCheck);
   if (!missed) return out('pass', first, spec.setting, null, steps);
   if (spec.milder === undefined) return out('fail', first, spec.setting, missed, steps);
   const reserve = env.plan.milder[id];
   if (reserve) for (const k of Object.keys(reserve)) env.ctx.limit[k] += reserve[k];
   const milder = await trial(env, id, spec.milder);
-  const firstKept = { ...steps, missed_first: missText(missed), ...(draft ? { judged_first: first.judged } : {}) };
+  const firstKept = { ...steps, missed_first: missText(missed), first_setting: { tokens: first.tokens, quality: { before: first.ref, after: first.metrics } }, ...(draft ? { judged_first: first.judged } : {}) };
   if (milder.vacuous) return out('fail', first, spec.setting, missed, { ...steps, milder_not_measured: milder.vacuous });
-  const missedMilder = missedBar(milder.metrics, env.bars, milder.baseAcc);
-  return out(missedMilder ? 'fail' : 'milder', milder, spec.milder, missedMilder, { ...firstKept, ...(draft ? { per_step_milder: perStepCounts(milder.judged) } : {}) });
+  const milderCheck = check(milder);
+  const missedMilder = missedBar(milder.metrics, env.bars, milder.baseAcc, milderCheck);
+  return out(missedMilder ? 'fail' : 'milder', milder, spec.milder, missedMilder, { ...firstKept, ...(draft ? { per_step_milder: milderCheck.steps } : {}) });
 }
 
 // The verdict entry written to docs/lever-verdicts.json; comparison_base comes before every nested key.
@@ -1179,6 +1213,7 @@ function verdictEntry(r, common) {
     basis: r.basis ?? 'judged',
     ...(r.per_step_first ? { per_step_first: r.per_step_first } : {}),
     ...(r.per_step_milder ? { per_step_milder: r.per_step_milder } : {}),
+    ...(r.first_setting ? { first_setting: r.first_setting } : {}),
     ...(r.aa_noise ? { aa_noise: r.aa_noise } : {}),
     ...(r.judged?.length ? { judged_pairs: r.judged } : {}),
     ...(r.judged_first?.length ? { judged_pairs_first: r.judged_first } : {}),
@@ -1200,7 +1235,7 @@ const sayEstimate = (say, label, est, ctx) => {
 };
 
 /** Solo pass over one lever or all; deps: runner, judge, resolve, say, seed, models, dryRun; onSession(env) for campaign. */
-export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = realRunner, judge, resolve = resolveAgentPath, say = console.log, seed = String(Date.now()), today = new Date().toISOString().slice(0, 10), models = {}, dryRun = false, aaControl = false, onSession = null }) {
+export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = realRunner, judge, resolve = resolveAgentPath, say = console.log, seed = String(Date.now()), today = new Date().toISOString().slice(0, 10), models = {}, dryRun = false, aaControl = false, aaDefault = false, onSession = null }) {
   const pins = checkPins(root);
   if (!pins.ok) {
     say(`lever-ab: refused: ${pins.reason}; no arm was run`);
@@ -1208,14 +1243,16 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
   }
   const { p0, ctx } = openSession({ root, runner, judge, resolve, seed, models });
   const agents = Object.keys(ctx.agents);
-  const plan = soloPlan(root, levers, dryRun && !agents.length ? ['claude', 'codex'] : agents, { aaControl });
-  sayEstimate(say, 'per round (solo: control arm and each lever arm at its first setting)', plan.est, ctx);
+  const plan = soloPlan(root, levers, dryRun && !agents.length ? ['claude', 'codex'] : agents, { aaControl, aaDefault });
+  sayEstimate(say, `per round (solo: control arm${plan.aa.length ? ', the A/A control re-run' : ''} and each lever arm at its first setting)`, plan.est, ctx);
   say(estLine('milder reserve (spent only after a miss)', plan.reserve));
   say(`lever-ab arms: ${plan.arms.join('; ')}`);
   if (dryRun) return EXIT.ok;
   const data = readVerdictFile(root);
   ctx.limit = { ...plan.est };
   data.stacked = { status: 'pending: solo verdicts changed; run stacked', rounds: [], final: [] };
+  // The option A allowance comes only from this session's A/A arm; one from an earlier session is dropped (allowance 0).
+  delete data.aa;
   try {
     if (!agents.length && plan.control.length) throw new BlockedError('neither claude nor codex was found; install and sign in to one, then run lever-ab again');
     const control = plan.control.length ? runArm(ctx, plan.control) : emptyArm();
@@ -1223,11 +1260,12 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
     const noise = aaNoise(root);
     // A judged lever needs every agent P0 measured, so a pass covers the students of both agents.
     const p0Agents = Object.keys(p0).filter((a) => a === 'claude' || a === 'codex');
-    const env = { root, ctx, base, control, plan, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaNoise: noise, p0Agents };
     const sample = sampleHash(root);
+    const env = { root, ctx, base, control, plan, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaNoise: noise, aaPerStep: null, p0Agents };
     if (plan.aa.length) {
       const cmp = compareArms(ctx, { triage: base.triage, drafts: control }, runArm(ctx, plan.aa));
-      data.aa = { status: `A/A control re-run ${today}: the control's draft calls again, judged against the control`, rule: INVENTED_FACTS_RULE, per_step: perStepCounts(cmp.judged), judged_pairs: cmp.judged };
+      data.aa = { status: `A/A control re-run ${today}: the control's draft calls again, judged against the control`, rule: INVENTED_FACTS_RULE, run_date: today, seed, sample_hash: sample, per_step: perStepCounts(cmp.judged), judged_pairs: cmp.judged };
+      env.aaPerStep = data.aa.per_step;
       writeVerdicts(root, data);
     }
     const common = { base: base.triageName, control: { tokens: control.tokens, unmeasured_calls: control.unmeasured, calls: control.calls }, p0, p5: () => ({ ...control.models, judge: ctx.judgeModel }), agents, barsSha: pins.barsSha, estimate: plan.est, actual: () => ({ ...ctx.spent }), today, sample, seed };
@@ -1237,7 +1275,7 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
       say(`lever-ab: ${id} ${r.verdict}${r.missed ? `: missed ${missText(r.missed)}` : ''}${r.verdict === 'not measured' ? ` (${r.basis})` : ''}`);
       writeVerdicts(root, data);
     }
-    data.solo = { status: `solo run ${today} finished: ${levers.length} lever(s)`, actual_tokens: { ...ctx.spent }, estimate: plan.est, sample_hash: sample, bars_sha256: pins.barsSha, agents_measured: agents, aa_noise: noise, aa_noise_rule: 'proxy from the P0 mode-file prompts, not the shipped builders: gate_added is the fact-gate and feeling items arm AA adds over arm A with each step\'s inputs as sources (the unit of a verdict\'s gate_added); p0_judge_invented is the P0 judge\'s single invented count per pair from noise.json, not added over A, so it is not the unit of judge_added. A rule on noise (option A) uses data.aa from --aa-control, which is like for like.' };
+    data.solo = { status: `solo run ${today} finished: ${levers.length} lever(s)`, actual_tokens: { ...ctx.spent }, estimate: plan.est, sample_hash: sample, bars_sha256: pins.barsSha, agents_measured: agents, aa_control: plan.aa.length ? `measured ${today} (data.aa)` : 'not run: option A allowance 0', aa_noise: noise, aa_noise_rule: 'proxy from the P0 mode-file prompts, not the shipped builders: gate_added is the fact-gate and feeling items arm AA adds over arm A with each step\'s inputs as sources (the unit of a verdict\'s gate_added); p0_judge_invented is the P0 judge\'s single invented count per pair from noise.json, not added over A, so it is not the unit of judge_added. Option A uses data.aa from the A/A control arm (campaign default, solo --aa-control), which is like for like.' };
     writeVerdicts(root, data);
     if (onSession) onSession({ control, base, p0, models: ctx.models });
     return EXIT.ok;
@@ -1336,7 +1374,8 @@ async function stackedArm(env, on, data) {
       Object.assign(baseAcc, r.baseAcc ?? {});
     }
   }
-  return { metrics, missed: missedBar(metrics, env.bars, baseAcc), tokens: { before: env.control.tokens, after }, perStep: arm.perStep, judged: cmp.judged ?? [], reused };
+  const invented = inventedCheck(metrics.INVENTED_FACTS_MAX, perStepCounts(cmp.judged ?? []), env.aaPerStep);
+  return { metrics, missed: missedBar(metrics, env.bars, baseAcc, invented), tokens: { before: env.control.tokens, after }, perStep: arm.perStep, steps: invented.steps, reused };
 }
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -1369,7 +1408,7 @@ async function stackedRounds(env, io, start) {
     io.data.stacked.status = `running: stacked round ${round}`;
     writeVerdicts(io.root, io.data);
     const r = await stackedArm(env, on, io.data);
-    io.data.stacked.rounds.push({ round, levers: [...on], metrics: r.metrics, missed_bar: missText(r.missed), tokens: r.tokens, per_step: perStepCounts(r.judged), ...(r.reused.length ? { reused_solo_measures: r.reused } : {}) });
+    io.data.stacked.rounds.push({ round, levers: [...on], metrics: r.metrics, missed_bar: missText(r.missed), tokens: r.tokens, per_step: r.steps, ...(r.reused.length ? { reused_solo_measures: r.reused } : {}) });
     io.say(`lever-ab: stacked round ${round} with ${on.join(', ')}: ${r.missed ? `missed ${missText(r.missed)}` : 'every bar holds'}`);
     if (!r.missed) {
       io.data.stacked.per_step = r.perStep;
@@ -1444,7 +1483,7 @@ export async function runStacked({ root = PACK_ROOT, runner = realRunner, judge,
     const control = session?.control ?? (plan.control.length ? runArm(ctx, plan.control) : emptyArm());
     const base = session?.base ?? chooseBase(root, p0, control);
     Object.assign(data.stacked, { comparison_base: base.triageName, p0_models: p0, p5_models: { ...control.models, judge: ctx.judgeModel }, bars_sha256: pins.barsSha, estimate: plan.total, sample_hash: sample, seed });
-    const result = await stackedRounds({ root, ctx, base, control, bars: effectiveBars(root), ruleBase: loadRuleBase(root), plan: { milder: {} }, roundEst: plan.round }, io, on);
+    const result = await stackedRounds({ root, ctx, base, control, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaPerStep: data.aa?.per_step ?? null, plan: { milder: {} }, roundEst: plan.round }, io, on);
     data.stacked.actual_tokens = { ...ctx.spent };
     writeVerdicts(root, data);
     return result;
@@ -1453,12 +1492,136 @@ export async function runStacked({ root = PACK_ROOT, runner = realRunner, judge,
   }
 }
 
-/** Solo then stacked in one process: the stacked run reuses the solo control arm and its bases. */
+/** Solo then stacked in one process: the stacked run reuses the solo control arm and its bases. The A/A control arm runs
+ * by default (option A needs it; aaControl: false skips it, allowance 0) and is in the estimate and the stop limit. */
 export async function runCampaign(opts) {
   let session = null;
-  const code = await runSolo({ ...opts, onSession: (s) => (session = s) });
+  const code = await runSolo({ ...opts, aaControl: opts.aaControl ?? true, aaDefault: true, onSession: (s) => (session = s) });
   if (code !== EXIT.ok || opts.dryRun) return opts.dryRun ? runStacked({ ...opts, campaignPreview: true }) : code;
   return runStacked({ ...opts, session });
+}
+
+// The accuracy-bar bases of a stored quality.before (the base each kind's trial passed to missedBar).
+const accBase = (before) => (before && typeof before === 'object' ? pick(before, ACC_KEYS) : {});
+const isObj = (x) => x && typeof x === 'object';
+
+// One stored solo verdict under the current bars, from what the file holds: the first setting's quality and per-step
+// counts (first_setting when a milder ran), then the milder arm's. null when there is nothing to re-judge (pending, not
+// measured, not wired, or no stored quality). A first setting that now passes wins over the milder one.
+function rejudgeSolo(v, spec, bars, aa) {
+  if (!['pass', 'milder', 'fail'].includes(String(v?.verdict ?? '')) || /^not measured/.test(String(v.basis ?? '')) || !isObj(v.quality?.after)) return null;
+  const milderRan = Boolean(v.missed_at_first_setting);
+  const firstQ = milderRan ? v.first_setting?.quality : v.quality;
+  const check = (q, steps) => {
+    const invented = inventedCheck(q.after.INVENTED_FACTS_MAX, steps, aa);
+    return { missed: missedBar(q.after, bars, accBase(q.before), invented), steps: invented.steps };
+  };
+  const first = isObj(firstQ?.after) ? check(firstQ, v.per_step_first) : null;
+  const firstSteps = first && v.per_step_first ? { per_step_first: first.steps } : {};
+  if (first && !first.missed) {
+    const { missed_at_first_setting: _m, per_step_milder: _p, first_setting: _f, judged_pairs_first: jf, ...rest } = v;
+    return { ...rest, ...firstSteps, verdict: 'pass', setting: milderRan ? (spec?.setting ?? null) : v.setting, missed_bar: null, tokens: milderRan ? v.first_setting.tokens : v.tokens, quality: firstQ, ...(milderRan && jf ? { judged_pairs: jf } : {}) };
+  }
+  if (!milderRan) return { ...v, ...firstSteps, verdict: 'fail', missed_bar: missText(first.missed) };
+  const milder = check(v.quality, v.per_step_milder);
+  return { ...v, ...firstSteps, ...(v.per_step_milder ? { per_step_milder: milder.steps } : {}), verdict: milder.missed ? 'fail' : 'milder', missed_bar: milder.missed ? missText(milder.missed) : null, missed_at_first_setting: first ? missText(first.missed) : v.missed_at_first_setting };
+}
+
+// The stacked record under the current bars: the stored rounds replayed in order; the first round that now holds every
+// bar is the final set, and the levers dropped at or after it get their solo verdicts back. A solo-passing set other than
+// the first round's, or a stored pass whose round now misses, needs a new stacked run (pending; every gated and tuning
+// lever stays off until it runs).
+function rejudgeStacked(data, solo, bars, aa, ruleBase) {
+  const stacked = isObj(data.stacked) ? data.stacked : { rounds: [], final: [] };
+  const rounds = Array.isArray(stacked.rounds) ? stacked.rounds : [];
+  const passing = Object.keys(data.levers).filter((id) => passed({ verdict: solo[id] }) && LEVER_SPECS[id] && LEVER_SPECS[id].kind !== 'unwired').sort();
+  const dropRound = (v) => {
+    if (!v?.solo_verdict) return null;
+    const m = /^dropped in stacked round (\d+)/.exec(String(v.missed_bar ?? ''));
+    return m ? Number(m[1]) : Infinity;
+  };
+  const restore = (from) => {
+    for (const [id, v] of Object.entries(data.levers)) {
+      const n = dropRound(v);
+      if (n === null || n < from) continue;
+      const { solo_verdict: word, solo_missed_bar: missed, ...rest } = v;
+      data.levers[id] = { ...rest, verdict: word, missed_bar: missed ?? null };
+    }
+  };
+  const pending = (status) => {
+    restore(0);
+    data.stacked = { ...stacked, status, rounds, final: [] };
+  };
+  if (!rounds.length) {
+    if (passing.length && !/^pending/.test(String(stacked.status ?? ''))) pending('pending: rejudge changed the solo verdicts; run stacked');
+    return;
+  }
+  const first = [...(rounds[0].levers ?? [])].sort();
+  if (passing.join() !== first.join()) return pending('pending: rejudge changed the solo-passing set; run stacked');
+  const base = Object.assign({}, ruleBase, ...first.map((id) => accBase(qualityOf(data.levers[id]).before)));
+  for (const [i, r] of rounds.entries()) {
+    const invented = inventedCheck(r.metrics?.INVENTED_FACTS_MAX, r.per_step, aa);
+    const missed = missedBar(r.metrics ?? {}, bars, base, invented);
+    Object.assign(r, { missed_bar: missText(missed), per_step: invented.steps });
+    if (missed) continue;
+    const wasFinal = i === rounds.length - 1 && /^stacked pass/.test(String(stacked.status ?? ''));
+    restore(r.round ?? i + 1);
+    const { per_step: tokensPerStep, ...rest } = stacked;
+    data.stacked = { ...rest, ...(wasFinal && tokensPerStep ? { per_step: tokensPerStep } : {}), status: `stacked pass after ${plural(i + 1, 'round')}: ${r.levers.join(', ')} on together`, rounds: rounds.slice(0, i + 1), final: [...r.levers] };
+    return;
+  }
+  if (/^stacked pass/.test(String(stacked.status ?? ''))) pending('pending: rejudge: the stored stacked pass now misses a bar; run stacked');
+}
+
+const verdictWord = (v) => `${v?.verdict ?? 'none'}${v?.setting !== null && v?.setting !== undefined ? ` at ${v.setting}` : ''}${v?.missed_bar ? `: ${v.missed_bar}` : ''}`;
+
+// The verdict file rejudge reads: --data names the file or a folder holding lever-verdicts.json (directly or in docs/).
+function rejudgeFile(root, given) {
+  if (!given) return join(root, VERDICTS);
+  if (existsSync(given) && !statSync(given).isDirectory()) return given;
+  return [join(given, 'lever-verdicts.json'), join(given, VERDICTS)].find((f) => existsSync(f)) ?? join(given, 'lever-verdicts.json');
+}
+
+/** Re-applies the current bars (option A included) to a stored verdict file with zero runner calls; dryRun prints the
+ * before and after table only. Refuses (exit 3) when the bar files differ from the P0 manifest. */
+export async function runRejudge({ root = PACK_ROOT, data: given = null, dryRun = false, say = console.log, today = new Date().toISOString().slice(0, 10) }) {
+  const pins = checkPins(root);
+  if (!pins.ok) {
+    say(`lever-ab: refused: ${pins.reason}; nothing re-judged`);
+    return EXIT.refused;
+  }
+  const file = rejudgeFile(root, given);
+  if (!existsSync(file)) throw new UsageError(`no verdict file at ${file}`);
+  const data = JSON.parse(readFileSync(file, 'utf8'));
+  data.levers ??= {};
+  const before = Object.fromEntries(Object.entries(data.levers).map(([id, v]) => [id, verdictWord(v)]));
+  const stackedBefore = String(data.stacked?.status ?? 'no stacked run yet');
+  const bars = effectiveBars(root);
+  const aa = data.aa?.per_step ?? null;
+  const solo = {};
+  for (const [id, v] of Object.entries(data.levers)) {
+    const dropped = Boolean(v.solo_verdict);
+    const next = rejudgeSolo(dropped ? { ...v, verdict: v.solo_verdict, missed_bar: v.solo_missed_bar ?? null } : v, LEVER_SPECS[id], bars, aa);
+    solo[id] = next?.verdict ?? (dropped ? v.solo_verdict : v.verdict);
+    if (!next) continue;
+    const pinned = { ...next, bars_sha256: pins.barsSha, invented_facts_rule: INVENTED_FACTS_RULE };
+    data.levers[id] = dropped ? { ...pinned, verdict: 'fail', solo_verdict: next.verdict, solo_missed_bar: next.missed_bar, missed_bar: v.missed_bar } : pinned;
+  }
+  rejudgeStacked(data, solo, bars, aa, loadRuleBase(root));
+  if (data.stacked?.bars_sha256) data.stacked.bars_sha256 = pins.barsSha;
+  say(`lever-ab rejudge: ${file}; option A allowance from ${aa ? `data.aa (${data.aa.run_date ?? 'undated'})` : 'no A/A measurement (0 on every draft step)'}`);
+  say('| Lever | Before | After |');
+  say('| --- | --- | --- |');
+  for (const id of Object.keys(data.levers)) say(`| ${id} | ${before[id] ?? 'none'} | ${verdictWord(data.levers[id])} |`);
+  say(`| stacked | ${stackedBefore} | ${data.stacked?.status ?? 'no stacked run yet'} |`);
+  if (dryRun) {
+    say('lever-ab rejudge: dry run, nothing written');
+    return EXIT.ok;
+  }
+  data.rejudged = { date: today, bars_sha256: pins.barsSha, rule: INVENTED_FACTS_RULE };
+  writeVerdictFile(file, data);
+  say(`lever-ab rejudge: ${file} rewritten`);
+  return EXIT.ok;
 }
 
 // Real-runner adapter: claude -p --output-format json in the shipped triage lockdown (no tools, project settings only,
@@ -1612,9 +1775,9 @@ export async function writeReport({ root = PACK_ROOT, ledgerDir = null }) {
   ].join('\n');
 }
 
-// Dispatches solo, stacked, campaign and report; deps override the runner, judge, resolve and say in tests.
+// Dispatches solo, stacked, campaign, rejudge and report; deps override the runner, judge, resolve and say in tests.
 export async function main(argv = process.argv.slice(2), deps = {}) {
-  const { command, flags } = parseArgs(argv, { commands: ['solo', 'stacked', 'campaign', 'report'], flags: { lever: 'string', ledger: 'string', 'claude-model': 'string', 'codex-model': 'string', 'judge-model': 'string', 'cheap-model': 'string', 'aa-control': 'boolean' } });
+  const { command, flags } = parseArgs(argv, { commands: ['solo', 'stacked', 'campaign', 'rejudge', 'report'], flags: { lever: 'string', ledger: 'string', data: 'string', 'no-aa-control': 'boolean', 'claude-model': 'string', 'codex-model': 'string', 'judge-model': 'string', 'cheap-model': 'string', 'aa-control': 'boolean' } });
   const root = flags.root ?? PACK_ROOT;
   const today = flags.today ?? new Date().toISOString().slice(0, 10);
   const models = Object.fromEntries([['claude', flags.claudeModel], ['codex', flags.codexModel], ['judge', flags.judgeModel], ['cheap', flags.cheapModel]].filter(([, v]) => v));
@@ -1624,7 +1787,8 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     return runSolo({ ...opts, levers: flags.lever ? [flags.lever] : LEVER_IDS });
   }
   if (command === 'stacked') return runStacked(opts);
-  if (command === 'campaign') return runCampaign({ ...opts, levers: LEVER_IDS });
+  if (command === 'campaign') return runCampaign({ ...opts, aaControl: !flags.noAaControl, levers: LEVER_IDS });
+  if (command === 'rejudge') return runRejudge({ root, today, dryRun: Boolean(flags.dryRun), data: flags.data ?? null, ...(deps.say ? { say: deps.say } : {}) });
   writeFileSync(join(root, REPORT), await writeReport({ root, ledgerDir: flags.ledger ?? null }));
   (deps.say ?? console.log)(`lever-ab: ${REPORT} rebuilt`);
   return EXIT.ok;
