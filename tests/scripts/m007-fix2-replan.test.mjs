@@ -129,7 +129,7 @@ test('M-007-fix2-N2-2d a rebuilt plan that fails a gate is not written and the r
     const { id, planFile } = await unreadApproved(r);
     const before = readFileSync(planFile, 'utf8');
     saveFormFields(r.dataDir, LINK, FORM);
-    const res = await replanItem({ paths: r.paths, batchId: id, item: 1, today: TODAY, deps: deps(r, { atsCheck: async () => ({ ok: false, problems: ['text layer: email missing'] }) }) });
+    const res = await replanItem({ paths: r.paths, batchId: id, item: 1, today: TODAY, deps: deps(r, { fetchJob: async () => POSTING, atsCheck: async () => ({ ok: false, problems: ['text layer: email missing'] }) }) });
     assert.equal(res.code, 3);
     assert.match(res.reasons.join(' '), /email missing/);
     assert.equal(readFileSync(planFile, 'utf8'), before, 'the old plan stays, so submit still refuses it');

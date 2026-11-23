@@ -47,6 +47,8 @@ import { createFetchGate, fetchPosting } from './daily-triage.mjs';
 import { buildReviewPrompt } from './review-app.mjs';
 
 export const FULL_PATH_SCORE = 4.0;
+// The kept-out reason of a row with no job text from any source.
+export const NO_JOB_TEXT = 'no job text';
 const JD_CHARS = 6000;
 
 // The 0-5 fit score of a ranked row: its triage score. rank-queue's score is the weighted rank (about 40-60), which
@@ -265,9 +267,13 @@ export async function planRow(row, ctx) {
   const { fields, unknown, blocked } = resolveFields({ url: row.url, fields: form.fields }, { answers, candidate });
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
+  // A row with no job text from any source (saved by triage or read-form, or fetched) cannot be checked against the
+  // posting or given a letter written from it, so it is never batch-ready; it stops here, before any render or call.
+  if (!jobText.trim()) {
+    return { batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, flags: [`${NO_JOB_TEXT}: no saved, fetched or page text for ${row.url}; read the posting in a session`], unknown, blocked, selfCheck: { ok: false, fixed: [], flags: [] }, inBatch: false };
+  }
   const fit = fitScore(row);
-  // A tailoring call needs the posting: with no job text the row takes the lean path (base resume).
-  const full = fit >= FULL_PATH_SCORE && jobText.trim() !== '';
+  const full = fit >= FULL_PATH_SCORE;
   const t4 = resolveLever('T4', { overrides });
   const reuseAt = t4.on ? Number(t4.value ?? REUSE_THRESHOLD) : null;
   const resume = await resumeFor({ row: { ...row, jobText }, cv, outDir, root, full, deps: ctx, date: today, dataDir, agent, reuseAt });

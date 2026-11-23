@@ -21,6 +21,11 @@ const BADGE =
   '<div class="g-recaptcha" data-sitekey="fake-site-key-0000" data-size="invisible"><div class="grecaptcha-badge" style="width:256px;height:60px;position:fixed;bottom:14px;right:14px">' +
   '<iframe title="reCAPTCHA" src="about:blank#size=invisible" width="256" height="60"></iframe></div></div>';
 
+// A synthetic JSON-LD JobPosting for job N, as real ATS pages carry one; chrome.mjs read-form saves its description as
+// the job text (over the 80-word floor).
+export const JOB_DESCRIPTION = 'Example Robotics is hiring a Software Engineering Intern for summer 2026, fully remote. You will build internal scheduling and automation tools in Python, write SQL queries against our analytics store, ship small features through code review, write tests for the tools you build, and work with a mentor on one scoped project that you present at the end of the summer. Requirements: pursuing a B.S. in Computer Science or a related field, coursework or projects in Python, and basic SQL. Nice to have: experience with scheduling tools, automation scripts or data dashboards, and clear written communication with a small team.';
+export const jobPostingLd = (job) => JSON.stringify({ '@context': 'https://schema.org', '@type': 'JobPosting', title: `Software Engineering Intern (job ${job})`, description: `<p>${JOB_DESCRIPTION}</p>`, hiringOrganization: { '@type': 'Organization', name: 'Example Robotics' } });
+
 export function formHtml(job, { captcha = false, badge = false, submitCaptcha = false, required = false } = {}) {
   const widget = captcha
     ? '<div class="g-recaptcha" id="recaptcha" data-sitekey="fake-site-key-0000"><iframe title="reCAPTCHA" src="about:blank" width="304" height="78"></iframe></div>'
@@ -28,7 +33,7 @@ export function formHtml(job, { captcha = false, badge = false, submitCaptcha = 
       ? BADGE
       : '';
   return [
-    '<!doctype html><html><head><meta charset="utf-8"><title>Mock Greenhouse</title></head><body>',
+    `<!doctype html><html><head><meta charset="utf-8"><title>Mock Greenhouse</title><script type="application/ld+json">${jobPostingLd(job)}</script></head><body>`,
     `<h1>${FORM_TEXT}</h1><p>Job ${job}: Software Engineering Intern at Example Robotics</p>`,
     `<form id="application_form" method="post" action="/greenhouse/submit?job=${job}${submitCaptcha ? '&challenge=1' : ''}" enctype="multipart/form-data">`,
     field('first_name', 'First Name', '<input id="first_name" name="first_name" type="text" required>'),

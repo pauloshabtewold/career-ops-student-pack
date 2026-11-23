@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { FIELDS_DIR, formFieldsFile, readFields } from '../../lib/ats-fields.mjs';
 import { readBatch } from '../../lib/batch-file.mjs';
+import { save as saveJd } from '../../lib/jd-store.mjs';
 import { readForm, saveFormFields } from '../../scripts/chrome.mjs';
 import { fillPlans } from '../../scripts/fill-plan.mjs';
 import { autopilot } from '../../scripts/autopilot.mjs';
@@ -138,6 +139,8 @@ test('S-3 fill-plan main reads data/form-fields by default and accepts the { ats
   const r = scratch();
   try {
     saveFormFields(r.dataDir, URL, PAGE_FIELDS);
+    // The job text triage saves (M-007 fix2 N2-1): a row with none is kept out before the resume render.
+    saveJd(r.dataDir, URL, 'Example Robotics is hiring a Software Engineering Intern to build Python tools. Requirements: Python.');
     const rowsFile = join(r.root, 'rows.json');
     writeFileSync(rowsFile, JSON.stringify([{ url: URL, company: 'Example Robotics', role: 'Software Engineering Intern', score: 3.6 }]));
     // A slot command that cannot start makes the resume render wait (exit 4) before any model call, after the fields
