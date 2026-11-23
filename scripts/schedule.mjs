@@ -2,7 +2,9 @@
 // Opt-in daily schedule: a launchd agent on macOS or a Task Scheduler task on Windows that runs
 // student/scripts/scheduled.mjs, which runs the zero-token daily run and, for scheduled-discovery-plus-triage, the model
 // triage. Only the personalization interview offers this; nothing installs on its own.
-// Usage: schedule.mjs install|remove|status|verify [--time HH:MM] [--replace] [--dry-run] [--root R]
+// Usage: schedule.mjs install|remove|status|verify|pause|resume [--time HH:MM] [--replace] [--dry-run] [--root R]
+// pause writes data/.schedule-paused, which every scheduled run checks first, and resume removes it; neither touches the
+// installed jobs, so pausing never loses the schedule.
 // verify proves the installed job starts this folder's scheduled.mjs and that every enabled step passes its check.
 // install refuses to replace a job that starts another folder's scheduled.mjs unless --replace is given: the job label
 // is shared by every pack folder on the computer, so a silent replace would stop another folder's daily run.
@@ -37,8 +39,18 @@ function parseTime(time) {
 
 export const PAUSE_FILE = '.schedule-paused';
 
+// Creates or removes the pause file for the pause and resume commands.
 export function pauseCommand(command, dataDir) {
-  throw new Error('not implemented');
+  const file = join(dataDir, PAUSE_FILE);
+  if (command === 'pause') {
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(file, `${new Date().toISOString()}\n`);
+    console.log('schedule paused: scheduled runs start nothing until node student/scripts/schedule.mjs resume');
+  } else {
+    rmSync(file, { force: true });
+    console.log('schedule resumed: the next scheduled run catches up once');
+  }
+  return 0;
 }
 
 // launchd and Task Scheduler both fire on this computer's clock, while the student picks the time in the time zone of
@@ -390,8 +402,9 @@ function verify({ platform, paths, time }) {
 }
 
 async function main() {
-  const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status', 'verify'], flags: { time: 'string', replace: 'boolean' } });
-  const paths = resolvePaths({ root: flags.root });
+  const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status', 'verify', 'pause', 'resume'], flags: { time: 'string', replace: 'boolean' } });
+  const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
+  if (command === 'pause' || command === 'resume') return pauseCommand(command, paths.dataDir);
   if (command === 'install' && !flags.dryRun) assertOwnRoot(paths.root, paths.packRoot);
   // remove must work when config/student.yml is broken: a student who cannot fix it still needs the schedule gone.
   const config = command === 'remove' ? null : await loadStudentConfig({ root: paths.root });
