@@ -285,7 +285,8 @@ function scoreRow({ row, triage, key, age, state, closesIn }, { weights, marquee
   const score =
     weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral + weights.effort * effortFactor(row, easyHosts) +
     (rates ? replyBoost(row, rates, base) : 0);
-  return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), closesIn, key, applied: appliedBefore.has(key) };
+  // track goes into the fill plan, so chrome.mjs submit passes --track and budget.mjs runs its other-track check.
+  return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), closesIn, key, applied: appliedBefore.has(key), track: isIntern(row.title) ? 'intern' : 'fulltime' };
 }
 
 // remainder(key) is the room a company cap leaves (Infinity without one); company_caps can only lower the per-day limit, never raise it.
