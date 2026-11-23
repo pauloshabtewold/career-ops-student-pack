@@ -16,7 +16,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { detailValue, readActionLog } from '../lib/action-log.mjs';
-import { FIELDS_DIR, formFieldsFile } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, formFieldsFile, formGaveUp } from '../lib/ats-fields.mjs';
 import { listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
 import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
@@ -119,10 +119,13 @@ function childRunner({ paths, today, runner }) {
 // read-form` (read-only: it never types or clicks), so fill-plan maps real fields with selectors, writes a cover letter
 // for a form with a cover slot and plans the resume upload. A row whose form cannot be read keeps a plan without fields,
 // which waits for a fill in a session.
+// A page with no application form saves no file and is read again on the next run; after EMPTY_READ_TRIES such reads
+// the posting is listed under finish these yourself and not read again.
 function readForms({ paths, child, rows }) {
   const dir = join(paths.dataDir, FIELDS_DIR);
-  const todo = rows.filter((r) => /^https?:\/\//i.test(String(r.url ?? '')) && !existsSync(formFieldsFile(dir, r.url)));
-  const notes = [];
+  const unread = rows.filter((r) => /^https?:\/\//i.test(String(r.url ?? '')) && !existsSync(formFieldsFile(dir, r.url)));
+  const todo = unread.filter((r) => !formGaveUp(dir, r.url));
+  const notes = unread.filter((r) => formGaveUp(dir, r.url)).map((r) => `finish these yourself: ${r.company} (${r.url}): no application form found in ${EMPTY_READ_TRIES} reads; apply on the page yourself`);
   let read = 0;
   for (const r of todo) {
     try {

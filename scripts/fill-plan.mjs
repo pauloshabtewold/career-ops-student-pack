@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { atsTextProblems, htmlSections } from '../lib/ats-text.mjs';
-import { FIELDS_DIR, SENSITIVE_KEY, atsOf, mapField, mapForm, readFields } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formGaveUp, mapField, mapForm, readFields } from '../lib/ats-fields.mjs';
 import { writeBatches, updateBatch } from '../lib/batch-file.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -308,6 +308,10 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
   // One work folder per run: a second run on the same day never overwrites a resume an earlier batch still uploads.
   const runDir = join(paths.dataDir, 'fill-plans', `${today}-run-${deps.runId ?? randomUUID().slice(0, 8)}`);
   for (const [i, row] of rows.entries()) {
+    if (formGaveUp(join(paths.dataDir, FIELDS_DIR), row.url)) {
+      say(`fill-plan: ${row.company} | ${row.role ?? row.title}: kept out: finish these yourself: no application form found in ${EMPTY_READ_TRIES} reads of ${row.url}`);
+      continue;
+    }
     const outDir = join(runDir, String(i + 1));
     mkdirSync(outDir, { recursive: true });
     const form = { url: row.url, fields: (await (deps.fieldsFor ?? (() => []))(row)) ?? [] };

@@ -8,7 +8,9 @@
 // read --links lists only the page's LinkedIn job and company links (jobs/view and company hrefs), up to 200.
 // read-form reads the posting's application form (labels, names, types and selectors, never values) into
 // data/form-fields/<url key>.json for fill-plan; it never types or clicks, and a CAPTCHA (exit 6) or a password field
-// (exit 5, a sign-in page) stops it before anything is read.
+// (exit 5, a sign-in page) stops it before anything is saved. Only the application form's inputs count (lib/cdp.mjs
+// readFormFields); a page with none saves nothing (exit 3), counts the try in data/form-fields/empty-reads.json and is
+// read again on the next run, up to 3 tries.
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
@@ -26,7 +28,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
 import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readFormFields, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -525,6 +527,7 @@ export async function readForm(client, url) {
     if (captcha) return { stop: 'captcha', detail: captcha };
     const fields = (await readFormFields(client, sessionId)) ?? [];
     if (fields.some(isPasswordField)) return { stop: 'password' };
+    if (!fields.length) return { stop: 'empty' };
     return { fields };
   } finally {
     await client.send('Target.closeTarget', { targetId }).catch(() => {});
@@ -548,6 +551,12 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
   if (res.stop === 'password') {
     say(`chrome: blocked-on-user: ${siteOf(flags.url)} shows a password field (a sign-in or account page); sign-ins stay with you, nothing was typed. Read the form again once you are signed in.`);
     return EXIT.needsUser;
+  }
+  if (res.stop === 'empty') {
+    const tries = recordEmptyRead(join(dataDir, FIELDS_DIR), flags.url);
+    const left = tries >= EMPTY_READ_TRIES ? 'it is left for you to finish yourself' : 'it is read again on the next run';
+    say(`chrome: no application form found on ${siteOf(flags.url)} (read ${tries} of ${EMPTY_READ_TRIES}); nothing was saved and ${left}`);
+    return EXIT.refused;
   }
   const file = saveFormFields(dataDir, flags.url, res.fields);
   say(`chrome: read ${res.fields.length} form field(s) on ${siteOf(flags.url)} into ${file}`);
