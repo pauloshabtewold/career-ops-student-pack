@@ -260,13 +260,13 @@ export function tierFor(config, tier = 'standard') {
 }
 
 // One call to the configured agent at the tier tierFor names. The student chose premium, so opus is allowed there as it
-// was before the ledger existed. A HeadlessError is unwrapped so the failure reasons below see the agent's own exit
+// was before the ledger existed. Only the pre-screen is a bulk step (lever T12); a final score keeps its tier's effort. A HeadlessError is unwrapped so the failure reasons below see the agent's own exit
 // status and stderr.
 async function callAgent({ configured, file, config, prompt, packRoot, runner, platform, dataDir, today, rows, tier = 'standard' }) {
   try {
     const res = await runHeadless({
       agent: configured, agentPath: file, prompt, runner, platform, packRoot, dataDir, date: today, rows,
-      step: tier === 'prescreen' ? 'triage-prescreen' : 'triage', feature: 'M1', ...tierFor(config, tier), bulk: true, tempPrefix: `daily-triage-${configured}-`,
+      step: tier === 'prescreen' ? 'triage-prescreen' : 'triage', feature: 'M1', ...tierFor(config, tier), bulk: tier === 'prescreen', tempPrefix: `daily-triage-${configured}-`,
     });
     if (configured === 'codex' && !res.text.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
     return res.text;

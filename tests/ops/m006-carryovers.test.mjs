@@ -108,7 +108,8 @@ test('M2: an arm that measured nothing is never a pass', async () => {
 
 test('M3: a lever-ab verdict file turns a solo pass on only after a completed stacked pass that includes it', async () => {
   const { resolve } = await import('../../lib/levers.mjs');
-  const levers = { T5: { verdict: 'pass' }, T11: { verdict: 'pass' }, T13: { verdict: 'pass' } };
+  const pins = { bars_sha256: 'b'.repeat(64), sample_hash: 's'.repeat(64) };
+  const levers = { T5: { verdict: 'pass', ...pins }, T11: { verdict: 'pass', ...pins }, T13: { verdict: 'pass' } };
   const at = (stacked) => ({ verdicts: { levers, stacked }, overrides: {} });
   for (const status of ['pending: solo verdicts changed; run stacked', 'running: stacked round 2', 'blocked-on-user: claude reported a quota, limit or rate-limit error']) assert.equal(resolve('T5', at({ status, final: ['T5'] })).on, false, status);
   assert.equal(resolve('T5', at({ status: 'stacked pass after 1 round: T5 on together', final: ['T5'] })).on, true);
@@ -143,18 +144,230 @@ test('T2 shares one re-check with the A/B; a premium pre-screen stays at the sta
   assert.equal(tierFor({ spend_tier: 'premium' }).model, 'opus');
 });
 
-test('T5 reads the contact role from contacts.tsv; T10 keeps one verifier round tag per day', async () => {
-  const { contactRoles, roundTagFor } = await import('../../scripts/outreach-drafts.mjs');
-  assert.equal(contactRoles([{ name: 'Ana Example', company: 'Example Co', role: 'Technical Recruiter' }]).get('ana example|example co'), 'Technical Recruiter');
-  const { mkdtempSync, rmSync } = await import('node:fs');
-  const { tmpdir } = await import('node:os');
-  const dir = mkdtempSync(join(tmpdir(), 'pack-roundtag-'));
+test('T5 reads the contact role from contacts.tsv; the outreach verifier keeps a fresh round tag per round (no T10 day tag)', async () => {
+  const mod = await import('../../scripts/outreach-drafts.mjs');
+  assert.equal(mod.contactRoles([{ name: 'Ana Example', company: 'Example Co', role: 'Technical Recruiter' }]).get('ana example|example co'), 'Technical Recruiter');
+  assert.equal(mod.roundTagFor, undefined, 'no per-day round tag');
+  assert.doesNotMatch(readFileSync(join(PACK_ROOT, 'scripts', 'outreach-drafts.mjs'), 'utf8'), /outreach-round-tag/);
+});
+
+// Fix round 2 (review r2): plumbing trials, A/A noise and per-step counts, T12 off the final score, holdout shapes,
+// stacked reuse, stale verdicts, the committed verdict file.
+const fix2 = async () => {
+  const lab = await import('../../tools/lever-ab.mjs');
+  const h = await import('../helpers/lever-harness.mjs');
+  return { ...lab, h };
+};
+const withPack = async (fn) => {
+  const { h } = await fix2();
+  const p = h.packCopy();
   try {
-    const a = roundTagFor(dir, '2026-11-23', true);
-    assert.equal(roundTagFor(dir, '2026-11-23', true), a);
-    assert.notEqual(roundTagFor(dir, '2026-11-24', true), a);
-    assert.match(roundTagFor(dir, '2026-11-24', false), /^[0-9a-f]{8}$/);
+    await fn(p.dir, h);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    p.cleanup();
   }
+};
+
+test('R2-M1: T1, T13 and T15 get measured plumbing verdicts with zero runner calls; economy_tier and T12 are a fail, not wired', async () => {
+  const { runSolo } = await fix2();
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents();
+    const out = h.sayer();
+    const ids = ['T1', 'T13', 'T15', 'economy_tier', 'T12'];
+    const code = await runSolo({ root: dir, levers: ids, runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: out.say, seed: 's', today: '2026-11-22' });
+    assert.equal(code, 0, out.lines.join('\n'));
+    assert.equal(fake.calls.length, 0, 'no runner call');
+    const data = h.verdictJson(dir);
+    for (const id of ['T1', 'T13', 'T15']) {
+      const v = data.levers[id];
+      assert.equal(v.verdict, 'pass', `${id}: ${JSON.stringify(v)}`);
+      assert.ok(Number.isFinite(v.tokens.before) && Number.isFinite(v.tokens.after) && v.tokens.after < v.tokens.before, `${id} saves tokens: ${JSON.stringify(v.tokens)}`);
+      assert.equal(v.quality.after.PLUMBING_EQUAL, 1);
+      assert.equal(v.quality.before.PLUMBING_EQUAL, 1);
+    }
+    assert.ok(data.levers.T1.tokens.per_agent.claude && data.levers.T13.tokens.per_agent.codex, 'priced per agent at P0 triage tokens per row');
+    for (const id of ['economy_tier', 'T12']) {
+      const v = data.levers[id];
+      assert.equal(v.verdict, 'fail');
+      assert.match(v.basis, /not measured: not wired/);
+      assert.deepEqual([v.tokens.before, v.tokens.after], [0, 0]);
+      assert.deepEqual(v.quality, { before: 'not wired', after: 'not wired' });
+    }
+  });
+});
+
+test('R2-M1: a plumbing trial whose output changes fails to the off path', async () => {
+  const { missedBar, EXTRA_BARS } = await fix2();
+  assert.match(JSON.stringify(missedBar({ PLUMBING_EQUAL: 0.98 }, EXTRA_BARS)), /PLUMBING_EQUAL/);
+  assert.equal(missedBar({ PLUMBING_EQUAL: 1 }, EXTRA_BARS), null);
+  const { resolve } = await import('../../lib/levers.mjs');
+  assert.equal(resolve('T13', { verdicts: { levers: { T13: { verdict: 'fail' } }, stacked: { status: 'running', final: [] } }, overrides: {} }).on, false);
+});
+
+test('R2-M1: the token report shows the plumbing savings and a T1 triage row', async () => {
+  const { writeReport } = await fix2();
+  await withPack(async (dir, h) => {
+    h.writeVerdicts(dir, { T1: { verdict: 'pass', tokens: { before: 900, after: 500, per_agent: { claude: { before: 1000, after: 600 }, codex: { before: 800, after: 400 } }, unit: 'P0 triage tokens per row' } }, T15: { verdict: 'pass', tokens: { before: 70, after: 20, unit: 'session tokens (characters parsed / 4)' } } }, { stacked: { status: 'pending', rounds: [], final: [] } });
+    const md = await writeReport({ root: dir });
+    assert.match(md, /\| M1 \| triage of unchanged postings \| 1000 \| 600 \| 800 \| 400 \|.*T1 pass \|/);
+    assert.match(md, /\| setup \| setup \| 70 \| 20 \| 70 \| 20 \|.*no AI cost of its own/);
+    assert.match(md, /\| triage \| claude \| \d+ \| [^|]+ \| T1, T13, T2, jd_trim, batch_size \|/);
+  });
+});
+
+test('R2-M2: the free A/A noise of the P0 baseline per draft step, and per-step added counts from judged pairs', async () => {
+  const { aaNoise, perStepCounts } = await fix2();
+  const noise = aaNoise(PACK_ROOT);
+  for (const k of ['claude/cover', 'claude/outreach', 'claude/reply', 'codex/cover', 'codex/outreach', 'codex/reply']) {
+    assert.ok(noise[k]?.pairs > 0, `${k}: ${JSON.stringify(noise[k])}`);
+    assert.equal(typeof noise[k].gate_added, 'number');
+    assert.equal(typeof noise[k].p0_judge_invented, 'number');
+  }
+  assert.ok(Object.values(noise).some((s) => s.gate_added > 0), 'the P0 A/A arms differ by some added items');
+  assert.deepEqual(perStepCounts([
+    { key: 'claude/nursing/reply-1', judge_added: 1, gate_added: ['x', 'y'], not_worse: true },
+    { key: 'claude/nursing/reply-2', judge_added: 0, gate_added: [], not_worse: false },
+    { key: 'digest-1', judge_added: 4, gate_added: [] },
+  ]), { 'claude/reply': { pairs: 2, judge_added: 1, gate_added: 2, not_worse: 1 } });
+});
+
+test('R2-M2: a draft verdict keeps the first and the milder setting per-step counts and the A/A noise; --aa-control is opt-in', async () => {
+  const { runSolo } = await fix2();
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents({ missAlways: true });
+    const out = h.sayer();
+    await runSolo({ root: dir, levers: ['T11'], runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: out.say, seed: 's', today: '2026-11-22' });
+    const data = h.verdictJson(dir);
+    const v = data.levers.T11;
+    assert.equal(v.verdict, 'fail', out.lines.join('\n'));
+    assert.ok(v.per_step_first['claude/cover'].pairs > 0 && v.per_step_milder['claude/cover'].pairs > 0, JSON.stringify(v));
+    assert.ok(v.judged_pairs_first.length > 0, 'the first setting\'s pairs are kept');
+    assert.ok(v.aa_noise['claude/cover'] && !v.aa_noise['claude/reply'], 'A/A noise of the lever\'s own steps');
+    assert.equal(data.aa, undefined, 'no A/A arm without --aa-control');
+    assert.ok(data.solo.aa_noise['codex/reply']);
+  });
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents();
+    const out = h.sayer();
+    await runSolo({ root: dir, levers: ['T11'], runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: out.say, seed: 's', today: '2026-11-22', aaControl: true });
+    assert.match(out.lines.join('\n'), /A\/A control re-run \(cover; opt-in\)/);
+    const data = h.verdictJson(dir);
+    assert.ok(data.aa.per_step['claude/cover'].pairs > 0, JSON.stringify(data.aa));
+  });
+});
+
+test('R2-M3: a Codex final triage score keeps medium effort even with T12 on; only the pre-screen is a bulk step', async () => {
+  const { dailyTriage } = await import('../../scripts/daily-triage.mjs');
+  const t = await import('../helpers/triage-harness.mjs');
+  const { h } = await fix2();
+  const pins = { bars_sha256: 'b'.repeat(64), sample_hash: 's'.repeat(64) };
+  const farm = h.packFarm({ T12: { ...h.soloVerdict('pass', 0), ...pins } });
+  const r = t.makeTriageRoot({ config: `${t.PLUS}agent: codex\n`, pending: t.untriaged(2) });
+  try {
+    const file = join(farm.dir, 'docs', 'lever-verdicts.json');
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(file, JSON.stringify({ levers: { T12: { ...h.soloVerdict('pass', 0), ...pins } }, stacked: { status: 'stacked pass after 1 round: T12 on together', final: ['T12'] } }));
+    const { runner, calls } = t.makeRunner(r);
+    await dailyTriage({ ...t.args(r, { agent: 'codex', agentPath: '/opt/sample/bin/codex', claude: null }), packRoot: farm.dir, runner });
+    assert.ok(calls.codex.length > 0);
+    for (const c of calls.codex) assert.ok(c.args.includes('model_reasoning_effort=medium'), c.args.join(' '));
+  } finally {
+    r.cleanup();
+    farm.cleanup();
+  }
+  assert.equal(bulkEffort('codex', true, 'low', { isOn: () => false }), 'low', 'the pre-screen tier is already low');
+});
+
+test('R2-M4: bulkEffort takes the plan signature with an isOn function', () => {
+  assert.equal(bulkEffort('codex', true, 'medium', { isOn: (id) => id === 'T12' }), 'low');
+  assert.equal(bulkEffort('codex', true, 'medium', { isOn: () => false }), 'medium');
+  assert.equal(bulkEffort('codex', false, 'medium', { isOn: () => true }), 'medium');
+  assert.equal(bulkEffort('claude', true, 'medium', { isOn: () => true }), 'medium');
+});
+
+test('R2-M4: soloLoss reads the flat lower-case quality shape too', async () => {
+  const { soloLoss } = await fix2();
+  const flat = (after, before) => ({ verdict: 'pass', quality_after: after, ...(before ? { quality_before: before } : {}) });
+  assert.ok(soloLoss(flat({ overlap_min: 0.8 })) > soloLoss(flat({ overlap_min: 0.95 })));
+  assert.ok(soloLoss(flat({ overlap_min: 0.95 }, { overlap_min: 0.9 })) < soloLoss(flat({ overlap_min: 1 })), 'a gain ranks lowest');
+  assert.ok(soloLoss(flat({ invented_facts_max: 2 })) > soloLoss(flat({ invented_facts_max: 0 })));
+  assert.ok(soloLoss({ qualityBefore: { OVERLAP_MIN: 1 }, qualityAfter: { OVERLAP_MIN: 0.7 } }) > 0.29);
+});
+
+test('R2-M4: a judge stop names claude (Opus judge); a limit sent as a normal answer stops with exit 5 naming the agent', async () => {
+  const { runSolo, readReply } = await fix2();
+  assert.match(readReply('claude', { status: 0, stdout: JSON.stringify({ type: 'result', is_error: false, result: 'Claude AI usage limit reached|1795300000' }) }).error, /usage limit/);
+  assert.match(readReply('claude', { status: 0, text: 'x', usage: { input_tokens: 1, output_tokens: 1 }, stdout: JSON.stringify({ type: 'result', is_error: true, result: 'weekly limit reached' }) }).error, /limit reached/);
+  assert.equal(readReply('claude', { status: 0, text: 'I would welcome the chance to talk about the role.' }).error, null);
+  for (const agent of ['claude', 'codex']) {
+    await withPack(async (dir, h) => {
+      const limit = (call) => ((call?.agent ?? 'claude') === agent ? h.agentReply(agent, "You've hit your usage limit. Try again at 5pm.", h.SMALL_USAGE, 'm') : null);
+      const fake = h.fakeAgents({ fail: (call, judging) => (judging ? null : limit(call)) });
+      const out = h.sayer();
+      const code = await runSolo({ root: dir, levers: ['jd_trim'], runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: out.say, seed: 's', today: '2026-11-22' });
+      assert.equal(code, 5, out.lines.join('\n'));
+      assert.match(out.lines.join('\n'), new RegExp(`blocked-on-user.*${agent}`, 'i'));
+      assert.match(out.lines[0], /estimate/);
+    });
+  }
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents({ fail: (call, judging) => (judging ? h.quotaReply('claude') : null) });
+    const out = h.sayer();
+    const code = await runSolo({ root: dir, levers: ['T11'], runner: fake.runner, judge: fake.judge, resolve: (a) => (a === 'claude' ? h.resolve(a) : null), say: out.say, seed: 's', today: '2026-11-22' });
+    assert.equal(code, 5);
+    assert.match(out.lines.join('\n'), /blocked-on-user.*claude \(Opus judge\)/);
+  });
+});
+
+test('R2-S1: a stacked round reuses the stored T4 result instead of paying for its trial again', async () => {
+  const { runStacked } = await fix2();
+  const calls = async (set) => {
+    let n = 0;
+    let rounds = [];
+    await withPack(async (dir, h) => {
+      h.writeVerdicts(dir, Object.fromEntries(set.map((id) => [id, h.soloVerdict('pass', 0.01)])));
+      const fake = h.fakeAgents();
+      await runStacked({ root: dir, runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: () => {}, seed: 's', today: '2026-11-22' });
+      n = fake.calls.length;
+      rounds = h.verdictJson(dir).stacked.rounds;
+    });
+    return { n, rounds };
+  };
+  const without = await calls(['jd_trim']);
+  const withT4 = await calls(['jd_trim', 'T4']);
+  assert.equal(withT4.n, without.n, 'no resume or judge call for T4');
+  assert.deepEqual(withT4.rounds[0].reused_solo_measures, ['T4']);
+});
+
+test('R2-S3: a verdict with no bars_sha256 or sample_hash stays off even after a stacked pass that lists it', async () => {
+  const { resolve } = await import('../../lib/levers.mjs');
+  const stacked = { status: 'stacked pass after 1 round: T5 on together', final: ['T5'] };
+  assert.equal(resolve('T5', { verdicts: { levers: { T5: { verdict: 'pass' } }, stacked }, overrides: {} }).on, false);
+  assert.equal(resolve('T5', { verdicts: { levers: { T5: { verdict: 'pass', bars_sha256: 'b' } }, stacked }, overrides: {} }).on, false);
+  assert.equal(resolve('T5', { verdicts: { levers: { T5: { verdict: 'pass', bars_sha256: 'b', sample_hash: 's' } }, stacked }, overrides: {} }).on, true);
+});
+
+test('R2-S3: the committed docs/lever-verdicts.json has a stacked record and every gated or tuning lever on is in its final set', async () => {
+  const { LEVERS, resolve } = await import('../../lib/levers.mjs');
+  const verdicts = JSON.parse(readFileSync(join(PACK_ROOT, 'docs', 'lever-verdicts.json'), 'utf8'));
+  assert.equal(typeof verdicts.stacked, 'object');
+  assert.ok(verdicts.stacked && Array.isArray(verdicts.stacked.final));
+  for (const [id, def] of Object.entries(LEVERS)) {
+    if (def.kind === 'plumbing') continue;
+    if (resolve(id, { verdicts, overrides: {} }).on) assert.ok(verdicts.stacked.final.includes(id), `${id} is on without a stacked pass`);
+  }
+});
+
+test('R2-N1: campaign --dry-run prints a stacked preview with the solo control reused and makes no call', async () => {
+  const { runCampaign } = await fix2();
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents();
+    const out = h.sayer();
+    const code = await runCampaign({ root: dir, runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: out.say, seed: 's', today: '2026-11-22', dryRun: true });
+    assert.equal(code, 0);
+    assert.equal(fake.calls.length, 0);
+    const text = out.lines.join('\n');
+    assert.match(text, /stacked preview \(solo control reused\)/);
+    assert.doesNotMatch(text, /no stacked run was made/);
+  });
 });

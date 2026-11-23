@@ -612,21 +612,6 @@ export function contactRoles(contactRows = []) {
   return roles;
 }
 
-// The round tag of the verifier's student blocks. With T10 on (its stable-prefix part) one random tag is kept per day in
-// data/.outreach-round-tag, so the verifier's fixed rules and resume blocks are byte-identical for every verify call of
-// the day and can be cached across rounds; per-call tags stay random. Off: a new random tag per round, as before.
-const ROUND_TAG_FILE = '.outreach-round-tag';
-export function roundTagFor(dataDir, today, t10On) {
-  if (!t10On || !dataDir) return fenceTag();
-  const file = join(dataDir, ROUND_TAG_FILE);
-  const [day, tag] = existsSync(file) ? readFileSync(file, 'utf8').trim().split(/\s+/) : [];
-  if (day === today && /^[0-9a-f]{8}$/.test(tag ?? '')) return tag;
-  const fresh = fenceTag();
-  mkdirSync(dataDir, { recursive: true });
-  writeFileSync(file, `${today} ${fresh}\n`);
-  return fresh;
-}
-
 // Replies T6 sorts out of the AI step: none while T6 is off; with T6 on, the thanks and no replies.
 const sortedOut = (replies, t6On) => (t6On ? replies.map((r) => ({ ...r, kind: sortReply(r.text) })).filter((r) => r.kind !== 'needs-answer') : []);
 
@@ -799,7 +784,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
-  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: roundTagFor(paths.dataDir, today, deps.t10On ?? isOn('T10')), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On };
+  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
   const ready = drafts.filter((d) => !d.flags.length);

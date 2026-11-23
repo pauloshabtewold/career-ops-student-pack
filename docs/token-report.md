@@ -7,7 +7,8 @@ Solo run status: no solo run yet. Stacked run status: no stacked run yet. Invent
 <!-- rows:start -->
 | Feature | Step | Claude tokens per call before | Claude after | Codex tokens per call before | Codex after | Ledger tokens per row | Levers or no AI cost | Quality verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| setup | setup | 0 | 0 | 0 | 0 | no ledger | no AI cost: setup runs as plain scripts and reads the resume once (T15) | mechanical; T15 pending |
+| setup | setup | not measured | not measured | not measured | not measured | no ledger | no AI cost of its own: setup runs as plain scripts and reads the resume once (T15); T15 saving (not measured yet) | T15 pending |
+| M1 | triage of unchanged postings | not measured | not measured | not measured | not measured | no ledger | T1 (plumbing): rows it keeps out of triage (not measured yet) | T1 pending |
 | M3 | autopilot | 0 | 0 | 0 | 0 | no ledger | no AI cost: the autopilot only runs the steps below; their tokens are counted in their own rows | mechanical: zero agent calls |
 | M4 | batches | 0 | 0 | 0 | 0 | no ledger | no AI cost: batches and approvals are files and budget.mjs rows | mechanical: zero agent calls |
 | M5 | known fields | 0 | 0 | 0 | 0 | no ledger | no AI cost: known fields are filled from the answer bank and the ATS maps by code (T3 adds learned maps) | mechanical; T3 pending |
@@ -17,7 +18,7 @@ Solo run status: no solo run yet. Stacked run status: no stacked run yet. Invent
 | M9 | ATS check | 0 | 0 | 0 | 0 | no ledger | no AI cost: template render and text checks run by code | mechanical: zero agent calls |
 | M10 | guided lines | 0 | 0 | 0 | 0 | no ledger | no AI cost: guided lines come from lib/next-step.mjs (T14) | mechanical; T14 pending |
 | M11 | rule | 0 | 0 | 0 | 0 | no ledger | no AI cost: a rule, not a step | mechanical: zero agent calls |
-| M12 | fresh scan | 0 | 0 | 0 | 0 | no ledger | no AI cost: the fresh scan and one page read are code | mechanical; T13 pending |
+| M12 | fresh scan | not measured | not measured | not measured | not measured | no ledger | no AI cost of its own: the fresh scan and one page read are code; T13 dedupe keeps repeated rows out of triage; T13 saving (not measured yet) | T13 pending |
 | M13 | inbox pass | 3405 | not measured | 11186 | not measured | no ledger | T7 | pending A/B: T7 pending |
 | M13 | gmail read | 0 | 0 | 0 | 0 | no ledger | no AI cost: reading the inbox list and link ids is code | mechanical: zero agent calls |
 | U1 | boards | 0 | 0 | 0 | 0 | no ledger | no AI cost: public board JSON read by code | mechanical: zero agent calls |
@@ -47,8 +48,8 @@ Solo run status: no solo run yet. Stacked run status: no stacked run yet. Invent
 
 | Step | Agent | Tokens per call before (P0) | After | Levers |
 | --- | --- | --- | --- | --- |
-| triage | claude | 8459 | not measured | T2, T12, jd_trim, batch_size |
-| triage | codex | 13978 | not measured | T2, T12, jd_trim, batch_size |
+| triage | claude | 8459 | not measured | T1, T13, T2, jd_trim, batch_size |
+| triage | codex | 13978 | not measured | T1, T13, T2, jd_trim, batch_size |
 | cover | claude | 6009 | not measured | T10, T11 |
 | cover | codex | 12813 | not measured | T10, T11 |
 | outreach | claude | 4622 | not measured | T5, T10 |
