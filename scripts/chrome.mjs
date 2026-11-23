@@ -10,7 +10,8 @@
 // data/form-fields/<url key>.json for fill-plan; it never types or clicks, and a CAPTCHA (exit 6) or a password field
 // (exit 5, a sign-in page) stops it before anything is saved. Only the application form's inputs count (lib/cdp.mjs
 // readFormFields); a page with none saves nothing (exit 3), counts the try in data/form-fields/empty-reads.json and is
-// read again on the next run, up to 3 tries.
+// read again on the next run, up to 3 tries. It also saves the page's job text (the JSON-LD JobPosting description, else
+// the visible main text cut to the jd_trim budget) through the posting guard into data/jds, where fill-plan reads it.
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
@@ -32,6 +33,9 @@ import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile, rec
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
 import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readFormFields, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { save as saveJd } from '../lib/jd-store.mjs';
+import { trimJobText } from '../lib/jd-trim.mjs';
+import { guardPosting } from '../lib/posting-guard.mjs';
 import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
 import { isSensitive } from '../lib/profile-answers.mjs';
 import { LockTimeoutError, isPidAlive, withLock } from '../lib/dir-lock.mjs';
@@ -517,6 +521,45 @@ export async function fillPlan(client, plan, { dataDir }) {
   return { code: blocked.length ? EXIT.needsUser : EXIT.ok, filled, problems: [...problems, ...blocked], tab };
 }
 
+// Page script for the job text: the raw JSON-LD blocks and the visible text of main (else article, else body). Read-only.
+export const PAGE_JOB_SCRIPT = `(() => ({
+  ld: [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => s.textContent || ''),
+  main: (document.querySelector('main') || document.querySelector('article') || document.body || { innerText: '' }).innerText || '',
+}))()`;
+
+// Fewer words than this is a form or a page shell, not a posting.
+export const MIN_PAGE_JOB_WORDS = 80;
+const wordCount = (text) => String(text ?? '').split(/\s+/).filter(Boolean).length;
+const stripHtml = (html) => String(html ?? '')
+  .replace(/<\s*(br|\/p|\/li|\/h[1-6]|\/div)\b[^>]*>/gi, '\n')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+
+// The JobPosting nodes of one JSON-LD block (a node, an array, or an @graph); [] for a block that does not parse.
+function jobPostings(block) {
+  let data;
+  try {
+    data = JSON.parse(block);
+  } catch {
+    return [];
+  }
+  const nodes = (Array.isArray(data) ? data : [data]).flatMap((n) => (Array.isArray(n?.['@graph']) ? n['@graph'] : [n]));
+  return nodes.filter((n) => [].concat(n?.['@type'] ?? []).includes('JobPosting'));
+}
+
+// Job text from a page read by PAGE_JOB_SCRIPT: the description of the page's one JSON-LD JobPosting, else the visible
+// main text cut to the jd_trim budget (lib/jd-trim.mjs); '' when neither reaches MIN_PAGE_JOB_WORDS or the page names
+// several postings.
+export function pageJobText(raw) {
+  const postings = (raw?.ld ?? []).flatMap(jobPostings);
+  if (postings.length > 1) return '';
+  const ld = postings.length ? stripHtml(postings[0].description) : '';
+  if (wordCount(ld) >= MIN_PAGE_JOB_WORDS) return postings[0].title ? `${postings[0].title}\n\n${ld}` : ld;
+  const main = String(raw?.main ?? '').trim();
+  return wordCount(main) >= MIN_PAGE_JOB_WORDS ? trimJobText(main) : '';
+}
+
 // Reads the application form at url in a new tab and closes it again: read-only, it never types, clicks or submits. A
 // visible CAPTCHA or bot check, or a password field (a sign-in or account page), stops it before the fields are read.
 // Returns { fields } or { stop: 'captcha', detail } or { stop: 'password' }.
@@ -528,7 +571,8 @@ export async function readForm(client, url) {
     const fields = (await readFormFields(client, sessionId)) ?? [];
     if (fields.some(isPasswordField)) return { stop: 'password' };
     if (!fields.length) return { stop: 'empty' };
-    return { fields };
+    const jobText = pageJobText(await evaluate(client, sessionId, PAGE_JOB_SCRIPT));
+    return jobText ? { fields, jobText } : { fields };
   } finally {
     await client.send('Target.closeTarget', { targetId }).catch(() => {});
   }
@@ -560,6 +604,9 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
   }
   const file = saveFormFields(dataDir, flags.url, res.fields);
   say(`chrome: read ${res.fields.length} form field(s) on ${siteOf(flags.url)} into ${file}`);
+  const guarded = res.jobText ? guardPosting(res.jobText).text.trim() : '';
+  if (guarded) say(`chrome: saved the posting text from ${siteOf(flags.url)} (${saveJd(dataDir, flags.url, guarded)})`);
+  else say(`chrome: no posting text found on ${siteOf(flags.url)}`);
   return EXIT.ok;
 }
 

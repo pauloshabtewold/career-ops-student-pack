@@ -38,6 +38,7 @@ function fakeClient({ captcha = null, fields = PAGE_FIELDS } = {}) {
       const expr = String(params.expression ?? '');
       if (/recaptcha/i.test(expr)) return { result: { value: captcha } };
       if (expr.includes("querySelectorAll('input, select, textarea')")) return { result: { value: fields } };
+      if (expr.includes('application/ld+json')) return { result: { value: { ld: [], main: '' } } };
       calls.push(`unexpected script: ${expr.slice(0, 40)}`);
       return { result: { value: null } };
     }

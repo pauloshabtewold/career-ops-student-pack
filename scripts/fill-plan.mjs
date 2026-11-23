@@ -23,7 +23,9 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
-import { save as saveJd } from '../lib/jd-store.mjs';
+import { load as loadJd, save as saveJd } from '../lib/jd-store.mjs';
+import { createRobotsChecker } from '../lib/robots.mjs';
+import { defaultRunner } from '../lib/upstream.mjs';
 import { isOn, readOverrides, resolve as resolveLever } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { extractPdfText } from '../lib/pdf-text.mjs';
@@ -39,6 +41,7 @@ import { effectiveLimits } from './budget.mjs';
 import { DEFAULT_ORDER, EXIT_WAIT, buildResume, parseCv } from './build-resume.mjs';
 import { sourceContacts, sourceWords, textLayerProblems } from './check-resume.mjs';
 import { writeCover } from './cover.mjs';
+import { createFetchGate, fetchPosting } from './daily-triage.mjs';
 import { buildReviewPrompt } from './review-app.mjs';
 
 export const FULL_PATH_SCORE = 4.0;
@@ -287,6 +290,24 @@ export async function planRow(row, ctx) {
   };
 }
 
+// The job text a CLI run plans with: the text saved in data/jds (by daily triage's fetch or chrome.mjs read-form), else
+// upstream fetch-jd.mjs through daily triage's own fetch gate (public ATS hosts, else robots.txt and the request gap) when
+// the career-ops folder has it; '' when neither finds any. A closed posting gives ''.
+// fetch(url) is daily-triage's fetchPosting bound to one fetch gate for the whole run.
+export async function jobTextFor({ paths, url, fetch }) {
+  const saved = loadJd(paths.dataDir, url);
+  if (saved.trim()) return saved;
+  if (!existsSync(join(paths.root, 'fetch-jd.mjs'))) return '';
+  const res = await fetch(url);
+  return res.closed === undefined ? res.text : '';
+}
+
+// The fetch for jobTextFor: upstream fetch-jd.mjs under one gate, so the same-host gap holds across the run's rows.
+export function defaultFetch(paths, config) {
+  const mayFetch = createFetchGate({ robots: createRobotsChecker(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)), now: Date.now, gapMs: effectiveLimits(config).values.request_gap_ms });
+  return (url) => fetchPosting({ root: paths.root, row: { url }, runner: defaultRunner, mayFetch });
+}
+
 function defaultRows(paths, n) {
   const res = runResult(process.execPath, [join(paths.packRoot, 'scripts', 'rank-queue.mjs'), '--json', '--n', String(n), '--root', paths.root, '--data-dir', paths.dataDir], { cwd: paths.root });
   return res.code === 0 ? JSON.parse(res.stdout || '[]') : [];
@@ -357,7 +378,9 @@ async function main() {
   const rows = flags.rows ? JSON.parse(readFileSync(flags.rows, 'utf8')) : defaultRows(paths, n);
   const fieldsDir = flags.fieldsDir ?? join(paths.dataDir, FIELDS_DIR);
   const fieldsFor = (row) => readFields(fieldsDir, row.url);
-  return (await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor } })).code;
+  const fetch = defaultFetch(paths, config);
+  const fetchJob = (row) => jobTextFor({ paths, url: row.url, fetch });
+  return (await fillPlans({ paths, rows: rows.slice(0, n), today, deps: { fieldsFor, fetchJob } })).code;
 }
 
 if (isMain(import.meta.url)) await runCli(main);
