@@ -25,6 +25,7 @@ import { footerLines, waitingCounts } from '../lib/digest.mjs';
 import { replyKey, searchUrl } from '../lib/gmail-chrome.mjs';
 import { weeklyLessons } from '../lib/outreach-lessons.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { RECHECK_OFFER, probeUnsure } from '../lib/probe-state.mjs';
 import { runText } from '../lib/run.mjs';
 import { stepErrorText } from '../lib/text.mjs';
 import { urlKey } from '../lib/url-key.mjs';
@@ -428,7 +429,8 @@ export async function autopilot({ paths, today, deps = {} }) {
     await step('outcome mail', () => readOutcomes({ paths, today, child, deps }));
   } else {
     waiting.push('submitting approved applications', 'reading outcome mail');
-    lines.push(`waiting for Chrome: ${waiting.join(', ')}${config.chrome_in_schedule === 'yes' ? ' (the automation Chrome was not open)' : ' (chrome_in_schedule is no)'}`);
+    const recheck = config.chrome_in_schedule !== 'yes' && probeUnsure(paths.dataDir) ? `; the schedule probe could not tell, so ${RECHECK_OFFER}` : '';
+    lines.push(`waiting for Chrome: ${waiting.join(', ')}${config.chrome_in_schedule === 'yes' ? ' (the automation Chrome was not open)' : ' (chrome_in_schedule is no)'}${recheck}`);
   }
   let footer = [];
   try {
@@ -447,7 +449,7 @@ async function sectionFooter({ paths, config, waiting, fillWaiting }) {
   const counts = waitingCounts(listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)));
   const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).length : 0;
   // An unset chrome_in_schedule counts as no (scheduled.mjs runsAutopilot).
-  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', approvedWaiting, fillWaiting, ...counts });
+  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', chromeProbeUnsure: probeUnsure(paths.dataDir), approvedWaiting, fillWaiting, ...counts });
 }
 
 async function main() {

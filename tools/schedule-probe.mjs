@@ -4,7 +4,8 @@
 // The probe installs a one-shot job labelled career-ops.chrome-probe that runs `chrome.mjs status --json` into
 // data/.chrome-probe.json, waits up to 90 seconds for that file, removes the job on every exit path (Ctrl-C and SIGTERM
 // included), records chrome_in_schedule yes or no in config/student.yml and appends a dated evidence line to
-// data/chrome-probe.log. The key stays unset when the job could not be installed or the automation Chrome was not open,
+// data/chrome-probe.log; why the value was set (answered, timeout, install-failed, chrome-closed) goes to
+// data/chrome-probe-state.json (lib/probe-state.mjs). The key stays unset when the job could not be installed or the automation Chrome was not open,
 // because neither says anything about whether a scheduled run can reach it. The log lives in the data folder because the
 // pack folder is a git clone that update.mjs fast-forwards, and an edited tracked file would block pack updates.
 // Usage: schedule-probe.mjs [--root R] | schedule-probe.mjs child --out FILE
@@ -16,6 +17,7 @@ import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { writeConfigKey } from '../lib/config.mjs';
 import { isPidAlive } from '../lib/dir-lock.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { writeProbeState } from '../lib/probe-state.mjs';
 import { runResult } from '../lib/run.mjs';
 import { readState } from '../scripts/chrome.mjs';
 
@@ -113,12 +115,12 @@ export function readProbe(file) {
 
 // yes or no from a probe that ran; unset (config untouched) when it says nothing about reach.
 function verdict(installed, result) {
-  if (!installed) return { value: 'unset', why: 'the probe job could not be installed' };
-  if (!result) return { value: 'no', why: 'no probe file within 90 seconds' };
+  if (!installed) return { value: 'unset', reason: 'install-failed', why: 'the probe job could not be installed' };
+  if (!result) return { value: 'no', reason: 'timeout', why: 'no probe file within 90 seconds' };
   if (result.reachable !== 'yes' && result.chrome_open === 'no') {
-    return { value: 'unset', why: 'the automation Chrome was not open; run chrome.mjs open, then the probe again' };
+    return { value: 'unset', reason: 'chrome-closed', why: 'the automation Chrome was not open; run chrome.mjs open, then the probe again' };
   }
-  return { value: result.reachable === 'yes' ? 'yes' : 'no', why: `probe file said reachable ${result.reachable}` };
+  return { value: result.reachable === 'yes' ? 'yes' : 'no', reason: 'answered', why: `probe file said reachable ${result.reachable}` };
 }
 
 // Installs the probe job through scheduler, waits up to WAIT_MS for the child result, and records the outcome. A signal
@@ -143,8 +145,9 @@ export async function probe({ root, dataDir, packRoot = PACK_ROOT, scheduler, no
     for (const sig of SIGNALS) proc.off(sig, onSignal);
     scheduler.remove();
   }
-  const { value, why } = verdict(installed, result);
+  const { value, reason, why } = verdict(installed, result);
   if (value !== 'unset') writeConfigKey({ root }, 'chrome_in_schedule', value);
+  writeProbeState(dataDir, { value, reason, date: today });
   mkdirSync(dirname(spikeDoc), { recursive: true });
   appendFileSync(spikeDoc, `- ${today}: scheduled probe ${PROBE_LABEL}: ${why}; chrome_in_schedule ${value}\n`);
   say(`schedule-probe: chrome_in_schedule ${value} (${why})`);

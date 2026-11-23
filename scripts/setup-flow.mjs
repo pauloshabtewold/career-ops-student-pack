@@ -16,6 +16,7 @@ import { loadStudentConfig, writeConfigKey } from '../lib/config.mjs';
 import { isOn, readOverrides } from '../lib/levers.mjs';
 import { SIGN_IN_SITES, guidedFooter, nextStep } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { RECHECK_OFFER, probeUnsure, readProbeState, writeProbeState } from '../lib/probe-state.mjs';
 import { matchQuestion, normalize, readProfileAnswers } from '../lib/profile-answers.mjs';
 import { runResult } from '../lib/run.mjs';
 import { append, zeroRow } from '../lib/usage-ledger.mjs';
@@ -127,10 +128,16 @@ const CHROME_REACH = ['yes', 'no'];
 // After the schedule step: a chrome_in_schedule the probe could not answer (no scheduler on Linux, the probe job could
 // not be installed or timed out, the automation Chrome was closed) becomes no, never stays unset, so the daily autopilot
 // runs and its Chrome steps wait for a session. Returns the line to say, or null when the key was already recorded.
-export async function recordChromeReach(root) {
+// The probe's own reason (lib/probe-state.mjs) stays when it ran; without one the reason is no-probe.
+export async function recordChromeReach(root, dataDir = null) {
   const config = await loadStudentConfig({ root }).catch(() => null);
   if (!config || CHROME_REACH.includes(config.chrome_in_schedule)) return null;
   writeConfigKey({ root }, 'chrome_in_schedule', 'no');
+  if (dataDir) {
+    const reason = readProbeState(dataDir)?.reason ?? 'no-probe';
+    writeProbeState(dataDir, { value: 'no', reason, date: new Date().toISOString().slice(0, 10) });
+    if (probeUnsure(dataDir)) return `setup: the schedule probe could not tell whether a scheduled run reaches the automation Chrome (${reason}), so chrome_in_schedule is no for now: the daily autopilot prepares your batches and its Chrome steps wait for a session. ${RECHECK_OFFER}`;
+  }
   return 'setup: the schedule probe could not tell whether a scheduled run reaches the automation Chrome, so chrome_in_schedule is no: the daily autopilot prepares your batches and its Chrome steps wait for a session';
 }
 
@@ -190,7 +197,7 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
       const res = await d.schedule({ root: paths.root });
       if (res?.code !== 0) return false;
       if (res.probe) say(`setup: ${res.probe}`);
-      const reach = await recordChromeReach(paths.root);
+      const reach = await recordChromeReach(paths.root, paths.dataDir);
       if (reach) say(reach);
       return true;
     }],
