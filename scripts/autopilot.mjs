@@ -31,7 +31,7 @@ import { stepErrorText } from '../lib/text.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
-import { KEPT_OUT_OFFER, NO_JOB_TEXT, keptOutCount, keptOutReason } from '../lib/kept-out.mjs';
+import { KEPT_OUT_OFFER, NO_JOB_TEXT, daysBetween, keptOutCount, keptOutReason } from '../lib/kept-out.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
@@ -60,19 +60,25 @@ const GMAIL_PAGE_SIZES = [25, 50, 100];
 // carry no fields.
 export { FIELDS_DIR };
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
+// A finish-yourself item is named in full in the digest for this many days after it was added; older ones are folded
+// into one count line offering FINISH_REPLY (mapped in AGENTS.student.md to modes/apply-loop.md).
+const FINISH_FULL_DAYS = 7;
+export const FINISH_REPLY = 'read my finish-yourself list';
 
 // Approved apply items not yet submitted, in batch order: the same rule budget.mjs checks (a logged batch.approve lists
 // the item and no send or pending row spent it yet). kind is apply or easy-apply; plan is the item's fill plan file;
-// finish is the reason of the batch's finish these yourself entry for the item's link, or null.
+// finish is the reason of the batch's finish these yourself entry for the item's link, or null, and finishAdded the date
+// that entry was added (the batch date for an entry saved without one).
 export async function approvedUnsent(dataDir) {
   const rows = await readActionLog(join(dataDir, 'action-log.tsv'));
   const out = [];
   for (const id of listBatches(dataDir)) {
     const b = readBatch(dataDir, id);
     if (b?.kind !== 'apply') continue;
-    const finish = new Map((b.finishYourself ?? []).map((f) => [f.link, f.reason ?? 'CAPTCHA']));
+    const finish = new Map((b.finishYourself ?? []).map((f) => [f.link, f]));
     b.items.forEach((it, i) => {
-      if (approvedItem(rows, id, i + 1)) out.push({ batchId: id, item: i + 1, company: it.company, link: it.link ?? '', plan: it.plan ?? '', kind: it.kind === 'easy-apply' ? 'easy-apply' : 'apply', finish: finish.get(it.link) ?? null });
+      const f = finish.get(it.link);
+      if (approvedItem(rows, id, i + 1)) out.push({ batchId: id, item: i + 1, company: it.company, link: it.link ?? '', plan: it.plan ?? '', kind: it.kind === 'easy-apply' ? 'easy-apply' : 'apply', finish: f ? f.reason ?? 'CAPTCHA' : null, finishAdded: f ? f.added ?? b.date ?? null : null });
     });
   }
   return out;
@@ -217,10 +223,11 @@ function replanUnread({ paths, child, it }) {
 // only after a clean fill that typed a text field (fillHold); an item whose plan is not ready (planWait), whose fill
 // needs the student or failed, or whose fill is held waits with its reason and is counted in tally.fillWaiting. An item with no plan file still goes to chrome.mjs submit, which refuses it before any click. A link
 // already submitted, or submitted earlier in this run, is skipped, so a posting approved on two pages goes out once.
-async function submitApproved({ paths, child, tally }) {
+async function submitApproved({ paths, today, child, tally }) {
   const items = await approvedUnsent(paths.dataDir);
   const done = submittedLinks(paths.dataDir, await readActionLog(join(paths.dataDir, 'action-log.tsv')));
   let submitted = 0;
+  let olderFinish = 0;
   const notes = [];
   const wait = (line) => {
     tally.fillWaiting++;
@@ -233,9 +240,11 @@ async function submitApproved({ paths, child, tally }) {
       notes.push(`${name} not submitted: ${it.link} was already submitted`);
       continue;
     }
-    // A job on finish these yourself is the student's now: it is neither filled nor submitted again.
+    // A job on finish these yourself is the student's now: it is neither filled nor submitted again. It is named in full
+    // for FINISH_FULL_DAYS after it was added, then counted in one line, since approvals never expire.
     if (it.finish) {
-      notes.push(`${name} not submitted: finish these yourself: ${it.finish} (${it.link})`);
+      if (it.finishAdded && daysBetween(it.finishAdded, today) >= FINISH_FULL_DAYS) olderFinish++;
+      else notes.push(`${name} not submitted: finish these yourself: ${it.finish} (${it.link})`);
       continue;
     }
     if (it.plan && existsSync(it.plan)) {
@@ -270,6 +279,7 @@ async function submitApproved({ paths, child, tally }) {
       notes.push(`${name} not submitted (${stepErrorText(err)})`);
     }
   }
+  if (olderFinish) notes.push(`${olderFinish} older jobs to finish yourself: type ${FINISH_REPLY}`);
   return [`submitted ${submitted} of ${items.length} approved item(s)`, ...notes];
 }
 
@@ -442,7 +452,7 @@ export async function autopilot({ paths, today, deps = {} }) {
   const waiting = [];
   const tally = { fillWaiting: 0 };
   if (live) {
-    await step('submit approved', () => submitApproved({ paths, child, tally }));
+    await step('submit approved', () => submitApproved({ paths, today, child, tally }));
     await step('outcome mail', () => readOutcomes({ paths, today, child, deps }));
   } else {
     waiting.push('submitting approved applications', 'reading outcome mail');

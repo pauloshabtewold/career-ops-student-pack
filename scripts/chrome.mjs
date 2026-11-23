@@ -34,7 +34,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { LINK_STYLE, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
+import { LINK_STYLE, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, submitForFields, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
@@ -751,7 +751,6 @@ export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit', 'easy-apply':
 // non-zero is a refusal.
 export const budgetExit = (code) => (code === 4 ? EXIT.wait : code === 5 ? EXIT.needsUser : EXIT.refused);
 
-const SUBMIT_SELECTOR = 'button[type=submit], input[type=submit]';
 const OUTCOME_POLL_MS = 500;
 const OUTCOME_TRIES = 20;
 
@@ -794,17 +793,18 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   if (s && (await readValue(client, page.sessionId, s.selector)) !== s.value) return { state: 'not-filled', detail: s.selector };
   if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
   // A plan from a read that recorded its form (formSelector, null for a whole-page read, which saves no submit) clicks
-  // only the button that read found, only inside that form, and only a real submit of a form holding a filled field; an
-  // older plan keeps the page's first type=submit button.
+  // only the button that read found, only inside that form. An older plan (no formSelector) clicks only the submit of a
+  // form holding one of its filled fields, never the page's first submit; with none it is refused as a stale read. Every
+  // button must also be a real submit of a form holding a filled field.
+  const fieldSelectors = (plan.fields ?? []).map((f) => f.selector).filter(Boolean);
   const scoped = plan.formSelector !== undefined;
   if (scoped && !plan.submitSelector) return { state: 'no-button', detail: 'the form read saved none' };
-  const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
+  const selector = scoped ? plan.submitSelector : await submitForFields(client, page.sessionId, fieldSelectors);
+  if (!selector) return { state: 'stale-read' };
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
   if (plan.formSelector && !(await insideForm(client, page.sessionId, plan.formSelector, selector))) return { state: 'outside-form', detail: selector };
-  if (scoped) {
-    const unsafe = unsafeButton(await submitButton(client, page.sessionId, selector, (plan.fields ?? []).map((f) => f.selector).filter(Boolean)), selector);
-    if (unsafe) return unsafe;
-  }
+  const unsafe = unsafeButton(await submitButton(client, page.sessionId, selector, fieldSelectors), selector);
+  if (unsafe) return unsafe;
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
   if (!signs) return { state: 'no-signs' };
@@ -913,8 +913,9 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
   // reason and link (the autopilot then leaves it alone) instead of being refilled and refused each day.
   const unsafe = {
     'no-button': () => [`no safe submit button${clicked.detail ? ` (${clicked.detail})` : ''}`, 'no safe submit button in the form read'],
-    'outside-form': () => [`the submit button ${clicked.detail ?? ''} is outside the form that was read; read the form again (node student/scripts/chrome.mjs read-form --url ${link}), rebuild the plan, fill, then submit`, 'the submit button is outside the form read'],
+    'outside-form': () => [`the submit button ${clicked.detail ?? ''} is outside the form that was read`, 'the submit button is outside the form read'],
     'other-form': () => [`the submit button ${clicked.detail ?? ''} is in a form holding none of the filled fields`, 'the submit button is in a form holding none of the filled fields'],
+    'stale-read': () => ['the saved form read names no form, and no form holding the filled fields has a safe submit button', 'saved form read is too old; read the form again'],
   };
   if (unsafe[clicked.state]) {
     const [why, reason] = unsafe[clicked.state]();

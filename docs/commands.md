@@ -11,6 +11,7 @@ Everything career-ops itself does works when asked in plain words. Say any phras
 
 - "apply" or "start applying": picks today's list and fills the forms in batches of 3, never submitting on its own (`modes/apply-loop.md`).
 - "read my kept-out postings": reads the application form of each posting the digest kept out, so the next run can plan it (`modes/apply-loop.md`).
+- "read my finish-yourself list": lists every job left for you to finish by hand, with its reason and link (`modes/apply-loop.md`).
 - "submit all" or "submit 1,3": submits only the numbered forms you name (`modes/apply-loop.md`).
 - "change a saved answer": changes one saved answer, such as work authorization or an EEO item (`AGENTS.student.md`).
 

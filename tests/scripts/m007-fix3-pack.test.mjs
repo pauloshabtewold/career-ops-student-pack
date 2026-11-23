@@ -313,7 +313,7 @@ test('M-007-fix3-N3-8 submit clicks only the read form\'s button: a submit outsi
     const lines = [];
     const code = chrome.afterClick({ clicked: res, plan: base, paths: { packRoot: PACK_ROOT, root: d, dataDir: d }, flags: { batchId: 'b1', item: 1 }, action: 'apply.submit', dataDir: d, deps: { runner }, say: (l) => lines.push(l) });
     assert.equal(code, chrome.EXIT.refused);
-    assert.match(lines.join('\n'), /outside the form that was read; read the form again .*; nothing was clicked/);
+    assert.match(lines.join('\n'), /outside the form that was read; .*finish it by hand .*; nothing was clicked/);
   } finally {
     rmSync(d, { recursive: true, force: true });
   }

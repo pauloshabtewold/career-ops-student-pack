@@ -68,6 +68,9 @@ function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.te
     if (e.includes('grecaptcha-badge')) return { result: { value: captcha } };
     if (e.includes("el.type === 'file'")) return { result: { value: fieldValue } };
     if (e.includes('autocomplete: (el.autocomplete')) return { result: { value: { tag: 'button', type: 'submit', autocomplete: '' } } };
+    // The plan names no form, so submit looks for the submit of the form holding its fields, then checks that button.
+    if (e.includes('forFields')) return { result: { value: '#send' } };
+    if (e.includes('formHasField')) return { result: { value: { typed: true, text: 'Submit application', inForm: true, formHasField: true } } };
     return { result: { value: true } };
   };
   return { send, calls };
@@ -82,7 +85,7 @@ const fakeRunner = (codes = {}) => {
   return { run, calls };
 };
 
-const plan = (d, tab) => ({ batchId: 'b1', item: 1, url: 'https://x.test/form', link: 'https://x.test/form', company: 'Example Robotics', role: 'Intern', planFile: join(d, '1.json'), tab });
+const plan = (d, tab) => ({ batchId: 'b1', item: 1, url: 'https://x.test/form', link: 'https://x.test/form', company: 'Example Robotics', role: 'Intern', planFile: join(d, '1.json'), tab, fields: [{ selector: '#first_name', type: 'text' }] });
 const TAB = { targetId: 'T1', url: 'https://x.test/form', sentinel: { selector: '#first_name', value: 'Jordan' } };
 const noWait = async () => {};
 
@@ -238,15 +241,18 @@ function vmTab({ before, after }) {
   const location = { get href() {
     return state.page.href ?? 'https://x.test/form';
   } };
-  const field = (value) => ({ value, type: 'text', tagName: 'INPUT' });
-  const button = { tagName: 'BUTTON', type: 'submit', autocomplete: '', click: () => {
+  // The filled field sits in the application form, whose one button is the explicit submit #send.
+  const button = { tagName: 'BUTTON', type: 'submit', autocomplete: '', innerText: 'Submit application', getAttribute: (k) => ({ id: 'send', type: 'submit' })[k] ?? null, click: () => {
     state.page = { password: 0, invalid: [], ...after };
   } };
+  const form = { tagName: 'FORM', querySelectorAll: () => (state.page.button === false ? [] : [button]), contains: () => true };
+  button.form = form;
+  const field = (value) => ({ value, type: 'text', tagName: 'INPUT', form });
   const document = {
     get body() {
       return { innerText: state.page.text };
     },
-    querySelector: (sel) => (sel === '#first_name' ? field('Jordan') : sel.includes('[type=submit]') ? (state.page.button === false ? null : button) : null),
+    querySelector: (sel) => (sel === '#first_name' ? field('Jordan') : sel === '#send' ? (state.page.button === false ? null : button) : null),
     querySelectorAll: (sel) => {
       if (sel === 'input[type=password]') return Array.from({ length: state.page.password }, () => ({}));
       if (sel === 'input, select, textarea') return state.page.invalid.map((name) => ({ name, id: '', disabled: false, type: 'text', matches: () => true, getAttribute: () => null, closest: () => null }));
