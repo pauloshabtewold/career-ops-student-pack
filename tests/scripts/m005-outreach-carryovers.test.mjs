@@ -51,6 +51,26 @@ test('N2 a verifier claim carrying the round tag in capitals holds the draft ins
   assert.ok(out.said.some((l) => /flagged and kept out of the batch: a prompt could not be fenced/.test(l)), out.said.join('\n'));
 });
 
+test('r3 R-N3 and R-N5 a follow-up address never goes to a recruiter whose outreach stopped, nor to an address a stopped contact holds', () => {
+  const NOW = Date.parse('2026-11-22T18:00:00.000Z');
+  const f = { target: 'https://jobs.example.com/globex/1', company: GLOBEX };
+  const sheet = (name, role, email, stage = 'accepted', date = '2026-11-01') => ({ date, company: GLOBEX, name, stage, role, email });
+  const declined = { ts: '2026-11-10T15:00:00.000Z', action: 'linkedin.declined', target: 'Rae Recruiter', company: GLOBEX, detail: '' };
+  assert.equal(od.followupAddress(f, { contactRows: [sheet('Rae Recruiter', 'Recruiter', 'rae@globex.example.com')], nowMs: NOW }), 'rae@globex.example.com');
+  assert.equal(od.followupAddress(f, { actionRows: [declined], contactRows: [sheet('Rae Recruiter', 'Recruiter', 'rae@globex.example.com')], nowMs: NOW }), '', 'a declined recruiter');
+  const stale = sheet('Tom Talent', 'Talent partner', 'tom@globex.example.com', 'connect', '2026-10-01');
+  assert.equal(od.followupAddress(f, { contactRows: [stale], nowMs: NOW }), '', 'an invite left unaccepted for 21 days closed the contact');
+  const shared = [sheet('Rae Recruiter', 'Recruiter', 'jobs@globex.example.com'), sheet('Hal Hiring', 'Hiring manager', 'jobs@globex.example.com')];
+  assert.equal(od.followupAddress(f, { actionRows: [declined], contactRows: shared, nowMs: NOW }), '', 'the address a stopped contact holds is not picked through another row');
+});
+
+test('r3 R-N4 an email reply draft with no address stays out of the batch and is named', async () => {
+  const job = { ...ALICE, action: 'reply', channel: 'email', replyText: 'Happy to chat. What are you studying?' };
+  const out = await roundFor(job, { drafts: ['I study computer science and would be glad to talk.'] });
+  assert.equal(out.items.length, 0, 'nothing batched with an empty address');
+  assert.ok(out.said.some((l) => /the email draft has no address, so it is kept out of the batch/.test(l)), out.said.join('\n'));
+});
+
 test('N3 a call that never started writes no ledger row; a ledger write error never hides the call error', async () => {
   const r = makeRoot();
   try {

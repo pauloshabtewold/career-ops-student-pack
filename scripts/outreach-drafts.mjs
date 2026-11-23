@@ -47,7 +47,7 @@ import { runHeadless } from '../lib/headless.mjs';
 import { isOn } from '../lib/levers.mjs';
 import { guidedFooter } from '../lib/next-step.mjs';
 import { readLessons } from '../lib/outreach-lessons.mjs';
-import { isAppFollowup, lower } from '../lib/outreach-state.mjs';
+import { closedStage, contactRecords, isAppFollowup, lower } from '../lib/outreach-state.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { SECTION_ORDER, parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { archiveMessage } from '../lib/thread-archive.mjs';
@@ -613,13 +613,15 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HIRING_ROLE = /recruit|hiring|talent/i;
 
 // The address for an application follow-up: an email logged on that application's apply rows, else the email of a
-// recruiter or hiring contact at the same company in contacts.tsv who has not declined (latest sheet row, or a logged
-// linkedin.declined). '' when there is none.
-export function followupAddress(f, { actionRows = [], contactRows = [] } = {}) {
+// recruiter or hiring contact at the same company in contacts.tsv whose outreach has not stopped (declined, or closed by
+// lib/outreach-state.mjs closedStage at nowMs). An address any stopped contact holds in the email column is never picked.
+// '' when there is none.
+export function followupAddress(f, { actionRows = [], contactRows = [], nowMs = Date.now() } = {}) {
   const app = actionRows.filter((r) => ['apply.submit', 'apply.easy_apply', 'apply.pending'].includes(r.action) && lower(r.target) === lower(f.target) && lower(r.company) === lower(f.company));
   const logged = app.map((r) => detailValue(r.detail, 'email')).find((e) => EMAIL_RE.test(String(e ?? '')));
   if (logged) return logged;
-  const declined = new Set(actionRows.filter((r) => r.action === 'linkedin.declined').map((r) => `${lower(r.target)}|${lower(r.company)}`));
+  const stopped = new Set(contactRecords(contactRows, actionRows).filter((c) => closedStage(c, nowMs)).map((c) => `${lower(c.name)}|${lower(c.company)}`));
+  const stoppedEmails = new Set(contactRows.filter((r) => stopped.has(`${lower(r.name)}|${lower(r.company)}`) && EMAIL_RE.test(String(r.email ?? ''))).map((r) => lower(r.email)));
   const latest = new Map();
   for (const r of contactRows) {
     if (lower(r.company) !== lower(f.company) || !r.name) continue;
@@ -627,7 +629,7 @@ export function followupAddress(f, { actionRows = [], contactRows = [] } = {}) {
     const prev = latest.get(key);
     if (!prev || String(r.date ?? '') >= String(prev.date ?? '')) latest.set(key, { ...r, email: r.email || prev?.email, role: r.role || prev?.role });
   }
-  const pick = [...latest.values()].find((r) => HIRING_ROLE.test(String(r.role ?? '')) && EMAIL_RE.test(String(r.email ?? '')) && r.stage !== 'declined' && !declined.has(`${lower(r.name)}|${lower(f.company)}`));
+  const pick = [...latest.values()].find((r) => HIRING_ROLE.test(String(r.role ?? '')) && EMAIL_RE.test(String(r.email ?? '')) && !stopped.has(`${lower(r.name)}|${lower(f.company)}`) && !stoppedEmails.has(lower(r.email)));
   return pick?.email ?? '';
 }
 
@@ -706,7 +708,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const notes = noteBudget(config, actionRows, nowMs);
   const { rows: contactRows } = await readTsv(join(paths.dataDir, 'contacts.tsv'));
   const titles = jobTitles(paths.dataDir);
-  const resolved = (state.followups ?? []).map((f) => ({ ...f, title: f.title || titles.get(lower(f.target)) || '', email: f.email || followupAddress(f, { actionRows, contactRows }) }));
+  const resolved = (state.followups ?? []).map((f) => ({ ...f, title: f.title || titles.get(lower(f.target)) || '', email: f.email || followupAddress(f, { actionRows, contactRows, nowMs }) }));
   const needsAddress = resolved.filter((f) => !f.email);
   // Application follow-ups belong to the apply side: they are drafted and batched whatever the outreach switch says.
   // Contact outreach is batched only while the switch is on, goes to the drafts file at drafts, and is skipped at off.
@@ -729,7 +731,11 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const flaggedOut = flagged.map((d) => ({ name: d.contact.name, company: d.contact.company, flags: d.flags }));
   const needsOut = needsAddress.map((f) => ({ target: f.target, company: f.company, submitted: f.submitted }));
   const isApp = (d) => d.action === 'application-follow-up';
-  const batched = mode === 'on' ? ready : ready.filter(isApp);
+  // An email draft with no address cannot be approved for anyone, so it stays out of the batch and is named instead.
+  const noAddress = ready.filter((d) => d.channel === 'email' && !d.to);
+  for (const d of noAddress) say(`outreach-drafts: ${d.contact.name} at ${d.contact.company}: the email draft has no address, so it is kept out of the batch`);
+  const sendable = ready.filter((d) => !noAddress.includes(d));
+  const batched = mode === 'on' ? sendable : sendable.filter(isApp);
   let draftsFile;
   if (mode === 'drafts') {
     const toFile = ready.filter((d) => !isApp(d));
