@@ -181,8 +181,7 @@ function p0Rows(root) {
   return out;
 }
 
-// sha256 over the fixed sample (every fixture file outside the baseline, the lever fixtures included).
-// The same value lib/levers.mjs compares a shipped verdict with (leverPins).
+// sha256 over the fixed sample (lib/levers.mjs SAMPLE_FILES), the value lib/levers.mjs compares a shipped verdict with.
 export const sampleHash = (root) => leverPins(root).sample;
 
 // Triage calls built with the shipped buildPrompt; jd_trim and batch_size change the postings and the chunk size, and

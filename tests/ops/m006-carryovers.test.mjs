@@ -517,3 +517,40 @@ test('R3-N1: the headline status follows the runs; R3-N4: a judged lever needs b
     assert.match(v.basis, /codex not found/);
   });
 });
+
+// Fix 3b (orchestrator ruling): the sample pin covers exactly the files the A/B reads.
+test('3b: SAMPLE_FILES are the A/B sample: every listed file exists and the profiles match the baseline harness', async () => {
+  const { PIN_PROFILES, SAMPLE_FILES } = await import('../../lib/levers.mjs');
+  const { PROFILES } = await import('../../tools/quality-baseline.mjs');
+  const { existsSync } = await import('node:fs');
+  assert.deepEqual([...PIN_PROFILES], [...PROFILES]);
+  for (const f of SAMPLE_FILES) assert.ok(existsSync(join(PACK_ROOT, 'tests', 'fixtures', 'quality', ...f.split('/'))), f);
+  const src = readFileSync(join(PACK_ROOT, 'tools', 'lever-ab.mjs'), 'utf8');
+  for (const name of new Set(src.match(/'[a-z-]+\.(?:json|md|yml)'/g).map((x) => x.slice(1, -1)))) {
+    // Not fixtures: the verdict file, the report, the runner settings, and the cv.md the T15 trial writes to a temp folder.
+    if (['lever-verdicts.json', 'token-report.md', 'triage-claude-settings.json', 'cv.md'].includes(name)) continue;
+    assert.ok(SAMPLE_FILES.some((f) => f.endsWith(`/${name}`) || f === name), `lever-ab reads ${name}, so it is pinned`);
+  }
+});
+
+test('3b: an unrelated fixture edit leaves levers on; a lever fixture edit turns them off', async () => {
+  const { h } = await fix2();
+  const { leverPins, readVerdicts, resolve } = await import('../../lib/levers.mjs');
+  const { appendFileSync, mkdirSync, writeFileSync } = await import('node:fs');
+  const p = h.packCopy();
+  try {
+    const now = leverPins(p.dir);
+    const pins = { bars_sha256: now.barsSha, sample_hash: now.sample };
+    h.writeVerdicts(p.dir, { T5: { ...h.soloVerdict('pass', 0), ...pins } }, { stacked: { status: 'stacked pass after 1 round: T5 on together', final: ['T5'], ...pins } });
+    const on = () => resolve('T5', { verdicts: readVerdicts(p.dir), overrides: {} }).on;
+    assert.equal(on(), true);
+    mkdirSync(join(p.dir, 'tests', 'fixtures', 'other'), { recursive: true });
+    writeFileSync(join(p.dir, 'tests', 'fixtures', 'other', 'x.json'), '{"a":1}\n');
+    writeFileSync(join(p.dir, 'tests', 'fixtures', 'quality', 'new-p6-fixture.json'), '[]\n');
+    assert.equal(on(), true, 'fixtures the A/B does not read change no verdict');
+    appendFileSync(join(p.dir, 'tests', 'fixtures', 'quality', 'levers', 'pages.json'), '\n');
+    assert.equal(on(), false, 'a lever fixture edit makes the verdict stale');
+  } finally {
+    p.cleanup();
+  }
+});
