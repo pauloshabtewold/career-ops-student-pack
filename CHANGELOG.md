@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.10.0 (2026-11-22)
+
+- Merge branch 'claude/v2-p3-winfix'
+- Merge branch 'claude/v2-p3'
+
+### Details
+
 - M-004 (P3 Outreach): warm-first outreach. `scripts/outreach-state.mjs due` lists each contact's next step from `data/contacts.tsv` and the action log with no model call: a warm opener with no referral ask, a reply, a referral ask only after two exchanges while the company has an open posting, or the one follow-up. `scripts/outreach-drafts.mjs` drafts the round at the mid tier from cv.md and the contact's own data, checks each draft, and writes one-page batches; a draft naming a fact that is not in cv.md is flagged and left out. Every reply gets a suggested answer (lever T6 stays off).
 - Outreach hygiene in `budget.mjs`: one active contact per company, one first message per person, no second connection request to the same person, and nothing after a no or an unanswered follow-up. A withdrawn invite, or one left unaccepted for 21 days, frees the company. Every LinkedIn send, email and application follow-up needs an item from an approved batch, and an item is spent once across all send kinds.
 - Application follow-ups: one email per application, 7 to 10 days after the submit, checked as `apply.followup`.
