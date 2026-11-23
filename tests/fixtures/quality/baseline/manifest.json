@@ -662,11 +662,17 @@
     "tests/fixtures/quality/baseline/AA/codex/software-cs/triage-3.txt": "eeb89a800a168c768be5157b36cc947ebffc1538059c0df3cda6a7c0e36768db",
     "tests/fixtures/quality/baseline/noise.json": "4c7548147939783071b516bceb763b8b522b8c72932d5ca051e20972ccf4016e",
     "tests/fixtures/quality/baseline/run.json": "1d233beb0776a20fa96520595d9670ed570e3a991f045b0ce68b37b54e68fcdb",
-    "lib/quality-bars.mjs": "d484be1e5bba975c78d32a782375be69c8e104b465f8f52fa036e73a8e9a2b91",
-    "docs/quality-gate.md": "51e332105830771e83515cd8ca1ba12dd5eb7e352896d54a2d8096cc95570e01"
+    "lib/quality-bars.mjs": "1b593d7a6329b874bb1a2f2ef6af1547c924af9391dc6adbcd483ef1fa8b1036",
+    "docs/quality-gate.md": "a2bb5b752bef0062094cd751f5667b6afefa4cd576a80e2080307da1cd3ca8d4"
   },
-  "bars_repinned": {
-    "date": "2026-11-23",
-    "reason": "option A invented-facts allowance from the A/A control arm (lib/quality-bars.mjs inventedAllowance, docs/quality-gate.md Option A); A/A, effective and stated bars unchanged"
-  }
+  "bars_repinned": [
+    {
+      "date": "2026-11-23",
+      "reason": "option A invented-facts allowance from the A/A control arm (lib/quality-bars.mjs inventedAllowance, docs/quality-gate.md Option A); A/A, effective and stated bars unchanged"
+    },
+    {
+      "date": "2026-11-23",
+      "reason": "option A wording: FIXED_BARS comment and the gate doc noise-floor and table text qualified, allowance 0 when the A/A pairs differ, standalone stacked same-day rule; A/A, effective and stated bars unchanged"
+    }
+  ]
 }

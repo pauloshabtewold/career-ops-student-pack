@@ -4,11 +4,11 @@
 // verdict file with zero runner calls. Fake runners and scratch pack copies only: no agent process, browser or network.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inventedAllowance } from '../../lib/quality-bars.mjs';
-import { leverPins } from '../../lib/levers.mjs';
-import { inventedCheck, main, missedBar, runCampaign, runRejudge, runSolo, runStacked } from '../../tools/lever-ab.mjs';
+import { leverPins, readVerdicts, resolve as resolveLever } from '../../lib/levers.mjs';
+import { inventedCheck, main, missedBar, runCampaign, runRejudge, runSolo, runStacked, stackedAllowance } from '../../tools/lever-ab.mjs';
 import { SMALL_USAGE, agentReply, fakeAgents, packCopy, resolve, sayer, verdictJson, writeVerdicts } from '../helpers/lever-harness.mjs';
 
 const TODAY = '2026-11-23';
@@ -97,7 +97,7 @@ test('option A stacked: each round applies the allowance per step from data.aa',
   const run = async (aa) => {
     let result = null;
     await withCopy(async (dir) => {
-      writeVerdicts(dir, { T11: pass }, { aa: { per_step: aa } });
+      writeVerdicts(dir, { T11: pass }, { aa: { run_date: TODAY, models: { claude: 'claude-fake-model-1', codex: 'codex-fake-model-1' }, per_step: aa } });
       const fake = inventedOnly();
       const out = sayer();
       await runStacked({ root: dir, runner: fake.runner, judge: fake.judge, resolve, say: out.say, seed: 'opt-a', today: TODAY });
@@ -201,4 +201,83 @@ test('rejudge replays the stored stacked rounds: a round that now holds every ba
     assert.equal(data.levers.T5.verdict, 'pass');
     assert.equal(data.levers.T5.solo_verdict, undefined);
   });
+});
+
+// Review fixes (m006-review-optA S1, S2, N3, N6).
+test('rejudge re-pins the solo, stacked and lever bar hashes, so the R3-M2 pin checks hold after a bar change', async () => {
+  await withCopy(async (dir) => {
+    const now = leverPins(dir);
+    const old = 'f'.repeat(64);
+    const q = { before: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: 0 }, after: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: 1 } };
+    const pins = { bars_sha256: old, sample_hash: now.sample };
+    writeVerdicts(dir, { T11: { verdict: 'pass', setting: 60, tokens: { before: 100, after: 80 }, quality: q, per_step_first: { 'claude/cover': step(1) }, ...pins } }, {
+      aa: { per_step: { 'claude/cover': step(1) } },
+      solo: { status: 'solo run finished', ...pins },
+      stacked: { status: 'stacked pass after 1 round: T11 on together', final: ['T11'], rounds: [{ round: 1, levers: ['T11'], metrics: q.after, per_step: { 'claude/cover': step(1) } }], ...pins },
+    });
+    assert.equal(await runRejudge({ root: dir, say: () => {}, today: TODAY }), 0);
+    const data = verdictJson(dir);
+    for (const rec of [data.solo, data.stacked, data.levers.T11]) assert.deepEqual([rec.bars_sha256, rec.sample_hash], [now.barsSha, now.sample]);
+    assert.equal(resolveLever('T11', { verdicts: readVerdicts(dir), overrides: {} }).on, true, 'on with current pins after the rejudge');
+  });
+});
+
+test('a standalone stacked run uses a stored A/A count only when it was measured today at the same model ids', () => {
+  const aa = { run_date: TODAY, models: { claude: 'm1', codex: 'm2' }, per_step: { 'claude/cover': step(3) } };
+  assert.equal(stackedAllowance(aa, { today: TODAY, models: { claude: 'm1', codex: 'm2', claude_cheap: 'h' } }).perStep, aa.per_step);
+  assert.equal(stackedAllowance(aa, { today: '2026-11-24', models: { claude: 'm1', codex: 'm2' } }).perStep, null, 'another day');
+  assert.equal(stackedAllowance(aa, { today: TODAY, models: { claude: 'm1', codex: 'm3' } }).perStep, null, 'other model ids');
+  assert.equal(stackedAllowance({ ...aa, run_date: '2026-11-01' }, { session: {}, today: TODAY, models: {} }).perStep, aa.per_step, 'the campaign session wrote it');
+  assert.equal(stackedAllowance(null, { today: TODAY }).perStep, null);
+});
+
+test('a standalone stacked run on another day than the stored A/A arm judges at 0 and says so', async () => {
+  const pass = { verdict: 'pass', setting: 60, tokens: { before: 100, after: 80 }, quality: { before: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: 0 }, after: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: 0 } } };
+  const roomy = { 'claude/cover': step(100), 'codex/cover': step(100) };
+  const models = { claude: 'claude-fake-model-1', codex: 'codex-fake-model-1' };
+  for (const [runDate, expect] of [[TODAY, /^stacked pass/], ['2026-11-20', /^every passing lever was dropped/]]) {
+    await withCopy(async (dir) => {
+      writeVerdicts(dir, { T11: pass }, { aa: { run_date: runDate, models, per_step: roomy } });
+      const fake = inventedOnly();
+      const out = sayer();
+      await runStacked({ root: dir, runner: fake.runner, judge: fake.judge, resolve, say: out.say, seed: 'opt-a', today: TODAY });
+      const data = verdictJson(dir);
+      assert.match(data.stacked.status, expect, out.lines.join('\n'));
+      if (runDate !== TODAY) {
+        assert.match(data.stacked.aa_control, /another day or other model ids: 0/);
+        assert.match(out.lines.join('\n'), /option A allowance: the stored A\/A arm \(2026-11-20\)/);
+      }
+    });
+  }
+});
+
+test('rejudge sends stacked back to pending when the solo-passing set changes, and refuses on a bar pin mismatch', async () => {
+  await withCopy(async (dir) => {
+    const q = (inv) => ({ before: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: 0 }, after: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: inv } });
+    writeVerdicts(dir, {
+      T5: { verdict: 'fail', setting: null, tokens: { before: 100, after: 80 }, quality: q(1), per_step_first: { 'claude/outreach': step(1) }, missed_bar: 'INVENTED_FACTS_MAX 1 against 0' },
+      T11: { verdict: 'pass', setting: 60, tokens: { before: 100, after: 80 }, quality: q(0), per_step_first: { 'claude/cover': step(0) } },
+    }, {
+      aa: { per_step: { 'claude/outreach': step(1) } },
+      stacked: { status: 'stacked pass after 1 round: T11 on together', final: ['T11'], rounds: [{ round: 1, levers: ['T11'], metrics: q(0).after, per_step: { 'claude/cover': step(0) } }] },
+    });
+    const before = readFileSync(verdictFile(dir), 'utf8');
+    appendFileSync(join(dir, 'lib', 'quality-bars.mjs'), '\n// edited without a re-pin\n');
+    const refused = sayer();
+    assert.equal(await runRejudge({ root: dir, say: refused.say, today: TODAY }), 3);
+    assert.match(refused.lines.join('\n'), /refused: lib\/quality-bars.mjs/);
+    assert.equal(readFileSync(verdictFile(dir), 'utf8'), before, 'nothing written on a refusal');
+    writeFileSync(join(dir, 'lib', 'quality-bars.mjs'), readFileSync(join(dir, 'lib', 'quality-bars.mjs'), 'utf8').replace('\n// edited without a re-pin\n', ''));
+    assert.equal(await runRejudge({ root: dir, say: () => {}, today: TODAY }), 0);
+    const data = verdictJson(dir);
+    assert.equal(data.levers.T5.verdict, 'pass');
+    assert.match(data.stacked.status, /^pending: rejudge changed the solo-passing set/);
+    assert.deepEqual(data.stacked.final, []);
+  });
+});
+
+test('the allowance is 0 when the A/A arm judged another number of pairs on that step', () => {
+  assert.equal(inventedAllowance({ 'claude/cover': step(3, 0, 12) }, 'claude/cover', 12), 3);
+  assert.equal(inventedAllowance({ 'claude/cover': step(3, 0, 10) }, 'claude/cover', 12), 0);
+  assert.deepEqual(inventedCheck(2, { 'claude/cover': step(2, 0, 12) }, { 'claude/cover': step(3, 0, 10) }).over, ['claude/cover 2 over 0']);
 });

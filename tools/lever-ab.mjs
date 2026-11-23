@@ -23,6 +23,8 @@
 //        model flags: --claude-model ID --codex-model ID --judge-model ID --cheap-model ID
 //        The A/A control arm (one control re-run of the draft steps, judged against the control like a lever arm) runs by
 //        default in campaign (--no-aa-control skips it) and only with --aa-control in solo; without it the allowance is 0.
+//        A stacked run started on its own uses the stored A/A count only when it was measured that day at the same model
+//        ids; otherwise the allowance is 0.
 //        rejudge reads a stored verdict file (PATH: the file or a folder holding it; default docs/lever-verdicts.json) and
 //        re-applies the current bars with zero runner calls; --dry-run prints the before and after table only.
 // Exit codes follow the pack convention: 0 ok, 2 usage, 3 refused (a pinned file or the sample changed), 5
@@ -929,13 +931,13 @@ export function perStepCounts(judged = []) {
 const addedOf = (s) => (Number(s?.judge_added) || 0) + (Number(s?.gate_added) || 0);
 
 // Option A on an arm's invented facts: each draft step's added count (judge plus gate) beside its allowance from the A/A
-// per-step map (0 when none was measured), and the rest of the total (non-draft pairs such as digests or resumes, which
+// per-step map (0 when none was measured or it judged another number of pairs), and the rest of the total (non-draft pairs such as digests or resumes, which
 // keep the plain bar). steps is the per-step record stored on a verdict, each entry with the allowance used.
 export function inventedCheck(total, perStep, aaPerStep) {
   const steps = {};
   let draft = 0;
   for (const [key, s] of Object.entries(perStep ?? {})) {
-    steps[key] = { ...s, allowance: inventedAllowance(aaPerStep, key) };
+    steps[key] = { ...s, allowance: inventedAllowance(aaPerStep, key, s.pairs) };
     draft += addedOf(s);
   }
   const over = Object.entries(steps).filter(([, s]) => addedOf(s) > s.allowance).map(([key, s]) => `${key} ${addedOf(s)} over ${s.allowance}`);
@@ -1252,6 +1254,7 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
   ctx.limit = { ...plan.est };
   data.stacked = { status: 'pending: solo verdicts changed; run stacked', rounds: [], final: [] };
   // The option A allowance comes only from this session's A/A arm; one from an earlier session is dropped (allowance 0).
+  if (data.aa && !plan.aa.length) say('lever-ab: the stored A/A measurement is dropped: this run has no A/A arm, so the option A allowance is 0 for every lever (campaign or --aa-control measures it again)');
   delete data.aa;
   try {
     if (!agents.length && plan.control.length) throw new BlockedError('neither claude nor codex was found; install and sign in to one, then run lever-ab again');
@@ -1264,7 +1267,7 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
     const env = { root, ctx, base, control, plan, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaNoise: noise, aaPerStep: null, p0Agents };
     if (plan.aa.length) {
       const cmp = compareArms(ctx, { triage: base.triage, drafts: control }, runArm(ctx, plan.aa));
-      data.aa = { status: `A/A control re-run ${today}: the control's draft calls again, judged against the control`, rule: INVENTED_FACTS_RULE, run_date: today, seed, sample_hash: sample, per_step: perStepCounts(cmp.judged), judged_pairs: cmp.judged };
+      data.aa = { status: `A/A control re-run ${today}: the control's draft calls again, judged against the control`, rule: INVENTED_FACTS_RULE, run_date: today, seed, sample_hash: sample, models: { ...control.models }, per_step: perStepCounts(cmp.judged), judged_pairs: cmp.judged };
       env.aaPerStep = data.aa.per_step;
       writeVerdicts(root, data);
     }
@@ -1442,6 +1445,16 @@ function stackedPlan(root, on, data, agents, reuse) {
   return { round, control, controlEst, total: addEst(controlEst, { claude: round.claude * MAX_STACKED_ROUNDS, codex: round.codex * MAX_STACKED_ROUNDS, judge: round.judge * MAX_STACKED_ROUNDS }) };
 }
 
+// The A/A per-step map a stacked run may judge with: the campaign's own (its solo session wrote it), else a stored one
+// only when it was measured today at the model ids this stacked control resolved; otherwise none (allowance 0).
+export function stackedAllowance(aa, { session = null, today, models = {} }) {
+  if (!aa?.per_step) return { perStep: null, note: 'no A/A measurement: 0 on every draft step' };
+  if (session) return { perStep: aa.per_step, note: `this campaign's A/A arm (${aa.run_date ?? today})` };
+  const ids = Object.entries(models).filter(([k]) => !k.endsWith('_cheap'));
+  const same = aa.run_date === today && ids.length > 0 && ids.every(([a, id]) => aa.models?.[a] === id);
+  return same ? { perStep: aa.per_step, note: `the A/A arm measured ${today} at the same model ids` } : { perStep: null, note: `the stored A/A arm (${aa.run_date ?? 'undated'}) is from another day or other model ids: 0 on every draft step; run campaign to measure it again` };
+}
+
 /** Stacked pass: every solo-passing lever of every kind on together; deps as runSolo; session reuses a solo control. */
 export async function runStacked({ root = PACK_ROOT, runner = realRunner, judge, resolve = resolveAgentPath, say = console.log, seed = String(Date.now()), today = new Date().toISOString().slice(0, 10), models = {}, dryRun = false, session = null, campaignPreview = false }) {
   const pins = checkPins(root);
@@ -1483,7 +1496,10 @@ export async function runStacked({ root = PACK_ROOT, runner = realRunner, judge,
     const control = session?.control ?? (plan.control.length ? runArm(ctx, plan.control) : emptyArm());
     const base = session?.base ?? chooseBase(root, p0, control);
     Object.assign(data.stacked, { comparison_base: base.triageName, p0_models: p0, p5_models: { ...control.models, judge: ctx.judgeModel }, bars_sha256: pins.barsSha, estimate: plan.total, sample_hash: sample, seed });
-    const result = await stackedRounds({ root, ctx, base, control, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaPerStep: data.aa?.per_step ?? null, plan: { milder: {} }, roundEst: plan.round }, io, on);
+    const aa = stackedAllowance(data.aa, { session, today, models: control.models });
+    data.stacked.aa_control = aa.note;
+    say(`lever-ab: option A allowance: ${aa.note}`);
+    const result = await stackedRounds({ root, ctx, base, control, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaPerStep: aa.perStep, plan: { milder: {} }, roundEst: plan.round }, io, on);
     data.stacked.actual_tokens = { ...ctx.spent };
     writeVerdicts(root, data);
     return result;
@@ -1609,6 +1625,7 @@ export async function runRejudge({ root = PACK_ROOT, data: given = null, dryRun 
   }
   rejudgeStacked(data, solo, bars, aa, loadRuleBase(root));
   if (data.stacked?.bars_sha256) data.stacked.bars_sha256 = pins.barsSha;
+  if (data.solo?.bars_sha256) data.solo.bars_sha256 = pins.barsSha;
   say(`lever-ab rejudge: ${file}; option A allowance from ${aa ? `data.aa (${data.aa.run_date ?? 'undated'})` : 'no A/A measurement (0 on every draft step)'}`);
   say('| Lever | Before | After |');
   say('| --- | --- | --- |');
