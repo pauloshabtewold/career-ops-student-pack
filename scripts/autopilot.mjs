@@ -5,11 +5,13 @@
 // again. When the schedule reaches Chrome (chrome_in_schedule yes and the automation Chrome is up) it also fills and
 // submits approved, unsent items of apply batches through `chrome.mjs fill --plan` and `chrome.mjs submit`, whose
 // budget.mjs check (with the plan's score) refuses any item not approved or already used, and never submits a link that
-// was already submitted; and it reads outcome mail through the Gmail path into inbox.mjs. Without Chrome those steps wait
-// and the digest names them. On the weekly lessons day it runs the outreach lessons step (lib/outreach-lessons.mjs).
+// was already submitted. Only a plan that carries the form's fields (today those come from a session that read the form)
+// is filled and submitted; any other approved item waits for a fill in a session. It also reads outcome mail through the
+// Gmail path into inbox.mjs. Without Chrome those steps wait and the digest names them. On the weekly lessons day it runs the outreach lessons step (lib/outreach-lessons.mjs).
 // A failing step becomes one digest line; the section ends with the guided footer; the run always exits 0.
 // Usage: autopilot.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
-import { appendFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { detailValue, readActionLog } from '../lib/action-log.mjs';
@@ -18,25 +20,30 @@ import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { footerLines } from '../lib/digest.mjs';
-import { readMessage, replyKey, searchUrl } from '../lib/gmail-chrome.mjs';
-import { isOn, readOverrides } from '../lib/levers.mjs';
+import { replyKey, searchUrl } from '../lib/gmail-chrome.mjs';
 import { weeklyLessons } from '../lib/outreach-lessons.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { runText } from '../lib/run.mjs';
 import { stepErrorText } from '../lib/text.mjs';
+import { urlKey } from '../lib/url-key.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
 
-export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps")';
+export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps") -"thank you for applying"';
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 const FILL_REPORT = /^fill-plan: \d+ of \d+ ready/m;
 const DRAFTS_REPORT = /^outreach-drafts: .*(draft\(s\) in|already waiting|outreach is)/;
 const INBOX_REPORT = /^inbox: (\d+) read, (\d+) proposal\(s\), (\d+) set$/m;
-// At most this many outcome conversations are opened per run.
+// At most this many outcome conversations are opened per run; the list read is bounded by LIST_MAX rows.
 const MAIL_CAP = 10;
+const LIST_MAX = 100;
+// Conversations already handed to inbox.mjs, one `<thread id>|<row hash>` per line next to the inbox seen file. The row
+// hash changes when a new message arrives in the conversation, so a reply in a handled thread is still read.
+export const THREADS_SEEN_FILE = '.outcome-threads-seen';
+const FILLED_REPORT = /filled (\d+) field\(s\)/;
 // Form fields per posting, read by fill-plan --fields-dir (<url key>.json); plans without a file there carry no fields.
 export const FIELDS_DIR = 'form-fields';
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
@@ -56,7 +63,9 @@ export async function approvedUnsent(dataDir) {
   return out;
 }
 
-const linkKey = (url) => String(url ?? '').trim().replace(/[#?].*$/, '').replace(/\/+$/, '').toLowerCase();
+// The posting key from lib/url-key.mjs (query ids such as gh_jid kept, tracking parameters dropped); a link it cannot
+// parse is compared as its trimmed, lowercased text.
+export const linkKey = (url) => urlKey(url) ?? String(url ?? '').trim().replace(/\/+$/, '').toLowerCase();
 
 // Links already submitted or mid-submit: the target of every submit or pending row, and the link of every batch item such
 // a row spent. A posting on two approved pages is submitted once.
@@ -116,15 +125,38 @@ function prepareApplications({ paths, today, child, rows }) {
   return [`review batch ${ids.join(', ')} with ${items.length} ranked row(s) and no fill plans yet`];
 }
 
-// Each approved, unsent item: chrome.mjs fill --plan, then chrome.mjs submit, whose budget.mjs check passes the plan's
-// score and refuses an item not approved or already used. The batch approval covers both; a fill that needs the student
-// (an unknown question, a blocked field) stops that item. A link already submitted, or submitted earlier in this run, is
-// skipped, so a posting approved on two pages goes out once.
-async function submitApproved({ paths, child }) {
+const readPlan = (file) => {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+
+// A plan the autopilot may fill and submit: it carries the form's fields, has no unknown question, and every resume or
+// cover letter upload it names is on disk. fill-plan writes fields only from a form that was read (data/form-fields,
+// written today by a session), so a plan without fields means no form was read for that posting.
+export function planReady(plan) {
+  if (!Array.isArray(plan?.fields) || !plan.fields.length || plan.unknown?.length) return false;
+  const files = [...(plan.uploads ?? []).map((u) => u?.path), ...(plan.cover ? [plan.cover] : [])];
+  return (plan.uploads ?? []).every((u) => u?.path) && files.every((f) => existsSync(f));
+}
+
+// Each approved, unsent item whose plan is ready: chrome.mjs fill --plan, then chrome.mjs submit, whose budget.mjs check
+// passes the plan's score and refuses an item not approved or already used. The batch approval covers both. Submit runs
+// only when the fill reported at least one filled field (or recorded a filled value in the plan); an item whose plan is
+// not ready, whose fill needs the student, or whose fill wrote nothing waits for a fill in a session and is counted in
+// tally.fillWaiting. An item with no plan file still goes to chrome.mjs submit, which refuses it before any click. A link
+// already submitted, or submitted earlier in this run, is skipped, so a posting approved on two pages goes out once.
+async function submitApproved({ paths, child, tally }) {
   const items = await approvedUnsent(paths.dataDir);
   const done = submittedLinks(paths.dataDir, await readActionLog(join(paths.dataDir, 'action-log.tsv')));
   let submitted = 0;
   const notes = [];
+  const wait = (line) => {
+    tally.fillWaiting++;
+    notes.push(line);
+  };
   for (const it of items) {
     const name = `item ${it.item} of ${it.batchId}`;
     const key = linkKey(it.link);
@@ -133,10 +165,20 @@ async function submitApproved({ paths, child }) {
       continue;
     }
     if (it.plan && existsSync(it.plan)) {
+      if (!planReady(readPlan(it.plan))) {
+        wait(`${name} waits for a fill in a session (no form was read for it)`);
+        continue;
+      }
+      let text;
       try {
-        child('chrome.mjs', ['fill', '--plan', it.plan]);
+        text = String(child('chrome.mjs', ['fill', '--plan', it.plan]));
       } catch (err) {
-        notes.push(`${name} not filled (${stepErrorText(err)}); it waits for you in a session`);
+        wait(`${name} not filled (${stepErrorText(err)}); it waits for a fill in a session`);
+        continue;
+      }
+      const filled = Number(FILLED_REPORT.exec(text)?.[1] ?? 0);
+      if (!(filled > 0) && !readPlan(it.plan)?.tab?.sentinel) {
+        wait(`${name} waits for a fill in a session (the fill wrote no field, so nothing was submitted)`);
         continue;
       }
     }
@@ -152,54 +194,108 @@ async function submitApproved({ paths, child }) {
 }
 
 // Gmail list rows with their thread ids (the legacy hex id, or the decimal thread-f id turned into hex) and row text.
-const LIST_SCRIPT = (cap) => `(() => Array.from(document.querySelectorAll('[role="row"]')).slice(0, ${cap}).map((r) => {
+const LIST_SCRIPT = `(() => Array.from(document.querySelectorAll('[role="row"]')).slice(0, ${LIST_MAX}).map((r) => {
   const legacy = r.querySelector('[data-legacy-thread-id]');
   const thread = r.querySelector('[data-thread-id]');
   return { id: (legacy && legacy.getAttribute('data-legacy-thread-id')) || ((thread && thread.getAttribute('data-thread-id')) || '').replace(/^#?thread-f:/, ''), text: String(r.innerText || r.textContent || '').replace(/\\s+/g, ' ').trim() };
 }).filter((r) => r.text))()`;
 
+// The newest message of an open conversation: the last message element's id, the last sender address, the last body
+// and the last date title, plus the message count. An earlier message (a receipt, the student's own mail) never lends
+// its id or sender to the new reply.
+export const THREAD_SCRIPT = `(() => {
+  const all = (sel) => Array.from(document.querySelectorAll(sel));
+  const last = (sel) => all(sel).pop() || null;
+  const attr = (n, name) => (n && typeof n.getAttribute === 'function' ? n.getAttribute(name) || '' : '');
+  const legacy = all('[data-legacy-message-id]');
+  const msgs = legacy.length ? legacy : all('[data-message-id]');
+  const lastMsg = msgs.length ? msgs[msgs.length - 1] : null;
+  const body = last('div.a3s');
+  return {
+    id: attr(lastMsg, 'data-legacy-message-id') || attr(lastMsg, 'data-message-id'),
+    from: attr(last('span.gD[email]'), 'email'),
+    text: body ? String(body.innerText || body.textContent || '') : '',
+    date: attr(last('span.g3[title]'), 'title'),
+    count: msgs.length,
+  };
+})()`;
+
 const hexId = (id) => (/^\d{15,}$/.test(id) ? BigInt(id).toString(16) : id);
 
-// Outcome mail through the automation Chrome: the search list, then each conversation opened with gmail-chrome's
-// readMessage, which gives the sender address and the Gmail message id. A row that cannot be opened keeps no sender, so
-// inbox.mjs can only make it a proposal. Ids come from replyKey, so the same mail has the same id on every run.
+// List-row text without Gmail's relative time ("9:14 AM", "Nov 21", "11/21/26"), so the same row reads the same on
+// every day.
+const TIME_TOKENS = [/\b\d{1,2}:\d{2}\s?(?:[ap]\.?m\.?)?/gi, /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}(?:, \d{4})?\b/gi, /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g];
+export const stableRowText = (text) => TIME_TOKENS.reduce((t, re) => t.replace(re, ' '), String(text ?? '')).replace(/\s+/g, ' ').trim();
+const rowSeenKey = (row) => `${row.id || '-'}|${createHash('sha256').update(stableRowText(row.text).toLowerCase()).digest('hex').slice(0, 16)}`;
+
+const readSeenThreads = (dataDir) => {
+  const file = join(dataDir, THREADS_SEEN_FILE);
+  return new Set(existsSync(file) ? readFileSync(file, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean) : []);
+};
+
+async function readThread(client, url) {
+  const { sessionId, targetId } = await openPage(client, url);
+  try {
+    return (await evaluate(client, sessionId, THREAD_SCRIPT)) ?? {};
+  } finally {
+    await Promise.resolve(client.send('Target.closeTarget', { targetId })).catch(() => {});
+  }
+}
+
+const isoDate = (title) => {
+  const t = Date.parse(String(title ?? ''));
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+};
+
+// Outcome mail through the automation Chrome: the search list, then each conversation not handled before (at most
+// MAIL_CAP) opened for its newest message's sender, Gmail message id and date. A row that cannot be opened keeps no
+// sender, so inbox.mjs can only make it a proposal. The id is the Gmail message id, else `t-<thread id>-<message count>`,
+// else a hash of the row text without its relative time, so the same mail has the same id on every run. Returns
+// { mails, keys, more }: keys mark the conversations read (written to THREADS_SEEN_FILE once inbox.mjs took them) and
+// more counts the unhandled conversations left for a later run.
 export async function readOutcomeMail({ dataDir, port, query, date, browser = withBrowser }) {
-  const mails = await browser(port, async (client) => {
+  const seen = readSeenThreads(dataDir);
+  const res = await browser(port, async (client) => {
     const { sessionId, targetId } = await openPage(client, searchUrl(query));
     let rows;
     try {
-      rows = (await evaluate(client, sessionId, LIST_SCRIPT(MAIL_CAP))) ?? [];
+      rows = (await evaluate(client, sessionId, LIST_SCRIPT)) ?? [];
     } finally {
       await Promise.resolve(client.send('Target.closeTarget', { targetId })).catch(() => {});
     }
-    const out = [];
-    for (const row of rows) {
-      const id = hexId(String(row.id ?? ''));
-      const url = id ? `${searchUrl(query)}/${id}` : '';
-      const msg = url ? await readMessage(client, url).catch(() => null) : null;
-      const text = msg?.text || row.text;
-      out.push({ id: replyKey({ url, text, from: msg?.from ?? '', id: msg?.id ?? '' }), from: msg?.from ?? '', subject: String(row.text).slice(0, 200), snippet: String(text).slice(0, 2000) });
+    const fresh = rows.map((r) => ({ ...r, id: hexId(String(r.id ?? '')) })).filter((r) => !seen.has(rowSeenKey(r)));
+    const mails = [];
+    for (const row of fresh.slice(0, MAIL_CAP)) {
+      const url = row.id ? `${searchUrl(query)}/${row.id}` : '';
+      const msg = url ? await readThread(client, url).catch(() => null) : null;
+      const from = String(msg?.from ?? '');
+      const id = msg?.id ? replyKey({ id: msg.id }) : row.id && msg?.count ? `t-${row.id}-${msg.count}` : replyKey({ text: stableRowText(row.text), from });
+      const when = isoDate(msg?.date);
+      mails.push({ id, from, subject: String(row.text).slice(0, 200), snippet: String(msg?.text || row.text).slice(0, 2000), ...(when ? { date: when } : {}) });
     }
-    return out;
+    return { mails, keys: fresh.slice(0, MAIL_CAP).map(rowSeenKey), more: Math.max(0, fresh.length - MAIL_CAP) };
   });
-  await appendLedger(dataDir, zeroRow({ date, step: 'gmail-read', feature: 'G3', rows: mails.length }));
-  return mails;
+  await appendLedger(dataDir, zeroRow({ date, step: 'gmail-read', feature: 'G3', rows: res.mails.length }));
+  return res;
 }
 
-// Outcome mail read in Chrome goes through inbox.mjs, which applies lib/outcome-rules.mjs; with lever T7 off it passes
-// --classify-outcomes so the agent classifier takes part. The digest line carries inbox.mjs's own counts.
+// Outcome mail read in Chrome goes through inbox.mjs, which applies lib/outcome-rules.mjs. --classify-outcomes is always
+// passed: decideOutcome orders rules and the agent classifier by lever T7. The digest line carries inbox.mjs's own counts
+// and names the matching conversations left unread. A mail keeps the date Gmail showed for it, else the run time.
 async function readOutcomes({ paths, today, child, deps }) {
   const state = await (deps.chromeState ?? (() => liveState(paths.dataDir)))();
   if (!state?.port) return ['the automation Chrome has no recorded port; outcome mail is read on the next run'];
-  const mails = await (deps.readOutcomeMail ?? readOutcomeMail)({ dataDir: paths.dataDir, port: state.port, query: OUTCOME_QUERY, date: today });
-  if (!mails.length) return ['none new'];
+  const got = await (deps.readOutcomeMail ?? readOutcomeMail)({ dataDir: paths.dataDir, port: state.port, query: OUTCOME_QUERY, date: today });
+  const { mails, keys = [], more = 0 } = Array.isArray(got) ? { mails: got } : got;
+  const moreLine = more ? [`${more} more matching conversation(s) not read; ask me to read them`] : [];
+  if (!mails.length) return ['none new', ...moreLine];
   const file = join(paths.dataDir, `.autopilot-mail-${today}.json`);
   const date = new Date().toISOString();
   writeAtomic(file, `${JSON.stringify(mails.map((m) => ({ date, ...m })))}\n`);
-  const t7On = deps.t7On ?? isOn('T7', { overrides: readOverrides(paths.root) });
-  const text = child('inbox.mjs', ['--backend', 'connector', '--input', file, ...(t7On ? [] : ['--classify-outcomes'])]);
+  const text = child('inbox.mjs', ['--backend', 'connector', '--input', file, '--classify-outcomes']);
+  if (keys.length) appendFileSync(join(paths.dataDir, THREADS_SEEN_FILE), `${keys.join('\n')}\n`);
   const m = INBOX_REPORT.exec(text);
-  return [m ? `${m[1]} read, ${m[2]} proposal(s), ${m[3]} set` : `${mails.length} message(s) read; inbox.mjs printed no counts`];
+  return [m ? `${m[1]} read, ${m[2]} proposal(s), ${m[3]} set` : `${mails.length} message(s) read; inbox.mjs printed no counts`, ...moreLine];
 }
 
 async function lessonsStep({ paths, today, config, deps }) {
@@ -213,7 +309,7 @@ const defaultChromeOpen = (dataDir) => async () => Boolean(await liveState(dataD
 
 /**
  * deps: runner(cmd, args, opts) for every pack-script child, chromeOpen() -> true when the automation Chrome is up,
- * out(line) for progress, and optional readOutcomeMail, chromeState, t7On and headless. Returns { lines, waiting, footer }
+ * out(line) for progress, and optional readOutcomeMail, chromeState and headless. Returns { lines, waiting, footer }
  * and never rejects.
  */
 export async function autopilot({ paths, today, deps = {} }) {
@@ -256,8 +352,9 @@ export async function autopilot({ paths, today, deps = {} }) {
     }
   }
   const waiting = [];
+  const tally = { fillWaiting: 0 };
   if (live) {
-    await step('submit approved', () => submitApproved({ paths, child }));
+    await step('submit approved', () => submitApproved({ paths, child, tally }));
     await step('outcome mail', () => readOutcomes({ paths, today, child, deps }));
   } else {
     waiting.push('submitting approved applications', 'reading outcome mail');
@@ -265,7 +362,7 @@ export async function autopilot({ paths, today, deps = {} }) {
   }
   let footer = [];
   try {
-    footer = await sectionFooter({ paths, config, waiting });
+    footer = await sectionFooter({ paths, config, waiting, fillWaiting: tally.fillWaiting });
     appendDigestLines({ dataDir: paths.dataDir, today, heading: 'Autopilot', lines });
     appendFileSync(join(paths.dataDir, 'digest', `student-${today}.md`), `\n${footer.join('\n')}\n`);
     await appendLedger(paths.dataDir, [zeroRow({ date: today, step: 'autopilot', feature: 'M3', rows: 1 }), zeroRow({ date: today, step: 'outcome-mail', feature: 'G3', rows: live ? 1 : 0 })]);
@@ -276,10 +373,10 @@ export async function autopilot({ paths, today, deps = {} }) {
 }
 
 // The guided footer that ends the autopilot section, from the same state the digest summary takes (lib/digest.mjs).
-async function sectionFooter({ paths, config, waiting }) {
+async function sectionFooter({ paths, config, waiting, fillWaiting }) {
   const batches = listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)).filter((b) => b && !b.approved && b.items.length);
   const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).length : 0;
-  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule, approvedWaiting, batchesWaiting: batches.length });
+  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule, approvedWaiting, fillWaiting, batchesWaiting: batches.length });
 }
 
 async function main() {

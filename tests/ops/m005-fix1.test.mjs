@@ -33,7 +33,7 @@ const scriptOf = (args) => basename(String(args?.[0] ?? ''));
 const digestOf = (r) => (r.exists(`data/digest/student-${TODAY}.md`) ? r.read(`data/digest/student-${TODAY}.md`) : '');
 const logRows = async (r) => (existsSync(join(r.data, 'action-log.tsv')) ? (await readTsv(join(r.data, 'action-log.tsv'))).rows : []);
 
-// An apply batch from yesterday whose items carry fill plans; every item approved.
+// An apply batch from yesterday whose items carry fill plans with one read form field each; every item approved.
 async function approvedWithPlans(r, links, { date = YESTERDAY } = {}) {
   const items = links.map((link, i) => ({ company: `Fake Co ${i + 1}`, role: `Analyst ${i + 1}`, score: 4.5, preview: 'Fake letter preview.', link }));
   const [id] = writeBatches(r.data, { date, kind: 'apply', items });
@@ -42,7 +42,7 @@ async function approvedWithPlans(r, links, { date = YESTERDAY } = {}) {
     items: b.items.map((it, k) => {
       const file = join(r.data, 'fill-plans', id, `${k + 1}.json`);
       mkdirSync(join(r.data, 'fill-plans', id), { recursive: true });
-      writeFileSync(file, `${JSON.stringify({ company: it.company, role: it.role, url: it.link, link: it.link, score: 4.5, batchId: id, item: k + 1 })}\n`);
+      writeFileSync(file, `${JSON.stringify({ company: it.company, role: it.role, url: it.link, link: it.link, score: 4.5, batchId: id, item: k + 1, fields: [{ selector: '#first_name', key: 'first_name', label: 'First name', type: 'text', value: 'Test' }], unknown: [], uploads: [] })}\n`);
       return { ...it, plan: file };
     }),
   }));
@@ -93,6 +93,7 @@ test('M-1 a link already submitted from another approved page is not submitted a
     const calls = [];
     const runner = (cmd, args) => {
       calls.push(args);
+      if (scriptOf(args) === 'chrome.mjs' && args[1] === 'fill') return 'chrome: filled 1 field(s) on example.com';
       return scriptOf(args) === 'rank-queue.mjs' ? '[]' : '';
     };
     const { res } = await runPilot(r, runner);
@@ -104,7 +105,7 @@ test('M-1 a link already submitted from another approved page is not submitted a
   }
 });
 
-test('M-2 outcome mail read in Chrome reaches inbox.mjs with its sender and --classify-outcomes when T7 is off', async () => {
+test('M-2 outcome mail read in Chrome reaches inbox.mjs with its sender and --classify-outcomes with T7 off and on', async () => {
   for (const t7On of [false, true]) {
     const r = makeRoot({ config: `${BASE}chrome_in_schedule: yes\n` });
     try {
@@ -123,7 +124,7 @@ test('M-2 outcome mail read in Chrome reaches inbox.mjs with its sender and --cl
       ];
       const { res } = await runPilot(r, runner, { chromeState: async () => ({ port: 9 }), readOutcomeMail: async () => mails, t7On });
       assert.equal(inboxCalls.length, 1);
-      assert.equal(inboxCalls[0].includes('--classify-outcomes'), !t7On, `T7 ${t7On ? 'on' : 'off'}`);
+      assert.ok(inboxCalls[0].includes('--classify-outcomes'), `T7 ${t7On ? 'on' : 'off'}: decideOutcome orders rules and agent by T7`);
       const input = JSON.parse(readFileSync(inboxCalls[0][inboxCalls[0].indexOf('--input') + 1], 'utf8'));
       assert.deepEqual(input.map((m) => [m.id, m.from]), mails.map((m) => [m.id, m.from]), 'real ids and senders reach inbox.mjs');
       assert.ok(res.lines.includes('outcome mail: 2 read, 1 proposal(s), 1 set'), res.lines.join('\n'));
@@ -264,7 +265,7 @@ test('S-3 with chrome_in_schedule no the autopilot section ends with Next, Type 
     const { digest, res } = await runPilot(r, runner, { chromeOpen: () => false });
     const tail = digest.trimEnd().split('\n').slice(-5);
     assert.match(tail[0], /^Next: submit the 2 approved application\(s\) in a session$/);
-    assert.equal(tail[1], 'Type: submit approved');
+    assert.equal(tail[1], 'Type: submit all');
     assert.match(tail[2], /^Why: .*I can submit them in a session, approve\?$/);
     assert.deepEqual(res.footer.slice(0, 3), tail.slice(0, 3));
     const closed = pilotRoot('chrome_in_schedule: yes\n');
@@ -285,7 +286,7 @@ test('S-3 pause and resume print Next, Type and Why; resume with nothing install
   try {
     const said = [];
     pauseCommand('pause', r.data, { say: (l) => said.push(l) });
-    assert.deepEqual(said.slice(1).map((l) => l.split(':')[0]), ['Next', 'Type', 'Why']);
+    assert.deepEqual(said.slice(1, 4).map((l) => l.split(':')[0]), ['Next', 'Type', 'Why']);
     assert.equal(said[2], 'Type: resume my schedule');
     said.length = 0;
     pauseCommand('resume', r.data, { installed: () => false, say: (l) => said.push(l) });
@@ -294,7 +295,7 @@ test('S-3 pause and resume print Next, Type and Why; resume with nothing install
     said.length = 0;
     pauseCommand('resume', r.data, { installed: () => true, say: (l) => said.push(l) });
     assert.match(said[0], /schedule resumed/);
-    assert.deepEqual(said.slice(1).map((l) => l.split(':')[0]), ['Next', 'Type', 'Why']);
+    assert.deepEqual(said.slice(1, 4).map((l) => l.split(':')[0]), ['Next', 'Type', 'Why']);
   } finally {
     r.cleanup();
   }
