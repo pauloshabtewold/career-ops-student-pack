@@ -58,7 +58,7 @@ unset after setup, and the scheduled run treats a key still unset after onboardi
 automation Chrome open to record `yes`. With `no`, the scheduled run triages and drafts only; applying, sending and Gmail reads wait until Chrome is
 open, and the digest says so with this line:
 
-> Waiting for Chrome: <steps>. Open it with `node student/scripts/chrome.mjs open` and these run next.
+> waiting for Chrome: <steps>; I'll open the automation Chrome and run them, approve? Type: open my automation Chrome
 
 A headless model call never gets browser tools in either mode.
 

@@ -244,7 +244,7 @@ function runApplyTriage({ lines, root, dataDir, packRoot, runner }) {
 function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
   const configured = config.agent ?? 'claude';
   const changed = Boolean(agent) && agent !== configured;
-  const hint = changed ? [`agent changed to ${configured} since the schedule was installed; run node student/scripts/schedule.mjs install again`] : [];
+  const hint = changed ? [`agent changed to ${configured} since the schedule was installed; run node student/scripts/schedule.mjs install again to switch it. I'll reinstall the schedule for you, approve? Type: reinstall my schedule`] : [];
   const file = (changed ? null : agentPath) ?? (configured === 'claude' ? claude : null) ?? resolveAgentPath(configured, { platform });
   return { configured, hint, file };
 }
@@ -583,7 +583,7 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     return { ran: true, triaged: 0 };
   }
   if (!file) {
-    note([`daily triage skipped: ${configured} was not found; install it, ${signInHint(configured)}, then run node student/scripts/schedule.mjs install again`]);
+    note([`daily triage skipped: ${configured} was not found; install it and ${signInHint(configured)}, then I'll reinstall the schedule (node student/scripts/schedule.mjs install), approve? Type: reinstall my schedule`]);
     return { ran: false };
   }
   const size = chunkRows(levers);

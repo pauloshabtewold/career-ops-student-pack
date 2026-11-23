@@ -212,7 +212,7 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
   try {
     answers = readProfileAnswers(paths.root) ?? {};
   } catch (err) {
-    say(`setup: config/profile.yml could not be read (${err.message}); fix it or move it aside, then run setup again. Saved answers are not counted until then.`);
+    say(`setup: config/profile.yml could not be read (${err.message}). I'll move the broken profile.yml aside and rebuild it from your answers, approve? Type: rebuild my profile. Saved answers are not counted until then.`);
   }
   const next = nextStep({ setup: state, pipeline: pipelineState(paths.dataDir, { answers }) });
   say('');

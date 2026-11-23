@@ -272,7 +272,7 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   }
   // scheduled.mjs passes --via-scheduled; without it this is a manual run or a schedule from before the triage wrapper, and neither triages.
   const notes = !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
-    ? ['this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, run node student/scripts/schedule.mjs install again']
+    ? ["this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, I'll reinstall the schedule (node student/scripts/schedule.mjs install), approve? Type: reinstall my schedule"]
     : [];
   try {
     log(`START ${stamp()} student-daily ${today}`);
