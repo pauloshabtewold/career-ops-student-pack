@@ -35,7 +35,7 @@ test('M-005-S16-osdr the scheduled inbox pass runs inbox.mjs with --classify-out
 test('M-005-S16-osdr with T7 on the scheduled inbox pass applies a rule-matched outcome without the classifier and sends only unmatched mail to it', async () => {
   const r = makeInboxRoot();
   try {
-    const relay = msg('o-602', 'Contoso Analytics <no-reply@greenhouse.io>', 'Your Contoso Analytics application', 'Thank you for applying to Contoso Analytics. We have decided to move forward with other candidates.');
+    const relay = msg('o-602', 'Contoso Analytics <no-reply@ats-relay.example.com>', 'Your Contoso Analytics application', 'Thank you for applying to Contoso Analytics. We have decided to move forward with other candidates.');
     const classified = [];
     const claude = (args, opts) => {
       if (args.includes('stream-json')) return claudeStream({ answer: answerText([REJECT, relay]) });
