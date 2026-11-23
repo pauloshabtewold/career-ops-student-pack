@@ -46,6 +46,9 @@ function setup({ apps = APPS, seen = [] } = {}) {
   mkdirSync(join(root, 'data'));
   mkdirSync(join(root, 'config'));
   writeFileSync(join(root, 'config', 'student.yml'), 'timezone: America/Chicago\npresets: []\n');
+  // A plain run is the zero-AI path with T7 off: outcome mail needs the agent to agree, so it stays a proposal. The
+  // student's levers.yml pins T7 off, whatever the shipped verdict file says.
+  writeFileSync(join(root, 'config', 'levers.yml'), 'T7: off\n');
   writeFileSync(join(root, 'data', 'applications.md'), apps);
   if (seen.length) writeFileSync(join(root, 'data', '.student-inbox-seen'), `${seen.join('\n')}\n`);
   return { root, data: join(root, 'data'), cleanup: () => rmSync(root, { recursive: true, force: true }) };

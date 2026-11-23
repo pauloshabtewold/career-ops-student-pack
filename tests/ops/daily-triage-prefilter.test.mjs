@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { args, jobUrl, line, makeRunner, makeTriageRoot, sentUrls } from '../helpers/triage-harness.mjs';
 import { rowsOf } from '../helpers/script-harness.mjs';
+import { packFarm, soloVerdict } from '../helpers/lever-harness.mjs';
 
 const withRoot = async (opts, fn) => {
   const r = makeTriageRoot(opts);
@@ -78,6 +79,8 @@ test('M-003-S10-osdr with T16 off a posting asking for a payment still reaches t
       ],
     },
     async (r) => {
+      // The student's levers.yml pins T16 off, whatever the shipped verdict file says.
+      r.write('config/levers.yml', 'T16: off\n');
       const { runner, calls } = makeRunner(r, { fetch: (url) => (url === jobUrl(1) ? PAYMENT_TEXT : PLAIN_TEXT('Software Engineering Intern')) });
       await dailyTriageRun(r, runner);
       assert.equal(allSent(calls).has(jobUrl(1)), true, 'with T16 off the payment posting reaches the model');
@@ -89,7 +92,36 @@ test('M-003-S10-osdr with T16 off a posting asking for a payment still reaches t
     },
   ));
 
-async function dailyTriageRun(r, runner) {
+// A pack root whose verdict file passes T16 alone, so this test does not depend on the shipped verdicts.
+test('M-003-S10-osdr with T16 on a posting asking for a payment gets a TRIAGE FAIL naming rule scam and no model call', async () => {
+  const farm = packFarm({ T16: soloVerdict('pass') });
+  try {
+    await withRoot(
+      {
+        pending: [
+          line(jobUrl(1), 'Sample Labs', 'Data Analyst Intern', 'Remote', 'src=handshake'),
+          line(jobUrl(2), 'Demo Works', 'Software Engineering Intern', 'Remote', 'src=handshake'),
+        ],
+      },
+      async (r) => {
+        const { runner, calls } = makeRunner(r, { fetch: (url) => (url === jobUrl(1) ? PAYMENT_TEXT : PLAIN_TEXT('Software Engineering Intern')) });
+        await dailyTriageRun(r, runner, { packRoot: farm.dir });
+        const sent = allSent(calls);
+        assert.equal(sent.has(jobUrl(1)), false, 'with T16 on the payment posting goes to no model');
+        assert.equal(sent.has(jobUrl(2)), true, 'the clean row still goes to the model');
+        const text = r.read('data/pipeline.md');
+        const failed = findRow(text, 'Skipped', jobUrl(1));
+        assert.ok(failed, `the payment row is failed before the call:\n${text}`);
+        assert.match(failed.notes.get('reason') ?? '', /scam/i);
+        assert.ok(findRow(text, 'Pending', jobUrl(2)), 'the clean row keeps its PASS in Pending');
+      },
+    );
+  } finally {
+    farm.cleanup();
+  }
+});
+
+async function dailyTriageRun(r, runner, extra = {}) {
   const { dailyTriage } = await import('../../scripts/daily-triage.mjs');
-  await dailyTriage({ ...args(r), runner });
+  await dailyTriage({ ...args(r, extra), runner });
 }
