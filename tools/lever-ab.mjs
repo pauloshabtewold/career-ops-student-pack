@@ -1267,7 +1267,7 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
     const env = { root, ctx, base, control, plan, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaNoise: noise, aaPerStep: null, p0Agents };
     if (plan.aa.length) {
       const cmp = compareArms(ctx, { triage: base.triage, drafts: control }, runArm(ctx, plan.aa));
-      data.aa = { status: `A/A control re-run ${today}: the control's draft calls again, judged against the control`, rule: INVENTED_FACTS_RULE, run_date: today, seed, sample_hash: sample, models: { ...control.models }, per_step: perStepCounts(cmp.judged), judged_pairs: cmp.judged };
+      data.aa = { status: `A/A control re-run ${today}: the control's draft calls again, judged against the control`, rule: INVENTED_FACTS_RULE, run_date: today, seed, sample_hash: sample, models: { ...control.models, judge: ctx.models.judge }, judge_resolved: ctx.judgeModel, per_step: perStepCounts(cmp.judged), judged_pairs: cmp.judged };
       env.aaPerStep = data.aa.per_step;
       writeVerdicts(root, data);
     }
@@ -1446,13 +1446,15 @@ function stackedPlan(root, on, data, agents, reuse) {
 }
 
 // The A/A per-step map a stacked run may judge with: the campaign's own (its solo session wrote it), else a stored one
-// only when it was measured today at the model ids this stacked control resolved; otherwise none (allowance 0).
+// only when it was measured today at the model ids this stacked control resolved and the same pinned judge; otherwise
+// none (allowance 0). used is the marker stored on the stacked record ({ run_date, seed } of the A/A arm, or null).
 export function stackedAllowance(aa, { session = null, today, models = {} }) {
-  if (!aa?.per_step) return { perStep: null, note: 'no A/A measurement: 0 on every draft step' };
-  if (session) return { perStep: aa.per_step, note: `this campaign's A/A arm (${aa.run_date ?? today})` };
+  const used = { run_date: aa?.run_date ?? null, seed: aa?.seed ?? null };
+  if (!aa?.per_step) return { perStep: null, used: null, note: 'no A/A measurement: 0 on every draft step' };
+  if (session) return { perStep: aa.per_step, used, note: `this campaign's A/A arm (${aa.run_date ?? today})` };
   const ids = Object.entries(models).filter(([k]) => !k.endsWith('_cheap'));
   const same = aa.run_date === today && ids.length > 0 && ids.every(([a, id]) => aa.models?.[a] === id);
-  return same ? { perStep: aa.per_step, note: `the A/A arm measured ${today} at the same model ids` } : { perStep: null, note: `the stored A/A arm (${aa.run_date ?? 'undated'}) is from another day or other model ids: 0 on every draft step; run campaign to measure it again` };
+  return same ? { perStep: aa.per_step, used, note: `the A/A arm measured ${today} at the same model ids` } : { perStep: null, used: null, note: `the stored A/A arm (${aa.run_date ?? 'undated'}) is from another day or other model ids: 0 on every draft step; run campaign to measure it again` };
 }
 
 /** Stacked pass: every solo-passing lever of every kind on together; deps as runSolo; session reuses a solo control. */
@@ -1496,8 +1498,9 @@ export async function runStacked({ root = PACK_ROOT, runner = realRunner, judge,
     const control = session?.control ?? (plan.control.length ? runArm(ctx, plan.control) : emptyArm());
     const base = session?.base ?? chooseBase(root, p0, control);
     Object.assign(data.stacked, { comparison_base: base.triageName, p0_models: p0, p5_models: { ...control.models, judge: ctx.judgeModel }, bars_sha256: pins.barsSha, estimate: plan.total, sample_hash: sample, seed });
-    const aa = stackedAllowance(data.aa, { session, today, models: control.models });
+    const aa = stackedAllowance(data.aa, { session, today, models: { ...control.models, judge: ctx.models.judge } });
     data.stacked.aa_control = aa.note;
+    data.stacked.aa_used = aa.used;
     say(`lever-ab: option A allowance: ${aa.note}`);
     const result = await stackedRounds({ root, ctx, base, control, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaPerStep: aa.perStep, plan: { milder: {} }, roundEst: plan.round }, io, on);
     data.stacked.actual_tokens = { ...ctx.spent };
@@ -1547,8 +1550,20 @@ function rejudgeSolo(v, spec, bars, aa) {
 // bar is the final set, and the levers dropped at or after it get their solo verdicts back. A solo-passing set other than
 // the first round's, or a stored pass whose round now misses, needs a new stacked run (pending; every gated and tuning
 // lever stays off until it runs).
-function rejudgeStacked(data, solo, bars, aa, ruleBase) {
+// Whether a stored stacked record judged with data.aa: its aa_used marker names data.aa's run_date and seed; a record
+// with no marker (written before the marker existed) counts as using it only when its aa_control note names an A/A arm
+// of data.aa's run date that it judged with (the campaign's own, or a same-day standalone match).
+export function stackedUsedAa(stacked, aa) {
+  if (!aa?.per_step || !isObj(stacked)) return false;
+  if ('aa_used' in stacked) return Boolean(isObj(stacked.aa_used)) && stacked.aa_used.run_date === (aa.run_date ?? null) && stacked.aa_used.seed === (aa.seed ?? null);
+  const m = /^this campaign's A\/A arm \(([^)]+)\)|^the A\/A arm measured (\S+) at the same model ids/.exec(String(stacked.aa_control ?? ''));
+  return Boolean(m && (m[1] ?? m[2]) === aa.run_date);
+}
+
+function rejudgeStacked(data, solo, bars, aaAll, ruleBase) {
   const stacked = isObj(data.stacked) ? data.stacked : { rounds: [], final: [] };
+  // The stored rounds are replayed with the A/A allowance only when that stacked run judged with data.aa; else 0.
+  const aa = stackedUsedAa(stacked, data.aa) ? aaAll : null;
   const rounds = Array.isArray(stacked.rounds) ? stacked.rounds : [];
   const passing = Object.keys(data.levers).filter((id) => passed({ verdict: solo[id] }) && LEVER_SPECS[id] && LEVER_SPECS[id].kind !== 'unwired').sort();
   const dropRound = (v) => {
