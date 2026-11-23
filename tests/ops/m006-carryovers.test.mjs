@@ -524,12 +524,13 @@ test('3b: SAMPLE_FILES are the A/B sample: every listed file exists and the prof
   const { PROFILES } = await import('../../tools/quality-baseline.mjs');
   const { existsSync } = await import('node:fs');
   assert.deepEqual([...PIN_PROFILES], [...PROFILES]);
-  for (const f of SAMPLE_FILES) assert.ok(existsSync(join(PACK_ROOT, 'tests', 'fixtures', 'quality', ...f.split('/'))), f);
+  for (const f of SAMPLE_FILES) assert.ok(existsSync(join(PACK_ROOT, ...f.split('/'))), f);
+  assert.ok(SAMPLE_FILES.includes('templates/headless-brief.md'), 'the T10 lean brief is pinned');
   const src = readFileSync(join(PACK_ROOT, 'tools', 'lever-ab.mjs'), 'utf8');
   for (const name of new Set(src.match(/'[a-z-]+\.(?:json|md|yml)'/g).map((x) => x.slice(1, -1)))) {
     // Not fixtures: the verdict file, the report, the runner settings, and the cv.md the T15 trial writes to a temp folder.
     if (['lever-verdicts.json', 'token-report.md', 'triage-claude-settings.json', 'cv.md'].includes(name)) continue;
-    assert.ok(SAMPLE_FILES.some((f) => f.endsWith(`/${name}`) || f === name), `lever-ab reads ${name}, so it is pinned`);
+    assert.ok(SAMPLE_FILES.some((f) => f.endsWith(`/${name}`)), `lever-ab reads ${name}, so it is pinned`);
   }
 });
 
@@ -550,6 +551,25 @@ test('3b: an unrelated fixture edit leaves levers on; a lever fixture edit turns
     assert.equal(on(), true, 'fixtures the A/B does not read change no verdict');
     appendFileSync(join(p.dir, 'tests', 'fixtures', 'quality', 'levers', 'pages.json'), '\n');
     assert.equal(on(), false, 'a lever fixture edit makes the verdict stale');
+  } finally {
+    p.cleanup();
+  }
+});
+
+// Fix 3c: the T10 lean brief is part of the pinned sample.
+test('3c: editing templates/headless-brief.md after a campaign turns T10 off', async () => {
+  const { h } = await fix2();
+  const { leverPins, readVerdicts, resolve } = await import('../../lib/levers.mjs');
+  const { appendFileSync } = await import('node:fs');
+  const p = h.packCopy();
+  try {
+    const now = leverPins(p.dir);
+    const pins = { bars_sha256: now.barsSha, sample_hash: now.sample };
+    h.writeVerdicts(p.dir, { T10: { ...h.soloVerdict('pass', 0), ...pins } }, { stacked: { status: 'stacked pass after 1 round: T10 on together', final: ['T10'], ...pins } });
+    const on = () => resolve('T10', { verdicts: readVerdicts(p.dir), overrides: {} }).on;
+    assert.equal(on(), true);
+    appendFileSync(join(p.dir, 'templates', 'headless-brief.md'), '\nOne more line.\n');
+    assert.equal(on(), false);
   } finally {
     p.cleanup();
   }
