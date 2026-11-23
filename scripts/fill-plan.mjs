@@ -65,6 +65,17 @@ export function answerFor(key, { answers, candidate }) {
   return blank(v) ? undefined : v;
 }
 
+const cssString = (text) => `"${String(text).replace(/["\\]/g, '\\$&')}"`;
+
+// The CSS selector chrome.mjs fill types into: the field's own selector, else its id, else its name. A form read records
+// id and name, and a field without a selector is never filled or uploaded.
+export function fieldSelector(field) {
+  if (field.selector) return field.selector;
+  if (field.id) return `[id=${cssString(field.id)}]`;
+  if (field.name) return `[name=${cssString(field.name)}]`;
+  return undefined;
+}
+
 // Every mapped field gets its value by code; an unmapped field is filled from a saved question or listed as unknown.
 // form = { url, fields } with raw fields (mapped here through lib/ats-fields.mjs) or fields mapForm already mapped.
 // A sensitive field (SSN, card, bank) gets no value and is listed in blocked: the student fills it, it is never asked
@@ -74,7 +85,9 @@ export function resolveFields(form, ctx) {
   const unknown = [];
   const blocked = [];
   const fields = (form.fields ?? []).map((raw) => {
-    const f = 'key' in raw ? raw : { ...raw, ...mapField(raw, { ats }) };
+    const mapped = 'key' in raw ? raw : { ...raw, ...mapField(raw, { ats }) };
+    const selector = fieldSelector(mapped);
+    const f = selector ? { ...mapped, selector } : mapped;
     if (f.slot) return f;
     if (f.key === SENSITIVE_KEY) {
       blocked.push(f.label || f.name);
