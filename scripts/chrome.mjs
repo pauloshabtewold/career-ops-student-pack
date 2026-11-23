@@ -29,7 +29,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile, recordEmptyRead } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
 import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readFormFields, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -483,7 +483,8 @@ const pageUrl = async (client, sessionId) => {
 // Fills one plan; returns { code, filled, problems, tab }. The tab stays open for submit, and tab = { targetId, url,
 // sentinel } names it, so submit clicks in this exact tab and checks that it still holds the filled form.
 export async function fillPlan(client, plan, { dataDir }) {
-  const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
+  const form = formUrl(plan.url);
+  const page = (await attachTo(client, form)) ?? (await openPage(client, form));
   const { sessionId } = page;
   const captcha = await detectCaptcha(client, sessionId);
   if (captcha) {
@@ -562,9 +563,10 @@ export function pageJobText(raw) {
 
 // Reads the application form at url in a new tab and closes it again: read-only, it never types, clicks or submits. A
 // visible CAPTCHA or bot check, or a password field (a sign-in or account page), stops it before the fields are read.
-// Returns { fields } or { stop: 'captcha', detail } or { stop: 'password' }.
+// The page opened is the posting's form page (formUrl). Returns { fields, jobText? } or { stop: 'captcha', detail },
+// { stop: 'password' } or { stop: 'empty' }.
 export async function readForm(client, url) {
-  const { sessionId, targetId } = await openPage(client, url);
+  const { sessionId, targetId } = await openPage(client, formUrl(url));
   try {
     const captcha = await detectCaptcha(client, sessionId);
     if (captcha) return { stop: 'captcha', detail: captcha };
