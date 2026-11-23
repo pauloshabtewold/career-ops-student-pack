@@ -1,0 +1,125 @@
+{
+  "_note": "Synthetic setup and pipeline states for lever T14 (code-built Next/Type/Why block against an AI-written one).",
+  "states": [
+    {
+      "setup": {
+        "installed": true,
+        "interview": false
+      },
+      "pipeline": {}
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": false,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": true,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {}
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": true,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": false,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {}
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": true,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": true,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {
+        "unknownQuestions": 2
+      }
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": true,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": true,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {
+        "batchesWaiting": 1
+      }
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": true,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": true,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {
+        "finishYourself": 1
+      }
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": true,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": true,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {
+        "repliesToAnswer": 3
+      }
+    },
+    {
+      "setup": {
+        "installed": true,
+        "interview": true,
+        "resume": true,
+        "chrome": true,
+        "signins": {
+          "LinkedIn": true,
+          "Gmail": true,
+          "Handshake": true
+        },
+        "schedule": true
+      },
+      "pipeline": {}
+    }
+  ]
+}

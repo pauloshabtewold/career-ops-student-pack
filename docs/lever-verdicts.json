@@ -1,5 +1,5 @@
 {
-  "status": "pending: no A/B run yet; plumbing levers (T1, T13, T15) resolve on, every gated and tuning lever off",
+  "status": "pending: no A/B run yet; plumbing levers (T1, T13, T15) resolve on, every gated and tuning lever off until a solo pass and a completed stacked pass include it",
   "levers": {
     "T1": {
       "verdict": "pending",
@@ -413,7 +413,7 @@
       "actual_tokens": null,
       "run_date": null,
       "sample_hash": null,
-      "basis": "no A/B run yet"
+      "basis": "not wired: no shipped model call maps form fields (fill-plan maps them by code), so there is nothing to measure; it stays off"
     },
     "jd_trim": {
       "verdict": "pending",
@@ -469,5 +469,6 @@
     "status": "no stacked run yet",
     "rounds": [],
     "final": []
-  }
+  },
+  "invented_facts_rule": "lever-added over control, inputs as sources"
 }

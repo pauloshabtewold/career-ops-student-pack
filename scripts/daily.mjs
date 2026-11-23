@@ -26,7 +26,7 @@ import { summaryLines } from '../lib/digest.mjs';
 import { weeklySentBy } from '../lib/outreach-state.mjs';
 import { skillGaps } from '../lib/skill-gap.mjs';
 import { perDayEstimate } from '../lib/usage-cost.mjs';
-import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
+import { append as appendLedger, read as readLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { MISSED_FILE } from './scheduled.mjs';
 import { outreachState } from './outreach-state.mjs';
 
@@ -178,7 +178,8 @@ async function digestSummary({ root, dataDir, today, nowMs, config, limits }) {
       outreach: { ...weeklySentBy(actions, nowMs), connectLimit: limits.connect_per_rolling_7d },
       replies: state.due.filter((d) => d.action === 'reply' || d.action === 'referral-ask').length,
       missed: readIf(join(dataDir, MISSED_FILE)).trim() || null,
-      estimate: perDayEstimate(config),
+      // PD-028: the 7-day mean of the usage ledger once it holds measured days, else the constants; still an estimate.
+      estimate: perDayEstimate(config, { ledgerRows: await readLedger(dataDir).catch(() => []), today }),
       sunday,
       skillGaps: sunday ? skillGaps(recentMatchedTexts(dataDir, nowMs), readIf(join(root, 'cv.md'))) : [],
       batchesWaiting: listBatches(dataDir).map((id) => readBatch(dataDir, id)).filter((b) => b && !b.approved && b.items.length).length,

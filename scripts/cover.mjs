@@ -50,13 +50,18 @@ export function fillBase(base, { company, role, paragraph, signature }) {
   return base.replaceAll('{company}', company).replaceAll('{role}', role).replace('{paragraph}', paragraph).replace('{signature}', signature);
 }
 
+// The standard rules of the paragraph prompt; lever T10 puts the lean headless brief in their place (lib/headless.mjs).
+export const COVER_RULES = [
+  'Use only facts stated in the CV below. Name only skills, tools, numbers and titles the CV states; never name a posting tool the CV lacks, even as something the company uses.',
+  'Mention the company and role only by name (at, join or apply to the company; the role by its title).',
+  'Plain words, straight quotes, no dashes as punctuation, no greeting and no sign-off. Reply with the paragraph only.',
+].join('\n');
+
 // Prompt for the single tailored paragraph, at most words words.
 export function paragraphPrompt({ cv, posting, company, role, words = PARAGRAPH_WORDS, retryNote = '' }) {
   return [
     `Write one paragraph of a cover letter for the ${role} role at ${company}, at most ${words} words.`,
-    'Use only facts stated in the CV below. Name only skills, tools, numbers and titles the CV states; never name a posting tool the CV lacks, even as something the company uses.',
-    'Mention the company and role only by name (at, join or apply to the company; the role by its title).',
-    'Plain words, straight quotes, no dashes as punctuation, no greeting and no sign-off. Reply with the paragraph only.',
+    COVER_RULES,
     retryNote,
     '',
     'CV (facts about the student):',
@@ -67,7 +72,7 @@ export function paragraphPrompt({ cv, posting, company, role, words = PARAGRAPH_
   ].filter((l) => l !== undefined).join('\n');
 }
 
-const capWords = (text, n) => {
+export const capWords = (text, n) => {
   const words = String(text).trim().split(/\s+/);
   return words.length <= n ? words.join(' ') : `${words.slice(0, n).join(' ').replace(/[,;:]$/, '')}.`;
 };
@@ -85,7 +90,7 @@ export async function writeCover({ cv, posting, answers, company, role, presets,
     // The note names only the flagged terms, never grammar or common words, so the model is not told to drop "is".
     const terms = retryTerms(missing);
     const retryNote = !missing.length ? '' : terms.length ? `Your last paragraph named things the CV does not state (${terms.join(', ')}). Leave them out.` : 'Your last paragraph named things the CV does not state. Use only facts stated in the CV.';
-    const res = await headless({ agent, prompt: paragraphPrompt({ cv, posting, company, role, words, retryNote }), step: 'cover', feature: 'M8', dataDir, date });
+    const res = await headless({ agent, prompt: paragraphPrompt({ cv, posting, company, role, words, retryNote }), step: 'cover', feature: 'M8', dataDir, date, instructions: COVER_RULES });
     // Invisible characters are removed so the checked paragraph is the paragraph written.
     const paragraph = capWords(clean(stripInvisible(res.text)), words);
     missing = factCheck(paragraph, sources);

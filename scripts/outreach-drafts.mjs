@@ -73,6 +73,8 @@ const CONTACT_TYPES = [
 ];
 // The contact type of a role or type string, or null when none matches.
 export const contactType = (role) => CONTACT_TYPES.find(([, re]) => re.test(String(role ?? '')))?.[0] ?? null;
+// The drafting prompt with the T5 opener task added; the prompt unchanged when there is no opener.
+export const withOpenerPrompt = (prompt, opener) => (opener ? `${prompt}\n\nThe body already opens with this sentence code writes: "${opener}" Write only one more short, true, personal sentence that follows it; do not repeat it.` : prompt);
 // The filled T5 base for a job, or '' when T5 is off, the action is not a warm opener or the contact type is unknown.
 export function t5Opener(job, t5On) {
   const type = t5On && job.action === 'warm-opener' ? contactType(job.contact?.type ?? job.contact?.role) : null;
@@ -147,12 +149,17 @@ const BODY_SKIP = ['applied_date'];
 // student's cv.md (and article-digest.md when the pack has one), which are the only allowed source of facts. The fixed
 // part (rules, then the resume) comes first, so it is the same for every draft of a round and can be cached; the task and
 // the contact data come last.
-const DRAFT_RULES = [
+// The voice and facts rules of the drafting prompt; lever T10 puts the lean headless brief in their place. The frame
+// rules (code writes the greeting, closing and placeholders) always stay, so the code-built frame is unchanged.
+export const DRAFT_STYLE_RULES = [
   'You write one short networking message for a student, in the student\'s own voice: warm, natural and specific, the way a friendly person writes to someone they would like to get to know. Not a form letter.',
   'Facts about the student come only from the RESUME below. Mention one or two real things from it in your own words; never paste resume lines. Never add, stretch or guess a fact: no other jobs, internships, schools, degrees, skills, tools, projects, awards, numbers, dates or job titles, a title only as the resume states it (an intern is an intern), and no earlier contact with the reader or their company. If the resume does not hold something, leave it out.',
+].join('\n');
+const DRAFT_FRAME_RULES = [
   'Write the body only. Code adds the greeting with their name, any sentence about an application and its date, the closing thanks and the sign-off. So never write a greeting, a Subject line, a sign-off, the student\'s name, the application or its date, and do not use the reader\'s name (the greeting has it).',
   'Write {company} for the company where you need it; no other placeholders (the task names any other one you may use), brackets or links. Plain words, straight quotes, short paragraphs with at most one blank line between them.',
 ].join('\n');
+const DRAFT_RULES = `${DRAFT_STYLE_RULES}\n${DRAFT_FRAME_RULES}`;
 
 const ASK = {
   connect: ({ noteChars }) => `A LinkedIn connection note. The whole note, with "Hi <first name>, " in front, must stay under ${noteChars} characters, so write one or two short sentences: a specific, friendly reason to connect. No referral or job ask.`,
@@ -553,7 +560,8 @@ async function draftOne(job, ctx) {
 async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source, t5On = false }) {
   const call = async (prompt, step) => {
     try {
-      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, timeoutMs: OUTREACH_CALL_TIMEOUT_MS })).text;
+      const instructions = step === 'outreach-verify' ? '' : DRAFT_STYLE_RULES;
+      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, timeoutMs: OUTREACH_CALL_TIMEOUT_MS, ...(instructions ? { instructions } : {}) })).text;
     } catch (err) {
       const what = step === 'outreach-verify' ? 'the claim check call' : 'the drafting call';
       throw new CallFailed(`${what} failed (${String(err?.message ?? err).split('\n')[0]}), so the draft is held and never sent unchecked`);
@@ -564,7 +572,7 @@ async function draftLoop(job, { cv, digest = '', sources = '', records = {}, les
   while (tag === roundTag) tag = fenceTag();
   const opener = t5Opener(job, t5On);
   const plainBase = draftPrompt({ ...job, cv, digest, lessons, roundTag, tag });
-  const base = opener ? `${plainBase}\n\nThe body already opens with this sentence code writes: "${opener}" Write only one more short, true, personal sentence that follows it; do not repeat it.` : plainBase;
+  const base = withOpenerPrompt(plainBase, opener);
   const known = [...knownTrueFacts(job, records), ...(opener ? [`Code writes this sentence into the message: "${opener}"`] : [])];
   let prompt = base;
   let verifies = 0;
@@ -592,6 +600,31 @@ async function draftLoop(job, { cv, digest = '', sources = '', records = {}, les
     if (claims.some((c) => holdsTag(c, [roundTag, tag]))) throw new FenceError('a claim of the check holds a fence tag');
     prompt = `${base}\n\nA check against the resume found statements it does not support:\n${claims.map((c) => `- "${c}"`).join('\n')}\nRemove or correct these; use only facts from the resume.`;
   }
+}
+
+// The contact's role or kind from contacts.tsv (the latest row that names one), keyed name|company; T5 reads its type.
+export function contactRoles(contactRows = []) {
+  const roles = new Map();
+  for (const r of contactRows) {
+    const role = r.role ?? r.kind ?? r.title;
+    if (r.name && r.company && role) roles.set(`${lower(r.name)}|${lower(r.company)}`, role);
+  }
+  return roles;
+}
+
+// The round tag of the verifier's student blocks. With T10 on (its stable-prefix part) one random tag is kept per day in
+// data/.outreach-round-tag, so the verifier's fixed rules and resume blocks are byte-identical for every verify call of
+// the day and can be cached across rounds; per-call tags stay random. Off: a new random tag per round, as before.
+const ROUND_TAG_FILE = '.outreach-round-tag';
+export function roundTagFor(dataDir, today, t10On) {
+  if (!t10On || !dataDir) return fenceTag();
+  const file = join(dataDir, ROUND_TAG_FILE);
+  const [day, tag] = existsSync(file) ? readFileSync(file, 'utf8').trim().split(/\s+/) : [];
+  if (day === today && /^[0-9a-f]{8}$/.test(tag ?? '')) return tag;
+  const fresh = fenceTag();
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(file, `${today} ${fresh}\n`);
+  return fresh;
 }
 
 // Replies T6 sorts out of the AI step: none while T6 is off; with T6 on, the thanks and no replies.
@@ -753,7 +786,9 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const needsAddress = resolved.filter((f) => !f.email);
   // Application follow-ups belong to the apply side: they are drafted and batched whatever the outreach switch says.
   // Contact outreach is batched only while the switch is on, goes to the drafts file at drafts, and is skipped at off.
-  const contactJobs = mode === 'off' ? [] : draftJobs({ due: state.due, followups: [], replies, t6On, ...notes });
+  const roles = contactRoles(contactRows);
+  const due = (state.due ?? []).map((d) => ({ ...d, role: d.role ?? roles.get(`${lower(d.name)}|${lower(d.company)}`) }));
+  const contactJobs = mode === 'off' ? [] : draftJobs({ due, followups: [], replies, t6On, ...notes });
   const candidate = readCandidate(paths);
   const cv = readCv(paths.root);
   const signature = signatureOf(candidate, cv);
@@ -764,7 +799,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
-  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On };
+  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: roundTagFor(paths.dataDir, today, deps.t10On ?? isOn('T10')), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
   const ready = drafts.filter((d) => !d.flags.length);

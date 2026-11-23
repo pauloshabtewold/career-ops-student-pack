@@ -202,7 +202,8 @@ async function noteJd(dataDir, url, token) {
   });
 }
 
-const reviewWith = (deps, { cv, agent, dataDir, date }) => async (plan) => {
+// The reviewer call of one plan (modes/review.md through buildReviewPrompt); tools/lever-ab.mjs T8 uses the same one.
+export const reviewWith = (deps, { cv, agent, dataDir, date }) => async (plan) => {
   const res = await (deps.headless ?? runHeadless)({ agent, prompt: buildReviewPrompt({ cv, posting: plan.jobText, resume: plan.resumeText ?? '', cover: plan.letter ?? (plan.cover && existsSync(plan.cover) ? readFileSync(plan.cover, 'utf8') : '') }), step: 'review', feature: 'H2', dataDir, date });
   const ok = /VERDICT:\s*CLEAN/.test(res.text);
   return { ok, notes: ok ? [] : res.text.split('\n').filter((l) => /^UNGROUNDED|^EDIT/.test(l)).slice(0, 3) };

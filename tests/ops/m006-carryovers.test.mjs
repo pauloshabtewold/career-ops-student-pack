@@ -80,3 +80,81 @@ test('jd_trim keeps the requirement and location sections and falls back to the 
   assert.equal(trimJobText(text), 'Requirements\nPython and SQL coursework.\nLocation\nRemote, US.');
   assert.equal(trimJobText('no headings here at all', { fallbackChars: 9 }), 'no headin');
 });
+
+// Fix round 1 (review r1): judge noise, vacuous arms, stacked gating, stop wordings, strict judge, loss ranking.
+test('M1: base noise the lever does not add is not counted; the lever draft\'s extra invented facts are', async () => {
+  const { parseJudge } = await import('../../tools/lever-ab.mjs');
+  assert.equal(parseJudge('{"verdict":"tie","invented_1":1,"invented_2":1}', true).added, 0);
+  assert.equal(parseJudge('{"verdict":"2","invented_1":3,"invented_2":1}', true).added, 2);
+  assert.equal(parseJudge('{"verdict":"1","invented_1":0,"invented_2":2}', true).notWorse, true);
+});
+
+test('S2: the real judge must answer 1, 2 or tie with numeric counts; not_worse is read only from an injected test judge', async () => {
+  const { parseJudge } = await import('../../tools/lever-ab.mjs');
+  assert.equal(parseJudge('{"verdict":"2","not_worse":true,"invented_1":0,"invented_2":0}', true).notWorse, false);
+  assert.equal(parseJudge('{"verdict":"lever","invented_1":0,"invented_2":0}', true).word, 'unreadable');
+  assert.equal(parseJudge('{"verdict":"tie"}', true).notWorse, false, 'missing counts read as unreadable');
+  assert.equal(parseJudge('{"verdict":"tie","not_worse":true,"invented_facts":0}', true, { lenient: true }).notWorse, true);
+});
+
+test('M2: an arm that measured nothing is never a pass', async () => {
+  const { vacuous } = await import('../../tools/lever-ab.mjs');
+  assert.match(vacuous({ arm: { calls: 4 }, metrics: {}, needAgents: ['codex'], agents: { claude: '/x' } }), /codex not found/);
+  assert.match(vacuous({ arm: { calls: 0 }, metrics: {} }), /no call/);
+  assert.match(vacuous({ arm: { calls: 3 }, metrics: { OVERLAP_MIN: 1 }, required: ['OVERLAP_MIN', 'SCAM_FP_MAX'] }), /SCAM_FP_MAX/);
+  assert.match(vacuous({ arm: { calls: 3 }, metrics: { JUDGE_NOT_WORSE_MIN: 1, INVENTED_FACTS_MAX: 0 }, required: [], missing: ['claude/a/cover-1'] }), /no base output/);
+  assert.equal(vacuous({ arm: { calls: 3 }, metrics: { OVERLAP_MIN: 1, SCAM_FP_MAX: 0 }, required: ['OVERLAP_MIN', 'SCAM_FP_MAX'] }), null);
+});
+
+test('M3: a lever-ab verdict file turns a solo pass on only after a completed stacked pass that includes it', async () => {
+  const { resolve } = await import('../../lib/levers.mjs');
+  const levers = { T5: { verdict: 'pass' }, T11: { verdict: 'pass' }, T13: { verdict: 'pass' } };
+  const at = (stacked) => ({ verdicts: { levers, stacked }, overrides: {} });
+  for (const status of ['pending: solo verdicts changed; run stacked', 'running: stacked round 2', 'blocked-on-user: claude reported a quota, limit or rate-limit error']) assert.equal(resolve('T5', at({ status, final: ['T5'] })).on, false, status);
+  assert.equal(resolve('T5', at({ status: 'stacked pass after 1 round: T5 on together', final: ['T5'] })).on, true);
+  assert.equal(resolve('T11', at({ status: 'stacked pass after 1 round: T5 on together', final: ['T5'] })).on, false, 'not in the final set');
+  assert.equal(resolve('T13', at({ status: 'running', final: [] })).on, true, 'plumbing keeps its solo verdict');
+});
+
+test('S1: limit, quota and sign-in wordings and a non-zero exit code all stop the A/B', async () => {
+  const { SIGN_IN_RE } = await import('../../tools/lever-ab.mjs');
+  for (const text of ['5-hour limit reached', 'weekly limit reached', 'Session limit reached', "You've hit your limit", 'usage_limit_reached']) assert.match(text, QUOTA_RE, text);
+  assert.match('Authentication required', SIGN_IN_RE);
+  assert.match(readReply('codex', { exitCode: 1, stdout: '', text: '' }).error, /exited 1|codex/);
+  assert.notEqual(readReply('claude', { code: 2, text: 'x' }).error, null);
+});
+
+test('M7: soloLoss ranks a larger drop above a smaller one and a gain lowest; bulkEffort lowers only with T12 on', async () => {
+  const { soloLoss } = await import('../../tools/lever-ab.mjs');
+  const q = (before, after) => ({ quality: { before: { OVERLAP_MIN: before }, after: { OVERLAP_MIN: after } } });
+  assert.ok(soloLoss(q(1, 0.8)) > soloLoss(q(1, 0.95)));
+  assert.ok(soloLoss(q(0.9, 0.95)) < soloLoss(q(1, 1)), 'a gain ranks below no change');
+  assert.equal(bulkEffort({ agent: 'codex', bulk: true, effort: 'medium', verdicts: { levers: { T12: { verdict: 'pass' } } } }), 'low');
+  assert.equal(bulkEffort({ agent: 'codex', bulk: true, effort: 'medium', verdicts: null }), 'medium');
+  assert.equal(bulkEffort({ agent: 'claude', bulk: true, effort: 'medium', verdicts: { levers: { T12: { verdict: 'pass' } } } }), 'medium');
+});
+
+test('T2 shares one re-check with the A/B; a premium pre-screen stays at the standard tier', async () => {
+  const { mergeRecheck, recheckUrls, tierFor } = await import('../../scripts/daily-triage.mjs');
+  const lines = ['TRIAGE: PASS | https://example.com/jobs/1 | 4.9 | fits', 'TRIAGE: FAIL | https://example.com/jobs/2 | 1.0 | no', 'TRIAGE: MARGINAL | https://example.com/jobs/3 | 3.0 | maybe'];
+  assert.deepEqual([...recheckUrls(lines)], ['https://example.com/jobs/1', 'https://example.com/jobs/3']);
+  assert.deepEqual(mergeRecheck(lines, new Map([['https://example.com/jobs/1', 'TRIAGE: PASS | https://example.com/jobs/1 | 4.5 | fits']])), ['TRIAGE: PASS | https://example.com/jobs/1 | 4.5 | fits', lines[1]]);
+  assert.equal(tierFor({ spend_tier: 'premium' }, 'prescreen').model, 'sonnet');
+  assert.equal(tierFor({ spend_tier: 'premium' }).model, 'opus');
+});
+
+test('T5 reads the contact role from contacts.tsv; T10 keeps one verifier round tag per day', async () => {
+  const { contactRoles, roundTagFor } = await import('../../scripts/outreach-drafts.mjs');
+  assert.equal(contactRoles([{ name: 'Ana Example', company: 'Example Co', role: 'Technical Recruiter' }]).get('ana example|example co'), 'Technical Recruiter');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'pack-roundtag-'));
+  try {
+    const a = roundTagFor(dir, '2026-11-23', true);
+    assert.equal(roundTagFor(dir, '2026-11-23', true), a);
+    assert.notEqual(roundTagFor(dir, '2026-11-24', true), a);
+    assert.match(roundTagFor(dir, '2026-11-24', false), /^[0-9a-f]{8}$/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

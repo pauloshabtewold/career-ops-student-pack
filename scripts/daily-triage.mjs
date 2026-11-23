@@ -251,9 +251,10 @@ function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
 
 // The model of one call follows spend_tier (premium opus or high effort, otherwise sonnet or medium). Tier 'prescreen' is
 // T2's first pass (haiku, codex low effort); it never makes a final score for a top or borderline row, so triage_tier_min
-// (standard) still holds for every final score. A premium student's pre-screen stays premium.
+// (standard) still holds for every final score. A premium student's pre-screen runs at the standard tier (never below
+// triage_tier_min) and the re-check at premium, so T2 saves tokens for premium too.
 export function tierFor(config, tier = 'standard') {
-  if (config.spend_tier === 'premium') return { model: 'opus', effort: 'high', allowTop: true };
+  if (config.spend_tier === 'premium') return tier === 'prescreen' ? { model: 'sonnet', effort: 'medium', allowTop: false } : { model: 'opus', effort: 'high', allowTop: true };
   if (tier === 'prescreen') return { model: 'haiku', effort: 'low', allowTop: false };
   return { model: 'sonnet', effort: 'medium', allowTop: false };
 }
@@ -499,20 +500,26 @@ const topOrBorderline = (line) => {
   return Boolean(m && (m[1] === 'PASS' || m[1] === 'MARGINAL'));
 };
 
+// T2's two halves, shared with tools/lever-ab.mjs so the A/B measures the shipped procedure: the urls of the PASS and
+// MARGINAL pre-screen lines (sent again, alone, to the standard tier), and the merge that keeps FAIL lines, takes the
+// standard tier's line for each re-checked url and drops a re-checked url it did not score.
+export const recheckUrls = (lines) => new Set(lines.filter(topOrBorderline).map((l) => VERDICT_RE.exec(l)[2]));
+export const mergeRecheck = (lines, byUrl) => lines.map((l) => (topOrBorderline(l) ? byUrl.get(VERDICT_RE.exec(l)[2]) : l)).filter(Boolean);
+
 // T2: after the cheap pre-screen of all rows, the standard tier makes the final score of every PASS and MARGINAL row, so
 // the standard model sees only the rows whose verdict matters most. A top or borderline row the standard tier did not
 // score (a failed or partial re-check) has no final score and stays untriaged for a later run; FAIL lines stand.
 async function finalScores({ lines, open, call }) {
-  const recheckUrls = new Set(lines.filter(topOrBorderline).map((l) => VERDICT_RE.exec(l)[2]));
-  if (!recheckUrls.size) return lines;
+  const urls = recheckUrls(lines);
+  if (!urls.size) return lines;
   let byUrl = new Map();
   try {
-    const second = filterVerdicts(await call(open.filter((f) => recheckUrls.has(f.row.url)), 'standard'), recheckUrls);
+    const second = filterVerdicts(await call(open.filter((f) => urls.has(f.row.url)), 'standard'), urls);
     byUrl = new Map(second.lines.map((l) => [VERDICT_RE.exec(l)[2], l]));
   } catch {
     // byUrl stays empty: every top or borderline row waits for a later run, and the re-check's ledger row is written.
   }
-  return lines.map((l) => (topOrBorderline(l) ? byUrl.get(VERDICT_RE.exec(l)[2]) : l)).filter(Boolean);
+  return mergeRecheck(lines, byUrl);
 }
 
 // The rows sent per run are the student's own triage budget (lib/triage-budget.mjs): 20 unless the student chose another

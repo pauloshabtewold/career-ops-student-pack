@@ -327,7 +327,7 @@ async function cmdRead({ dataDir, positionals, flags, deps, say }) {
       const body = await readText(client, sessionId);
       // T17 (off until its A/B verdict): page text capped at the tested character limit, then the link refs.
       const t17 = resolveLever('T17', deps.levers ?? leverOpts());
-      if (t17.on) return [String(body).slice(0, Number(t17.value) || READ_CAP_CHARS), '', ...(await linkRefs(client, sessionId))].join('\n');
+      if (t17.on) return [cappedText(body, t17.value), '', ...(await linkRefs(client, sessionId))].join('\n');
       return flags.links ? [body, '', ...(await linkRefs(client, sessionId))].join('\n') : body;
     } finally {
       await client.send('Target.closeTarget', { targetId }).catch(() => {});
@@ -343,6 +343,8 @@ async function cmdRead({ dataDir, positionals, flags, deps, say }) {
 const REF_LIMIT = 200;
 // T17's default page-text cap for a read when its verdict recorded no tested value.
 export const READ_CAP_CHARS = 6000;
+// The page text T17 hands an agent: at most cap characters (READ_CAP_CHARS when its verdict recorded none).
+export const cappedText = (body, cap) => String(body ?? '').slice(0, Number(cap) || READ_CAP_CHARS);
 export const REF_SELECTOR = 'a[href*="/jobs/view/"], a[href*="/company/"]';
 export const linkRefs = async (client, sessionId, limit = REF_LIMIT) =>
   (await evaluate(client, sessionId, `[...document.querySelectorAll(${JSON.stringify(REF_SELECTOR)})].slice(0, ${limit}).map((a, i) => '[' + (i + 1) + '] ' + a.innerText.replace(/\\s+/g, ' ').trim().slice(0, 60) + ' -> ' + a.href)`)) ?? [];
