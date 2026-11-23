@@ -4,6 +4,8 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- M-007 (P6 live test and Windows): `tests/e2e/live-mock.test.mjs` runs one fake student through the whole cycle on the local mock ATS form: setup flow (every message checked for Next, Type and Why), a scheduled run with a fake agent, approval with "approve all except 2", `chrome.mjs` fill and submit, and the next digest's applied count. An item left out of the approval is refused by `budget.mjs` (exit 3) and never reaches the form. The cycle skips with a named reason when no Chrome binary or browser slot exists. `docs/live-test.md` holds the live test table, one row per module and upgrade id, filled in by the live run. `docs/windows-friend-checklist.md` is a one-page Windows test for a friend (not a release blocker). `docs/autopilot-design.md` records the rules behind the daily pipeline and the levers the shipped verdicts turn on.
+
 ## v0.12.0 (2026-11-23)
 
 - Merge branch 'claude/v2-p5'
