@@ -107,7 +107,7 @@ const iframe = () => el('div', { id: 'grnhse_app' }, []);
 // M-007-fix5-N5-1a
 test('M-007-fix5-N5-1a a marketing form with two identity fields is never the application form (r5 shapes)', async () => {
   const shapes = {
-    'HubSpot name+email in a footer-styled div': [iframe(), el('div', { class: 'footer' }, [el('form', { id: 'hs' }, [label('firstname', 'First name'), input('firstname'), label('hs_email', 'Email'), input('hs_email', 'email'), el('input', { id: 'hs_submit', type: 'submit', value: 'Submit' })])])],
+    'HubSpot name+email in a footer-styled div': [iframe(), el('div', { class: 'footer' }, [el('form', { id: 'hsForm_1' }, [label('firstname', 'First name'), input('firstname'), label('hs_email', 'Email'), input('hs_email', 'email'), el('input', { id: 'hs_submit', type: 'submit', value: 'Submit' })])])],
     'join our talent community': [iframe(), el('section', {}, [el('form', { id: 'tc' }, [input('full_name', 'text', { placeholder: 'Full name' }), input('tc_email', 'email'), btn('join', undefined, 'Join our talent community')])])],
     'email+phone SMS signup': [iframe(), el('section', {}, [el('form', { id: 'sms' }, [input('em', 'email'), input('mob', 'tel'), btn('su', 'submit', 'Sign up')])])],
     'email beside a category_name select': [el('form', { id: 'jc' }, [input('jc_email', 'email'), el('select', { id: 'category_name', name: 'category_name' }), btn('g', 'submit', 'Get updates')])],
