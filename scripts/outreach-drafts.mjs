@@ -88,8 +88,8 @@ const DAY_MS = 86400000;
 // wins over a thanks or a no around it. A decline (not hiring, not interested, unfortunately...) is a no. A short reply
 // that only thanks is a thanks. Anything else needs an answer.
 const QUESTION = /\?|\b(could|can|would|will) you\b|\b(please|kindly) (send|share|tell|let|email|forward|reach|apply|fill|book|schedule)\b|\blet me know\b|\b(send|share|tell|email|forward) me\b|^\s*(what|when|which|where|who|why|how|do|does|did|are|is)\b/i;
-const DECLINE = /\b(not|aren't|isn't|no longer) (hiring|interested|recruiting|taking|accepting|able to help|looking)\b|\bno (thanks|thank you|openings?|positions?|roles?|vacanc(y|ies))\b|\bunfortunately\b|\b(can't|cannot|unable to) help\b|\b(please )?(don't|do not) (contact|message|email)\b|\bunsubscribe\b|\b(has|have) been filled\b|\bpass on\b|^\s*no\b/i;
-const THANKS = /\b(thanks|thank you|thx|ty|appreciate|grateful|you're welcome|sounds good|will do|great to connect|glad to connect|happy to connect)\b/i;
+const DECLINE = /\b(not|aren't|isn't|no longer) (hiring|interested|recruiting|taking|accepting|able to help|looking)\b|\bno (thanks|thank you|openings?|positions?|roles?|vacanc(y|ies))\b|\bunfortunately\b|\b(can't|cannot|unable to) help\b|\b(please )?(don't|do not) (contact|message|email)\b|\bunsubscribe\b|\b(has|have) been filled\b|\bpass on\b|^\s*no\b|\bremove me\b|\bstop (messaging|contacting)\b|\bdo not send\b|\bnot the right person\b|\bwill not be able to (help|assist)\b|\b(will|I'll) pass\b|\bdo not take\b/i;
+const THANKS = /\b(thanks|thank you|thx|ty|appreciat\w*|grateful|you're welcome|sounds good|will do|great to connect|glad to connect|happy to connect)\b/i;
 const THANKS_MAX_WORDS = 20;
 
 export function sortReply(text) {
