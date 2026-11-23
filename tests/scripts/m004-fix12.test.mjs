@@ -117,7 +117,7 @@ test('fix 12 C N5 the drafting prompt fences the contact and the application lin
   assert.throws(() => od.draftPrompt({ ...person('Ann 0a1b2c3d', INITECH), cv: CV, tag: '0a1b2c3d' }), od.FenceError);
 });
 
-test('fix 12 C N6 a failed or timed-out headless call writes a ledger row with its status and 0 tokens, then throws', async () => {
+test('fix 12 C N6 a failed or timed-out headless call writes a ledger row with its status, unmeasured when no usage was printed, then throws', async () => {
   const r = makeRoot();
   try {
     const call = (err) => runHeadless({ prompt: 'x', step: 'outreach-verify', feature: 'M7', dataDir: r.data, date: '2026-11-22', agentPath: '/fake/claude', platform: 'linux', runner: () => { throw err; } });
@@ -127,8 +127,8 @@ test('fix 12 C N6 a failed or timed-out headless call writes a ledger row with i
     await assert.rejects(call(Object.assign(new Error('exit 1'), { status: 1, stdout: usage })), /claude call failed/);
     const rows = await readLedger(r.data);
     assert.deepEqual(rows.map((x) => [x.step, x.model, x.input, x.output]), [
-      ['outreach-verify', 'sonnet (timeout)', '0', '0'],
-      ['outreach-verify', 'sonnet (failed)', '0', '0'],
+      ['outreach-verify', 'sonnet (timeout)', 'unmeasured', 'unmeasured'],
+      ['outreach-verify', 'sonnet (failed)', 'unmeasured', 'unmeasured'],
       ['outreach-verify', 'claude-sonnet (failed)', '70', '5'],
     ]);
   } finally {
