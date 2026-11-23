@@ -26,7 +26,7 @@ import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { load as loadJd, save as saveJd } from '../lib/jd-store.mjs';
-import { NO_JOB_TEXT, recordKeptOut } from '../lib/kept-out.mjs';
+import { NO_JOB_TEXT, finishGuide, noSubmitReason, recordKeptOut } from '../lib/kept-out.mjs';
 import { createRobotsChecker } from '../lib/robots.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { isOn, readOverrides, resolve as resolveLever } from '../lib/levers.mjs';
@@ -253,7 +253,8 @@ async function coverFor({ row, jobText, ctx, agent }) {
  *         config?, headless?, writeCover?, buildResume?, atsCheck?, fetchJob?, runner?, outDir? }.
  * Returns { batchId, item, url, link, company, role, score, track, fields, formSelector?, submitSelector?, unknown,
  * blocked, uploads, cover, resume, jd, selfCheck, flags, inBatch }. flags and inBatch cover the resume and letter gates; the self-check result is reported in
- * selfCheck, and fillPlans batches an item only when inBatch and selfCheck.ok are both true.
+ * selfCheck, and fillPlans batches an item only when inBatch and selfCheck.ok are both true. A read with a recorded form
+ * and no submit gives { ..., finish: reason, inBatch: false } with no resume, letter or uploads.
  */
 export async function planRow(row, ctx) {
   const { root, dataDir, today, answers, candidate, cv } = ctx;
@@ -267,6 +268,14 @@ export async function planRow(row, ctx) {
   const { fields, unknown, blocked } = resolveFields({ url: row.url, fields: form.fields }, { answers, candidate });
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
+  // The form read and its button go with the plan, so chrome.mjs submit clicks only inside the form that was read.
+  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null, ...(ctx.form.uploadOutside ? { uploadOutside: true } : {}) } : {};
+  // A read that recorded its form but saved no submit can never be submitted by script, so the row is never batch-ready:
+  // finish is the reason it goes to finish these yourself, before any render or call.
+  const finish = noSubmitReason(formRead);
+  if (finish) {
+    return { batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, finish, flags, unknown, blocked, selfCheck: { ok: false, fixed: [], flags: [] }, inBatch: false };
+  }
   // A row with no job text from any source (saved by triage or read-form, or fetched) cannot be checked against the
   // posting or given a letter written from it, so it is never batch-ready; it stops here, before any render or call.
   if (!jobText.trim()) {
@@ -291,8 +300,6 @@ export async function planRow(row, ctx) {
   );
   // The uploaded letter is the fixed one the self-check reports.
   if (cover.path && check.plan.letter && check.plan.letter !== readFileSync(cover.path, 'utf8')) writeFileSync(cover.path, check.plan.letter);
-  // The form read and its button go with the plan, so chrome.mjs submit clicks only inside the form that was read.
-  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null } : {};
   return {
     batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, score: fit, ...(row.triage !== undefined ? { rank: row.score } : {}), track: row.track,
     fields: check.plan.fields, ...formRead, unknown, blocked, uploads, cover: cover.path, resume: resume.ok ? resume.path : null, jd,
@@ -359,6 +366,7 @@ export async function replanItem({ paths, batchId, item, today, deps = {} }) {
   const ctx = await planContext(paths, today, deps);
   const plan = await planRow(row, { ...ctx, form: { ...read, url: row.url }, batchId, item, outDir: join(paths.dataDir, 'fill-plans', `${batchId}-work`, String(item)) });
   if (plan.wait) return { code: EXIT_WAIT, reasons: plan.flags };
+  if (plan.finish) return { code: 3, reasons: [`finish these yourself: ${plan.finish}`] };
   const reasons = [...plan.flags, ...plan.selfCheck.flags];
   if (!plan.inBatch || !plan.selfCheck.ok) return { code: 3, reasons: reasons.length ? reasons : ['the rebuilt plan did not pass the self-check'] };
   const next = { ...plan, batchId, item, link: line.link };
@@ -390,6 +398,10 @@ export async function fillPlans({ paths, rows, today, deps = {}, say = console.l
     const plan = await planRow(row, { ...ctxBase, form, item: i + 1, outDir });
     if (plan.flags.some((f) => f.startsWith(`${NO_JOB_TEXT}:`))) recordKeptOut(paths.dataDir, { url: row.url, reason: NO_JOB_TEXT, date: today });
     const label = `${row.company} | ${plan.role}`;
+    if (plan.finish) {
+      say(`fill-plan: ${label}: kept out: ${finishGuide(row.company, row.url, plan.finish)}`);
+      continue;
+    }
     if (plan.wait) {
       say(`fill-plan: waiting for a browser slot (${plan.flags.join('; ')}); no batch written, run fill-plan again later`);
       return { code: EXIT_WAIT, ids: [], ready: 0, flagged: 0, unknown: [] };

@@ -620,7 +620,7 @@ export async function readForm(client, url, { jobText = true, wait = sleep } = {
     const { fields } = read;
     if (read.account || fields.some(isPasswordField)) return { stop: 'password' };
     if (!fields.length) return { stop: 'empty' };
-    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null } : {};
+    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
     const text = jobText ? await postingText(client, url, sessionId) : '';
     return { fields, ...form, ...(text ? { jobText: text } : {}) };
   } finally {
@@ -672,12 +672,13 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
   return EXIT.ok;
 }
 
-// Writes data/form-fields/<url key>.json as { ats, url, form, submit, fields } and returns its path. form and submit
-// (from read, when the read recorded them) are the selectors of the form read and its button; submit clicks only that.
+// Writes data/form-fields/<url key>.json as { ats, url, form, submit, uploadOutside?, fields } and returns its path. form
+// and submit (from read, when the read recorded them) are the selectors of the form read and its button; submit clicks
+// only that. uploadOutside: true says the submit is null because the resume upload sits outside that form.
 export function saveFormFields(dataDir, url, fields, read = {}) {
   const file = formFieldsFile(join(dataDir, FIELDS_DIR), url);
   mkdirSync(dirname(file), { recursive: true });
-  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null } : {};
+  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
   writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, ...form, fields }, null, 2)}\n`);
   return file;
 }

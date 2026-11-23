@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { detailValue, readActionLog } from '../lib/action-log.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, formFieldsFile, formGaveUp } from '../lib/ats-fields.mjs';
-import { listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
+import { addFinishYourself, listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
 import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
@@ -31,7 +31,7 @@ import { stepErrorText } from '../lib/text.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
-import { KEPT_OUT_OFFER, NO_JOB_TEXT, daysBetween, keptOutCount, keptOutReason } from '../lib/kept-out.mjs';
+import { KEPT_OUT_OFFER, NO_JOB_TEXT, NO_SAFE_SUBMIT, UPLOAD_OUTSIDE, daysBetween, finishGuide, keptOutCount, keptOutReason, noSubmitReason } from '../lib/kept-out.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
@@ -180,9 +180,12 @@ const readPlan = (file) => {
 // Why a plan cannot be filled and submitted by the autopilot, as the waiting line's tail, or null when it can: it must
 // carry the form's fields, no field only the student fills (plan.blocked, named by label, never by value), no unknown
 // question, and every resume or cover letter upload it names on disk. fill-plan writes fields only from a form that was
-// read (data/form-fields, written by chrome.mjs read-form), so a plan without fields means no form was read for it.
+// read (data/form-fields, written by chrome.mjs read-form), so a plan without fields means no form was read for it. A
+// plan whose read recorded its form but saved no submit is never ready: it is the student's to finish.
 export function planWait(plan) {
   if (!Array.isArray(plan?.fields) || !plan.fields.length) return 'waits for a fill in a session (no form was read for it)';
+  const finish = noSubmitReason(plan);
+  if (finish) return `not submitted: finish these yourself: ${finish}`;
   if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).replace(/\s+/g, ' ').trim().slice(0, 60)).join(', ')})`;
   if (plan.unknown?.length) return `waits for a fill in a session (it has ${plan.unknown.length} question(s) to answer)`;
   const files = [...(plan.uploads ?? []).map((u) => u?.path), ...(plan.cover ? [plan.cover] : [])];
@@ -191,6 +194,17 @@ export function planWait(plan) {
 }
 
 export const planReady = (plan) => planWait(plan) === null;
+
+// Moves an approved item that can never be submitted by script to its batch's finish these yourself list and returns
+// the guided line; a batch file that cannot be updated is named in the line instead.
+function moveToFinish(dataDir, it, role, reason) {
+  try {
+    addFinishYourself(dataDir, it.batchId, { company: it.company, role, link: it.link, reason });
+  } catch (err) {
+    return `${finishGuide(it.company, it.link, reason)} It could not be added to the batch's finish-yourself list (${stepErrorText(err)}).`;
+  }
+  return finishGuide(it.company, it.link, reason);
+}
 
 // Why a finished fill must not be submitted, or null: chrome.mjs printed a field it could not fill or one only the
 // student fills, or it typed no text field (the plan's tab has no sentinel; an upload alone does not count).
@@ -253,6 +267,13 @@ async function submitApproved({ paths, today, child, tally }) {
       const unread = replanUnread({ paths, child, it });
       if (unread) {
         wait(`${name} ${unread}`);
+        continue;
+      }
+      // A plan whose read saved no submit is never filled: it moves to the batch's finish these yourself list.
+      const finish = noSubmitReason(readPlan(it.plan));
+      if (finish) {
+        finishCount++;
+        notes.push(`${name} not submitted: ${moveToFinish(paths.dataDir, it, readPlan(it.plan)?.role, finish)}`);
         continue;
       }
       const why = planWait(readPlan(it.plan));
@@ -430,9 +451,12 @@ export async function autopilot({ paths, today, deps = {} }) {
     const kept = fresh.map((r) => ({ r, why: keptOutReason(paths.dataDir, r.url, today) })).filter((k) => k.why);
     rows = fresh.filter((r) => !kept.some((k) => k.r === r)).slice(0, cap);
     const already = ranked.length - fresh.length;
-    const keptLines = kept.map(({ r, why }) => (why === NO_JOB_TEXT
-      ? `kept out: ${r.company} (${r.url}): no job text found; ${KEPT_OUT_OFFER}`
-      : `finish these yourself: ${r.company} (${r.url}): ${why}; apply on the page yourself, or ${KEPT_OUT_OFFER}`));
+    const keptLine = (r, why) => {
+      if (why === NO_JOB_TEXT) return `kept out: ${r.company} (${r.url}): no job text found; ${KEPT_OUT_OFFER}`;
+      if (why === UPLOAD_OUTSIDE || why === NO_SAFE_SUBMIT) return finishGuide(r.company, r.url, why);
+      return `finish these yourself: ${r.company} (${r.url}): ${why}; apply on the page yourself, or ${KEPT_OUT_OFFER}`;
+    };
+    const keptLines = kept.map(({ r, why }) => keptLine(r, why));
     return [`${rows.length} row(s) ranked for today${already ? `; ${already} already waiting for your approval` : ''}${kept.length ? `; ${kept.length} kept out` : ''}`, ...keptLines];
   });
   let live = false;
