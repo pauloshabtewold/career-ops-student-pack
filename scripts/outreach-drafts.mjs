@@ -44,7 +44,7 @@ import { COMMON_WORDS } from '../lib/common-words.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { runHeadless } from '../lib/headless.mjs';
-import { isOn } from '../lib/levers.mjs';
+import { isOn, leverOpts } from '../lib/levers.mjs';
 import { guidedFooter } from '../lib/next-step.mjs';
 import { readLessons } from '../lib/outreach-lessons.mjs';
 import { closedStage, contactRecords, isAppFollowup, lower } from '../lib/outreach-state.mjs';
@@ -557,11 +557,11 @@ async function draftOne(job, ctx) {
   }
 }
 
-async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source, t5On = false }) {
+async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source, t5On = false, root = null }) {
   const call = async (prompt, step) => {
     try {
       const instructions = step === 'outreach-verify' ? '' : DRAFT_STYLE_RULES;
-      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, timeoutMs: OUTREACH_CALL_TIMEOUT_MS, ...(instructions ? { instructions } : {}) })).text;
+      return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, root, timeoutMs: OUTREACH_CALL_TIMEOUT_MS, ...(instructions ? { instructions } : {}) })).text;
     } catch (err) {
       const what = step === 'outreach-verify' ? 'the claim check call' : 'the drafting call';
       throw new CallFailed(`${what} failed (${String(err?.message ?? err).split('\n')[0]}), so the draft is held and never sent unchecked`);
@@ -755,11 +755,14 @@ const jobKey = (j) => `${lower(j.contact?.company ?? j.application?.company)}|${
 
 // deps.skipWaiting (the autopilot's --skip-waiting): a due item already on an outreach batch waiting for approval is not
 // drafted again, so an unattended day does not pay for the same drafts twice.
+// T5 for a student: the pack's verdict, and the student's config/levers.yml may turn it off (deps.packRoot for tests).
+export const t5Setting = (root, deps = {}) => deps.t5On ?? isOn('T5', leverOpts(deps.packRoot, root));
+
 export async function outreachDrafts({ paths, today, replies = [], deps = {}, say = console.log }) {
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const nowMs = deps.nowMs ?? createClock({ today, timezone: config.timezone }).now().getTime();
   const t6On = deps.t6On ?? isOn('T6');
-  const t5On = deps.t5On ?? isOn('T5');
+  const t5On = t5Setting(paths.root, deps);
   const mode = config.switches?.outreach ?? 'on';
   for (const r of replies) if (r.name && r.company) archiveMessage(paths.dataDir, { name: r.name, company: r.company, direction: 'received', channel: r.channel ?? 'linkedin', text: r.text });
   const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
@@ -784,7 +787,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
-  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On };
+  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On, root: paths.root };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
   const ready = drafts.filter((d) => !d.flags.length);
@@ -853,7 +856,7 @@ export async function addFollowupTo({ paths, today, which, email, deps = {}, say
   const cv = readCv(paths.root);
   const digest = readDigest(paths.root);
   job.signature = signatureOf(candidate, cv);
-  const d = await draftOne(job, { cv, digest, sources: sourcesOf(cv, digest, candidate), lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' });
+  const d = await draftOne(job, { cv, digest, sources: sourcesOf(cv, digest, candidate), lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', root: paths.root });
   if (d.flags.length) {
     say(`outreach-drafts: ${f.company} follow-up flagged and kept out of the batch: ${d.flags.join('; ')}`);
     for (const line of guidedFooter({ step: `the ${f.company} follow-up was flagged and kept out of the batch; add a true fact it names to cv.md, then draft it again`, prompt: `follow up with ${f.company} at ${email}`, why: 'a draft that names something your cv.md does not hold is never sent.' })) say(line);

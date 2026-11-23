@@ -15,7 +15,7 @@ import { clean } from '../lib/clean-text.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { check as factCheck, retryTerms, stripInvisible } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
-import { valueOf } from '../lib/levers.mjs';
+import { leverOpts, valueOf } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { readProfileAnswers } from '../lib/profile-answers.mjs';
 
@@ -82,15 +82,18 @@ const slug = (s) => String(s ?? '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-
 // Default letter file: data/covers/<company>-<role>.txt.
 export const coverPath = (dataDir, company, role) => join(dataDir, 'covers', `${slug(company)}-${slug(role)}.txt`);
 
-/** Returns { ok, path, text, flags }; a passing letter is written to out (default coverPath). headless is lib/headless.mjs runHeadless (injected by tests). */
-export async function writeCover({ cv, posting, answers, company, role, presets, signature, dataDir, date, agent = 'claude', headless = runHeadless, words = valueOf('T11', PARAGRAPH_WORDS), out = null }) {
+/**
+ * Returns { ok, path, text, flags }; a passing letter is written to out (default coverPath). headless is lib/headless.mjs
+ * runHeadless (injected by tests). root is the student folder, whose config/levers.yml may turn T10 and T11 off.
+ */
+export async function writeCover({ cv, posting, answers, company, role, presets, signature, dataDir, date, agent = 'claude', headless = runHeadless, root = null, packRoot = PACK_ROOT, words = valueOf('T11', PARAGRAPH_WORDS, leverOpts(packRoot, root)), out = null }) {
   const sources = { cv, answers, posting, company, role };
   let missing = [];
   for (let attempt = 0; attempt < 2; attempt++) {
     // The note names only the flagged terms, never grammar or common words, so the model is not told to drop "is".
     const terms = retryTerms(missing);
     const retryNote = !missing.length ? '' : terms.length ? `Your last paragraph named things the CV does not state (${terms.join(', ')}). Leave them out.` : 'Your last paragraph named things the CV does not state. Use only facts stated in the CV.';
-    const res = await headless({ agent, prompt: paragraphPrompt({ cv, posting, company, role, words, retryNote }), step: 'cover', feature: 'M8', dataDir, date, instructions: COVER_RULES });
+    const res = await headless({ agent, prompt: paragraphPrompt({ cv, posting, company, role, words, retryNote }), step: 'cover', feature: 'M8', dataDir, date, instructions: COVER_RULES, root, packRoot });
     // Invisible characters are removed so the checked paragraph is the paragraph written.
     const paragraph = capWords(clean(stripInvisible(res.text)), words);
     missing = factCheck(paragraph, sources);
@@ -115,7 +118,7 @@ async function main() {
   const cv = readFileSync(flags.cv ?? join(paths.root, 'cv.md'), 'utf8');
   const res = await writeCover({
     cv, posting: readFileSync(flags.posting, 'utf8'), answers: readProfileAnswers(paths.root) ?? {}, company: flags.company, role: flags.role,
-    presets: config.presets ?? [], signature: nameFromCv(cv), dataDir: paths.dataDir, agent: config.agent ?? 'claude', out: flags.out ?? null,
+    presets: config.presets ?? [], signature: nameFromCv(cv), dataDir: paths.dataDir, agent: config.agent ?? 'claude', root: paths.root, out: flags.out ?? null,
   });
   if (!res.ok) {
     for (const f of res.flags) console.log(`cover: flagged: ${f}`);

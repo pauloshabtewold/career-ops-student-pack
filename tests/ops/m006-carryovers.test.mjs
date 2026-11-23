@@ -260,7 +260,9 @@ test('R2-M3: a Codex final triage score keeps medium effort even with T12 on; on
   const { dailyTriage } = await import('../../scripts/daily-triage.mjs');
   const t = await import('../helpers/triage-harness.mjs');
   const { h } = await fix2();
-  const pins = { bars_sha256: 'b'.repeat(64), sample_hash: 's'.repeat(64) };
+  const { leverPins } = await import('../../lib/levers.mjs');
+  const now = leverPins(PACK_ROOT);
+  const pins = { bars_sha256: now.barsSha, sample_hash: now.sample };
   const farm = h.packFarm({ T12: { ...h.soloVerdict('pass', 0), ...pins } });
   const r = t.makeTriageRoot({ config: `${t.PLUS}agent: codex\n`, pending: t.untriaged(2) });
   try {
@@ -396,5 +398,122 @@ test('2b: a returned rate-limit error in the T9 digest helper stops runSolo with
     assert.equal(code, 5, out.lines.join('\n'));
     assert.match(out.lines.join('\n'), new RegExp(`blocked-on-user.*${calls[0].agent === 'codex' ? 'codex' : 'claude'}`));
     assert.notEqual(h.verdictJson(dir).levers?.T9?.verdict, 'pass');
+  });
+});
+
+// Fix round 3 (review r3): current pins in the shipped file and at resolve time, the student's levers.yml for every
+// lever reader, limit answers, the headline status, judged levers need both P0 agents.
+const currentPinsOf = async () => {
+  const { leverPins } = await import('../../lib/levers.mjs');
+  const now = leverPins(PACK_ROOT);
+  return { bars_sha256: now.barsSha, sample_hash: now.sample };
+};
+const passedFarm = async (h, ids, pins) => {
+  const levers = Object.fromEntries(ids.map((id) => [id, { ...h.soloVerdict('pass', 0), setting: id === 'T11' ? 60 : id === 'T17' ? 6000 : null, ...pins }]));
+  const farm = h.packFarm(levers);
+  h.writeVerdicts(farm.dir, levers, { stacked: { status: `stacked pass after 1 round: ${ids.join(', ')} on together`, final: ids, ...pins } });
+  return farm;
+};
+
+test('R3-M2: the committed verdict file carries current pins for every lever on and a stacked pass for any final set', async () => {
+  const { LEVERS, leverPins, readVerdicts, resolve } = await import('../../lib/levers.mjs');
+  const { checkPins, sampleHash } = await import('../../tools/lever-ab.mjs');
+  const now = leverPins(PACK_ROOT);
+  assert.equal(now.barsSha, checkPins(PACK_ROOT).barsSha, 'lib/levers computes the bars pin lever-ab records');
+  assert.equal(now.sample, sampleHash(PACK_ROOT));
+  const verdicts = readVerdicts(PACK_ROOT);
+  const st = verdicts.stacked;
+  assert.ok(st && typeof st === 'object' && Array.isArray(st.final));
+  if (st.final.length) {
+    assert.match(String(st.status), /^stacked pass/);
+    assert.deepEqual([st.bars_sha256, st.sample_hash], [now.barsSha, now.sample], 'the stacked run ran on the current bars and sample');
+  }
+  for (const rec of [verdicts.solo, st]) {
+    if (rec?.bars_sha256) assert.equal(rec.bars_sha256, now.barsSha);
+    if (rec?.sample_hash) assert.equal(rec.sample_hash, now.sample);
+  }
+  for (const [id, def] of Object.entries(LEVERS)) {
+    if (def.kind === 'plumbing' || !resolve(id, { verdicts, overrides: {} }).on) continue;
+    const v = verdicts.levers[id];
+    assert.ok(st.final.includes(id) && /^stacked pass/.test(st.status), `${id} on without a stacked pass`);
+    assert.deepEqual([v.bars_sha256, v.sample_hash], [now.barsSha, now.sample], `${id} was measured on other bars or another sample`);
+  }
+});
+
+test('R3-M2: a stacked-pass verdict whose pins differ from the pack now resolves off', async () => {
+  const { h } = await fix2();
+  const { readVerdicts, resolve } = await import('../../lib/levers.mjs');
+  const pins = await currentPinsOf();
+  for (const [label, p, on] of [['current', pins, true], ['other sample', { ...pins, sample_hash: 'f'.repeat(64) }, false], ['other bars', { ...pins, bars_sha256: 'e'.repeat(64) }, false]]) {
+    const farm = await passedFarm(h, ['T5'], p);
+    try {
+      assert.equal(resolve('T5', { verdicts: readVerdicts(farm.dir), overrides: {} }).on, on, label);
+    } finally {
+      farm.cleanup();
+    }
+  }
+});
+
+test('R3-S1: config/levers.yml off reaches the T10 and T11 (runHeadless, cover), T5 (outreach) and T17 (chrome) readers', async () => {
+  const { h } = await fix2();
+  const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { runHeadless } = await import('../../lib/headless.mjs');
+  const { PARAGRAPH_WORDS, writeCover } = await import('../../scripts/cover.mjs');
+  const { t5Setting } = await import('../../scripts/outreach-drafts.mjs');
+  const { t17Lever } = await import('../../scripts/chrome.mjs');
+  const farm = await passedFarm(h, ['T5', 'T10', 'T11', 'T17'], await currentPinsOf());
+  const root = mkdtempSync(join(tmpdir(), 'pack-r3s1-'));
+  const off = mkdtempSync(join(tmpdir(), 'pack-r3s1-off-'));
+  try {
+    mkdirSync(join(off, 'config'));
+    writeFileSync(join(off, 'config', 'levers.yml'), 'T5: off\nT10: off\nT11: off\nT17: off\n');
+    const inputs = [];
+    const runner = (_cmd, _args, opts) => (inputs.push(String(opts.input)), JSON.stringify({ result: 'ok', usage: { input_tokens: 1, output_tokens: 1 }, modelUsage: { 'claude-sonnet': {} } }));
+    const call = (r) => runHeadless({ prompt: 'Intro\nSTUDENT-RULES-Q1\nEnd', instructions: 'STUDENT-RULES-Q1', step: 'cover', feature: 'M8', agentPath: '/fake/claude', platform: 'linux', runner, packRoot: farm.dir, root: r });
+    await call(root);
+    await call(off);
+    assert.ok(!inputs[0].includes('STUDENT-RULES-Q1'), 'T10 on: the lean brief replaces the rules');
+    assert.ok(inputs[1].includes('STUDENT-RULES-Q1'), 'T10 off in levers.yml: the rules stay');
+    const words = [];
+    const headless = async ({ prompt }) => (words.push(/at most (\d+) words|(\d+) words/.exec(prompt)?.slice(1).find(Boolean)), { text: 'x' });
+    for (const r of [root, off]) await writeCover({ cv: '# Sam', posting: 'p', answers: {}, company: 'Example Co', role: 'Analyst', presets: [], signature: 'Sam', dataDir: join(r, 'data'), headless, root: r, packRoot: farm.dir, out: join(r, 'c.txt') });
+    assert.deepEqual([words[0], words.at(-1)], ['60', String(PARAGRAPH_WORDS)], 'T11 60 on, off in levers.yml');
+    assert.deepEqual([t5Setting(root, { packRoot: farm.dir }), t5Setting(off, { packRoot: farm.dir })], [true, false]);
+    assert.deepEqual([t17Lever({ packRoot: farm.dir }, root).on, t17Lever({ packRoot: farm.dir }, off).on], [true, false]);
+  } finally {
+    farm.cleanup();
+    rmSync(root, { recursive: true, force: true });
+    rmSync(off, { recursive: true, force: true });
+  }
+});
+
+test('R3-S2: a bare 429, an API error and a long limit answer stop; a long answer that mentions a limit in prose does not', async () => {
+  const { readReply, limitAnswer } = await fix2();
+  const longLimit = `Claude AI usage limit reached|1795300000 ${'x'.repeat(300)}`;
+  for (const text of ['429', 'API Error: 429', 'API Error: 529 {"type":"overloaded_error"}', longLimit, "You've hit your usage limit"]) {
+    assert.notEqual(readReply('claude', { status: 0, text, usage: { input_tokens: 1, output_tokens: 1 } }).error, null, text);
+  }
+  assert.match(readReply('codex', { status: 0, stdout: JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'API Error: 429' } }) }).error, /429/);
+  const prose = `Thank you for the note about the analyst role. ${'I built a survey dashboard in Python for the campus club and cleaned the data each week. '.repeat(3)}I know your team works under a tight rate limit on data requests, so I kept the questions short.`;
+  assert.equal(limitAnswer(prose), '');
+  assert.equal(readReply('claude', { status: 0, text: prose }).error, null);
+  assert.equal(limitAnswer('TRIAGE: PASS | https://jobs.example.com/q/429 | 4.0 | fits'), '');
+});
+
+test('R3-N1: the headline status follows the runs; R3-N4: a judged lever needs both P0 agents', async () => {
+  const { runSolo } = await fix2();
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents();
+    await runSolo({ root: dir, levers: ['T1'], runner: fake.runner, judge: fake.judge, resolve: h.resolve, say: () => {}, seed: 's', today: '2026-11-22' });
+    assert.match(h.verdictJson(dir).status, /^solo: solo run 2026-11-22 finished: 1 lever\(s\); stacked: pending/);
+  });
+  await withPack(async (dir, h) => {
+    const fake = h.fakeAgents();
+    const out = h.sayer();
+    await runSolo({ root: dir, levers: ['jd_trim'], runner: fake.runner, judge: fake.judge, resolve: (a) => (a === 'claude' ? h.resolve(a) : null), say: out.say, seed: 's', today: '2026-11-22' });
+    const v = h.verdictJson(dir).levers.jd_trim;
+    assert.equal(v.verdict, 'not measured', JSON.stringify(v));
+    assert.match(v.basis, /codex not found/);
   });
 });

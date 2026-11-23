@@ -36,7 +36,7 @@ import { aiSummaryLine } from '../lib/digest.mjs';
 import { check as factCheck, stripInvisible } from '../lib/fact-gate.mjs';
 import { applyPromptLevers } from '../lib/headless.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
-import { LEVERS, LEVER_IDS } from '../lib/levers.mjs';
+import { LEVERS, LEVER_IDS, leverPins } from '../lib/levers.mjs';
 import { guidedFooter, nextStep, patternRule } from '../lib/next-step.mjs';
 import { phraseClass } from '../lib/outcome-rules.mjs';
 import { riskRules } from '../lib/posting-risk.mjs';
@@ -71,10 +71,21 @@ export const INVENTED_FACTS_RULE = 'lever-added over control, inputs as sources'
 const STOP_FACTOR = 1.5;
 // Quota, limit and rate-limit wordings of the claude and codex clients and their APIs.
 export const QUOTA_RE = /rate[ _-]?limit|quota|usage[ _-]?limit|limit reached|hit your (?:usage )?limit|session limit|too many requests|\b429\b|overloaded/i;
-// A limit delivered as a normal answer (exit 0, the limit text as the result): a short reply in these wordings is a stop,
-// never a draft. Bare 429 and overloaded are left out here, since a short answer may quote them.
+// A limit delivered as a normal answer (exit 0, the limit text as the result) is a stop, never a draft: an answer that
+// starts with an API error status (429, 529, overloaded_error), a short answer in limit wording, or an answer whose
+// first line opens with limit wording. A long answer that only mentions a limit further on in its prose is an answer.
 export const LIMIT_TEXT_RE = /rate[ _-]?limit|quota|usage[ _-]?limit|limit reached|hit your (?:usage )?limit|session limit|too many requests/i;
+const LIMIT_START_RE = /^\s*(?:api error:?\s*)?(?:429|529)\b|^\s*api error\b.*\b(?:429|529|overloaded)|overloaded_error/i;
 const LIMIT_TEXT_MAX = 200;
+const LIMIT_OPENING = 80;
+export function limitAnswer(text) {
+  const t = String(text ?? '').trim();
+  const first = t.split('\n')[0];
+  if (!t || VERDICT_RE.test(first)) return '';
+  if (LIMIT_START_RE.test(first)) return first.slice(0, 400);
+  if (t.length < LIMIT_TEXT_MAX && LIMIT_TEXT_RE.test(t)) return t;
+  return LIMIT_TEXT_RE.test(first.slice(0, LIMIT_OPENING)) ? first.slice(0, 400) : '';
+}
 export const SIGN_IN_RE = /not logged in|please (?:sign|log) in|login required|authentication (?:required|failed|error)|invalid api key|\bunauthori[sz]ed\b|\b401\b|\b403\b/i;
 const MAX_BUFFER = 64 * 1024 * 1024;
 // Bar keys by direction: at least (agreement), at most (harm rates), and largest allowed drop below a base accuracy.
@@ -171,11 +182,8 @@ function p0Rows(root) {
 }
 
 // sha256 over the fixed sample (every fixture file outside the baseline, the lever fixtures included).
-export function sampleHash(root) {
-  const dir = join(root, FIXTURES);
-  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === 'baseline' ? [] : walk(join(d, e.name))) : [join(d, e.name)]));
-  return sha256(walk(dir).sort().map((f) => `${f.slice(dir.length)}:${sha256(readFileSync(f))}`).join('\n'));
-}
+// The same value lib/levers.mjs compares a shipped verdict with (leverPins).
+export const sampleHash = (root) => leverPins(root).sample;
 
 // Triage calls built with the shipped buildPrompt; jd_trim and batch_size change the postings and the chunk size, and
 // T16 in the stacked run drops the postings its rules fail before any model call.
@@ -306,7 +314,7 @@ export function readReply(agent, res) {
   const nonZero = ['status', 'code', 'exitCode'].some((k) => typeof raw[k] === 'number' && raw[k] !== 0);
   const usage = raw.usage ? normalizeUsage(raw.usage) : (parsed.usage ?? null);
   const text = String(raw.text ?? parsed.text ?? '');
-  const limitText = text.trim().length < LIMIT_TEXT_MAX && LIMIT_TEXT_RE.test(text) ? text.trim() : '';
+  const limitText = limitAnswer(text);
   const failed = Boolean(raw.error || parsed.error || nonZero || limitText);
   const error = failed ? `${raw.error ?? parsed.error ?? limitText} ${raw.stderr ?? ''} ${raw.stdout ?? ''} ${raw.message ?? ''}`.trim() || `${agent} call exited ${raw.exitCode ?? raw.code ?? raw.status}` : null;
   return { text, usage, model: raw.model ?? (parsed.model && parsed.model !== 'unknown' ? parsed.model : null), error };
@@ -944,7 +952,13 @@ export function readVerdictFile(root) {
   return { ...data, levers: data.levers ?? {} };
 }
 
-const writeVerdicts = (root, data) => writeFileSync(join(root, VERDICTS), `${JSON.stringify({ ...data, invented_facts_rule: INVENTED_FACTS_RULE }, null, 2)}\n`);
+// The file's headline status, rewritten on every write: a stop of either run first, else both runs' own status.
+function headline(data) {
+  const runs = [['solo', data.solo?.status ?? 'no solo run yet'], ['stacked', data.stacked?.status ?? 'no stacked run yet']];
+  const stop = runs.find(([, st]) => /^blocked-on-user/.test(String(st)));
+  return stop ? String(stop[1]) : runs.map(([k, st]) => `${k}: ${st}`).join('; ');
+}
+const writeVerdicts = (root, data) => writeFileSync(join(root, VERDICTS), `${JSON.stringify({ ...data, status: headline(data), invented_facts_rule: INVENTED_FACTS_RULE }, null, 2)}\n`);
 
 // The base arm's own quality on the keys an arm measured (agreement with itself is 1, it adds no invented fact).
 function referenceQuality(metrics, baseAcc = {}) {
@@ -1101,7 +1115,7 @@ async function trial(env, id, value) {
   }
   const arm = runArm(ctx, leverCalls(env.root, id, value), { twoStep: Boolean(spec.twoStep) });
   const cmp = compareArms(ctx, env.base, arm);
-  const vac = vacuous({ arm, metrics: cmp.metrics, missing: cmp.missing, required: requiredFor(spec.steps), needAgents: spec.agents ?? [], agents: ctx.agents });
+  const vac = vacuous({ arm, metrics: cmp.metrics, missing: cmp.missing, required: requiredFor(spec.steps), needAgents: spec.agents ?? env.p0Agents ?? [], agents: ctx.agents });
   const base = spec.steps.every((s) => s === 'triage') ? env.base.triageName : 'P5 control arm (shipped drafting builders)';
   return { metrics: cmp.metrics, baseAcc: env.ruleBase, tokens: { before: controlTokens(env.control, spec), after: arm.tokens, unmeasured: arm.unmeasured }, ref: referenceQuality(cmp.metrics, env.ruleBase), base, basis: 'judged: lever arm built with the shipped functions', judged: cmp.judged, vacuous: vac, perStep: arm.perStep };
 }
@@ -1208,7 +1222,9 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
     const control = plan.control.length ? runArm(ctx, plan.control) : emptyArm();
     const base = chooseBase(root, p0, control);
     const noise = aaNoise(root);
-    const env = { root, ctx, base, control, plan, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaNoise: noise };
+    // A judged lever needs every agent P0 measured, so a pass covers the students of both agents.
+    const p0Agents = Object.keys(p0).filter((a) => a === 'claude' || a === 'codex');
+    const env = { root, ctx, base, control, plan, bars: effectiveBars(root), ruleBase: loadRuleBase(root), aaNoise: noise, p0Agents };
     const sample = sampleHash(root);
     if (plan.aa.length) {
       const cmp = compareArms(ctx, { triage: base.triage, drafts: control }, runArm(ctx, plan.aa));
@@ -1222,7 +1238,7 @@ export async function runSolo({ root = PACK_ROOT, levers = LEVER_IDS, runner = r
       say(`lever-ab: ${id} ${r.verdict}${r.missed ? `: missed ${missText(r.missed)}` : ''}${r.verdict === 'not measured' ? ` (${r.basis})` : ''}`);
       writeVerdicts(root, data);
     }
-    data.solo = { status: `solo run ${today} finished: ${levers.length} lever(s)`, actual_tokens: { ...ctx.spent }, estimate: plan.est, sample_hash: sample, bars_sha256: pins.barsSha, agents_measured: agents, aa_noise: noise, aa_noise_rule: 'P0 arm AA drafts against arm A: fact-gate and feeling items AA adds, each step\'s inputs as sources; p0_judge_invented from noise.json' };
+    data.solo = { status: `solo run ${today} finished: ${levers.length} lever(s)`, actual_tokens: { ...ctx.spent }, estimate: plan.est, sample_hash: sample, bars_sha256: pins.barsSha, agents_measured: agents, aa_noise: noise, aa_noise_rule: 'proxy from the P0 mode-file prompts, not the shipped builders: gate_added is the fact-gate and feeling items arm AA adds over arm A with each step\'s inputs as sources (the unit of a verdict\'s gate_added); p0_judge_invented is the P0 judge\'s single invented count per pair from noise.json, not added over A, so it is not the unit of judge_added. A rule on noise (option A) uses data.aa from --aa-control, which is like for like.' };
     writeVerdicts(root, data);
     if (onSession) onSession({ control, base, p0, models: ctx.models });
     return EXIT.ok;
@@ -1236,7 +1252,8 @@ const upperKeys = (o) => (o && typeof o === 'object' ? Object.fromEntries(Object
 // The quality before and after of a verdict, keys upper-cased: { quality: { before, after } } or the flat
 // quality_before / quality_after (qualityBefore / qualityAfter) shape.
 function qualityOf(v) {
-  const q = v?.quality && typeof v.quality === 'object' ? v.quality : { before: v?.quality_before ?? v?.qualityBefore, after: v?.quality_after ?? v?.qualityAfter };
+  const obj = (x) => x && typeof x === 'object';
+  const q = obj(v?.quality) && (obj(v.quality.before) || obj(v.quality.after)) ? v.quality : { before: v?.quality_before ?? v?.qualityBefore, after: v?.quality_after ?? v?.qualityAfter };
   return { before: upperKeys(q.before), after: upperKeys(q.after) };
 }
 
@@ -1567,7 +1584,7 @@ export async function writeReport({ root = PACK_ROOT, ledgerDir = null }) {
   return [
     '# Token report',
     '',
-    'One row per feature built in P1 to P4, split by step where one part calls a model and another does not. Tokens per call before the levers come from the frozen P0 baseline (`tests/fixtures/quality/baseline`, arm A); after the levers they come from a completed stacked pass in `docs/lever-verdicts.json` and say `not measured` until the A/B has run. The ledger column is tokens per row from `data/usage-ledger.tsv` (`unmeasured` when a call reported no usage). Steps an agent session pays for (its page reads) are not in the ledger and say so. Rebuild with `node tools/lever-ab.mjs report [--ledger <data folder>]`.',
+    'One row per feature built in P1 to P4, split by step where one part calls a model and another does not. Tokens per call before the levers come from the frozen P0 baseline (`tests/fixtures/quality/baseline`, arm A); after the levers they come from a completed stacked pass in `docs/lever-verdicts.json` and say `not measured` until the A/B has run. The ledger column is tokens per row from `data/usage-ledger.tsv` (`unmeasured` when a call reported no usage). Steps an agent session pays for (its page reads) are not in the ledger and say so. The plumbing rows (setup, M1, M12) hold whole-fixture-sample totals from the zero-call plumbing trial, not tokens per call. Rebuild with `node tools/lever-ab.mjs report [--ledger <data folder>]`.',
     '',
     `Solo run status: ${status('solo')}. Stacked run status: ${status('stacked')}. Invented facts rule: ${INVENTED_FACTS_RULE}.`,
     '',

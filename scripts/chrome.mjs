@@ -313,7 +313,11 @@ async function cmdStatus({ dataDir, flags, deps, say }) {
   return EXIT.ok;
 }
 
-async function cmdRead({ dataDir, positionals, flags, deps, say }) {
+// T17 for a student: deps.levers (tests), else the pack's verdict with the student's config/levers.yml, which may turn
+// it off (deps.packRoot for tests).
+export const t17Lever = (deps = {}, root = null) => resolveLever('T17', deps.levers ?? leverOpts(deps.packRoot, root));
+
+async function cmdRead({ dataDir, paths, positionals, flags, deps, say }) {
   const url = positionals[0];
   if (!url) throw new UsageError('read needs a url');
   const live = await liveState(dataDir, deps);
@@ -326,7 +330,7 @@ async function cmdRead({ dataDir, positionals, flags, deps, say }) {
     try {
       const body = await readText(client, sessionId);
       // T17 (off until its A/B verdict): page text capped at the tested character limit, then the link refs.
-      const t17 = resolveLever('T17', deps.levers ?? leverOpts());
+      const t17 = t17Lever(deps, paths?.root ?? null);
       if (t17.on) return [cappedText(body, t17.value), '', ...(await linkRefs(client, sessionId))].join('\n');
       return flags.links ? [body, '', ...(await linkRefs(client, sessionId))].join('\n') : body;
     } finally {

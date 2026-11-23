@@ -1,6 +1,6 @@
 # Token report
 
-One row per feature built in P1 to P4, split by step where one part calls a model and another does not. Tokens per call before the levers come from the frozen P0 baseline (`tests/fixtures/quality/baseline`, arm A); after the levers they come from a completed stacked pass in `docs/lever-verdicts.json` and say `not measured` until the A/B has run. The ledger column is tokens per row from `data/usage-ledger.tsv` (`unmeasured` when a call reported no usage). Steps an agent session pays for (its page reads) are not in the ledger and say so. Rebuild with `node tools/lever-ab.mjs report [--ledger <data folder>]`.
+One row per feature built in P1 to P4, split by step where one part calls a model and another does not. Tokens per call before the levers come from the frozen P0 baseline (`tests/fixtures/quality/baseline`, arm A); after the levers they come from a completed stacked pass in `docs/lever-verdicts.json` and say `not measured` until the A/B has run. The ledger column is tokens per row from `data/usage-ledger.tsv` (`unmeasured` when a call reported no usage). Steps an agent session pays for (its page reads) are not in the ledger and say so. The plumbing rows (setup, M1, M12) hold whole-fixture-sample totals from the zero-call plumbing trial, not tokens per call. Rebuild with `node tools/lever-ab.mjs report [--ledger <data folder>]`.
 
 Solo run status: no solo run yet. Stacked run status: no stacked run yet. Invented facts rule: lever-added over control, inputs as sources.
 
