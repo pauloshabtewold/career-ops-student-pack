@@ -136,7 +136,7 @@ test('daily.mjs run directly with plus-triage and no --log-file writes the triag
     const out = spawnSync(process.execPath, argv, { cwd: PACK_ROOT, encoding: 'utf8', timeout: 120000 });
     assert.equal(out.status, 0, out.stderr);
     const digest = readFileSync(join(up.root, 'data', 'digest', 'student-2026-10-27.md'), 'utf8');
-    assert.match(digest, /this run did not triage: .*run node student\/scripts\/schedule\.mjs install again/);
+    assert.match(digest, /this run did not triage: .*I'll reinstall the schedule \(node student\/scripts\/schedule\.mjs install\), approve\? Type: reinstall my schedule/);
     const via = spawnSync(process.execPath, [...argv, '--via-scheduled'], { cwd: PACK_ROOT, encoding: 'utf8', timeout: 120000 });
     assert.equal(via.status, 0, via.stderr);
     assert.doesNotMatch(readFileSync(join(up.root, 'data', 'digest', 'student-2026-10-27.md'), 'utf8'), /this run did not triage/);
