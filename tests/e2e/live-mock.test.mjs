@@ -12,6 +12,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { gate, openChrome, runChromeCli, stopAll, ROOT_ENV } from '../helpers/chrome-harness.mjs';
 import { startMockAts } from '../helpers/mock-ats-server.mjs';
 import { PACK_ROOT, line, makeRoot, pipelineText } from '../helpers/script-harness.mjs';
@@ -68,6 +69,18 @@ function fixture(ats) {
   const r = makeRoot({ config: CONFIG });
   r.write('config/profile.yml', PROFILE);
   r.write('cv.md', CV);
+  // Stand-in for upstream generate-pdf.mjs (plan CC-M-007-001 FAKE_PDF): visible HTML text as a one-page PDF with a
+  // real text layer, so the resume render needs no browser.
+  const miniPdf = pathToFileURL(join(PACK_ROOT, 'tests', 'helpers', 'mini-pdf.mjs')).href;
+  r.write('generate-pdf.mjs', [
+    "import { readFileSync, writeFileSync } from 'node:fs';",
+    `import { makePdf } from '${miniPdf}';`,
+    'const [html, pdf] = process.argv.slice(2);',
+    "const visible = readFileSync(html, 'utf8').replace(/<(style|script)[\\s\\S]*?<\\/\\1>/g, '').replace(/<\\/(h1|h2|h3|p|li)>/g, '\\n');",
+    "const lines = visible.replace(/<[^>]+>/g, '').replace(/&bull;/g, '-').replace(/&amp;/g, '&').split('\\n').map((l) => l.trim()).filter(Boolean);",
+    'writeFileSync(pdf, makePdf([lines]));',
+    '',
+  ].join('\n'));
   const rows = JOBS.map((j) => ({ ...j, url: `${ats.url}/greenhouse/form?job=${j.job}` }));
   r.write('data/pipeline.md', pipelineText({ pending: rows.map((j) => line(j.url, j.company, 'Software Engineering Intern', 'Remote', `triage=${j.triage}`)) }));
   mkdirSync(join(r.data, FIELDS_DIR), { recursive: true });
