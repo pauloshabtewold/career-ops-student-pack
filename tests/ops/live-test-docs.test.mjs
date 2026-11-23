@@ -1,7 +1,7 @@
 // docs/live-test.md: the live test table (use case, environment, what happened, evidence, PASS/FAIL) holds one row per
 // module and upgrade id, each with evidence and a PASS or FAIL verdict.
-// Ruling: the ids checked are the module and upgrade ids the pack already names per feature in docs/token-report.md
-// (the features built in P1 to P4); the live test may list more, never fewer.
+// The ids checked are every module and upgrade id: M1-M13, U1-U5, U8, G1-G7, G9, G11, H2-H5. A row counts for an id when
+// its Module cell names the id anywhere, so one "Setup flow (M10, M11)" row covers both; the doc may list more, never fewer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -10,12 +10,12 @@ import { PACK_ROOT } from '../helpers/script-harness.mjs';
 
 const DOC = join(PACK_ROOT, 'docs', 'live-test.md');
 const IDS = [
-  'M1', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13',
+  'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13',
   'U1', 'U2', 'U3', 'U4', 'U5', 'U8',
-  'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G9',
+  'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G9', 'G11',
   'H2', 'H3', 'H4', 'H5',
 ];
-const EMPTY = /^(|-+|—|tbd|todo|n\/a|none|\?)$/i;
+const EMPTY = /^(|-+|\u2014|tbd|todo|n\/a|none|\?)$/i;
 
 const cells = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
 const plain = (c) => c.replace(/[*_`]/g, '').trim();
@@ -44,7 +44,9 @@ test('M-007-S2-osdr docs/live-test.md has a row with PASS or FAIL and evidence f
   const problems = [];
   for (const id of IDS) {
     const word = new RegExp(`(^|[^A-Za-z0-9])${id}(?![0-9])`);
-    const found = live.flatMap((t) => t.rows.filter((r) => word.test(r.join(' '))).map((r) => ({ t, r })));
+    // The Module (or id) column, else the first column.
+    const moduleCell = (t, r) => r[Math.max(0, t.header.findIndex((h) => /module|^id$|feature/.test(h)))] ?? '';
+    const found = live.flatMap((t) => t.rows.filter((r) => word.test(moduleCell(t, r))).map((r) => ({ t, r })));
     if (!found.length) {
       problems.push(`${id}: no row`);
       continue;
