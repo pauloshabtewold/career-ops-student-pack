@@ -422,7 +422,8 @@ async function triageChunk({ chunk, configured, file, config, root, dataDir, pac
   const { ignored } = kept;
   const lines = applyRiskAfter(kept.lines, pre.riskAfter);
   const held = holdFlagged(lines, flagsByUrl);
-  const passed = kept.passed - held.passed;
+  // PASS verdicts are counted after applyRiskAfter turned risky ones into FAIL, minus the ones held for a person.
+  const passed = lines.filter((l) => VERDICT_RE.exec(l)?.[1] === 'PASS').length - held.passed;
   // A refusal, limit or login message arrives as prose with exit 0; counting it as a good chunk would send every later chunk too.
   if (!lines.length) {
     await record('failed');

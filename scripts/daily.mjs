@@ -5,7 +5,9 @@
 // Usage: daily.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F] [--via-scheduled] [--dry-run]
 // --dry-run prints the planned steps and writes nothing. --via-scheduled is passed only by scheduled.mjs.
 // Files: data/.student-daily.lock (run lock), data/.snapshots/<date>/, data/digest/student-<date>.md, data/run-log.md
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+// The digest's Today section comes from lib/digest.mjs: applied, outreach this week, replies waiting, missed runs
+// (data/.missed-runs.txt from scheduled.mjs), the day's token estimate and, on Sundays, the skill gaps.
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { ISO_DATE, createClock } from '../lib/clock.mjs';
@@ -19,9 +21,18 @@ import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
+import { listBatches, readBatch } from '../lib/batch-file.mjs';
+import { summaryLines } from '../lib/digest.mjs';
 import { weeklySentBy } from '../lib/outreach-state.mjs';
+import { skillGaps } from '../lib/skill-gap.mjs';
+import { perDayEstimate } from '../lib/usage-cost.mjs';
+import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
+import { MISSED_FILE } from './scheduled.mjs';
+import { outreachState } from './outreach-state.mjs';
 
 const HOUR_MS = 3600000;
+const DAY_MS = 24 * HOUR_MS;
+const SEND_ACTIONS = new Set(['apply.submit', 'apply.easy_apply']);
 
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
@@ -120,18 +131,65 @@ function healthLines({ dataDir, today, results }) {
   }
 }
 
-// The weekly outreach count from the action log; a read failure is one line, never a failed run.
-async function outreachLines({ dataDir, nowMs, limits }) {
+// Saved job text of matched (triage 4.0 and up) rows whose jd= file changed in the last 7 days, for the skill-gap list.
+function recentMatchedTexts(dataDir, nowMs) {
+  const doc = parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n');
+  const texts = [];
+  for (const { row } of [...sectionRows(doc, 'Pending'), ...sectionRows(doc, 'Processed')]) {
+    const jd = row.notes.get('jd');
+    if (!jd || !(Number(row.notes.get('triage')) >= 4)) continue;
+    const file = join(dataDir, 'jds', jd);
+    if (existsSync(file) && nowMs - statSync(file).mtimeMs <= 7 * DAY_MS) texts.push(readFileSync(file, 'utf8'));
+  }
+  return texts;
+}
+
+// data/.digest-mark is "<date>\t<written at>\t<written at on the day before>": when the last digest was written, so the
+// next day's digest can count submits made after it (the autopilot submits after the day's digest).
+const DIGEST_MARK = '.digest-mark';
+
+function readMark(dataDir, today) {
+  const [date = '', at = '', before = ''] = readIf(join(dataDir, DIGEST_MARK)).trim().split('\t');
+  return { since: Date.parse(date === today ? before : at), at, date };
+}
+
+function writeMark(dataDir, today) {
+  const mark = readMark(dataDir, today);
+  const before = mark.date === today ? readIf(join(dataDir, DIGEST_MARK)).trim().split('\t')[2] ?? '' : mark.at;
+  writeFileSync(join(dataDir, DIGEST_MARK), `${today}\t${new Date().toISOString()}\t${before}\n`);
+}
+
+// Today's submits plus earlier-day submits made after the last digest of an earlier day, so autopilot submits count in
+// the next digest instead of on no day at all.
+function appliedSinceLastDigest(actions, dataDir, today) {
+  const { since } = readMark(dataDir, today);
+  return actions.filter((r) => SEND_ACTIONS.has(r.action) && (r.date === today || (Number.isFinite(since) && r.date < today && r.ms > since))).length;
+}
+
+// The code-built summary (lib/digest.mjs). Any read failure becomes one line; the run never fails on it. Steps waiting
+// for Chrome are appended by the autopilot, which knows whether Chrome was reached.
+async function digestSummary({ root, dataDir, today, nowMs, config, limits }) {
   try {
-    const w = weeklySentBy(await readActionLog(join(dataDir, 'action-log.tsv')), nowMs);
-    return [`- Outreach sent this week: ${w.total} (connects ${w.connects} of ${limits.connect_per_rolling_7d}, messages ${w.messages}, emails ${w.emails})`];
+    const actions = await readActionLog(join(dataDir, 'action-log.tsv'));
+    const state = await outreachState(dataDir, nowMs);
+    const sunday = isSunday(today);
+    return summaryLines({
+      applied: appliedSinceLastDigest(actions, dataDir, today),
+      outreach: { ...weeklySentBy(actions, nowMs), connectLimit: limits.connect_per_rolling_7d },
+      replies: state.due.filter((d) => d.action === 'reply' || d.action === 'referral-ask').length,
+      missed: readIf(join(dataDir, MISSED_FILE)).trim() || null,
+      estimate: perDayEstimate(config),
+      sunday,
+      skillGaps: sunday ? skillGaps(recentMatchedTexts(dataDir, nowMs), readIf(join(root, 'cv.md'))) : [],
+      batchesWaiting: listBatches(dataDir).map((id) => readBatch(dataDir, id)).filter((b) => b && !b.approved && b.items.length).length,
+    });
   } catch (err) {
-    return [`- not counted (${oneLine(err.message)})`];
+    return ['## Today', `- summary not built (${oneLine(err.message)})`, ''];
   }
 }
 
 // Writes the digest and returns the number of failed steps.
-function writeDigest({ dataDir, today, results, notes, flags = [], outreach = [] }) {
+function writeDigest({ dataDir, today, results, notes, flags = [], summary = [] }) {
   const pending = sectionRows(parsePipeline(readIf(join(dataDir, 'pipeline.md')) || '# Pipeline\n'), 'Pending').length;
   const failed = results.filter((r) => !r.ok);
   const digest = [
@@ -150,11 +208,44 @@ function writeDigest({ dataDir, today, results, notes, flags = [], outreach = []
     '## Pipeline',
     `- Pending rows: ${pending}`,
     '',
-    ...(outreach.length ? ['## Outreach', ...outreach, ''] : []),
+    ...summary,
   ].join('\n');
   mkdirSync(join(dataDir, 'digest'), { recursive: true });
   writeFileSync(join(dataDir, 'digest', `student-${today}.md`), digest);
+  writeMark(dataDir, today);
   return failed.length;
+}
+
+// Read-only: no lock, snapshot, digest, run log or log file is touched.
+async function dryRunReport({ root, dataDir, today }) {
+  let hasConfig = false;
+  let configError = '';
+  let feeds = [];
+  try {
+    const config = await loadStudentConfig({ root });
+    hasConfig = Boolean(config);
+    feeds = feedsFor(root, config);
+  } catch (err) {
+    configError = oneLine(err.message);
+  }
+  const steps = plannedSteps({ today, markerText: readIf(join(dataDir, '.student-monthly')), hasConfig, feeds });
+  console.log(`student-daily dry run: ${steps.length} step(s) would run: ${steps.join(', ')}`);
+  if (configError) console.log(`student-daily dry run: config/student.yml is unreadable (${configError}); a real run would stop at the config step`);
+  return 0;
+}
+
+// The steps, the digest and the zero-token ledger rows of one locked run; returns how many steps failed and ran.
+async function lockedRun({ root, dataDir, packRoot, today, now, config, limits, runner, notes }) {
+  const results = [];
+  const flags = [];
+  runSteps({ root, dataDir, packRoot, today, config, limits, runner, results, flags });
+  const summary = config ? await digestSummary({ root, dataDir, today, nowMs: now().getTime(), config, limits }) : [];
+  const failedCount = writeDigest({ dataDir, today, results, notes, flags, summary });
+  if (config) {
+    const zero = (step, feature) => zeroRow({ date: today, step, feature, rows: 1 });
+    await appendLedger(dataDir, [zero('digest', 'U5'), zero('catch-up', 'G5'), zero('reply-rates', 'G4'), ...(isSunday(today) ? [zero('skill-gap', 'H5')] : [])]);
+  }
+  return { failedCount, ran: results.length };
 }
 
 // Always returns 0, so a scheduler never retries; a failed step is a line in the digest.
@@ -163,23 +254,7 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
     console.log(line);
     if (logFile) appendFileSync(logFile, `${line}\n`);
   };
-  if (dryRun) {
-    // Read-only: no lock, snapshot, digest, run log or log file is touched.
-    let hasConfig = false;
-    let configError = '';
-    let feeds = [];
-    try {
-      const config = await loadStudentConfig({ root });
-      hasConfig = Boolean(config);
-      feeds = feedsFor(root, config);
-    } catch (err) {
-      configError = oneLine(err.message);
-    }
-    const steps = plannedSteps({ today, markerText: readIf(join(dataDir, '.student-monthly')), hasConfig, feeds });
-    console.log(`student-daily dry run: ${steps.length} step(s) would run: ${steps.join(', ')}`);
-    if (configError) console.log(`student-daily dry run: config/student.yml is unreadable (${configError}); a real run would stop at the config step`);
-    return 0;
-  }
+  if (dryRun) return dryRunReport({ root, dataDir, today });
   const stamp = () => now().toISOString();
   const runLog = join(dataDir, 'run-log.md');
   mkdirSync(dataDir, { recursive: true });
@@ -194,20 +269,15 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
     say('student-daily: another run is in progress; nothing ran');
     return 0;
   }
-
-  const results = [];
-  const flags = [];
   // scheduled.mjs passes --via-scheduled; without it this is a manual run or a schedule from before the triage wrapper, and neither triages.
   const notes = !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
     ? ['this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, run node student/scripts/schedule.mjs install again']
     : [];
   try {
     log(`START ${stamp()} student-daily ${today}`);
-    runSteps({ root, dataDir, packRoot, today, config, limits, runner, results, flags });
-    const outreach = config ? await outreachLines({ dataDir, nowMs: now().getTime(), limits }) : [];
-    const failedCount = writeDigest({ dataDir, today, results, notes, flags, outreach });
-    log(`END ${stamp()} student-daily ok=${results.length - failedCount} failed=${failedCount}`);
-    say(`student-daily: ${results.length - failedCount} step(s) ok, ${failedCount} failed; digest at data/digest/student-${today}.md`);
+    const { failedCount, ran } = await lockedRun({ root, dataDir, packRoot, today, now, config, limits, runner, notes });
+    log(`END ${stamp()} student-daily ok=${ran - failedCount} failed=${failedCount}`);
+    say(`student-daily: ${ran - failedCount} step(s) ok, ${failedCount} failed; digest at data/digest/student-${today}.md`);
   } catch (err) {
     log(`END ${stamp()} student-daily error=${oneLine(err.message)}`);
     say(`student-daily: stopped early (${oneLine(err.message)})`);

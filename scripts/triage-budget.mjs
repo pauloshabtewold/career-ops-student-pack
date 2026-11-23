@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The student's model-usage triage budget: show it, price it, change it, and record session triage against it.
-// Usage: triage-budget.mjs status
+// Usage: triage-budget.mjs status [--per-day]
 //        triage-budget.mjs cost <n|all> [--plan P] [--agent claude|codex] [--spend-tier standard|premium]
 //        triage-budget.mjs set <n|all> [--first-run] [--confirm]     (writes only with --confirm)
 //        triage-budget.mjs log <n> [--first-run]
@@ -17,7 +17,7 @@ import { ConfigError, loadStudentConfig, parseConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { ALL, appendDigestLines, appendTriageUsage, parseBudgetValue, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
-import { PLAN_IDS, formatCostLine } from '../lib/usage-cost.mjs';
+import { PLAN_IDS, formatCostLine, perDayEstimate } from '../lib/usage-cost.mjs';
 import { selectUntriagedRows } from './daily-triage.mjs';
 
 const COMMANDS = ['status', 'cost', 'set', 'log', 'calibrate'];
@@ -83,6 +83,13 @@ function status({ config, paths, today, out, ...ctx }) {
   if (usage.skipped) out(`${usage.skipped} unreadable row(s) in data/triage-usage.tsv were skipped`);
   const rows = budget.daily === ALL ? (untriagedCount(paths.dataDir) ?? 0) : budget.daily;
   out(costLine({ config, flags: ctx.flags }, rows));
+  // --per-day adds the whole day's estimate (triage, cover paragraphs, outreach drafts with verify, unknown questions,
+  // outcome-mail classification, weekly lessons) for setup.
+  if (ctx.flags.perDay) {
+    const day = perDayEstimate(config);
+    const n = (v) => v.toLocaleString('en-US');
+    out(`Per-day tokens (estimate): about ${n(day.tokens)} with ${day.agent} (triage ${n(day.parts.triage)}, cover letters ${n(day.parts.covers)}, outreach ${n(day.parts.outreach)}, questions ${n(day.parts.questions)}, outcome mail ${n(day.parts.classifier)}, weekly lessons ${n(day.parts.lessons)})`);
+  }
   return 0;
 }
 
@@ -153,7 +160,7 @@ const HANDLERS = { status, cost, set, log, calibrate };
 async function main() {
   const { command, positionals, flags } = parseArgs(process.argv.slice(2), {
     commands: COMMANDS,
-    flags: { confirm: 'boolean', 'first-run': 'boolean', plan: 'string', agent: 'string', 'spend-tier': 'string', rows: 'int', window: 'string' },
+    flags: { confirm: 'boolean', 'first-run': 'boolean', plan: 'string', agent: 'string', 'spend-tier': 'string', rows: 'int', window: 'string', 'per-day': 'boolean' },
   });
   if (flags.agent && !AGENTS.includes(flags.agent)) throw new UsageError(`--agent expects ${AGENTS.join(' or ')}, got "${flags.agent}"`);
   if (flags.spendTier && !SPEND_TIERS.includes(flags.spendTier)) throw new UsageError(`--spend-tier expects ${SPEND_TIERS.join(' or ')}, got "${flags.spendTier}"`);

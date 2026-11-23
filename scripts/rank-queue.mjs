@@ -22,6 +22,7 @@ import { parsePipeline, sectionRows } from '../lib/pipeline-md.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { parseTsv } from '../lib/tsv.mjs';
 import { urlKey } from '../lib/url-key.mjs';
+import { baseRate, replyRates } from '../lib/reply-rates.mjs';
 import { CEILINGS, effectiveLimits } from './budget.mjs';
 
 // Used only when config.rank.weights is empty; a configured map replaces it, so unlisted factors weigh nothing.
@@ -240,7 +241,38 @@ function isHeld(state, age, today, holdOnConnect = true) {
   return holdOnConnect && Boolean(state.connectOn && !state.warm && !state.referred && daysBetween(state.connectOn, today) < 5 && !(age !== null && age > 14));
 }
 
-function scoreRow({ row, triage, key, age, state, closesIn }, { weights, marquee, metroTests, connections, appliedBefore, easyHosts }) {
+// Role family from title words, shared by tracker rows and pending rows so reply rates line up.
+export function roleFamily(title) {
+  const t = String(title ?? '').toLowerCase();
+  if (/\b(software|developer|engineer(ing)?|swe|frontend|backend)\b/.test(t)) return 'software';
+  if (/\b(data|analytics|analyst|scientist)\b/.test(t)) return 'data';
+  if (/\b(finance|financial|accounting|investment|audit)\b/.test(t)) return 'finance';
+  if (/\b(policy|government|legislative|public)\b/.test(t)) return 'policy';
+  if (/\b(nurse|nursing|clinical|rn)\b/.test(t)) return 'nursing';
+  return 'other';
+}
+
+// Tracker rows as reply-rate input: status, role family, and the src= and resume= tokens of the Notes column.
+export function trackerApps(applicationsText) {
+  return [...String(applicationsText ?? '').matchAll(/^\|\s*\d+\s*\|[^|]*\|[^|]*\|([^|]*)\|[^|]*\|([^|]*)\|[^|]*\|[^|]*\|([^|]*)\|/gm)].map((m) => ({
+    family: roleFamily(m[1]),
+    status: m[2].trim(),
+    source: /\bsrc=([^;\s]+)/.exec(m[3])?.[1] ?? '',
+    resume: /\bresume=([^;\s]+)/.exec(m[3])?.[1] ?? '',
+  }));
+}
+
+// Weight added for a group that replies more (or less) than the student's average; groups under MIN_GROUP applications
+// have a null rate and add 0, so a row whose groups are all small keeps its score.
+const REPLY_WEIGHT = 0.5;
+export function replyBoost(row, rates, base) {
+  if (base === null || base === undefined) return 0;
+  const src = row.notes?.get?.('src') ?? row.src ?? '';
+  const deltas = [rates.family[roleFamily(row.title)], rates.source[src]].filter((v) => typeof v === 'number').map((v) => v - base);
+  return deltas.length ? REPLY_WEIGHT * (deltas.reduce((a, b) => a + b, 0) / deltas.length) : 0;
+}
+
+function scoreRow({ row, triage, key, age, state, closesIn }, { weights, marquee, metroTests, connections, appliedBefore, easyHosts, rates, base }) {
   const why = [];
   const fresh = age === null ? 0.4 : age <= 3 ? 1 : age <= 7 ? 0.8 : age <= 14 ? 0.55 : 0.3;
   const referral = state.referred ? 1 : 0;
@@ -251,7 +283,8 @@ function scoreRow({ row, triage, key, age, state, closesIn }, { weights, marquee
   if (closesIn !== null) why.push(closesIn === 0 ? 'closes today' : `closes in ${closesIn} day${closesIn === 1 ? '' : 's'}`);
   const inMetro = metroTests.some((test) => test(row.location)) ? 1 : 0;
   const score =
-    weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral + weights.effort * effortFactor(row, easyHosts);
+    weights.triage * triage + weights.age * fresh + weights.marquee * (marquee.has(key) ? 1 : 0) + weights.metro * inMetro + weights.warm * warm + weights.referral * referral + weights.effort * effortFactor(row, easyHosts) +
+    (rates ? replyBoost(row, rates, base) : 0);
   return { url: row.url, company: row.company, title: row.title, location: row.location, triage, score: Math.round(score * 10) / 10, why: why.join(', '), closesIn, key, applied: appliedBefore.has(key) };
 }
 
@@ -298,62 +331,67 @@ function blockRules({ config, pending, keyOf, history, submitted }) {
   };
 }
 
-export function rankQueue({ doc, config, today, actionRows = [], contactsText = '', connectionsText = '', applicationsText = '', sidecarText = '', n }) {
-  const { values: limits } = effectiveLimits(config);
-  const pending = sectionRows(doc, 'Pending');
-  const floor = Math.max(CEILINGS.score_floor.value, limits.score_floor);
+// Scoring inputs shared by every row: weights, hosts, marquee names, metro tests, connections, history and reply rates.
+function scoringContext({ config, keyOf, connectionsText, applicationsText }) {
   const given = config.rank?.weights ?? {};
-  const parents = config.rank?.parent_companies ?? {};
-  const ignore = (config.rank?.ignore_words ?? []).map((w) => w.toLowerCase());
-  const keyOf = (name) => companyKey(name, parents, ignore);
-  const history = appliedHistory(applicationsText, keyOf);
-  const scoring = {
+  const apps = trackerApps(applicationsText);
+  return {
     weights: Object.keys(given).length ? { triage: 0, age: 0, marquee: 0, metro: 0, warm: 0, referral: 0, effort: 0, ...given } : DEFAULT_WEIGHTS,
     easyHosts: (config.rank?.easy_apply_hosts ?? DEFAULT_EASY_HOSTS).map((h) => h.toLowerCase()),
     marquee: new Set((config.rank?.marquee ?? []).map(keyOf)),
     metroTests: metroTests(config.rank?.metros ?? [], config.rank?.metro_match ?? 'word'),
     connections: connectionCounts(connectionsText, keyOf),
     appliedBefore: new Set([...applicationsText.matchAll(/^\|\s*\d+\s*\|[^|]*\|\s*([^|]+?)\s*\|/gm)].map((m) => keyOf(m[1]))),
+    rates: replyRates(apps),
+    base: baseRate(apps),
   };
+}
+
+// Order: score floor, closed, blocked, hold=DATE, contact-state hold, scoring. Blocked rows are permanent company rules
+// (reserved-slot, intern_only, one track, caps); a reserving row is itself evaluated normally. Blocked precedes holds
+// so a permanently blocked row is never reported as held and never looks like it will lift. Returns the scored row or the
+// name of the count it adds to.
+function rowOutcome(row, { floor, closes, today, keyOf, rules, contacts, holdOnConnect, scoring }) {
+  const triage = Number(row.notes.get('triage'));
+  if (!Number.isFinite(triage) || triage < floor) return 'below';
+  // A passed close date ends the row before any other rule, so a closed posting is never reported as held or blocked.
+  const closeOn = closeDate(row, closes);
+  const left = closeOn ? daysBetween(today, closeOn) : null;
+  if (left !== null && left < 0) return 'closed';
+  const closesIn = left !== null && left <= CLOSING_SOON_DAYS ? left : null;
+  const key = keyOf(row.company);
+  if (isBlocked(row, key, rules)) return 'blocked';
+  // hold=YYYY-MM-DD holds the row until that date passes; free text after the date is an annotation, any other shape is ignored. held also counts contact-state holds.
+  const holdUntil = HOLD_DATE.exec(row.notes.get('hold') ?? '')?.[1];
+  if (holdUntil && holdUntil > today) return 'held';
+  const age = postingAge(row.notes, today);
+  const state = contacts.get(key) ?? {};
+  return isHeld(state, age, today, holdOnConnect) ? 'held' : scoreRow({ row, triage, key, age, state, closesIn }, scoring);
+}
+
+export function rankQueue({ doc, config, today, actionRows = [], contactsText = '', connectionsText = '', applicationsText = '', sidecarText = '', n }) {
+  const { values: limits } = effectiveLimits(config);
+  const pending = sectionRows(doc, 'Pending');
+  const floor = Math.max(CEILINGS.score_floor.value, limits.score_floor);
+  const parents = config.rank?.parent_companies ?? {};
+  const ignore = (config.rank?.ignore_words ?? []).map((w) => w.toLowerCase());
+  const keyOf = (name) => companyKey(name, parents, ignore);
+  const history = appliedHistory(applicationsText, keyOf);
+  const scoring = scoringContext({ config, keyOf, connectionsText, applicationsText });
   const { state: contacts, missing: contactsMissing } = contactState(contactsText, keyOf, { format: config.rank?.contacts_format, today });
   const closes = sidecarCloses(sidecarText);
   const holdOnConnect = config.rank?.hold_on_pending_connect !== false;
   const rules = blockRules({ config, pending, keyOf, history, submitted: submitCounts(actionRows, keyOf) });
 
-  // Order: score floor, blocked, hold=DATE, contact-state hold, scoring. Blocked rows are permanent company rules
-  // (reserved-slot, intern_only, one track, caps); a reserving row is itself evaluated normally. Blocked precedes holds
-  // so a permanently blocked row is never reported as held and never looks like it will lift.
+  const ctx = { floor, closes, today, keyOf, rules, contacts, holdOnConnect, scoring };
   const scored = [];
-  let held = 0;
-  let blocked = 0;
-  let closed = 0;
+  const counts = { held: 0, blocked: 0, closed: 0, below: 0 };
   for (const { row } of pending) {
-    const triage = Number(row.notes.get('triage'));
-    if (!Number.isFinite(triage) || triage < floor) continue;
-    // A passed close date ends the row before any other rule, so a closed posting is never reported as held or blocked.
-    const closeOn = closeDate(row, closes);
-    const left = closeOn ? daysBetween(today, closeOn) : null;
-    if (left !== null && left < 0) {
-      closed++;
-      continue;
-    }
-    const closesIn = left !== null && left <= CLOSING_SOON_DAYS ? left : null;
-    const key = keyOf(row.company);
-    if (isBlocked(row, key, rules)) {
-      blocked++;
-      continue;
-    }
-    // hold=YYYY-MM-DD holds the row until that date passes; free text after the date is an annotation, any other shape is ignored. held also counts contact-state holds.
-    const holdUntil = HOLD_DATE.exec(row.notes.get('hold') ?? '')?.[1];
-    if (holdUntil && holdUntil > today) {
-      held++;
-      continue;
-    }
-    const age = postingAge(row.notes, today);
-    const state = contacts.get(key) ?? {};
-    if (isHeld(state, age, today, holdOnConnect)) held++;
-    else scored.push(scoreRow({ row, triage, key, age, state, closesIn }, scoring));
+    const out = rowOutcome(row, ctx);
+    if (typeof out === 'string') counts[out]++;
+    else scored.push(out);
   }
+  const { held, blocked, closed } = counts;
   // Equal scores: the sooner closing date (within 7 days) first, then triage. url as the last key keeps the list identical between runs on the same files.
   scored.sort((a, b) => b.score - a.score || (a.closesIn ?? Infinity) - (b.closesIn ?? Infinity) || b.triage - a.triage || a.url.localeCompare(b.url));
   const picks = pickTop(scored, submitCounts(actionRows, keyOf, today), limits.per_company_per_day, n, rules.remainder);

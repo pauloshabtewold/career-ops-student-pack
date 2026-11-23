@@ -166,3 +166,14 @@ The list header counts rows hidden by track rules or a reserved slot as blocked,
 - `node student/uninstall.mjs` takes the whole pack out of the career-ops folder and keeps your data; see the README.
 
 The limits on messages, applications and page loads are fixed in `scripts/budget.mjs` in the student folder. Settings can only tighten them: a maximum can go down and a minimum (score floor, gap between actions, nudge wait days) can go up, never the reverse.
+
+## Autopilot, pause and the digest
+
+Once setup has recorded whether a scheduled run reaches the automation Chrome, each scheduled run ends with the autopilot: fill plans, cover letters, outreach drafts and due follow-ups become one-page batches in `data/batches/`, and nothing is submitted or sent before you approve a batch with `node student/scripts/batch.mjs approve <batch-id> "<your words>"`. When the schedule reaches Chrome, approved items are filled and submitted on the next run, each through the same `budget.mjs` check as a session, and a posting is never submitted twice. The autopilot submits only items whose fill plan carries the form's fields, which today come from a session that read the form, with no unknown question and no field only you fill (a government id, card or bank field). After the fill it submits only when every field was filled and at least one text field was typed; a field it could not fill, or a fill that only attached files, holds the item. Every held item waits for a fill in a session (or for you, naming the fields only you fill, never their values) and the digest says why; with `chrome_in_schedule: no` the digest offers to submit them in a session. Rows and contacts already on a batch waiting for your approval are not prepared again.
+
+- `node student/scripts/schedule.mjs pause` stops scheduled runs without removing them; `node student/scripts/schedule.mjs resume` turns them back on. `node student/scripts/schedule.mjs remove` uninstalls the schedule.
+- `node student/scripts/autopilot.mjs` runs the autopilot by hand.
+- Missed runs are not replayed one by one: the next run runs once and the digest names the missed dates.
+- On Sundays (or the first run after a missed Sunday) the autopilot writes `data/outreach-lessons.md`: reply and referral rates per opener and follow-up kind, and a few style lessons from one short model call over the conversations that are new since last week (at most 12). With no new conversation there is no call. The outreach drafts use the lessons for style only. To turn this off, put `outreach_lessons: off` in `config/levers.yml`.
+
+The digest's Today section lists applications sent since the last digest, outreach sent this week, replies waiting, missed runs, steps waiting for Chrome and the day's token estimate (an estimate, from `lib/usage-cost.mjs`). On Sundays it adds the skill gaps from the week's matched postings.

@@ -29,7 +29,7 @@ import { append as appendLedger, ledgerRow } from '../lib/usage-ledger.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { oneLine } from '../lib/text.mjs';
 import { effectiveLimits } from './budget.mjs';
-import { runInbox } from './inbox.mjs';
+import { agentClassifier, runInbox } from './inbox.mjs';
 
 // 40 messages keeps the agent's reading, and so the token cost of one pass, bounded.
 export const MESSAGE_CAP = 40;
@@ -270,6 +270,14 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   if (!audit.searched) return fail('no Gmail search was made; connect Gmail (interview Part A)');
   const answer = parseAnswer(run.answerText);
   if (!answer) return fail('answer was not a JSON array');
+  const classify = inboxDeps.classify ?? agentClassifier({ agent, agentPath, runner, dataDir: paths.dataDir, today, deadline, now });
+  await stageAndApply({ paths, today, answer, runner, now, inboxDeps: { ...inboxDeps, classify }, digest });
+  return { ok: true, reason: '' };
+}
+
+// Stages the pass's messages, runs inbox.mjs on them and merge-post, then moves the window and writes the digest lines.
+// --classify-outcomes lets the scheduled pass classify outcome mail with the pass's own agent while lever T7 is off (G3).
+async function stageAndApply({ paths, today, answer, runner, now, inboxDeps, digest }) {
   mkdirSync(paths.dataDir, { recursive: true });
   const file = join(paths.dataDir, `inbox-${today}.json`);
   // A message id reaches the digest, so only a plain token is kept; the bad text is counted, never printed.
@@ -279,7 +287,7 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   writeFileSync(file, `${JSON.stringify(messages)}\n`);
   const lines = [];
   try {
-    const result = await runInbox(['--backend', 'connector', '--input', file, '--resolve', '--root', paths.root, '--data-dir', paths.dataDir, '--today', today], { ...inboxDeps, out: (l) => lines.push(l) });
+    const result = await runInbox(['--backend', 'connector', '--input', file, '--resolve', '--classify-outcomes', '--root', paths.root, '--data-dir', paths.dataDir, '--today', today], { ...inboxDeps, out: (l) => lines.push(l) });
     try {
       stepRunners({ root: paths.root, dataDir: paths.dataDir, packRoot: paths.packRoot, runner }).pack('merge-post.mjs', ['--today', today]);
     } catch (err) {
@@ -291,7 +299,6 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   } finally {
     rmSync(file, { force: true });
   }
-  return { ok: true, reason: '' };
 }
 
 // CLI entry. Exit 0 whatever the pass decides, so a scheduler never retries; --check prints the verdict and exits 1 on failure.

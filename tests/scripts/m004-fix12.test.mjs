@@ -54,7 +54,8 @@ test('fix 12 A a posting title carrying a claim is in neither the application re
   assert.ok(known, 'the verify prompt has a KNOWN TRUE block');
   assert.ok(!/returning|interned here/.test(known), known);
   assert.match(known, /The student applied for a role at Globex Example on November 14, 2026 \(the application record\)\./);
-  assert.match(known, /"I applied for the \{title\} role at Globex Example on November 14, 2026, and I wanted to follow up\."/);
+  assert.match(known, /"I applied for a role at Globex Example on November 14, 2026, and I wanted to follow up\."/);
+  assert.ok(!out.items[0].message.includes(CLAIM_TITLE) && /I applied for a role at Globex Example on November 14, 2026/.test(out.items[0].message), out.items[0].message);
   assert.ok(!od.knownTrueFacts(APP).join('\n').includes(TITLE));
   assert.ok(!od.frameSentences(APP).join('\n').includes(TITLE));
   assert.ok(od.verifyPrompt({ cv: CV, job: APP, draft: 'x' }).includes(`role: ${TITLE}`), 'the title stays reader data in the fenced READER block');
@@ -116,7 +117,7 @@ test('fix 12 C N5 the drafting prompt fences the contact and the application lin
   assert.throws(() => od.draftPrompt({ ...person('Ann 0a1b2c3d', INITECH), cv: CV, tag: '0a1b2c3d' }), od.FenceError);
 });
 
-test('fix 12 C N6 a failed or timed-out headless call writes a ledger row with its status and 0 tokens, then throws', async () => {
+test('fix 12 C N6 a failed or timed-out headless call writes a ledger row with its status, unmeasured when no usage was printed, then throws', async () => {
   const r = makeRoot();
   try {
     const call = (err) => runHeadless({ prompt: 'x', step: 'outreach-verify', feature: 'M7', dataDir: r.data, date: '2026-11-22', agentPath: '/fake/claude', platform: 'linux', runner: () => { throw err; } });
@@ -126,8 +127,8 @@ test('fix 12 C N6 a failed or timed-out headless call writes a ledger row with i
     await assert.rejects(call(Object.assign(new Error('exit 1'), { status: 1, stdout: usage })), /claude call failed/);
     const rows = await readLedger(r.data);
     assert.deepEqual(rows.map((x) => [x.step, x.model, x.input, x.output]), [
-      ['outreach-verify', 'sonnet (timeout)', '0', '0'],
-      ['outreach-verify', 'sonnet (failed)', '0', '0'],
+      ['outreach-verify', 'sonnet (timeout)', 'unmeasured', 'unmeasured'],
+      ['outreach-verify', 'sonnet (failed)', 'unmeasured', 'unmeasured'],
       ['outreach-verify', 'claude-sonnet (failed)', '70', '5'],
     ]);
   } finally {

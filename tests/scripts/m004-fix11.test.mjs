@@ -223,9 +223,9 @@ test('fix 11 C through runHeadless: each call carries the short per-call timeout
     assert.equal(od.OUTREACH_CALL_TIMEOUT_MS, 180000);
     assert.ok(timeouts.length === 5 && timeouts.every((t) => t === od.OUTREACH_CALL_TIMEOUT_MS), JSON.stringify(timeouts));
     const ledger = await readLedger(r.data);
-    // Fix 12 N6: the timed-out call writes its own row too, 0 tokens and its status.
+    // Fix 12 N6 + r11 N3 (M-005 S-2): the timed-out call writes its own row too, with its status; it printed no usage, so its tokens are unmeasured, never 0.
     assert.deepEqual(ledger.map((row) => `${row.step} ${row.model}`), ['outreach-warm-opener claude-sonnet', 'outreach-verify claude-sonnet', 'outreach-warm-opener sonnet (timeout)', 'outreach-warm-opener claude-sonnet', 'outreach-verify claude-sonnet']);
-    assert.deepEqual([ledger[2].input, ledger[2].output], ['0', '0']);
+    assert.deepEqual([ledger[2].input, ledger[2].output], ['unmeasured', 'unmeasured']);
   } finally {
     r.cleanup();
   }

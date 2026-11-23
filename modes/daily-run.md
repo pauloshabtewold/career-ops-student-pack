@@ -26,3 +26,20 @@ Read this when the user says "what ran today" or "daily run".
 
 - Do not open a browser for discovery. The liveness sweep already ran API-only.
 - Do not send messages or submit applications from this run. Outreach and the apply loop have their own modes and their own approval rules.
+
+## Autopilot
+
+When setup has recorded `chrome_in_schedule`, each scheduled run ends with `scripts/autopilot.mjs`: it prepares fill plans, cover letters, outreach drafts and due follow-ups as one-page batches, and nothing is submitted or sent until the student approves a batch. Rows and contacts already on a batch that waits for approval are not prepared again; the digest says how many wait. With `chrome_in_schedule` `yes` and the automation Chrome open it also fills and submits approved items (`chrome.mjs fill`, then `chrome.mjs submit`, whose `budget.mjs` check refuses anything not approved or already used; a posting is never submitted twice) and reads outcome mail with each sender's address. It submits only items whose fill plan carries the form's fields, which today come from a session that read the form; any other approved item waits for a fill in a session, and the footer offers "submit all" so the session fills each form first; with `no` those steps wait, the digest lists them under "waiting for Chrome" and its footer offers to submit them in a session. A fill that needs you (an unknown question) stops that item. On Sundays (or the first run after a missed Sunday) it also writes the weekly outreach lessons: reply and referral rates per opener and follow-up kind by plain code, then one short model call over only the threads that are new or changed since last week, at most 12. The drafter reads those lessons as style guidance only, never as facts.
+
+## Pause and catch-up
+
+`node student/scripts/schedule.mjs pause` stops scheduled runs without removing the installed jobs; `node student/scripts/schedule.mjs resume` turns them back on (and says so when no schedule is installed). Runs missed while the computer slept are not replayed one by one: the next run runs once and the digest names the missed dates (at most 7, then a count). Days paused on purpose are not missed runs, and a run whose every step failed counts as missed.
+
+## Digest
+
+The digest's Today section is built by code: applications sent, outreach sent this week, replies waiting, missed runs, steps waiting for Chrome and the day's token estimate. On Sundays it adds the skill gaps: requirements seen in 3 or more matched postings this week that your resume does not show, with what to learn or build.
+
+Next: read today's digest
+Type: what ran today
+Why: it lists what was applied, sent and found, and anything waiting for you.
+You can always ask me for more. Just ask and approve.
