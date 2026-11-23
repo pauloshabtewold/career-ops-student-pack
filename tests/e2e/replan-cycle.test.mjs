@@ -79,6 +79,11 @@ test('[e2e] N2-2 an item planned while Chrome was closed: approve -> submit refu
     // Planned with the automation Chrome closed: no form was read.
     writeFileSync(join(r.root, 'rows.json'), JSON.stringify([{ url: link, company: 'Example Robotics', title: 'Software Engineering Intern', score: 41, triage: 3.8, jobText: POSTING }]));
     const plan = node('fill-plan.mjs', ['--rows', join(r.root, 'rows.json')], r, agentEnv);
+    // The resume render is a browser launch too, so a slot hook that said no there is the same skip as at chrome.mjs open.
+    if (plan.code === 4 && /waiting for a browser slot/.test(plan.text)) {
+      t.skip('browser slot said no at the resume render');
+      return;
+    }
     assert.equal(plan.code, 0, plan.text);
     const [id] = listBatches(r.data).filter((b) => readBatch(r.data, b).kind === 'apply');
     assert.ok(id, `an apply batch: ${plan.text}`);

@@ -31,6 +31,7 @@ Everything career-ops itself does works when asked in plain words. Say any phras
 - "redo my setup", "set me up" or "personalize": runs the four-part interview again (`interview/interview.md`).
 - "find more job sources": researches job lists and boards for your field again (`AGENTS.student.md`).
 - "change my schedule" or "check my schedule": changes the time, or proves the schedule works (`AGENTS.student.md`).
+- "check my schedule's Chrome": runs the schedule probe again when the last one could not tell whether a scheduled run reaches the automation Chrome (`AGENTS.student.md`).
 - "pause my schedule" or "resume my schedule": stops scheduled runs and keeps the schedule, then turns them back on (`AGENTS.student.md`).
 - "remove my schedule": uninstalls the schedule (`AGENTS.student.md`).
 - "change my triage budget": shows the cost estimate before changing the number of rows scored (`AGENTS.student.md`).
