@@ -423,7 +423,8 @@ export async function autopilot({ paths, today, deps = {} }) {
 async function sectionFooter({ paths, config, waiting, fillWaiting }) {
   const batches = listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)).filter((b) => b && !b.approved && b.items.length);
   const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).length : 0;
-  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule, approvedWaiting, fillWaiting, batchesWaiting: batches.length });
+  // An unset chrome_in_schedule counts as no (scheduled.mjs runsAutopilot).
+  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', approvedWaiting, fillWaiting, batchesWaiting: batches.length });
 }
 
 async function main() {

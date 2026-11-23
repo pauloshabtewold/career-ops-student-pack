@@ -38,6 +38,14 @@ const agentFlagsFor = ({ agent, agentPath, claude }) => (agentPath ? ['--agent',
 
 export const MISSED_FILE = '.missed-runs.txt';
 
+// The autopilot runs on every non-manual schedule once setup is done. Setup records chrome_in_schedule with the schedule
+// probe (yes or no); a key still unset after onboarding counts as no, so the batches are prepared and only the Chrome
+// steps wait. Before onboarding is complete the schedule runs the discovery and triage steps only.
+export function runsAutopilot(config) {
+  if (!config || config.automation === 'manual') return false;
+  return ['yes', 'no'].includes(config.chrome_in_schedule) || Boolean(config.onboarding?.complete);
+}
+
 // Writes the missed-slots line the digest reads, or removes a stale one; a first run has nothing missed and days recorded
 // as paused are never missed runs. A ledger that cannot be read counts as nothing missed, so the run itself still goes ahead.
 async function catchUp({ dataDir, config, kind, start, out }) {
@@ -98,9 +106,7 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
     const timeout = triageTimeout({ config, dataDir, today });
     child('daily-triage.mjs', [...agentFlags, '--deadline', String(Date.now() + timeout)], timeout);
   }
-  // The autopilot starts once setup has recorded whether a scheduled run reaches Chrome (tools/schedule-probe.mjs), since
-  // every Chrome step depends on that answer; before then the schedule runs the discovery and triage steps only.
-  if (config && config.automation !== 'manual' && ['yes', 'no'].includes(config.chrome_in_schedule)) child('autopilot.mjs');
+  if (runsAutopilot(config)) child('autopilot.mjs');
   try {
     // A run whose every step stopped is not a success, so the next run lists this day as missed.
     await recordRun(dataDir, { start, end: new Date().toISOString(), kind: 'daily', status: ran && failed === ran ? 'failed' : 'ok' });

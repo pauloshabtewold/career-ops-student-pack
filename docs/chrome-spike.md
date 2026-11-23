@@ -41,7 +41,8 @@ opened by its recorded PID.
    which ships with M-002; it runs as written once that helper exists.
 4. Schedule probe, 2026-11-21: `node tools/schedule-probe.mjs --root <root> --data-dir <root>/data` with the automation
    Chrome open. The one-shot launchd job wrote `{"reachable":"yes",...}`; the probe set `chrome_in_schedule: 'yes'` in
-   config/student.yml and appended the line under Schedule evidence. Afterwards the plist was gone from
+   config/student.yml and appended its dated evidence line to `data/chrome-probe.log` in the student's data folder (never
+   to this tracked file, so a pack update is never blocked by an edited file). Afterwards the plist was gone from
    ~/Library/LaunchAgents and `launchctl print gui/<uid>/career-ops.chrome-probe` found no job.
 
 Result: `chrome_in_schedule` is `yes` on this macOS setup while the automation Chrome is open. When the probe or setup
@@ -50,8 +51,11 @@ records `no`, the fallback below applies.
 ## Schedule mode
 
 `chrome_in_schedule` in config/student.yml is `yes` when the scheduled probe reached the automation Chrome and `no`
-when the automation Chrome was open but the scheduled job could not reach it. The key stays unset when the probe job
-could not be installed or the automation Chrome was not open, so open it before running the probe. With `no`, the scheduled run triages and drafts only; applying, sending and Gmail reads wait until Chrome is
+when the automation Chrome was open but the scheduled job could not reach it. The probe itself leaves the key unset when
+its job could not be installed or the automation Chrome was not open; setup-flow runs the probe right after the schedule
+step and records `no` whenever the probe could not answer (Linux, a timeout, Chrome closed), so the key never stays
+unset after setup, and the scheduled run treats a key still unset after onboarding as `no`. Run the probe again with the
+automation Chrome open to record `yes`. With `no`, the scheduled run triages and drafts only; applying, sending and Gmail reads wait until Chrome is
 open, and the digest says so with this line:
 
 > Waiting for Chrome: <steps>. Open it with `node student/scripts/chrome.mjs open` and these run next.
@@ -59,4 +63,5 @@ open, and the digest says so with this line:
 A headless model call never gets browser tools in either mode.
 
 ## Schedule evidence
-- 2026-11-21: scheduled probe career-ops.chrome-probe: probe file said reachable yes; chrome_in_schedule yes
+
+Each probe run appends one dated line to `data/chrome-probe.log` in the student's data folder.

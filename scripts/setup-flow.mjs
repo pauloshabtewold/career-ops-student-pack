@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // The setup checklist after install, run by plain code with zero model calls: install state, interview done, resume
 // built from the template and passing check-resume, automation Chrome open, the student's one-time sign-ins (LinkedIn,
-// Gmail, Handshake), schedule installed. It fixes what it can itself (folders, defaults, the resume build) and stops only
-// at a step that is the student's: a sign-in. Every run ends with the Next/Type/Why block.
+// Gmail, Handshake), schedule installed (then the schedule probe records chrome_in_schedule, and an answer it could not
+// give is recorded as no). It fixes what it can itself (folders, defaults, the resume build) and stops only at a step
+// that is the student's: a sign-in. Every run ends with the Next/Type/Why block.
 // Usage: setup-flow.mjs [--signed-in LinkedIn,Gmail,Handshake] [--slot-cmd CMD] [--root R] [--data-dir D] [--today D]
 // Exit 0 always; the block says what is next.
 import { createHash } from 'node:crypto';
@@ -91,9 +92,38 @@ function defaultDeps({ paths, config }) {
     // chrome.mjs open runs the browser-slot gate itself and returns at once when the automation Chrome is already up.
     chrome: async () => runResult(process.execPath, [script('chrome.mjs'), 'open', '--root', paths.root, '--data-dir', paths.dataDir], { cwd: paths.root }),
     // Only checks: installing the schedule picks a time, which is the interview's Part D answer.
-    schedule: async () => ({ code: (await import('./schedule.mjs')).readJob() ? 0 : 1 }),
+    schedule: async () => scheduleStep({
+      config,
+      readJob: async () => (await import('./schedule.mjs')).readJob(),
+      runProbe: async () => {
+        const probe = join(paths.packRoot, 'tools', 'schedule-probe.mjs');
+        return existsSync(probe) ? runResult(process.execPath, [probe, '--root', paths.root, '--data-dir', paths.dataDir], { cwd: paths.root }) : null;
+      },
+    }),
     say: (line) => console.log(line),
   };
+}
+
+// The schedule step: done when a daily job is installed. While chrome_in_schedule is not recorded yet it then runs
+// tools/schedule-probe.mjs once (a one-shot scheduled job that checks whether a scheduled run reaches the automation
+// Chrome and writes yes or no). Returns { code, probe } with the probe's last line, or null when it did not run.
+export async function scheduleStep({ config, readJob, runProbe }) {
+  if (!(await readJob())) return { code: 1, probe: null };
+  if (CHROME_REACH.includes(config?.chrome_in_schedule)) return { code: 0, probe: null };
+  const res = await runProbe();
+  return { code: 0, probe: res ? lastLine(res) || `exit ${res.code}` : null };
+}
+
+const CHROME_REACH = ['yes', 'no'];
+
+// After the schedule step: a chrome_in_schedule the probe could not answer (no scheduler on Linux, the probe job could
+// not be installed or timed out, the automation Chrome was closed) becomes no, never stays unset, so the daily autopilot
+// runs and its Chrome steps wait for a session. Returns the line to say, or null when the key was already recorded.
+export async function recordChromeReach(root) {
+  const config = await loadStudentConfig({ root }).catch(() => null);
+  if (!config || CHROME_REACH.includes(config.chrome_in_schedule)) return null;
+  writeConfigKey({ root }, 'chrome_in_schedule', 'no');
+  return 'setup: the schedule probe could not tell whether a scheduled run reaches the automation Chrome, so chrome_in_schedule is no: the daily autopilot prepares your batches and its Chrome steps wait for a session';
 }
 
 const lastLine = (res) => String(res?.error || res?.stdout || res?.stderr || '').trim().split('\n').pop();
@@ -148,7 +178,14 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
     }],
     // Sign-ins are the student's: recorded from --signed-in, never attempted.
     ['signins', async () => SIGN_IN_SITES.every((s) => state.signins[s])],
-    ['schedule', async () => (await d.schedule({ root: paths.root }))?.code === 0],
+    ['schedule', async () => {
+      const res = await d.schedule({ root: paths.root });
+      if (res?.code !== 0) return false;
+      if (res.probe) say(`setup: ${res.probe}`);
+      const reach = await recordChromeReach(paths.root);
+      if (reach) say(reach);
+      return true;
+    }],
   ];
   // Steps after the first one not done are not re-run; they keep the result saved by an earlier run.
   let stopped = false;

@@ -8,6 +8,8 @@ scheduled.mjs (daily) -> daily.mjs (zero-token ingest: feeds, scan, merge, prefi
 
 The hourly entry (`scheduled.mjs --fresh`) runs only fresh-scan.mjs, which makes no model call.
 
+The autopilot needs `chrome_in_schedule`: setup-flow runs tools/schedule-probe.mjs right after the schedule step and records `no` whenever the probe cannot answer, and scheduled.mjs treats a key still unset after onboarding as `no`, so the batches are always prepared and only the Chrome steps (read forms, fill and submit approved items, outcome mail) wait for an open Chrome.
+
 ## Invariants
 
 - Script first, model last. Fetching, filtering, dedupe, known-ATS field mapping, ranking, reply-rate stats and tracker writes are plain code. A model runs only for fit judgment, the tailored resume and the one tailored cover paragraph, outreach personal lines, unknown form questions, outcome-mail classification and reply sorting, the weekly outreach lessons (one call over new or changed threads only), and the opt-in pre-submit reviewer (`reviewer: "off"` by default).
