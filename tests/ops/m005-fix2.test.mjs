@@ -48,13 +48,22 @@ async function runPilot(r, runner, deps = {}) {
   return autopilot({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: TODAY, deps: { runner, chromeOpen: () => true, chromeState: async () => null, out: () => {}, ...deps } });
 }
 
-// A runner that records chrome.mjs calls, answers fill with fillText and submit with '' (or runs submit for real).
-function chromeRunner({ fillText = 'chrome: filled 1 field(s) on example.com', realSubmit = false } = {}) {
+// A fake chrome.mjs fill: records a filled text field in the plan's tab like the real fill, and prints its count.
+function fakeFill(args, n = 1) {
+  const file = args[args.indexOf('--plan') + 1];
+  const plan = JSON.parse(readFileSync(file, 'utf8'));
+  writeFileSync(file, `${JSON.stringify({ ...plan, tab: { targetId: 't1', url: plan.url, sentinel: { selector: '#first_name', value: 'Test' } } })}\n`);
+  return `chrome: filled ${n} field(s) on example.com`;
+}
+
+// A runner that records chrome.mjs calls, answers fill like fakeFill (or with fillText and no tab) and submit with '' (or
+// runs submit for real).
+function chromeRunner({ fillText = null, realSubmit = false } = {}) {
   const calls = [];
   const runner = (cmd, args, opts) => {
     const s = scriptOf(args);
     if (s === 'chrome.mjs') calls.push(args);
-    if (s === 'chrome.mjs' && args[1] === 'fill') return fillText;
+    if (s === 'chrome.mjs' && args[1] === 'fill') return fillText ?? fakeFill(args);
     if (realSubmit && (s === 'chrome.mjs' || s === 'budget.mjs')) return execFileSync(cmd, args, { ...opts, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     return s === 'rank-queue.mjs' ? '[]' : '';
   };
@@ -86,7 +95,7 @@ test('R2-M1 a plan with an unknown question or a missing upload waits; a fill th
     assert.deepEqual(c.verbs(), ['chrome.mjs fill'], 'only item 3 is filled, and nothing is submitted');
     const waits = res.lines.filter((l) => /waits for a fill in a session/.test(l));
     assert.equal(waits.length, 3, res.lines.join('\n'));
-    assert.ok(waits[2].startsWith(`submit approved: item 3 of ${id} waits for a fill in a session (the fill wrote no field`), waits[2]);
+    assert.ok(waits[2].startsWith(`submit approved: item 3 of ${id} waits for a fill in a session (no text field was filled`), waits[2]);
     assert.equal(res.footer[0], 'Next: fill and submit the 3 approved application(s) in a session');
   } finally {
     r.cleanup();
@@ -99,7 +108,7 @@ test('R2-M1 a plan with read fields and its upload on disk is filled, then submi
     const resume = join(r.data, 'resume.pdf');
     writeFileSync(resume, 'fake pdf');
     const id = await approvedBatch(r, [{ fields: [FIELD], uploads: [{ selector: '#resume', path: resume }] }]);
-    const c = chromeRunner({ fillText: 'chrome: filled 2 field(s) on example.com', realSubmit: true });
+    const c = chromeRunner({ realSubmit: true });
     const res = await runPilot(r, c.runner);
     assert.deepEqual(c.verbs(), ['chrome.mjs fill', 'chrome.mjs submit']);
     const note = res.lines.find((l) => l.startsWith(`submit approved: item 1 of ${id}`));
@@ -249,7 +258,7 @@ test('R2-S4 the digest names the matching conversations left unread and the read
     const runner = (cmd, args) => (scriptOf(args) === 'inbox.mjs' ? 'inbox: 1 read, 1 proposal(s), 0 set\n' : scriptOf(args) === 'rank-queue.mjs' ? '[]' : '');
     const mails = [{ id: 'id-x1', from: OWN, subject: 'Fake Co interview', snippet: 'Next steps' }];
     const res = await runPilot(r, runner, { chromeState: async () => ({ port: 9 }), readOutcomeMail: async () => ({ mails, keys: ['f01|abc'], more: 3 }) });
-    assert.ok(res.lines.includes('outcome mail: 3 more matching conversation(s) not read; ask me to read them'), res.lines.join('\n'));
+    assert.ok(res.lines.includes('outcome mail: 3 more matching conversation(s) not read yet; the next scheduled run reads them'), res.lines.join('\n'));
     assert.equal(readFileSync(join(r.data, THREADS_SEEN_FILE), 'utf8'), 'f01|abc\n');
   } finally {
     r.cleanup();

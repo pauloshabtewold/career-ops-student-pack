@@ -32,7 +32,7 @@ import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
 
-export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps") -"thank you for applying"';
+export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps")';
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 const FILL_REPORT = /^fill-plan: \d+ of \d+ ready/m;
 const DRAFTS_REPORT = /^outreach-drafts: .*(draft\(s\) in|already waiting|outreach is)/;
@@ -43,7 +43,10 @@ const LIST_MAX = 100;
 // Conversations already handed to inbox.mjs, one `<thread id>|<row hash>` per line next to the inbox seen file. The row
 // hash changes when a new message arrives in the conversation, so a reply in a handled thread is still read.
 export const THREADS_SEEN_FILE = '.outcome-threads-seen';
-const FILLED_REPORT = /filled (\d+) field\(s\)/;
+// Problem lines chrome.mjs fill prints for a field it could not fill or one only the student fills.
+const FILL_PROBLEM = /^chrome: (?:could not fill (.+)|blocked-on-user: (.+?) is a )/;
+// A Gmail search list renders this many rows per page, so a full page may hide more matches.
+const GMAIL_PAGE = 50;
 // Form fields per posting, read by fill-plan --fields-dir (<url key>.json); plans without a file there carry no fields.
 export const FIELDS_DIR = 'form-fields';
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
@@ -133,20 +136,34 @@ const readPlan = (file) => {
   }
 };
 
-// A plan the autopilot may fill and submit: it carries the form's fields, has no unknown question, and every resume or
-// cover letter upload it names is on disk. fill-plan writes fields only from a form that was read (data/form-fields,
-// written today by a session), so a plan without fields means no form was read for that posting.
-export function planReady(plan) {
-  if (!Array.isArray(plan?.fields) || !plan.fields.length || plan.unknown?.length) return false;
+// Why a plan cannot be filled and submitted by the autopilot, as the waiting line's tail, or null when it can: it must
+// carry the form's fields, no field only the student fills (plan.blocked, named by label, never by value), no unknown
+// question, and every resume or cover letter upload it names on disk. fill-plan writes fields only from a form that was
+// read (data/form-fields, written today by a session), so a plan without fields means no form was read for that posting.
+export function planWait(plan) {
+  if (!Array.isArray(plan?.fields) || !plan.fields.length) return 'waits for a fill in a session (no form was read for it)';
+  if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).slice(0, 60)).join(', ')})`;
+  if (plan.unknown?.length) return `waits for a fill in a session (it has ${plan.unknown.length} question(s) to answer)`;
   const files = [...(plan.uploads ?? []).map((u) => u?.path), ...(plan.cover ? [plan.cover] : [])];
-  return (plan.uploads ?? []).every((u) => u?.path) && files.every((f) => existsSync(f));
+  if (!files.every((f) => f && existsSync(f))) return 'waits for a fill in a session (an upload file is missing)';
+  return null;
+}
+
+export const planReady = (plan) => planWait(plan) === null;
+
+// Why a finished fill must not be submitted, or null: chrome.mjs printed a field it could not fill or one only the
+// student fills, or it typed no text field (the plan's tab has no sentinel; an upload alone does not count).
+function fillHold(text, plan) {
+  const labels = String(text).split('\n').map((l) => FILL_PROBLEM.exec(l.trim())).filter(Boolean).map((m) => m[1] ?? m[2]);
+  if (labels.length) return `waits for a fill in a session (the fill could not fill ${labels.join(', ')})`;
+  if (!plan?.tab?.sentinel) return 'waits for a fill in a session (no text field was filled, so nothing was submitted)';
+  return null;
 }
 
 // Each approved, unsent item whose plan is ready: chrome.mjs fill --plan, then chrome.mjs submit, whose budget.mjs check
 // passes the plan's score and refuses an item not approved or already used. The batch approval covers both. Submit runs
-// only when the fill reported at least one filled field (or recorded a filled value in the plan); an item whose plan is
-// not ready, whose fill needs the student, or whose fill wrote nothing waits for a fill in a session and is counted in
-// tally.fillWaiting. An item with no plan file still goes to chrome.mjs submit, which refuses it before any click. A link
+// only after a clean fill that typed a text field (fillHold); an item whose plan is not ready (planWait), whose fill
+// needs the student or failed, or whose fill is held waits with its reason and is counted in tally.fillWaiting. An item with no plan file still goes to chrome.mjs submit, which refuses it before any click. A link
 // already submitted, or submitted earlier in this run, is skipped, so a posting approved on two pages goes out once.
 async function submitApproved({ paths, child, tally }) {
   const items = await approvedUnsent(paths.dataDir);
@@ -165,8 +182,9 @@ async function submitApproved({ paths, child, tally }) {
       continue;
     }
     if (it.plan && existsSync(it.plan)) {
-      if (!planReady(readPlan(it.plan))) {
-        wait(`${name} waits for a fill in a session (no form was read for it)`);
+      const why = planWait(readPlan(it.plan));
+      if (why) {
+        wait(`${name} ${why}`);
         continue;
       }
       let text;
@@ -176,9 +194,9 @@ async function submitApproved({ paths, child, tally }) {
         wait(`${name} not filled (${stepErrorText(err)}); it waits for a fill in a session`);
         continue;
       }
-      const filled = Number(FILLED_REPORT.exec(text)?.[1] ?? 0);
-      if (!(filled > 0) && !readPlan(it.plan)?.tab?.sentinel) {
-        wait(`${name} waits for a fill in a session (the fill wrote no field, so nothing was submitted)`);
+      const held = fillHold(text, readPlan(it.plan));
+      if (held) {
+        wait(`${name} ${held}`);
         continue;
       }
     }
@@ -251,8 +269,9 @@ const isoDate = (title) => {
 // MAIL_CAP) opened for its newest message's sender, Gmail message id and date. A row that cannot be opened keeps no
 // sender, so inbox.mjs can only make it a proposal. The id is the Gmail message id, else `t-<thread id>-<message count>`,
 // else a hash of the row text without its relative time, so the same mail has the same id on every run. Returns
-// { mails, keys, more }: keys mark the conversations read (written to THREADS_SEEN_FILE once inbox.mjs took them) and
-// more counts the unhandled conversations left for a later run.
+// { mails, keys, more, fullPage }: keys mark the conversations read (written to THREADS_SEEN_FILE once inbox.mjs took
+// them), more counts the unhandled conversations left for a later run, and fullPage says the list filled a Gmail page,
+// so more is a lower bound.
 export async function readOutcomeMail({ dataDir, port, query, date, browser = withBrowser }) {
   const seen = readSeenThreads(dataDir);
   const res = await browser(port, async (client) => {
@@ -273,7 +292,7 @@ export async function readOutcomeMail({ dataDir, port, query, date, browser = wi
       const when = isoDate(msg?.date);
       mails.push({ id, from, subject: String(row.text).slice(0, 200), snippet: String(msg?.text || row.text).slice(0, 2000), ...(when ? { date: when } : {}) });
     }
-    return { mails, keys: fresh.slice(0, MAIL_CAP).map(rowSeenKey), more: Math.max(0, fresh.length - MAIL_CAP) };
+    return { mails, keys: fresh.slice(0, MAIL_CAP).map(rowSeenKey), more: Math.max(0, fresh.length - MAIL_CAP), fullPage: rows.length >= GMAIL_PAGE };
   });
   await appendLedger(dataDir, zeroRow({ date, step: 'gmail-read', feature: 'G3', rows: res.mails.length }));
   return res;
@@ -286,8 +305,8 @@ async function readOutcomes({ paths, today, child, deps }) {
   const state = await (deps.chromeState ?? (() => liveState(paths.dataDir)))();
   if (!state?.port) return ['the automation Chrome has no recorded port; outcome mail is read on the next run'];
   const got = await (deps.readOutcomeMail ?? readOutcomeMail)({ dataDir: paths.dataDir, port: state.port, query: OUTCOME_QUERY, date: today });
-  const { mails, keys = [], more = 0 } = Array.isArray(got) ? { mails: got } : got;
-  const moreLine = more ? [`${more} more matching conversation(s) not read; ask me to read them`] : [];
+  const { mails, keys = [], more = 0, fullPage = false } = got;
+  const moreLine = more ? [`${fullPage ? 'at least ' : ''}${more} more matching conversation(s) not read yet; the next scheduled run reads them`] : [];
   if (!mails.length) return ['none new', ...moreLine];
   const file = join(paths.dataDir, `.autopilot-mail-${today}.json`);
   const date = new Date().toISOString();

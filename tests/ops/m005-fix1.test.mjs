@@ -50,6 +50,14 @@ async function approvedWithPlans(r, links, { date = YESTERDAY } = {}) {
   return id;
 }
 
+// A fake chrome.mjs fill: records a filled text field in the plan's tab like the real fill, and prints its count.
+function fakeFill(args, n = 1) {
+  const file = args[args.indexOf('--plan') + 1];
+  const plan = JSON.parse(readFileSync(file, 'utf8'));
+  writeFileSync(file, `${JSON.stringify({ ...plan, tab: { targetId: 't1', url: plan.url, sentinel: { selector: '#first_name', value: 'Test' } } })}\n`);
+  return `chrome: filled ${n} field(s) on example.com`;
+}
+
 async function runPilot(r, runner, deps = {}) {
   const out = [];
   const res = await autopilot({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: TODAY, deps: { runner, chromeOpen: () => true, chromeState: async () => null, out: (l) => out.push(String(l)), ...deps } });
@@ -64,7 +72,7 @@ test('M-1 approved items are filled, then submitted through chrome.mjs, whose re
     const runner = (cmd, args, opts) => {
       const s = scriptOf(args);
       calls.push(`${s} ${args[1]}`);
-      if (s === 'chrome.mjs' && args[1] === 'fill') return 'chrome: filled 3 field(s) on example.com';
+      if (s === 'chrome.mjs' && args[1] === 'fill') return fakeFill(args, 3);
       // chrome.mjs submit runs for real: it reads the plan, runs the real budget.mjs check, then finds no Chrome running.
       if (s === 'chrome.mjs' || s === 'budget.mjs') return execFileSync(cmd, args, { ...opts, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
       if (s === 'rank-queue.mjs') return '[]';
@@ -93,7 +101,7 @@ test('M-1 a link already submitted from another approved page is not submitted a
     const calls = [];
     const runner = (cmd, args) => {
       calls.push(args);
-      if (scriptOf(args) === 'chrome.mjs' && args[1] === 'fill') return 'chrome: filled 1 field(s) on example.com';
+      if (scriptOf(args) === 'chrome.mjs' && args[1] === 'fill') return fakeFill(args);
       return scriptOf(args) === 'rank-queue.mjs' ? '[]' : '';
     };
     const { res } = await runPilot(r, runner);
@@ -122,7 +130,7 @@ test('M-2 outcome mail read in Chrome reaches inbox.mjs with its sender and --cl
         { id: 'id-abc', from: 'recruiting@northwindrobotics.example.com', subject: 'Northwind Robotics, Update on your application', snippet: 'We regret to inform you that we decided to move forward with other candidates.' },
         { id: 'h-0123456789abcdef', from: '', subject: 'Contoso Analytics, interview invitation', snippet: 'Contoso Analytics, interview invitation' },
       ];
-      const { res } = await runPilot(r, runner, { chromeState: async () => ({ port: 9 }), readOutcomeMail: async () => mails, t7On });
+      const { res } = await runPilot(r, runner, { chromeState: async () => ({ port: 9 }), readOutcomeMail: async () => ({ mails }), t7On });
       assert.equal(inboxCalls.length, 1);
       assert.ok(inboxCalls[0].includes('--classify-outcomes'), `T7 ${t7On ? 'on' : 'off'}: decideOutcome orders rules and agent by T7`);
       const input = JSON.parse(readFileSync(inboxCalls[0][inboxCalls[0].indexOf('--input') + 1], 'utf8'));
