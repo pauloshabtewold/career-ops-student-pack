@@ -14,12 +14,14 @@ import { PACK_ROOT, jobUrl, line, makeRoot, pipelineText, runScript } from '../h
 const SUNDAY = '2026-11-22';
 const MONDAY = '2026-11-23';
 
-test('the per-day estimate adds triage, cover letters, outreach drafts and questions, labelled an estimate', () => {
+test('the per-day estimate adds triage, cover letters, outreach drafts with verify, questions, outcome mail and weekly lessons, labelled an estimate', () => {
   const day = perDayEstimate({ agent: 'claude', daily_target: 4, limits: { connect_per_day: 3 } });
   assert.equal(day.parts.covers, 4 * PER_CALL.cover);
   assert.equal(day.parts.outreach, 3 * PER_CALL.outreach);
   assert.equal(day.parts.questions, 2 * PER_CALL.question);
-  assert.equal(day.tokens, day.parts.triage + day.parts.covers + day.parts.outreach + day.parts.questions);
+  assert.ok(PER_CALL.outreach > 4400, 'an outreach draft counts its verify call and the redraft share');
+  assert.ok(day.parts.classifier > 0 && day.parts.lessons > 0, 'outcome classification and weekly lessons are in the day');
+  assert.equal(day.tokens, day.parts.triage + day.parts.covers + day.parts.outreach + day.parts.questions + day.parts.classifier + day.parts.lessons);
   assert.equal(day.label, 'estimate');
   assert.equal(perDayEstimate({ agent: 'codex' }).agent, 'codex');
 });
@@ -29,7 +31,7 @@ test('triage-budget.mjs status --per-day prints the per-day line labelled an est
   try {
     const res = runScript('triage-budget', ['status', '--per-day'], r);
     assert.equal(res.code, 0, res.stderr);
-    assert.match(res.stdout, /^Per-day tokens \(estimate\): about [\d,]+ with claude \(triage [\d,]+, cover letters [\d,]+, outreach [\d,]+, questions [\d,]+\)$/m);
+    assert.match(res.stdout, /^Per-day tokens \(estimate\): about [\d,]+ with claude \(triage [\d,]+, cover letters [\d,]+, outreach [\d,]+, questions [\d,]+, outcome mail [\d,]+, weekly lessons [\d,]+\)$/m);
     assert.doesNotMatch(runScript('triage-budget', ['status'], r).stdout, /Per-day tokens/);
   } finally {
     r.cleanup();

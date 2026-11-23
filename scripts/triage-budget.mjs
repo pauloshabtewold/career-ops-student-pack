@@ -83,11 +83,12 @@ function status({ config, paths, today, out, ...ctx }) {
   if (usage.skipped) out(`${usage.skipped} unreadable row(s) in data/triage-usage.tsv were skipped`);
   const rows = budget.daily === ALL ? (untriagedCount(paths.dataDir) ?? 0) : budget.daily;
   out(costLine({ config, flags: ctx.flags }, rows));
-  // --per-day adds the whole day's estimate (triage, cover paragraphs, outreach drafts, unknown questions) for setup.
+  // --per-day adds the whole day's estimate (triage, cover paragraphs, outreach drafts with verify, unknown questions,
+  // outcome-mail classification, weekly lessons) for setup.
   if (ctx.flags.perDay) {
     const day = perDayEstimate(config);
     const n = (v) => v.toLocaleString('en-US');
-    out(`Per-day tokens (estimate): about ${n(day.tokens)} with ${day.agent} (triage ${n(day.parts.triage)}, cover letters ${n(day.parts.covers)}, outreach ${n(day.parts.outreach)}, questions ${n(day.parts.questions)})`);
+    out(`Per-day tokens (estimate): about ${n(day.tokens)} with ${day.agent} (triage ${n(day.parts.triage)}, cover letters ${n(day.parts.covers)}, outreach ${n(day.parts.outreach)}, questions ${n(day.parts.questions)}, outcome mail ${n(day.parts.classifier)}, weekly lessons ${n(day.parts.lessons)})`);
   }
   return 0;
 }
