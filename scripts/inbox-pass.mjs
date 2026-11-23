@@ -270,7 +270,7 @@ export async function inboxPass({ paths, config, agent, agentPath, today, deadli
   if (!audit.searched) return fail('no Gmail search was made; connect Gmail (interview Part A)');
   const answer = parseAnswer(run.answerText);
   if (!answer) return fail('answer was not a JSON array');
-  const classify = inboxDeps.classify ?? agentClassifier({ agent, agentPath, runner, dataDir: paths.dataDir, today });
+  const classify = inboxDeps.classify ?? agentClassifier({ agent, agentPath, runner, dataDir: paths.dataDir, today, deadline, now });
   await stageAndApply({ paths, today, answer, runner, now, inboxDeps: { ...inboxDeps, classify }, digest });
   return { ok: true, reason: '' };
 }
