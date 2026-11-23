@@ -162,3 +162,10 @@ test('M-004-S8-cdel docs/usage-cost.md has an inbox pass section and a job-sourc
   assert.match(research, /no model call/i);
   assert.match(research, /5 web searches/i);
 });
+
+test('the per-day estimate is labelled an estimate and sums its parts', async () => {
+  const { perDayEstimate } = await import('../../lib/usage-cost.mjs');
+  const day = perDayEstimate({ agent: 'claude', daily_target: 10, limits: { connect_per_day: 15 } });
+  assert.equal(day.label, 'estimate');
+  assert.equal(day.tokens, Object.values(day.parts).reduce((a, b) => a + b, 0));
+});

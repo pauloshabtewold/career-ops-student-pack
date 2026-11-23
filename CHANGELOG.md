@@ -4,6 +4,13 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+- M-005 (P4 Autopilot): each scheduled run ends with `scripts/autopilot.mjs` once setup has recorded `chrome_in_schedule`. It ranks the day, prepares fill plans, cover letters, outreach drafts and due follow-ups as one-page batches, and submits nothing without your approval. When the schedule reaches the automation Chrome it submits approved, unsent items (each after `budget.mjs check`) and reads outcome mail; otherwise the digest names the steps waiting for Chrome.
+- `node student/scripts/schedule.mjs pause` and `resume` stop and restart scheduled runs without removing them. Missed runs are recorded in `data/student-runs.tsv`; the next run runs once and the digest lists the missed dates (7 at most, then a count).
+- Outcome mail: a rejection, interview or offer from the tracked company's own domain sets the status when the phrase rules, the domain and (while T7 is off) the agent classifier agree; the prior status goes in the set-status note. Anything else stays a proposal. The scheduled inbox pass classifies outcome mail with its own agent.
+- The digest's Today section is built by code: applied, outreach this week, replies waiting, missed runs, the day's token estimate (labelled an estimate) and, on Sundays, skill gaps seen in 3 or more matched postings. `triage-budget.mjs status --per-day` shows the per-day estimate.
+- Ranking adds a reply-rate weight only for role-family or source groups with 5 or more applications.
+- Weekly outreach lessons: plain-code reply and referral rates per opener and follow-up kind, plus one short model call over only new or changed threads (at most 12), written to `data/outreach-lessons.md` and read by the drafter as style guidance only. `outreach_lessons: off` in `config/levers.yml` turns it off.
+
 ## v0.10.0 (2026-11-22)
 
 - Merge branch 'claude/v2-p3-winfix'

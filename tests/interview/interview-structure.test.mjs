@@ -156,3 +156,9 @@ test('every Part ends with Next, Type and Why lines and Part D finishes with the
   assert.ok(flow > partD.indexOf('docs/commands.md'), 'the setup flow step comes after the commands guide');
   assert.match(partD, /I'll build your resume from the template[^"]*approve\?/);
 });
+
+test('Part D shows the per-day token estimate, labelled an estimate', () => {
+  const partD = section(HEADINGS[3]);
+  assert.match(partD, /triage-budget\.mjs status --per-day/);
+  assert.match(partD, /labelled an estimate/);
+});

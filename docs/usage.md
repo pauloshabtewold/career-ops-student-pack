@@ -166,3 +166,14 @@ The list header counts rows hidden by track rules or a reserved slot as blocked,
 - `node student/uninstall.mjs` takes the whole pack out of the career-ops folder and keeps your data; see the README.
 
 The limits on messages, applications and page loads are fixed in `scripts/budget.mjs` in the student folder. Settings can only tighten them: a maximum can go down and a minimum (score floor, gap between actions, nudge wait days) can go up, never the reverse.
+
+## Autopilot, pause and the digest
+
+Once setup has recorded whether a scheduled run reaches the automation Chrome, each scheduled run ends with the autopilot: fill plans, cover letters, outreach drafts and due follow-ups become one-page batches in `data/batches/`, and nothing is submitted or sent before you approve a batch with `node student/scripts/batch.mjs approve <batch-id> "<your words>"`. When the schedule reaches Chrome, approved items are submitted on the next run.
+
+- `node student/scripts/schedule.mjs pause` stops scheduled runs without removing them; `node student/scripts/schedule.mjs resume` turns them back on.
+- `node student/scripts/autopilot.mjs` runs the autopilot by hand.
+- Missed runs are not replayed one by one: the next run runs once and the digest names the missed dates.
+- On Sundays (or the first run after a missed Sunday) the autopilot writes `data/outreach-lessons.md`: reply and referral rates per opener and follow-up kind, and a few style lessons from one short model call over the conversations that are new since last week (at most 12). With no new conversation there is no call. The outreach drafts use the lessons for style only. To turn this off, put `outreach_lessons: off` in `config/levers.yml`.
+
+The digest's Today section lists applications sent, outreach sent this week, replies waiting, missed runs, steps waiting for Chrome and the day's token estimate (an estimate, from `lib/usage-cost.mjs`). On Sundays it adds the skill gaps from the week's matched postings.

@@ -381,3 +381,21 @@ test('a Handshake alert with no job id in its links stages a Pending row with ch
     s.cleanup();
   }
 });
+
+test('a rejection from the tracked company domain, confirmed by the classifier, sets Rejected with the prior status in the note', async () => {
+  const s = setup();
+  try {
+    const input = join(s.root, 'msgs.json');
+    writeFileSync(input, JSON.stringify([REJECT('m-301', 'recruiting@northwindrobotics.example.com'), REJECT('m-302', 'someone@unrelated.example.com')]));
+    const calls = [];
+    const lines = [];
+    const runner = async (argv, opts) => (calls.push({ argv, cwd: opts.cwd }), { code: 0, stdout: '' });
+    await main(['--backend', 'connector', '--input', input, '--root', s.root, '--data-dir', s.data, '--today', TODAY], { runner, assessmentDomains: ASSESS, out: (l) => lines.push(String(l)), classify: async () => 'rejection' });
+    const status = calls.filter((c) => c.argv[0] === 'set-status.mjs');
+    assert.equal(status.length, 1, lines.join('\n'));
+    assert.deepEqual(status[0].argv.slice(1, 3), ['1', 'Rejected']);
+    assert.match(status[0].argv[status[0].argv.indexOf('--note') + 1], /prior status Applied/);
+  } finally {
+    s.cleanup();
+  }
+});
