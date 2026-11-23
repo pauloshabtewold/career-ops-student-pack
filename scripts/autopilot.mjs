@@ -32,7 +32,9 @@ import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
 
-export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps")';
+// Positive terms only: a negated phrase once hid real rejection mail. regret, candidates, selected, invitation, invited and
+// call reach outcome mails that name no application, interview or offer (tests/fixtures/quality/outcome-mails.json).
+export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps" OR regret OR candidates OR selected OR invitation OR invited OR call)';
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 const FILL_REPORT = /^fill-plan: \d+ of \d+ ready/m;
 const DRAFTS_REPORT = /^outreach-drafts: .*(draft\(s\) in|already waiting|outreach is)/;
@@ -47,6 +49,8 @@ export const THREADS_SEEN_FILE = '.outcome-threads-seen';
 const FILL_PROBLEM = /^chrome: (?:could not fill (.+)|blocked-on-user: (.+?) is a )/;
 // A Gmail search list renders this many rows per page, so a full page may hide more matches.
 const GMAIL_PAGE = 50;
+// Gmail's standard page sizes: a list exactly this long may be one page of more, so its count is a lower bound.
+const GMAIL_PAGE_SIZES = [25, 50, 100];
 // Form fields per posting, read by fill-plan --fields-dir (<url key>.json); plans without a file there carry no fields.
 export const FIELDS_DIR = 'form-fields';
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
@@ -142,7 +146,7 @@ const readPlan = (file) => {
 // read (data/form-fields, written today by a session), so a plan without fields means no form was read for that posting.
 export function planWait(plan) {
   if (!Array.isArray(plan?.fields) || !plan.fields.length) return 'waits for a fill in a session (no form was read for it)';
-  if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).slice(0, 60)).join(', ')})`;
+  if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).replace(/\s+/g, ' ').trim().slice(0, 60)).join(', ')})`;
   if (plan.unknown?.length) return `waits for a fill in a session (it has ${plan.unknown.length} question(s) to answer)`;
   const files = [...(plan.uploads ?? []).map((u) => u?.path), ...(plan.cover ? [plan.cover] : [])];
   if (!files.every((f) => f && existsSync(f))) return 'waits for a fill in a session (an upload file is missing)';
@@ -154,7 +158,7 @@ export const planReady = (plan) => planWait(plan) === null;
 // Why a finished fill must not be submitted, or null: chrome.mjs printed a field it could not fill or one only the
 // student fills, or it typed no text field (the plan's tab has no sentinel; an upload alone does not count).
 function fillHold(text, plan) {
-  const labels = String(text).split('\n').map((l) => FILL_PROBLEM.exec(l.trim())).filter(Boolean).map((m) => m[1] ?? m[2]);
+  const labels = String(text).split('\n').map((l) => FILL_PROBLEM.exec(l.trim())).filter(Boolean).map((m) => String(m[1] ?? m[2]).replace(/\s+/g, ' ').trim());
   if (labels.length) return `waits for a fill in a session (the fill could not fill ${labels.join(', ')})`;
   if (!plan?.tab?.sentinel) return 'waits for a fill in a session (no text field was filled, so nothing was submitted)';
   return null;
@@ -292,7 +296,7 @@ export async function readOutcomeMail({ dataDir, port, query, date, browser = wi
       const when = isoDate(msg?.date);
       mails.push({ id, from, subject: String(row.text).slice(0, 200), snippet: String(msg?.text || row.text).slice(0, 2000), ...(when ? { date: when } : {}) });
     }
-    return { mails, keys: fresh.slice(0, MAIL_CAP).map(rowSeenKey), more: Math.max(0, fresh.length - MAIL_CAP), fullPage: rows.length >= GMAIL_PAGE };
+    return { mails, keys: fresh.slice(0, MAIL_CAP).map(rowSeenKey), more: Math.max(0, fresh.length - MAIL_CAP), fullPage: rows.length >= GMAIL_PAGE || GMAIL_PAGE_SIZES.includes(rows.length) };
   });
   await appendLedger(dataDir, zeroRow({ date, step: 'gmail-read', feature: 'G3', rows: res.mails.length }));
   return res;

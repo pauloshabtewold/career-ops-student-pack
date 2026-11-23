@@ -76,3 +76,10 @@ test('M-001-S10 node scripts/compat-hash.mjs --check reports that budgetSha256 m
   assert.equal(out.status, 0, out.stdout + out.stderr);
   assert.match(out.stdout, /budgetSha256 matches scripts\/budget\.mjs/);
 });
+
+// No lever verdict lowers a ceiling: T2's cheaper pre-screen runs under this floor without moving it.
+test('triage_tier_min stays standard whatever docs/lever-verdicts.json records', async () => {
+  const { CEILINGS } = await import('../../scripts/budget.mjs');
+  assert.equal(CEILINGS.triage_tier_min.value, 'standard');
+  assert.equal(CEILINGS.triage_tier_min.tighten, 'up');
+});

@@ -72,6 +72,8 @@ export const CEILINGS = deepFreeze({
   notifications_per_run: down(5, 'count', 'run'),
   triage_audit_weekly: down(20, 'count', 'week'),
   liveness_batch: down(50, 'count', 'run'),
+  // Only tightens, like every ceiling: lever T2's cheaper pre-screen makes no final score for a top or borderline row,
+  // so it runs under this floor, and no lever verdict lowers it.
   triage_tier_min: up('standard', 'tier', 'run'),
   // Discovery
   request_gap_ms: up(1200, 'ms', 'request'),

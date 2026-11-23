@@ -56,6 +56,29 @@ import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { effectiveLimits } from './budget.mjs';
 import { outreachState } from './outreach-state.mjs';
 
+// T5 (off until its A/B verdict): a code-written base sentence per contact type opens a warm opener's body and the model
+// writes one personal sentence after it. The bases state interest only, never a fact about the student, and the verifier
+// is told code wrote them. A contact whose type is not known keeps the off path (the model writes the whole body).
+export const OUTREACH_BASE = Object.freeze({
+  recruiter: 'I am exploring early-career roles at {company} and would value your view on how your team hires.',
+  engineer: 'I am interested in the work your team does at {company} and would like to hear how you got started there.',
+  alum: 'I saw that you work at {company} and would like to hear about your path there.',
+  'hiring manager': 'I am interested in your team at {company} and would value a few minutes of your perspective.',
+});
+const CONTACT_TYPES = [
+  ['recruiter', /\b(recruit\w*|talent|sourcer|hr|people partner)\b/i],
+  ['alum', /\balum(na|nus|ni|nae)?\b/i],
+  ['hiring manager', /\b(manager|director|head of|lead)\b/i],
+  ['engineer', /\b(engineer\w*|developer|scientist|analyst|designer|researcher)\b/i],
+];
+// The contact type of a role or type string, or null when none matches.
+export const contactType = (role) => CONTACT_TYPES.find(([, re]) => re.test(String(role ?? '')))?.[0] ?? null;
+// The filled T5 base for a job, or '' when T5 is off, the action is not a warm opener or the contact type is unknown.
+export function t5Opener(job, t5On) {
+  const type = t5On && job.action === 'warm-opener' ? contactType(job.contact?.type ?? job.contact?.role) : null;
+  return type ? OUTREACH_BASE[type].replace('{company}', job.contact.company) : '';
+}
+
 const FEATURE = { connect: 'M7', 'warm-opener': 'M7', 'follow-up': 'M7', reply: 'U4', 'referral-ask': 'U4', 'application-follow-up': 'G6' };
 const DAY_MS = 86400000;
 
@@ -527,7 +550,7 @@ async function draftOne(job, ctx) {
   }
 }
 
-async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source }) {
+async function draftLoop(job, { cv, digest = '', sources = '', records = {}, lessons = '', roundTag = fenceTag(), agent, dataDir, date, headless, source, t5On = false }) {
   const call = async (prompt, step) => {
     try {
       return (await headless({ agent, prompt, step, feature: FEATURE[job.action], dataDir, date, source, timeoutMs: OUTREACH_CALL_TIMEOUT_MS })).text;
@@ -539,13 +562,16 @@ async function draftLoop(job, { cv, digest = '', sources = '', records = {}, les
   const held = (flags, claims) => ({ ...job, text: '', flags, ...(claims ? { claims } : {}) });
   let tag = fenceTag();
   while (tag === roundTag) tag = fenceTag();
-  const base = draftPrompt({ ...job, cv, digest, lessons, roundTag, tag });
-  const known = knownTrueFacts(job, records);
+  const opener = t5Opener(job, t5On);
+  const plainBase = draftPrompt({ ...job, cv, digest, lessons, roundTag, tag });
+  const base = opener ? `${plainBase}\n\nThe body already opens with this sentence code writes: "${opener}" Write only one more short, true, personal sentence that follows it; do not repeat it.` : plainBase;
+  const known = [...knownTrueFacts(job, records), ...(opener ? [`Code writes this sentence into the message: "${opener}"`] : [])];
   let prompt = base;
   let verifies = 0;
   let earlier = null;
   for (let drafts = 1; ; drafts += 1) {
-    const { text, flags } = checkDraft(await call(prompt, `outreach-${job.action}`), job, { sources });
+    const reply = await call(prompt, `outreach-${job.action}`);
+    const { text, flags } = checkDraft(opener ? `${opener} ${reply}` : reply, job, { sources });
     const last = drafts >= DRAFT_CALLS;
     if (flags.length) {
       if (last) return earlier ? held([...flags, claimsFlag(earlier)], earlier) : held(flags);
@@ -581,7 +607,7 @@ export function draftJobs({ due, followups, replies = [], t6On, noteSlots = 0, n
   const jobs = [];
   let notesLeft = noteSlots;
   for (const d of due) {
-    const contact = { name: d.name, company: d.company };
+    const contact = { name: d.name, company: d.company, ...(d.role || d.type ? { role: d.role ?? d.type } : {}) };
     if (d.action === 'warm-opener' || d.action === 'referral-ask') jobs.push({ action: d.action, channel: 'linkedin', contact });
     if (d.action === 'connect') {
       const withNote = noteChars > 0 && notesLeft > 0;
@@ -715,6 +741,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const nowMs = deps.nowMs ?? createClock({ today, timezone: config.timezone }).now().getTime();
   const t6On = deps.t6On ?? isOn('T6');
+  const t5On = deps.t5On ?? isOn('T5');
   const mode = config.switches?.outreach ?? 'on';
   for (const r of replies) if (r.name && r.company) archiveMessage(paths.dataDir, { name: r.name, company: r.company, direction: 'received', channel: r.channel ?? 'linkedin', text: r.text });
   const state = deps.state ?? (await outreachState(paths.dataDir, nowMs));
@@ -737,7 +764,7 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
-  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session' };
+  const ctx = { cv, digest, sources: sourcesOf(cv, digest, candidate), records: { actionRows, contactRows }, lessons: deps.lessons ?? readLessons(paths.dataDir), roundTag: fenceTag(), agent: config.agent ?? 'claude', dataDir: paths.dataDir, date: today, headless: deps.headless ?? runHeadless, source: deps.source ?? 'session', t5On };
   const drafts = [];
   for (const job of jobs) drafts.push(await draftOne(job, ctx));
   const ready = drafts.filter((d) => !d.flags.length);

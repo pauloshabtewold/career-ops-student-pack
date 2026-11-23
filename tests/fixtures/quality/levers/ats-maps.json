@@ -1,0 +1,13 @@
+{
+  "greenhouse": {
+    "school": "education.school"
+  },
+  "workday": {
+    "will you now or in the future require sponsorship": "requires_sponsorship",
+    "are you willing to relocate": "relocation"
+  },
+  "lever": {
+    "github url": "candidate.github",
+    "current company": "candidate.current_employer"
+  }
+}

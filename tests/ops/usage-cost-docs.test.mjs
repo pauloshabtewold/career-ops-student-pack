@@ -169,3 +169,14 @@ test('the per-day estimate is labelled an estimate and sums its parts', async ()
   assert.equal(day.label, 'estimate');
   assert.equal(day.tokens, Object.values(day.parts).reduce((a, b) => a + b, 0));
 });
+
+// A day with an unmeasured call is left out of the mean, so an unmeasured call never counts as zero tokens.
+test('with measured ledger days the per-day estimate is their mean and still labelled an estimate', async () => {
+  const { perDayEstimate } = await import('../../lib/usage-cost.mjs');
+  const row = (date, input) => ({ date, input: String(input), cache_read: '0', cache_write: '0', output: '0' });
+  const day = perDayEstimate({ agent: 'claude' }, { ledgerRows: [row('2026-11-17', 1000), row('2026-11-18', 3000), row('2026-11-19', 5000), row('2026-11-19', 'unmeasured')], today: '2026-11-20' });
+  assert.equal(day.tokens, 2000);
+  assert.equal(day.label, 'estimate');
+  assert.equal(perDayEstimate({ agent: 'claude' }).source, undefined, 'no ledger rows: the constants, as before');
+  assert.match(readDoc('docs/usage-cost.md'), /7-day|a week of measured days/);
+});

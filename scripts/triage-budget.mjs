@@ -16,7 +16,7 @@ import { createClock } from '../lib/clock.mjs';
 import { ConfigError, loadStudentConfig, parseConfig } from '../lib/config.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { ALL, appendDigestLines, appendTriageUsage, parseBudgetValue, readTriageUsage, resolveTriageBudget, rowsLeft } from '../lib/triage-budget.mjs';
-import { writeAtomic } from '../lib/tsv.mjs';
+import { readTsv, writeAtomic } from '../lib/tsv.mjs';
 import { PLAN_IDS, formatCostLine, perDayEstimate } from '../lib/usage-cost.mjs';
 import { selectUntriagedRows } from './daily-triage.mjs';
 
@@ -69,7 +69,7 @@ function priceLines(ctx, value) {
   return ['no pipeline yet, so examples for 100 and 250 rows:', ...EXAMPLE_ROWS.map((n) => costLine(ctx, n))];
 }
 
-function status({ config, paths, today, out, ...ctx }) {
+async function status({ config, paths, today, out, ...ctx }) {
   const budget = resolveTriageBudget(config);
   const usage = readTriageUsage(paths.dataDir, today);
   const show = (v) => (v === ALL ? 'all' : `${v} rows`);
@@ -85,10 +85,13 @@ function status({ config, paths, today, out, ...ctx }) {
   out(costLine({ config, flags: ctx.flags }, rows));
   // --per-day adds the whole day's estimate (triage, cover paragraphs, outreach drafts with verify, unknown questions,
   // outcome-mail classification, weekly lessons) for setup.
+  // Once data/usage-ledger.tsv holds measured days in the last week, their mean replaces the constants (still an estimate).
   if (ctx.flags.perDay) {
-    const day = perDayEstimate(config);
+    const { rows: ledgerRows } = await readTsv(join(paths.dataDir, 'usage-ledger.tsv'));
+    const day = perDayEstimate(config, { ledgerRows, today });
     const n = (v) => v.toLocaleString('en-US');
-    out(`Per-day tokens (estimate): about ${n(day.tokens)} with ${day.agent} (triage ${n(day.parts.triage)}, cover letters ${n(day.parts.covers)}, outreach ${n(day.parts.outreach)}, questions ${n(day.parts.questions)}, outcome mail ${n(day.parts.classifier)}, weekly lessons ${n(day.parts.lessons)})`);
+    const parts = day.source ? `from the ${day.source} of data/usage-ledger.tsv` : `triage ${n(day.parts.triage)}, cover letters ${n(day.parts.covers)}, outreach ${n(day.parts.outreach)}, questions ${n(day.parts.questions)}, outcome mail ${n(day.parts.classifier)}, weekly lessons ${n(day.parts.lessons)}`;
+    out(`Per-day tokens (estimate): about ${n(day.tokens)} with ${day.agent} (${parts})`);
   }
   return 0;
 }
@@ -184,7 +187,7 @@ async function main() {
     return 1;
   }
   const today = createClock({ today: flags.today, timezone: config?.timezone }).today();
-  const code = HANDLERS[command]({ positionals, flags, paths, config, today, out: (line) => console.log(line) });
+  const code = await HANDLERS[command]({ positionals, flags, paths, config, today, out: (line) => console.log(line) });
   if (configNote) console.log(`note: ${configNote}; this price uses the defaults`);
   return code;
 }

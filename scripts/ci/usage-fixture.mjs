@@ -2,7 +2,8 @@
 // Maintainer tool: rebuilds the synthetic triage prompts behind the token constants in lib/usage-cost.mjs.
 // Usage: usage-fixture.mjs --rows <n>   prints the prompt for n synthetic postings on stdout
 //        usage-fixture.mjs --print-argv  prints the claude and codex argv used for the measurement
-//        usage-fixture.mjs --print-per-call  prints the per-call sizes the per-day estimate uses (lib/usage-cost.mjs PER_CALL)
+//        usage-fixture.mjs --print-per-call  prints the per-call sizes the per-day estimate uses (lib/usage-cost.mjs PER_CALL);
+//        once data/usage-ledger.tsv has measured days in the last week, perDayEstimate uses their mean instead
 // Method: run each argv with the prompt on stdin at 1, 5 and 20 rows and read usage from the json output.
 // Per row = (20-row minus 5-row) / 15 and fixed = 5-row minus 5 x per-row. It makes no network or agent call itself.
 import { CODEX_DISABLED_FEATURES, CODEX_EXTRA_FLAGS } from '../../lib/agent.mjs';

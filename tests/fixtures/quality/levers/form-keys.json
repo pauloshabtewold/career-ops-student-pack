@@ -1,0 +1,22 @@
+{
+  "candidate.first_name": "first_name",
+  "candidate.last_name": "last_name",
+  "candidate.full_name": "full_name",
+  "candidate.email": "email",
+  "candidate.phone": "phone",
+  "candidate.linkedin": "linkedin_url",
+  "candidate.github": "github_url",
+  "candidate.portfolio": "portfolio_url",
+  "candidate.location": "location",
+  "candidate.current_employer": "current_employer",
+  "education.school": "school",
+  "work_authorization": "work_authorization",
+  "requires_sponsorship": "needs_sponsorship",
+  "start_date": "start_date",
+  "relocation": "willing_to_relocate",
+  "how_did_you_hear": "referral_source",
+  "eeo.gender": "eeo_gender",
+  "eeo.veteran": "eeo_veteran",
+  "eeo.disability": "eeo_disability",
+  "eeo.pronouns": "pronouns"
+}

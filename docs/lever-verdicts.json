@@ -1,0 +1,473 @@
+{
+  "status": "pending: no A/B run yet; plumbing levers (T1, T13, T15) resolve on, every gated and tuning lever off",
+  "levers": {
+    "T1": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T2": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T3": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T4": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T5": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T6": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T7": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T8": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T9": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T10": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T11": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T12": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T13": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T14": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T15": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T16": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "T17": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "economy_tier": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "jd_trim": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    },
+    "batch_size": {
+      "verdict": "pending",
+      "setting": null,
+      "comparison_base": null,
+      "missed_bar": null,
+      "tokens": {
+        "before": null,
+        "after": null
+      },
+      "quality": {
+        "before": null,
+        "after": null
+      },
+      "control_metrics": null,
+      "p0_models": null,
+      "p5_models": null,
+      "bars_sha256": null,
+      "estimate": null,
+      "actual_tokens": null,
+      "run_date": null,
+      "sample_hash": null,
+      "basis": "no A/B run yet"
+    }
+  },
+  "solo": {
+    "status": "no solo run yet"
+  },
+  "stacked": {
+    "status": "no stacked run yet",
+    "rounds": [],
+    "final": []
+  }
+}

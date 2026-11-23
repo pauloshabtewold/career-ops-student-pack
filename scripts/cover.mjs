@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Cover letter for one posting: the role-family base from templates/cover with the company, role and signature filled
-// by code, plus one tailored paragraph (90 words at most) from the model at the mid tier. Every paragraph passes the
+// by code, plus one tailored paragraph (90 words at most, or the T11 word limit once T11 passes its A/B) from the model
+// at the mid tier. Every paragraph passes the
 // fact gate (skills, tools, numbers and titles only from cv.md and the application answers; the posting grounds
 // nothing but the company and role names) and the writing-rule cleanup; a fact-gate
 // failure is regenerated once and then flagged, never sent.
@@ -14,6 +15,7 @@ import { clean } from '../lib/clean-text.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { check as factCheck, retryTerms, stripInvisible } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
+import { valueOf } from '../lib/levers.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
 import { readProfileAnswers } from '../lib/profile-answers.mjs';
 
@@ -76,7 +78,7 @@ const slug = (s) => String(s ?? '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-
 export const coverPath = (dataDir, company, role) => join(dataDir, 'covers', `${slug(company)}-${slug(role)}.txt`);
 
 /** Returns { ok, path, text, flags }; a passing letter is written to out (default coverPath). headless is lib/headless.mjs runHeadless (injected by tests). */
-export async function writeCover({ cv, posting, answers, company, role, presets, signature, dataDir, date, agent = 'claude', headless = runHeadless, words = PARAGRAPH_WORDS, out = null }) {
+export async function writeCover({ cv, posting, answers, company, role, presets, signature, dataDir, date, agent = 'claude', headless = runHeadless, words = valueOf('T11', PARAGRAPH_WORDS), out = null }) {
   const sources = { cv, answers, posting, company, role };
   let missing = [];
   for (let attempt = 0; attempt < 2; attempt++) {

@@ -26,6 +26,7 @@ import { AGENTS, AGENT_TIMEOUT_MS, resolveAgentPath, signInHint } from '../lib/a
 import { UsageError, parseArgs, runCli, isMain } from '../lib/args.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { aiSummaryLine } from '../lib/digest.mjs';
 import { HeadlessError, runHeadless } from '../lib/headless.mjs';
 import { jdRule, studentFromConfig } from '../lib/jd-rules.mjs';
 import { trimJobText, DEFAULT_WORDS as TRIM_WORDS } from '../lib/jd-trim.mjs';
@@ -264,7 +265,7 @@ async function callAgent({ configured, file, config, prompt, packRoot, runner, p
   try {
     const res = await runHeadless({
       agent: configured, agentPath: file, prompt, runner, platform, packRoot, dataDir, date: today, rows,
-      step: tier === 'prescreen' ? 'triage-prescreen' : 'triage', feature: 'M1', ...tierFor(config, tier), tempPrefix: `daily-triage-${configured}-`,
+      step: tier === 'prescreen' ? 'triage-prescreen' : 'triage', feature: 'M1', ...tierFor(config, tier), bulk: true, tempPrefix: `daily-triage-${configured}-`,
     });
     if (configured === 'codex' && !res.text.trim()) throw Object.assign(new Error('codex wrote no answer'), { noAnswer: true });
     return res.text;
@@ -591,7 +592,16 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
   const stopped = failure ? [`daily triage stopped at chunk ${failure.chunk} of ${chunks.length}: ${failureText(failure)}; ${failure.rowsLeft} rows wait for a later day`] : [];
   const late = run.timeLimit ? [`daily triage stopped at chunk ${run.timeLimit.chunk} of ${chunks.length}: not enough time left before the time limit of this run; ${run.timeLimit.rowsLeft} rows wait for a later day`] : [];
   note([summary, ...stopped, ...late, costLine(run.sent)]);
+  await digestSummaryLine({ configured, file, config, packRoot, runner, platform, dataDir, today, levers });
   return { ran: true, triaged: run.triaged, passed: run.passed, ignored: run.ignored };
+}
+
+// T9 (off until its verdict) runs here because daily.mjs makes no model call; lib/digest.mjs builds the line.
+async function digestSummaryLine({ configured, file, config, packRoot, runner, platform, dataDir, today, levers }) {
+  if (!resolveLever('T9', levers).on) return;
+  const digestText = readIf(join(dataDir, 'digest', `student-${today}.md`));
+  const line = await aiSummaryLine({ digestText, levers, agent: configured, agentPath: file, runner, platform, packRoot, dataDir, date: today, ...tierFor(config) });
+  if (line) appendDigestLines({ dataDir, today, heading: 'Summary', lines: [line] });
 }
 
 async function main() {
