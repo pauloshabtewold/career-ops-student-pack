@@ -62,15 +62,17 @@ export { FIELDS_DIR };
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
 
 // Approved apply items not yet submitted, in batch order: the same rule budget.mjs checks (a logged batch.approve lists
-// the item and no send or pending row spent it yet). kind is apply or easy-apply; plan is the item's fill plan file.
+// the item and no send or pending row spent it yet). kind is apply or easy-apply; plan is the item's fill plan file;
+// finish is the reason of the batch's finish these yourself entry for the item's link, or null.
 export async function approvedUnsent(dataDir) {
   const rows = await readActionLog(join(dataDir, 'action-log.tsv'));
   const out = [];
   for (const id of listBatches(dataDir)) {
     const b = readBatch(dataDir, id);
     if (b?.kind !== 'apply') continue;
+    const finish = new Map((b.finishYourself ?? []).map((f) => [f.link, f.reason ?? 'CAPTCHA']));
     b.items.forEach((it, i) => {
-      if (approvedItem(rows, id, i + 1)) out.push({ batchId: id, item: i + 1, company: it.company, link: it.link ?? '', plan: it.plan ?? '', kind: it.kind === 'easy-apply' ? 'easy-apply' : 'apply' });
+      if (approvedItem(rows, id, i + 1)) out.push({ batchId: id, item: i + 1, company: it.company, link: it.link ?? '', plan: it.plan ?? '', kind: it.kind === 'easy-apply' ? 'easy-apply' : 'apply', finish: finish.get(it.link) ?? null });
     });
   }
   return out;
@@ -229,6 +231,11 @@ async function submitApproved({ paths, child, tally }) {
     const key = linkKey(it.link);
     if (key && done.has(key)) {
       notes.push(`${name} not submitted: ${it.link} was already submitted`);
+      continue;
+    }
+    // A job on finish these yourself is the student's now: it is neither filled nor submitted again.
+    if (it.finish) {
+      notes.push(`${name} not submitted: finish these yourself: ${it.finish} (${it.link})`);
       continue;
     }
     if (it.plan && existsSync(it.plan)) {
@@ -457,7 +464,7 @@ export async function autopilot({ paths, today, deps = {} }) {
 // The guided footer that ends the autopilot section, from the same state the digest summary takes (lib/digest.mjs).
 async function sectionFooter({ paths, config, waiting, fillWaiting }) {
   const counts = waitingCounts(listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)));
-  const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).length : 0;
+  const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).filter((it) => !it.finish).length : 0;
   // An unset chrome_in_schedule counts as no (scheduled.mjs runsAutopilot).
   return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', chromeProbeUnsure: probeUnsure(paths.dataDir), approvedWaiting, fillWaiting, ...counts });
 }

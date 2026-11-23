@@ -270,6 +270,7 @@ test('M-007-fix3-N3-2d a chosen form with no answerable field falls back to the 
   const read = await cdp.readApplicationForm(vmClient(ctx), 'S1');
   assert.deepEqual(Array.from(read.fields, (f) => f.id), ['first_name', 'email']);
   assert.equal(read.form, null);
+  assert.equal(read.submit, null, 'a whole-page read saves no submit, never the shell form button');
 });
 
 // A fake filled tab for clickSubmit: inForm answers the inside-the-read-form check.

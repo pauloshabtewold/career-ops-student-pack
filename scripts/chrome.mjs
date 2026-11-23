@@ -34,7 +34,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
+import { LINK_STYLE, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
@@ -770,6 +770,17 @@ async function submitOutcome(client, sessionId, before, wait) {
   return { state: 'unconfirmed' };
 }
 
+// Why the saved submit button must not be clicked, as a clickSubmit state, or null: it is gone, it reads as another
+// action (LINK_STYLE), it is an untyped button outside any form (it submits nothing), or its form holds none of the
+// filled fields.
+function unsafeButton(b, selector) {
+  if (!b || typeof b !== 'object') return { state: 'no-button', detail: `${selector} is gone` };
+  if (LINK_STYLE.test(String(b.text ?? ''))) return { state: 'no-button', detail: `${selector} reads "${String(b.text).trim()}"` };
+  if (!b.inForm && !b.typed) return { state: 'no-button', detail: `${selector} is an untyped button outside any form` };
+  if (b.inForm && !b.formHasField) return { state: 'other-form', detail: selector };
+  return null;
+}
+
 // On the page: the filled tab by its recorded id (never a fresh or look-alike tab), its address and a filled value, the
 // CAPTCHA check and the button, then the pending row, the click and the page's answer. The pending row is logged before
 // the click so a click whose apply.submit log later fails still leaves the item used; budget.mjs refuses a second
@@ -782,13 +793,18 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const s = plan.tab.sentinel;
   if (s && (await readValue(client, page.sessionId, s.selector)) !== s.value) return { state: 'not-filled', detail: s.selector };
   if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
-  // A plan from a read that recorded its form (formSelector, null for a whole-page read) clicks only the button that read
-  // found, and only inside that form; an older plan keeps the page's first submit button.
+  // A plan from a read that recorded its form (formSelector, null for a whole-page read, which saves no submit) clicks
+  // only the button that read found, only inside that form, and only a real submit of a form holding a filled field; an
+  // older plan keeps the page's first type=submit button.
   const scoped = plan.formSelector !== undefined;
-  if (scoped && !plan.submitSelector) return { state: 'no-button' };
+  if (scoped && !plan.submitSelector) return { state: 'no-button', detail: 'the form read saved none' };
   const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
   if (plan.formSelector && !(await insideForm(client, page.sessionId, plan.formSelector, selector))) return { state: 'outside-form', detail: selector };
+  if (scoped) {
+    const unsafe = unsafeButton(await submitButton(client, page.sessionId, selector, (plan.fields ?? []).map((f) => f.selector).filter(Boolean)), selector);
+    if (unsafe) return unsafe;
+  }
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
   if (!signs) return { state: 'no-signs' };
@@ -863,6 +879,17 @@ function finishAfterClick(addFinish, dataDir, flags, entry, say) {
   }
 }
 
+// Adds a refused job (nothing clicked) to finish these yourself and says how that went: a missing batch file or one
+// that stays locked is named, not thrown, since the refusal itself already stands.
+function finishRefused(addFinish, dataDir, flags, entry) {
+  try {
+    addFinish(dataDir, flags.batchId, entry);
+    return `added to finish these yourself (${entry.reason}: ${entry.link})`;
+  } catch (err) {
+    return `it could not be added to finish these yourself (${err.message}); finish it by hand (${entry.link})`;
+  }
+}
+
 const REFILL = (plan) => `fill it again with node student/scripts/chrome.mjs fill --plan ${plan.planFile}, then submit`;
 
 // A plan with a text field to type whose last fill typed none (its tab has no sentinel): submitting would click on a
@@ -875,13 +902,23 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     'no-tab': () => `the tab filled for item ${flags.item} is gone; ${REFILL(plan)}`,
     'tab-moved': () => `the tab filled for item ${flags.item} now shows ${clicked.detail ?? 'another page'}; ${REFILL(plan)}`,
     'not-filled': () => `the tab for item ${flags.item} no longer holds its filled ${clicked.detail}; ${REFILL(plan)}`,
-    'no-button': () => 'no submit button found',
-    'outside-form': () => `the submit button ${clicked.detail ?? ''} is outside the form that was read; read the form again (node student/scripts/chrome.mjs read-form --url ${link}), rebuild the plan, fill, then submit`,
     'no-signs': () => `the page wording for item ${flags.item} could not be read before the click, so a submit could never be confirmed`,
     'pending-failed': () => `budget.mjs refused or could not record the pending submit (${childLine(clicked.res)})`,
   };
   if (stops[clicked.state]) {
     say(`chrome: ${stops[clicked.state]()}; nothing was clicked`);
+    return EXIT.refused;
+  }
+  // No safe submit button: the same markup refuses on every run, so the job goes to finish these yourself with its
+  // reason and link (the autopilot then leaves it alone) instead of being refilled and refused each day.
+  const unsafe = {
+    'no-button': () => [`no safe submit button${clicked.detail ? ` (${clicked.detail})` : ''}`, 'no safe submit button in the form read'],
+    'outside-form': () => [`the submit button ${clicked.detail ?? ''} is outside the form that was read; read the form again (node student/scripts/chrome.mjs read-form --url ${link}), rebuild the plan, fill, then submit`, 'the submit button is outside the form read'],
+    'other-form': () => [`the submit button ${clicked.detail ?? ''} is in a form holding none of the filled fields`, 'the submit button is in a form holding none of the filled fields'],
+  };
+  if (unsafe[clicked.state]) {
+    const [why, reason] = unsafe[clicked.state]();
+    say(`chrome: ${why}; ${finishRefused(deps.addFinishYourself ?? addFinishYourself, dataDir, flags, { company: plan.company, role: plan.role, link, reason })}; nothing was clicked`);
     return EXIT.refused;
   }
   if (clicked.state === 'captcha') {
