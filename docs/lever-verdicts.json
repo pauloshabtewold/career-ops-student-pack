@@ -1,474 +1,3514 @@
 {
-  "status": "pending: no A/B run yet; plumbing levers (T1, T13, T15) resolve on, every gated and tuning lever off until a solo pass and a completed stacked pass include it",
+  "status": "solo: solo run 2026-11-23 finished: 20 lever(s); stacked: stacked pass after 1 round: T1, T3, T4, T7, T8, T13, T15, T16, T17 on together",
   "levers": {
     "T1": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "every row triaged on every pass (T1 off path)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 67311,
+        "after": 39265,
+        "per_agent": {
+          "claude": {
+            "before": 50754,
+            "after": 29607
+          },
+          "codex": {
+            "before": 83868,
+            "after": 48923
+          }
+        },
+        "rows": {
+          "before": 120,
+          "after": 70
+        },
+        "unit": "P0 triage tokens per row"
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "PLUMBING_EQUAL": 1
+        },
+        "after": {
+          "PLUMBING_EQUAL": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 395252,
+        "codex": 858441,
+        "judge": 305268
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "plumbing: shipped code on the fixture sample, zero model calls; 60 postings triaged twice; 10 sent again on the second pass"
     },
     "T2": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "comparison_base": "P5 control arm",
+      "missed_bar": "OVERLAP_MIN 0.6 against 0.8",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 286490,
+        "after": 467193,
+        "unmeasured": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "OVERLAP_MIN": 1,
+          "SCAM_FP_MAX": 0
+        },
+        "after": {
+          "OVERLAP_MIN": 0.6,
+          "SCAM_FP_MAX": 0
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 584870,
+        "codex": 1136016,
+        "judge": 305268
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "judged: lever arm built with the shipped functions"
     },
     "T3": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "static ATS maps (T3 off path)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 0,
+        "after": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "FORM_ACCURACY": 0.6472222222222223
+        },
+        "after": {
+          "FORM_ACCURACY": 0.7999999999999999
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 584870,
+        "codex": 1136016,
+        "judge": 305268
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "form: learned maps by field accuracy on the fixture forms, by code"
     },
     "T4": {
-      "verdict": "pending",
-      "setting": null,
-      "comparison_base": null,
+      "verdict": "pass",
+      "setting": 0.85,
+      "comparison_base": "a fresh tailoring per posting (T4 off path)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 183709,
+        "after": 91888
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "JUDGE_NOT_WORSE_MIN": 1,
+          "INVENTED_FACTS_MAX": 0,
+          "ATS_FAILURES": 0
+        },
+        "after": {
+          "ATS_FAILURES": 0,
+          "INVENTED_FACTS_MAX": 0,
+          "JUDGE_NOT_WORSE_MIN": 0.9285714285714286
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 636608,
+        "codex": 1267987,
+        "judge": 364730
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "resume: 7 pair(s) at 0.85"
     },
     "T5": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "comparison_base": "P5 control arm (shipped drafting builders)",
+      "missed_bar": "INVENTED_FACTS_MAX 8 against 4 (option A per step: codex/outreach 6 over 1)",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 160452,
+        "after": 161491,
+        "unmeasured": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "JUDGE_NOT_WORSE_MIN": 1,
+          "INVENTED_FACTS_MAX": 0
+        },
+        "after": {
+          "JUDGE_NOT_WORSE_MIN": 0.7916666666666666,
+          "INVENTED_FACTS_MAX": 8
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 683021,
+        "codex": 1383065,
+        "judge": 463460
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "judged: lever arm built with the shipped functions",
+      "per_step_first": {
+        "claude/outreach": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 2,
+          "not_worse": 10,
+          "allowance": 3
+        },
+        "codex/outreach": {
+          "pairs": 12,
+          "judge_added": 1,
+          "gate_added": 5,
+          "not_worse": 9,
+          "allowance": 1
+        }
+      },
+      "aa_noise": {
+        "claude/outreach": {
+          "pairs": 12,
+          "gate_added": 6,
+          "p0_judge_invented": 6,
+          "p0_judge_pairs": 12
+        },
+        "codex/outreach": {
+          "pairs": 12,
+          "gate_added": 8,
+          "p0_judge_invented": 1,
+          "p0_judge_pairs": 12
+        }
+      },
+      "judged_pairs": [
+        {
+          "key": "claude/software-cs/outreach-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/software-cs/outreach-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "first"
+          ]
+        },
+        {
+          "key": "claude/software-cs/outreach-3",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/outreach-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/outreach-3",
+          "lever_first": false,
+          "verdict": "tie",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "first"
+          ]
+        },
+        {
+          "key": "claude/nursing/outreach-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/outreach-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/outreach-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/outreach-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/outreach-1",
+          "lever_first": true,
+          "verdict": "tie",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/outreach-3",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "I'm studying computer science and recently wrote Python unit tests for a telemetry service; what part of your work at Example Software Co 5 do you enjoy most?"
+          ]
+        },
+        {
+          "key": "codex/finance-economics/outreach-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "I'm studying economics and recently worked as a research assistant cleaning survey data; what part of your work do you enjoy most?"
+          ]
+        },
+        {
+          "key": "codex/finance-economics/outreach-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/outreach-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/outreach-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "I'm a nursing student who enjoys my med-surg work as a patient care technician."
+          ]
+        },
+        {
+          "key": "codex/nursing/outreach-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "I help run civic workshops at my county library, and I'm curious: what part of your work at Example Policy Co 9 do you enjoy most?"
+          ]
+        },
+        {
+          "key": "codex/policy-government/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/outreach-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "I built a Power BI report on late shipments as an operations intern, what part of your work at Example Analytics Co 1 do you enjoy most?"
+          ]
+        },
+        {
+          "key": "codex/mis-business-analytics/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        }
+      ]
     },
     "T6": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "comparison_base": "P0 agent-path accuracy (noise.json base)",
+      "missed_bar": "REPLY_SORT_ACCURACY 0.84 (base 1) against 0.02",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 363605,
+        "after": 181803
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "REPLY_SORT_ACCURACY": 1
+        },
+        "after": {
+          "REPLY_SORT_ACCURACY": 0.84
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 683021,
+        "codex": 1383065,
+        "judge": 463460
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "rule: code decisions on labeled fixtures"
     },
     "T7": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "P0 agent-path accuracy (noise.json base)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 145916,
+        "after": 94845
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "CLASSIFY_ACCURACY": 1
+        },
+        "after": {
+          "CLASSIFY_ACCURACY": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 683021,
+        "codex": 1383065,
+        "judge": 463460
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "rule: code decisions on labeled fixtures"
     },
     "T8": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "review every item, then the checks (T8 off path)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 28997,
+        "after": 11960
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "DECISION_MATCH": 1
+        },
+        "after": {
+          "DECISION_MATCH": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 712018,
+        "codex": 1383065,
+        "judge": 463460
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "review: fixture A/B through the shipped functions; each item is reviewed once and the answer reused by both orders, so DECISION_MATCH checks the order alone and is 1 whenever the checks agree with the review; the reviewer calls price the tokens before"
     },
     "T9": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "comparison_base": "code-built digest (T9 off path)",
+      "missed_bar": "JUDGE_NOT_WORSE_MIN 0.25 against 0.556; also INVENTED_FACTS_MAX",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 0,
+        "after": 12586
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "JUDGE_NOT_WORSE_MIN": 1,
+          "INVENTED_FACTS_MAX": 0
+        },
+        "after": {
+          "JUDGE_NOT_WORSE_MIN": 0.25,
+          "INVENTED_FACTS_MAX": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 724604,
+        "codex": 1383065,
+        "judge": 478977
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "digest: fixture A/B through the shipped functions",
+      "judged_pairs": [
+        {
+          "key": "digest-1",
+          "lever_first": true,
+          "verdict": "tie",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "digest-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": []
+        },
+        {
+          "key": "digest-3",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "digest-4",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        }
+      ]
     },
     "T10": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "comparison_base": "P5 control arm (shipped drafting builders)",
+      "missed_bar": "INVENTED_FACTS_MAX 54 against 22 (option A per step: claude/cover 13 over 3, claude/outreach 4 over 3, codex/cover 13 over 1, codex/outreach 15 over 1)",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 481325,
+        "after": 480614,
+        "unmeasured": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "JUDGE_NOT_WORSE_MIN": 1,
+          "INVENTED_FACTS_MAX": 0
+        },
+        "after": {
+          "JUDGE_NOT_WORSE_MIN": 0.6944444444444444,
+          "INVENTED_FACTS_MAX": 54
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 862969,
+        "codex": 1725314,
+        "judge": 780157
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "judged: lever arm built with the shipped functions",
+      "per_step_first": {
+        "claude/cover": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 13,
+          "not_worse": 9,
+          "allowance": 3
+        },
+        "claude/outreach": {
+          "pairs": 12,
+          "judge_added": 1,
+          "gate_added": 3,
+          "not_worse": 11,
+          "allowance": 3
+        },
+        "claude/reply": {
+          "pairs": 12,
+          "judge_added": 1,
+          "gate_added": 8,
+          "not_worse": 9,
+          "allowance": 12
+        },
+        "codex/cover": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 13,
+          "not_worse": 10,
+          "allowance": 1
+        },
+        "codex/outreach": {
+          "pairs": 12,
+          "judge_added": 6,
+          "gate_added": 9,
+          "not_worse": 5,
+          "allowance": 1
+        },
+        "codex/reply": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 0,
+          "not_worse": 6,
+          "allowance": 2
+        }
+      },
+      "aa_noise": {
+        "claude/cover": {
+          "pairs": 12,
+          "gate_added": 2,
+          "p0_judge_invented": 0,
+          "p0_judge_pairs": 12
+        },
+        "claude/outreach": {
+          "pairs": 12,
+          "gate_added": 6,
+          "p0_judge_invented": 6,
+          "p0_judge_pairs": 12
+        },
+        "claude/reply": {
+          "pairs": 12,
+          "gate_added": 15,
+          "p0_judge_invented": 0,
+          "p0_judge_pairs": 12
+        },
+        "codex/cover": {
+          "pairs": 12,
+          "gate_added": 2,
+          "p0_judge_invented": 0,
+          "p0_judge_pairs": 12
+        },
+        "codex/outreach": {
+          "pairs": 12,
+          "gate_added": 8,
+          "p0_judge_invented": 1,
+          "p0_judge_pairs": 12
+        },
+        "codex/reply": {
+          "pairs": 12,
+          "gate_added": 17,
+          "p0_judge_invented": 2,
+          "p0_judge_pairs": 12
+        }
+      },
+      "judged_pairs": [
+        {
+          "key": "claude/software-cs/cover-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Software Engineering Intern",
+            "Example Software Co 1"
+          ]
+        },
+        {
+          "key": "claude/software-cs/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "PyTorch",
+            "training"
+          ]
+        },
+        {
+          "key": "claude/software-cs/cover-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Security Engineering Intern",
+            "Example Software Co 11",
+            "security"
+          ]
+        },
+        {
+          "key": "claude/finance-economics/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Corporate Finance Rotational Analyst",
+            "Example Finance Co 9",
+            "FP&A"
+          ]
+        },
+        {
+          "key": "claude/finance-economics/cover-3",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/cover-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/cover-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "state house intern",
+            "Atlanta"
+          ]
+        },
+        {
+          "key": "claude/mis-business-analytics/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "inventory"
+          ]
+        },
+        {
+          "key": "claude/software-cs/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/software-cs/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/software-cs/outreach-3",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/outreach-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "I'm an economics student at Lakeside Example College, and I enjoy building financial models in Excel and digging into data in R and Stata."
+          ]
+        },
+        {
+          "key": "claude/finance-economics/outreach-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Example Nursing Co 3"
+          ]
+        },
+        {
+          "key": "claude/policy-government/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Example Policy Co 9"
+          ]
+        },
+        {
+          "key": "claude/policy-government/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/outreach-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/software-cs/reply-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Thanks",
+            "Afternoons"
+          ]
+        },
+        {
+          "key": "claude/software-cs/reply-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "I also built a course scheduler web app with a REST API in Node and PostgreSQL, so backend and testing work are what I've enjoyed most so far."
+          ]
+        },
+        {
+          "key": "claude/software-cs/reply-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/reply-1",
+          "lever_first": false,
+          "verdict": "unreadable",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "I also did a teller internship at a credit union, where I explained account products to customers, so I enjoy work that connects with clients too."
+          ]
+        },
+        {
+          "key": "claude/finance-economics/reply-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/reply-3",
+          "lever_first": false,
+          "verdict": "unreadable",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Whichever"
+          ]
+        },
+        {
+          "key": "claude/nursing/reply-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/reply-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "Mornings",
+            "first"
+          ]
+        },
+        {
+          "key": "claude/policy-government/reply-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/reply-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/reply-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "The work I enjoy most is turning data into something people can act on."
+          ]
+        },
+        {
+          "key": "claude/mis-business-analytics/reply-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/cover-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Node REST API"
+          ]
+        },
+        {
+          "key": "codex/software-cs/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Example Software Co",
+            "machine learning",
+            "machine",
+            "training"
+          ]
+        },
+        {
+          "key": "codex/software-cs/cover-3",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "threat"
+          ]
+        },
+        {
+          "key": "codex/finance-economics/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "FP&A",
+            "corporate"
+          ]
+        },
+        {
+          "key": "codex/finance-economics/cover-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Example Nursing Co 9"
+          ]
+        },
+        {
+          "key": "codex/policy-government/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "canvassing"
+          ]
+        },
+        {
+          "key": "codex/mis-business-analytics/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Data Analyst",
+            "MIS"
+          ]
+        },
+        {
+          "key": "codex/mis-business-analytics/cover-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "inventory"
+          ]
+        },
+        {
+          "key": "codex/software-cs/outreach-1",
+          "lever_first": true,
+          "verdict": "tie",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/outreach-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "Example Software Co"
+          ]
+        },
+        {
+          "key": "codex/software-cs/outreach-3",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "CS",
+            "Example Software Co"
+          ]
+        },
+        {
+          "key": "codex/finance-economics/outreach-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "Example Finance Co"
+          ]
+        },
+        {
+          "key": "codex/finance-economics/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/outreach-3",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/outreach-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "Example Nursing Co"
+          ]
+        },
+        {
+          "key": "codex/nursing/outreach-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "Example Nursing Co"
+          ]
+        },
+        {
+          "key": "codex/policy-government/outreach-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Example Policy Co"
+          ]
+        },
+        {
+          "key": "codex/policy-government/outreach-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/outreach-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 1,
+          "gate_added": [
+            "Example Analytics Co"
+          ]
+        },
+        {
+          "key": "codex/mis-business-analytics/outreach-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "MIS"
+          ]
+        },
+        {
+          "key": "codex/software-cs/reply-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/reply-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/reply-3",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/reply-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/reply-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/reply-3",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/reply-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/reply-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/reply-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/reply-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/reply-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/reply-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        }
+      ]
     },
     "T11": {
-      "verdict": "pending",
-      "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "verdict": "fail",
+      "setting": 75,
+      "comparison_base": "P5 control arm (shipped drafting builders)",
+      "missed_bar": "JUDGE_NOT_WORSE_MIN 0.5 against 0.556; also INVENTED_FACTS_MAX",
+      "missed_at_first_setting": "JUDGE_NOT_WORSE_MIN 0.167 against 0.556",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 156341,
+        "after": 155898,
+        "unmeasured": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "JUDGE_NOT_WORSE_MIN": 1,
+          "INVENTED_FACTS_MAX": 0
+        },
+        "after": {
+          "JUDGE_NOT_WORSE_MIN": 0.5,
+          "INVENTED_FACTS_MAX": 5
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 949483,
+        "codex": 1950226,
+        "judge": 981075
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "judged: lever arm built with the shipped functions",
+      "per_step_first": {
+        "claude/cover": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 3,
+          "not_worse": 3,
+          "allowance": 3
+        },
+        "codex/cover": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 0,
+          "not_worse": 1,
+          "allowance": 1
+        }
+      },
+      "per_step_milder": {
+        "claude/cover": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 4,
+          "not_worse": 5,
+          "allowance": 3
+        },
+        "codex/cover": {
+          "pairs": 12,
+          "judge_added": 0,
+          "gate_added": 1,
+          "not_worse": 7,
+          "allowance": 1
+        }
+      },
+      "first_setting": {
+        "tokens": {
+          "before": 156341,
+          "after": 155528,
+          "unmeasured": 0
+        },
+        "quality": {
+          "before": {
+            "JUDGE_NOT_WORSE_MIN": 1,
+            "INVENTED_FACTS_MAX": 0
+          },
+          "after": {
+            "JUDGE_NOT_WORSE_MIN": 0.16666666666666666,
+            "INVENTED_FACTS_MAX": 3
+          }
+        }
+      },
+      "aa_noise": {
+        "claude/cover": {
+          "pairs": 12,
+          "gate_added": 2,
+          "p0_judge_invented": 0,
+          "p0_judge_pairs": 12
+        },
+        "codex/cover": {
+          "pairs": 12,
+          "gate_added": 2,
+          "p0_judge_invented": 0,
+          "p0_judge_pairs": 12
+        }
+      },
+      "judged_pairs": [
+        {
+          "key": "claude/software-cs/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Software Engineering Intern"
+          ]
+        },
+        {
+          "key": "claude/software-cs/cover-2",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/software-cs/cover-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/cover-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Corporate Finance Rotational Analyst"
+          ]
+        },
+        {
+          "key": "claude/finance-economics/cover-3",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Public Health Nursing Intern"
+          ]
+        },
+        {
+          "key": "claude/policy-government/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "inventory"
+          ]
+        },
+        {
+          "key": "codex/software-cs/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/cover-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-3",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/cover-2",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Public Health Nursing Intern"
+          ]
+        },
+        {
+          "key": "codex/policy-government/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/cover-2",
+          "lever_first": true,
+          "verdict": "tie",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/cover-1",
+          "lever_first": false,
+          "verdict": "tie",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        }
+      ],
+      "judged_pairs_first": [
+        {
+          "key": "claude/software-cs/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Software Engineering Intern"
+          ]
+        },
+        {
+          "key": "claude/software-cs/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/software-cs/cover-3",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/cover-1",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/cover-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/finance-economics/cover-3",
+          "lever_first": true,
+          "verdict": "1",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": [
+            "Investment Banking Summer Analyst"
+          ]
+        },
+        {
+          "key": "claude/nursing/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/nursing/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/policy-government/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "claude/mis-business-analytics/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "Supply Chain Analyst"
+          ]
+        },
+        {
+          "key": "codex/software-cs/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/cover-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/software-cs/cover-3",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-1",
+          "lever_first": false,
+          "verdict": "2",
+          "not_worse": true,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/finance-economics/cover-3",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/nursing/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/cover-1",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/policy-government/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/cover-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "codex/mis-business-analytics/cover-2",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        }
+      ]
     },
     "T12": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "P5 control arm",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 0,
+        "after": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": "not wired",
+        "after": "not wired"
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 949483,
+        "codex": 1950226,
+        "judge": 981075
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "not measured: not wired, ships off; bulk is passed only on the Codex pre-screen, which already runs at low effort; no final triage score runs below the standard tier (PD-011)"
     },
     "T13": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "every row fetched and triaged (T13 off path)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 39265,
+        "after": 33656,
+        "per_agent": {
+          "claude": {
+            "before": 29607,
+            "after": 25377
+          },
+          "codex": {
+            "before": 48923,
+            "after": 41934
+          }
+        },
+        "rows": {
+          "before": 70,
+          "after": 60
+        },
+        "unit": "P0 triage tokens per row"
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "PLUMBING_EQUAL": 1
+        },
+        "after": {
+          "PLUMBING_EQUAL": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 949483,
+        "codex": 1950226,
+        "judge": 981075
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "plumbing: shipped code on the fixture sample, zero model calls; 70 rows with 10 duplicates; 60 kept"
     },
     "T14": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "comparison_base": "agent-written block from the pattern rule (T14 off path)",
+      "missed_bar": "JUDGE_NOT_WORSE_MIN 0 against 0.556",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 27487,
+        "after": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "PATTERN_PASS": 1,
+          "JUDGE_NOT_WORSE_MIN": 1
+        },
+        "after": {
+          "PATTERN_PASS": 1,
+          "JUDGE_NOT_WORSE_MIN": 0
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 976970,
+        "codex": 1950226,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "guided: fixture A/B through the shipped functions",
+      "judged_pairs": [
+        {
+          "key": "guided-1",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "guided-2",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "guided-3",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "guided-4",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "guided-5",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "guided-6",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": [
+            "CAPTCHA",
+            "CAPTCHAs"
+          ]
+        },
+        {
+          "key": "guided-7",
+          "lever_first": true,
+          "verdict": "2",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        },
+        {
+          "key": "guided-8",
+          "lever_first": false,
+          "verdict": "1",
+          "not_worse": false,
+          "judge_added": 0,
+          "gate_added": []
+        }
+      ]
     },
     "T15": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "resume and profile parsed on every setup run (T15 off path)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 3604,
+        "after": 2024,
+        "unit": "session tokens (characters parsed / 4)"
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "PLUMBING_EQUAL": 1
+        },
+        "after": {
+          "PLUMBING_EQUAL": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 976970,
+        "codex": 1950226,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "plumbing: shipped code on the fixture sample, zero model calls; 5 profiles, 2 setup runs each"
     },
     "T16": {
-      "verdict": "pending",
+      "verdict": "pass",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "P0 agent-path accuracy (noise.json base)",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 0,
+        "after": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "SCAM_FP_MAX": 0
+        },
+        "after": {
+          "SCAM_FP_MAX": 0
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 976970,
+        "codex": 1950226,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "rule: code decisions on labeled fixtures; scam postings caught 1"
     },
     "T17": {
-      "verdict": "pending",
-      "setting": null,
-      "comparison_base": null,
+      "verdict": "milder",
+      "setting": 12000,
+      "comparison_base": "full page read (T17 off path)",
       "missed_bar": null,
+      "missed_at_first_setting": "FIELD_READ 0.813 (base 1) against 0",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 5469,
+        "after": 5469
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "FIELD_READ": 1
+        },
+        "after": {
+          "FIELD_READ": 1
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 976970,
+        "codex": 1950226,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "pages: fields a read capped at 12000 characters keeps",
+      "first_setting": {
+        "tokens": {
+          "before": 5469,
+          "after": 4447
+        },
+        "quality": {
+          "before": {
+            "FIELD_READ": 1
+          },
+          "after": {
+            "FIELD_READ": 0.8125
+          }
+        }
+      }
     },
     "economy_tier": {
-      "verdict": "pending",
+      "verdict": "fail",
       "setting": null,
-      "comparison_base": null,
+      "comparison_base": "P5 control arm",
       "missed_bar": null,
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 0,
+        "after": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": "not wired",
+        "after": "not wired"
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "not wired: no shipped model call maps form fields (fill-plan maps them by code), so there is nothing to measure; it stays off"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 976970,
+        "codex": 1950226,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "not measured: not wired, ships off; no shipped model call maps form fields (fill-plan maps them by code)"
     },
     "jd_trim": {
-      "verdict": "pending",
-      "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "verdict": "fail",
+      "setting": 500,
+      "comparison_base": "P5 control arm",
+      "missed_bar": "OVERLAP_MIN 0.7 against 0.8",
+      "missed_at_first_setting": "OVERLAP_MIN 0.6 against 0.8",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 286490,
+        "after": 286722,
+        "unmeasured": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "OVERLAP_MIN": 1,
+          "SCAM_FP_MAX": 0
+        },
+        "after": {
+          "OVERLAP_MIN": 0.7,
+          "SCAM_FP_MAX": 0
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 1204783,
+        "codex": 2295955,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "judged: lever arm built with the shipped functions",
+      "first_setting": {
+        "tokens": {
+          "before": 286490,
+          "after": 286820,
+          "unmeasured": 0
+        },
+        "quality": {
+          "before": {
+            "OVERLAP_MIN": 1,
+            "SCAM_FP_MAX": 0
+          },
+          "after": {
+            "OVERLAP_MIN": 0.6,
+            "SCAM_FP_MAX": 0
+          }
+        }
+      }
     },
     "batch_size": {
-      "verdict": "pending",
-      "setting": null,
-      "comparison_base": null,
-      "missed_bar": null,
+      "verdict": "fail",
+      "setting": 25,
+      "comparison_base": "P5 control arm",
+      "missed_bar": "OVERLAP_MIN 0.5 against 0.8",
+      "missed_at_first_setting": "OVERLAP_MIN 0.6 against 0.8",
       "tokens": {
-        "before": null,
-        "after": null
+        "before": 286490,
+        "after": 286944,
+        "unmeasured": 0
       },
       "quality": {
-        "before": null,
-        "after": null
+        "before": {
+          "OVERLAP_MIN": 1,
+          "SCAM_FP_MAX": 0
+        },
+        "after": {
+          "OVERLAP_MIN": 0.5,
+          "SCAM_FP_MAX": 0
+        }
       },
-      "control_metrics": null,
-      "p0_models": null,
-      "p5_models": null,
-      "bars_sha256": null,
-      "estimate": null,
-      "actual_tokens": null,
-      "run_date": null,
-      "sample_hash": null,
-      "basis": "no A/B run yet"
+      "control_metrics": {
+        "tokens": 767815,
+        "unmeasured_calls": 0,
+        "calls": 102
+      },
+      "p0_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6.2-sol",
+        "judge": "claude-opus-5-5"
+      },
+      "p5_models": {
+        "claude": "claude-sonnet-5-5",
+        "codex": "gpt-6-luna",
+        "judge": "claude-opus-5-5"
+      },
+      "agents_measured": [
+        "claude",
+        "codex"
+      ],
+      "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+      "estimate": {
+        "claude": 1394121,
+        "codex": 2721997,
+        "judge": 983180
+      },
+      "actual_tokens": {
+        "claude": 1414180,
+        "codex": 2634555,
+        "judge": 1011493
+      },
+      "run_date": "2026-11-23",
+      "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+      "seed": "1795431880434",
+      "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+      "basis": "judged: lever arm built with the shipped functions",
+      "first_setting": {
+        "tokens": {
+          "before": 286490,
+          "after": 222613,
+          "unmeasured": 0
+        },
+        "quality": {
+          "before": {
+            "OVERLAP_MIN": 1,
+            "SCAM_FP_MAX": 0
+          },
+          "after": {
+            "OVERLAP_MIN": 0.6,
+            "SCAM_FP_MAX": 0
+          }
+        }
+      }
     }
   },
   "solo": {
-    "status": "no solo run yet"
+    "status": "solo run 2026-11-23 finished: 20 lever(s)",
+    "actual_tokens": {
+      "claude": 1414180,
+      "codex": 2634555,
+      "judge": 1011493
+    },
+    "estimate": {
+      "claude": 1394121,
+      "codex": 2721997,
+      "judge": 983180
+    },
+    "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+    "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+    "agents_measured": [
+      "claude",
+      "codex"
+    ],
+    "aa_control": "measured 2026-11-23 (data.aa)",
+    "aa_noise": {
+      "claude/cover": {
+        "pairs": 12,
+        "gate_added": 2,
+        "p0_judge_invented": 0,
+        "p0_judge_pairs": 12
+      },
+      "claude/outreach": {
+        "pairs": 12,
+        "gate_added": 6,
+        "p0_judge_invented": 6,
+        "p0_judge_pairs": 12
+      },
+      "claude/reply": {
+        "pairs": 12,
+        "gate_added": 15,
+        "p0_judge_invented": 0,
+        "p0_judge_pairs": 12
+      },
+      "codex/cover": {
+        "pairs": 12,
+        "gate_added": 2,
+        "p0_judge_invented": 0,
+        "p0_judge_pairs": 12
+      },
+      "codex/outreach": {
+        "pairs": 12,
+        "gate_added": 8,
+        "p0_judge_invented": 1,
+        "p0_judge_pairs": 12
+      },
+      "codex/reply": {
+        "pairs": 12,
+        "gate_added": 17,
+        "p0_judge_invented": 2,
+        "p0_judge_pairs": 12
+      }
+    },
+    "aa_noise_rule": "proxy from the P0 mode-file prompts, not the shipped builders: gate_added is the fact-gate and feeling items arm AA adds over arm A with each step's inputs as sources (the unit of a verdict's gate_added); p0_judge_invented is the P0 judge's single invented count per pair from noise.json, not added over A, so it is not the unit of judge_added. Option A uses data.aa from the A/A control arm (campaign default, solo --aa-control), which is like for like."
   },
   "stacked": {
-    "status": "no stacked run yet",
-    "rounds": [],
-    "final": []
+    "status": "stacked pass after 1 round: T1, T3, T4, T7, T8, T13, T15, T16, T17 on together",
+    "run_date": "2026-11-23",
+    "rounds": [
+      {
+        "round": 1,
+        "levers": [
+          "T1",
+          "T3",
+          "T4",
+          "T7",
+          "T8",
+          "T13",
+          "T15",
+          "T16",
+          "T17"
+        ],
+        "metrics": {
+          "PLUMBING_EQUAL": 1,
+          "FORM_ACCURACY": 0.7999999999999999,
+          "ATS_FAILURES": 0,
+          "INVENTED_FACTS_MAX": 0,
+          "JUDGE_NOT_WORSE_MIN": 0.9285714285714286,
+          "CLASSIFY_ACCURACY": 1,
+          "DECISION_MATCH": 1,
+          "SCAM_FP_MAX": 0,
+          "FIELD_READ": 1
+        },
+        "missed_bar": null,
+        "tokens": {
+          "before": 767815,
+          "after": 91888
+        },
+        "per_step": {},
+        "reused_solo_measures": [
+          "T1",
+          "T4",
+          "T8",
+          "T13",
+          "T15"
+        ]
+      }
+    ],
+    "final": [
+      "T1",
+      "T3",
+      "T4",
+      "T7",
+      "T8",
+      "T13",
+      "T15",
+      "T16",
+      "T17"
+    ],
+    "comparison_base": "P5 control arm",
+    "p0_models": {
+      "claude": "claude-sonnet-5-5",
+      "codex": "gpt-6.2-sol",
+      "judge": "claude-opus-5-5"
+    },
+    "p5_models": {
+      "claude": "claude-sonnet-5-5",
+      "codex": "gpt-6-luna",
+      "judge": null
+    },
+    "bars_sha256": "2071469757e5223a5f11738564fd7deda24510352a62864f05c6cb76457c644c",
+    "estimate": {
+      "claude": 0,
+      "codex": 0,
+      "judge": 0
+    },
+    "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+    "seed": "1795438548239",
+    "aa_control": "this campaign's A/A arm (2026-11-23)",
+    "per_step": {},
+    "actual_tokens": {
+      "claude": 0,
+      "codex": 0,
+      "judge": 0
+    }
   },
-  "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar"
+  "invented_facts_rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+  "aa": {
+    "status": "A/A control re-run 2026-11-23: the control's draft calls again, judged against the control",
+    "rule": "option A: lever-added over control, inputs as sources; a draft step passes when its lever-added items are at most the same step's A/A control count (data.aa.per_step), 0 with no measurement; every other step at most the bar",
+    "run_date": "2026-11-23",
+    "seed": "1795431880434",
+    "sample_hash": "f47454a8822ff8947d184e7dc891cb3055ed5b796865dae1ee0998fac1e92442",
+    "models": {
+      "claude": "claude-sonnet-5-5",
+      "codex": "gpt-6-luna"
+    },
+    "per_step": {
+      "claude/cover": {
+        "pairs": 12,
+        "judge_added": 1,
+        "gate_added": 2,
+        "not_worse": 4
+      },
+      "claude/outreach": {
+        "pairs": 12,
+        "judge_added": 0,
+        "gate_added": 3,
+        "not_worse": 9
+      },
+      "claude/reply": {
+        "pairs": 12,
+        "judge_added": 1,
+        "gate_added": 11,
+        "not_worse": 6
+      },
+      "codex/cover": {
+        "pairs": 12,
+        "judge_added": 1,
+        "gate_added": 0,
+        "not_worse": 7
+      },
+      "codex/outreach": {
+        "pairs": 12,
+        "judge_added": 0,
+        "gate_added": 1,
+        "not_worse": 12
+      },
+      "codex/reply": {
+        "pairs": 12,
+        "judge_added": 0,
+        "gate_added": 2,
+        "not_worse": 8
+      }
+    },
+    "judged_pairs": [
+      {
+        "key": "claude/software-cs/cover-1",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/software-cs/cover-2",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 1,
+        "gate_added": []
+      },
+      {
+        "key": "claude/software-cs/cover-3",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": [
+          "Security Engineering Intern"
+        ]
+      },
+      {
+        "key": "claude/finance-economics/cover-1",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/finance-economics/cover-2",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": [
+          "Corporate Finance Rotational Analyst"
+        ]
+      },
+      {
+        "key": "claude/finance-economics/cover-3",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/nursing/cover-1",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/nursing/cover-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/policy-government/cover-1",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/policy-government/cover-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/mis-business-analytics/cover-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/mis-business-analytics/cover-2",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/software-cs/outreach-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Software Co 3"
+        ]
+      },
+      {
+        "key": "claude/software-cs/outreach-2",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/software-cs/outreach-3",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/finance-economics/outreach-1",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/finance-economics/outreach-2",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/finance-economics/outreach-3",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Finance Co 8"
+        ]
+      },
+      {
+        "key": "claude/nursing/outreach-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/nursing/outreach-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/policy-government/outreach-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Policy Co 9"
+        ]
+      },
+      {
+        "key": "claude/policy-government/outreach-2",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/mis-business-analytics/outreach-1",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/mis-business-analytics/outreach-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/software-cs/reply-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Thanks"
+        ]
+      },
+      {
+        "key": "claude/software-cs/reply-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": [
+          "one",
+          "I've also enjoyed building a course scheduler web app with a REST API, so a team that mixes backend services with data would be a great fit."
+        ]
+      },
+      {
+        "key": "claude/software-cs/reply-3",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/finance-economics/reply-1",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 1,
+        "gate_added": [
+          "Example Finance Co 6",
+          "I built a discounted cash flow model of a fictional retailer in Excel, and I really enjoyed working out how the assumptions drive the valuation."
+        ]
+      },
+      {
+        "key": "claude/finance-economics/reply-2",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/finance-economics/reply-3",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Thanks"
+        ]
+      },
+      {
+        "key": "claude/nursing/reply-1",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Nursing Co 6"
+        ]
+      },
+      {
+        "key": "claude/nursing/reply-2",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": [
+          "couple"
+        ]
+      },
+      {
+        "key": "claude/policy-government/reply-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "a semester"
+        ]
+      },
+      {
+        "key": "claude/policy-government/reply-2",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "claude/mis-business-analytics/reply-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Analytics Co 1",
+          "I really enjoyed turning raw numbers into something a team could use to make decisions."
+        ]
+      },
+      {
+        "key": "claude/mis-business-analytics/reply-2",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/cover-1",
+        "lever_first": false,
+        "verdict": "1",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/cover-2",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/cover-3",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/cover-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/cover-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/cover-3",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/nursing/cover-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/nursing/cover-2",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/policy-government/cover-1",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/policy-government/cover-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/mis-business-analytics/cover-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/mis-business-analytics/cover-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 1,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/outreach-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/outreach-2",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/outreach-3",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/outreach-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/outreach-2",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/outreach-3",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/nursing/outreach-1",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/nursing/outreach-2",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/policy-government/outreach-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/policy-government/outreach-2",
+        "lever_first": true,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Policy Co 1"
+        ]
+      },
+      {
+        "key": "codex/mis-business-analytics/outreach-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/mis-business-analytics/outreach-2",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/reply-1",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/reply-2",
+        "lever_first": true,
+        "verdict": "unreadable",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/software-cs/reply-3",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/reply-1",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/reply-2",
+        "lever_first": true,
+        "verdict": "2",
+        "not_worse": false,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/finance-economics/reply-3",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/nursing/reply-1",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/nursing/reply-2",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/policy-government/reply-1",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Policy Co 9"
+        ]
+      },
+      {
+        "key": "codex/policy-government/reply-2",
+        "lever_first": false,
+        "verdict": "2",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": [
+          "Example Policy Co 1"
+        ]
+      },
+      {
+        "key": "codex/mis-business-analytics/reply-1",
+        "lever_first": true,
+        "verdict": "1",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      },
+      {
+        "key": "codex/mis-business-analytics/reply-2",
+        "lever_first": false,
+        "verdict": "tie",
+        "not_worse": true,
+        "judge_added": 0,
+        "gate_added": []
+      }
+    ]
+  }
 }
