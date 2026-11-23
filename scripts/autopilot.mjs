@@ -21,7 +21,7 @@ import { listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
 import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { footerLines } from '../lib/digest.mjs';
+import { footerLines, waitingCounts } from '../lib/digest.mjs';
 import { replyKey, searchUrl } from '../lib/gmail-chrome.mjs';
 import { weeklyLessons } from '../lib/outreach-lessons.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
@@ -421,10 +421,10 @@ export async function autopilot({ paths, today, deps = {} }) {
 
 // The guided footer that ends the autopilot section, from the same state the digest summary takes (lib/digest.mjs).
 async function sectionFooter({ paths, config, waiting, fillWaiting }) {
-  const batches = listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)).filter((b) => b && !b.approved && b.items.length);
+  const counts = waitingCounts(listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)));
   const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).length : 0;
   // An unset chrome_in_schedule counts as no (scheduled.mjs runsAutopilot).
-  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', approvedWaiting, fillWaiting, batchesWaiting: batches.length });
+  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', approvedWaiting, fillWaiting, ...counts });
 }
 
 async function main() {

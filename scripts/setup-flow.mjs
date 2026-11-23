@@ -63,22 +63,30 @@ export function cachedProfile({ root, dataDir, cacheOn = true }) {
   return { ...facts, fromCache: false };
 }
 
-// The pipeline half of the next-step state: batches waiting, finish-yourself items.
+// The pipeline half of the next-step state: batches waiting with their job and message counts, unknown questions (the
+// count and the questions as asked), finish-yourself items.
 // Unknown questions are read from the fill plans of batches still waiting for approval; with answers given, a question
 // the answer bank now covers no longer counts.
 export function pipelineState(dataDir, { answers = null } = {}) {
   const batches = listBatches(dataDir).map((id) => readBatch(dataDir, id)).filter(Boolean);
   const waiting = batches.filter((b) => !b.approved && b.items.length);
-  const unknown = new Set();
+  // Normalized question -> the question as the form asked it, for the guided line.
+  const unknown = new Map();
   for (const it of waiting.flatMap((b) => b.items)) {
     if (!it.plan || !existsSync(it.plan)) continue;
     try {
-      for (const q of JSON.parse(readFileSync(it.plan, 'utf8')).unknown ?? []) if (!answers || matchQuestion(answers, q) === undefined) unknown.add(normalize(q));
+      for (const q of JSON.parse(readFileSync(it.plan, 'utf8')).unknown ?? []) {
+        if (!unknown.has(normalize(q)) && (!answers || matchQuestion(answers, q) === undefined)) unknown.set(normalize(q), q);
+      }
     } catch {
       // an unreadable plan adds no question
     }
   }
-  return { batchesWaiting: waiting.length, unknownQuestions: unknown.size, finishYourself: batches.reduce((n, b) => n + (b.finishYourself?.length ?? 0), 0) };
+  const items = (kind) => waiting.filter((b) => (kind === 'apply' ? b.kind === 'apply' : b.kind !== 'apply')).reduce((n, b) => n + b.items.length, 0);
+  return {
+    batchesWaiting: waiting.length, jobsWaiting: items('apply'), messagesWaiting: items('outreach'), unknownQuestions: unknown.size, questions: [...unknown.values()],
+    finishYourself: batches.reduce((n, b) => n + (b.finishYourself?.length ?? 0), 0),
+  };
 }
 
 export const setupComplete = (state) => Boolean(state.installed && state.interview && state.resume && state.chrome && state.schedule && SIGN_IN_SITES.every((s) => state.signins?.[s]));
