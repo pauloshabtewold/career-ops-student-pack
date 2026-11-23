@@ -39,17 +39,23 @@ function parseTime(time) {
 
 export const PAUSE_FILE = '.schedule-paused';
 
-// Creates or removes the pause file for the pause and resume commands.
-export function pauseCommand(command, dataDir) {
+// Creates or removes the pause file for the pause and resume commands, each with its Next / Type / Why lines. installed()
+// says whether a schedule job exists (main passes a real check; a caller without one skips it): resume with nothing
+// installed says so and points to install.
+export function pauseCommand(command, dataDir, { installed = () => true, say = (l) => console.log(l) } = {}) {
   const file = join(dataDir, PAUSE_FILE);
   if (command === 'pause') {
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(file, `${new Date().toISOString()}\n`);
-    console.log('schedule paused: scheduled runs start nothing until node student/scripts/schedule.mjs resume');
-  } else {
-    rmSync(file, { force: true });
-    console.log('schedule resumed: the next scheduled run catches up once');
+    for (const l of ['schedule paused: the installed schedule stays, and scheduled runs start nothing until you resume', 'Next: nothing runs until you resume', 'Type: resume my schedule', 'Why: pausing keeps your schedule; resuming catches up once on the next run.']) say(l);
+    return 0;
   }
+  rmSync(file, { force: true });
+  if (!installed()) {
+    for (const l of ['schedule resumed, but no schedule is installed, so nothing runs on its own yet', 'Next: turn on the daily schedule', 'Type: turn on my daily schedule', 'Why: I\'ll run node student/scripts/schedule.mjs install, approve?']) say(l);
+    return 0;
+  }
+  for (const l of ['schedule resumed: the next scheduled run catches up once', 'Next: let the next scheduled run go', 'Type: check my schedule', 'Why: the check proves the installed job starts and each step passes.']) say(l);
   return 0;
 }
 
@@ -404,7 +410,10 @@ function verify({ platform, paths, time }) {
 async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2), { commands: ['install', 'remove', 'status', 'verify', 'pause', 'resume'], flags: { time: 'string', replace: 'boolean' } });
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
-  if (command === 'pause' || command === 'resume') return pauseCommand(command, paths.dataDir);
+  if (command === 'pause' || command === 'resume') {
+    const platform = process.platform === 'win32' ? 'win32' : 'darwin';
+    return pauseCommand(command, paths.dataDir, { installed: () => Boolean(readJob({ platform })) });
+  }
   if (command === 'install' && !flags.dryRun) assertOwnRoot(paths.root, paths.packRoot);
   // remove must work when config/student.yml is broken: a student who cannot fix it still needs the schedule gone.
   const config = command === 'remove' ? null : await loadStudentConfig({ root: paths.root });

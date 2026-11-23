@@ -144,6 +144,28 @@ function recentMatchedTexts(dataDir, nowMs) {
   return texts;
 }
 
+// data/.digest-mark is "<date>\t<written at>\t<written at on the day before>": when the last digest was written, so the
+// next day's digest can count submits made after it (the autopilot submits after the day's digest).
+const DIGEST_MARK = '.digest-mark';
+
+function readMark(dataDir, today) {
+  const [date = '', at = '', before = ''] = readIf(join(dataDir, DIGEST_MARK)).trim().split('\t');
+  return { since: Date.parse(date === today ? before : at), at, date };
+}
+
+function writeMark(dataDir, today) {
+  const mark = readMark(dataDir, today);
+  const before = mark.date === today ? readIf(join(dataDir, DIGEST_MARK)).trim().split('\t')[2] ?? '' : mark.at;
+  writeFileSync(join(dataDir, DIGEST_MARK), `${today}\t${new Date().toISOString()}\t${before}\n`);
+}
+
+// Today's submits plus earlier-day submits made after the last digest of an earlier day, so autopilot submits count in
+// the next digest instead of on no day at all.
+function appliedSinceLastDigest(actions, dataDir, today) {
+  const { since } = readMark(dataDir, today);
+  return actions.filter((r) => SEND_ACTIONS.has(r.action) && (r.date === today || (Number.isFinite(since) && r.date < today && r.ms > since))).length;
+}
+
 // The code-built summary (lib/digest.mjs). Any read failure becomes one line; the run never fails on it. Steps waiting
 // for Chrome are appended by the autopilot, which knows whether Chrome was reached.
 async function digestSummary({ root, dataDir, today, nowMs, config, limits }) {
@@ -152,7 +174,7 @@ async function digestSummary({ root, dataDir, today, nowMs, config, limits }) {
     const state = await outreachState(dataDir, nowMs);
     const sunday = isSunday(today);
     return summaryLines({
-      applied: actions.filter((r) => SEND_ACTIONS.has(r.action) && r.date === today).length,
+      applied: appliedSinceLastDigest(actions, dataDir, today),
       outreach: { ...weeklySentBy(actions, nowMs), connectLimit: limits.connect_per_rolling_7d },
       replies: state.due.filter((d) => d.action === 'reply' || d.action === 'referral-ask').length,
       missed: readIf(join(dataDir, MISSED_FILE)).trim() || null,
@@ -190,6 +212,7 @@ function writeDigest({ dataDir, today, results, notes, flags = [], summary = [] 
   ].join('\n');
   mkdirSync(join(dataDir, 'digest'), { recursive: true });
   writeFileSync(join(dataDir, 'digest', `student-${today}.md`), digest);
+  writeMark(dataDir, today);
   return failed.length;
 }
 

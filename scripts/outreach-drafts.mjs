@@ -106,7 +106,7 @@ export function placeholderValues(job) {
   return {
     first_name: first,
     company: String(job.contact?.company ?? '').trim(),
-    title: String(job.application?.title ?? '').trim(),
+    title: plainTitle(job.application?.title),
     applied_date: date ? `${MONTHS[date.mo - 1]} ${date.d}, ${date.y}` : '',
   };
 }
@@ -697,6 +697,20 @@ function writeDraftsFile(dataDir, today, drafts) {
   return file;
 }
 
+// Keys (company, target, action) of items on outreach batches that still wait for approval.
+function waitingKeys(dataDir) {
+  const keys = new Set();
+  for (const id of listBatches(dataDir)) {
+    const b = readBatch(dataDir, id);
+    if (b?.kind !== 'outreach' || b.approved) continue;
+    for (const it of b.items ?? []) keys.add(`${lower(it.company)}|${lower(it.target)}|${it.action}`);
+  }
+  return keys;
+}
+const jobKey = (j) => `${lower(j.contact?.company ?? j.application?.company)}|${lower(j.application?.target ?? j.contact?.name)}|${j.action}`;
+
+// deps.skipWaiting (the autopilot's --skip-waiting): a due item already on an outreach batch waiting for approval is not
+// drafted again, so an unattended day does not pay for the same drafts twice.
 export async function outreachDrafts({ paths, today, replies = [], deps = {}, say = console.log }) {
   const config = (await loadStudentConfig({ root: paths.root })) ?? {};
   const nowMs = deps.nowMs ?? createClock({ today, timezone: config.timezone }).now().getTime();
@@ -716,7 +730,10 @@ export async function outreachDrafts({ paths, today, replies = [], deps = {}, sa
   const candidate = readCandidate(paths);
   const cv = readCv(paths.root);
   const signature = signatureOf(candidate, cv);
-  const jobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })].map((j) => ({ ...j, signature }));
+  const allJobs = [...contactJobs, ...draftJobs({ due: [], followups: resolved.filter((f) => f.email), t6On })].map((j) => ({ ...j, signature }));
+  const waiting = deps.skipWaiting ? waitingKeys(paths.dataDir) : new Set();
+  const jobs = allJobs.filter((j) => !waiting.has(jobKey(j)));
+  if (allJobs.length > jobs.length) say(`outreach-drafts: ${allJobs.length - jobs.length} already waiting for your approval; not drafted again`);
   const sorted = mode === 'off' ? [] : sortedOut(replies, t6On);
   if (mode === 'off') say('outreach-drafts: outreach is off; no contact outreach drafted');
   const digest = readDigest(paths.root);
@@ -817,7 +834,7 @@ const FOLLOWUP_USAGE = ['usage: outreach-drafts.mjs --followup-to <application u
 
 export async function main(argv = process.argv.slice(2)) {
   // This script takes no command, so the word parseArgs reads as one (the email after --followup-to) is a positional.
-  const { command, flags, positionals: rest } = parseArgs(argv, { flags: { replies: 'string', 'followup-to': 'string' } });
+  const { command, flags, positionals: rest } = parseArgs(argv, { flags: { replies: 'string', 'followup-to': 'string', source: 'string', 'skip-waiting': 'boolean' } });
   const positionals = command === null ? rest : [command, ...rest];
   const paths = resolvePaths({ root: flags.root, dataDir: flags.dataDir });
   const config = await loadStudentConfig({ root: paths.root }).catch(() => null);
@@ -829,7 +846,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
   if (positionals.length) throw new UsageError('too many arguments');
   const replies = flags.replies && existsSync(flags.replies) ? JSON.parse(readFileSync(flags.replies, 'utf8')) : [];
-  await outreachDrafts({ paths, today, replies });
+  await outreachDrafts({ paths, today, replies, deps: { ...(flags.source ? { source: flags.source } : {}), skipWaiting: Boolean(flags.skipWaiting) } });
   return 0;
 }
 

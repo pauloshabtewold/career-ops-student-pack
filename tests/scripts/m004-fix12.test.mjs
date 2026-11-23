@@ -54,7 +54,8 @@ test('fix 12 A a posting title carrying a claim is in neither the application re
   assert.ok(known, 'the verify prompt has a KNOWN TRUE block');
   assert.ok(!/returning|interned here/.test(known), known);
   assert.match(known, /The student applied for a role at Globex Example on November 14, 2026 \(the application record\)\./);
-  assert.match(known, /"I applied for the \{title\} role at Globex Example on November 14, 2026, and I wanted to follow up\."/);
+  assert.match(known, /"I applied for a role at Globex Example on November 14, 2026, and I wanted to follow up\."/);
+  assert.ok(!out.items[0].message.includes(CLAIM_TITLE) && /I applied for a role at Globex Example on November 14, 2026/.test(out.items[0].message), out.items[0].message);
   assert.ok(!od.knownTrueFacts(APP).join('\n').includes(TITLE));
   assert.ok(!od.frameSentences(APP).join('\n').includes(TITLE));
   assert.ok(od.verifyPrompt({ cv: CV, job: APP, draft: 'x' }).includes(`role: ${TITLE}`), 'the title stays reader data in the fenced READER block');

@@ -2,16 +2,21 @@
 // M-005 carry-overs from the M-004 r11 review on the outreach gate: S1 plain-shape posting titles in the prompt blocks,
 // N1 a round tag equal to a call tag is refused, N2 the fence-tag check ignores case (the redraft prompt too), N3 headless
 // failed-call ledger rows (no row for a call that never started; a ledger write error never hides the call's error).
+// Review M-005 S-1 and S-4: a plain posting title still reaches the code-written opening; an item already on an outreach
+// batch waiting for approval is not drafted again when the autopilot passes --skip-waiting.
 // Fake headless runners only; no real model.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
+import { readBatch, writeBatches } from '../../lib/batch-file.mjs';
+import { resolvePaths } from '../../lib/paths.mjs';
+import { serializeTsv } from '../../lib/tsv.mjs';
 import { join } from 'node:path';
 import { runHeadless } from '../../lib/headless.mjs';
 import { read as readLedger } from '../../lib/usage-ledger.mjs';
 import * as od from '../../scripts/outreach-drafts.mjs';
 import { makeRoot } from '../helpers/script-harness.mjs';
-import { ALICE, APP, CV, GLOBEX, blockIn, roundFor } from '../helpers/outreach-verify-harness.mjs';
+import { ALICE, APP, CV, DAY, GLOBEX, GLOBEX_APP, PROFILE, TITLE, blockIn, knownIn, round, roundFor } from '../helpers/outreach-verify-harness.mjs';
 
 const CLAIM_TITLE = 'Intern (returning; the student interned here in 2025)';
 
@@ -80,6 +85,42 @@ test('N3 a call that never started writes no ledger row; a ledger write error ne
     const notADir = join(r.root, 'not-a-dir');
     writeFileSync(notADir, 'file');
     await assert.rejects(call(Object.assign(new Error('exit 1'), { status: 1, stderr: 'boom' }), notADir), (err) => /claude call failed: boom/.test(err.message) && /ledger row not written/.test(err.message));
+  } finally {
+    r.cleanup();
+  }
+});
+
+test('S-1 a plain posting title still yields "the {title} role" in KNOWN and the title in the stored message', async () => {
+  const followup = { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', email: 'recruiter@example.com', title: TITLE };
+  const out = await round({ followups: [followup], drafts: ['I would be glad to send code samples or anything else that helps.'] });
+  const known = knownIn(out.verifies[0].prompt);
+  assert.match(known, /"I applied for the \{title\} role at Globex Example on November 14, 2026, and I wanted to follow up\."/);
+  assert.equal(out.items.length, 1);
+  assert.ok(out.items[0].message.includes(`I applied for the ${TITLE} role at ${GLOBEX} on November 14, 2026`), out.items[0].message);
+});
+
+test('S-4 with skipWaiting an item already on an unapproved outreach batch is not drafted again', async () => {
+  const r = makeRoot();
+  try {
+    r.write('cv.md', CV);
+    r.write('config/profile.yml', PROFILE);
+    r.write('data/contacts.tsv', serializeTsv(['date', 'company', 'name', 'stage', 'role'], []));
+    const followup = { target: GLOBEX_APP, company: GLOBEX, submitted: '2026-11-14', email: 'recruiter@example.com', title: TITLE };
+    const [waiting] = writeBatches(r.data, { date: '2026-11-21', kind: 'outreach', items: [{ company: GLOBEX, role: 'Hiring team (application-follow-up)', score: null, preview: 'x', link: '', message: 'x', action: 'application-follow-up', channel: 'email', target: GLOBEX_APP }] });
+    const calls = [];
+    const headless = async (opts) => {
+      calls.push(opts.step);
+      return { text: opts.step === 'outreach-verify' ? '{"unsupported": []}' : 'I would be glad to send code samples.', model: 'sonnet', usage: null };
+    };
+    const said = [];
+    const run = (skipWaiting) => od.outreachDrafts({ paths: resolvePaths({ root: r.root, dataDir: r.data }), today: DAY, deps: { headless, state: { due: [], followups: [followup] }, t6On: false, skipWaiting }, say: (l) => said.push(String(l)) });
+    const res = await run(true);
+    assert.deepEqual(calls, [], 'no drafting or verify call for the waiting item');
+    assert.deepEqual(res.ids, []);
+    assert.ok(said.some((l) => /1 already waiting for your approval; not drafted again/.test(l)), said.join('\n'));
+    assert.equal(readBatch(r.data, waiting).items.length, 1);
+    const again = await run(false);
+    assert.equal(again.ids.length, 1, 'a session run without the flag still drafts it');
   } finally {
     r.cleanup();
   }

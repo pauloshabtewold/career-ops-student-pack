@@ -20,7 +20,7 @@ import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { resolveAgentPath, AGENT_TIMEOUT_MS } from '../lib/agent.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
-import { lastSuccess, missedLine, missedSlots, readRuns, recordRun } from '../lib/run-ledger.mjs';
+import { lastSuccess, missedLine, missedSlots, pausedDates, readRuns, recordRun } from '../lib/run-ledger.mjs';
 import { oneLine, stepErrorText } from '../lib/text.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
@@ -38,12 +38,13 @@ const agentFlagsFor = ({ agent, agentPath, claude }) => (agentPath ? ['--agent',
 
 export const MISSED_FILE = '.missed-runs.txt';
 
-// Writes the missed-slots line the digest reads, or removes a stale one; a first run has nothing missed. A ledger that
-// cannot be read counts as nothing missed, so the run itself still goes ahead.
+// Writes the missed-slots line the digest reads, or removes a stale one; a first run has nothing missed and days recorded
+// as paused are never missed runs. A ledger that cannot be read counts as nothing missed, so the run itself still goes ahead.
 async function catchUp({ dataDir, config, kind, start, out }) {
   const file = join(dataDir, MISSED_FILE);
   try {
-    const missed = missedSlots({ lastSuccess: lastSuccess(await readRuns(dataDir), kind), now: new Date(start), tz: config?.timezone, kind });
+    const rows = await readRuns(dataDir);
+    const missed = missedSlots({ lastSuccess: lastSuccess(rows, kind), now: new Date(start), tz: config?.timezone, kind, skip: pausedDates(rows, config?.timezone) });
     const line = missedLine(missed);
     if (line) writeFileSync(file, `${line}\n`);
     else rmSync(file, { force: true });
@@ -58,21 +59,30 @@ async function catchUp({ dataDir, config, kind, start, out }) {
 export async function scheduledRun({ root, packRoot, passThrough, agent, agentPath, claude, dataDir = resolvePaths({ root }).dataDir, today, runner = defaultRunner, out = (s) => console.log(s) }) {
   if (existsSync(join(dataDir, PAUSE_FILE))) {
     out('scheduled: paused (node student/scripts/schedule.mjs resume turns it back on)');
+    // The paused day is recorded so the next run does not list it as a missed run.
+    const now = new Date().toISOString();
+    await recordRun(dataDir, { start: now, end: now, kind: 'daily', status: 'paused' }).catch(() => {});
     return 0;
   }
   const start = new Date().toISOString();
   mkdirSync(dataDir, { recursive: true });
   const early = await loadStudentConfig({ root }).catch(() => null);
   await catchUp({ dataDir, config: early, kind: 'daily', start, out });
+  let ran = 0;
+  let failed = 0;
   const child = (script, extra = [], timeout = CHILD_TIMEOUT_MS) => {
+    ran++;
     try {
       const text = runner(process.execPath, [join(packRoot, 'scripts', script), ...extra, ...passThrough], { cwd: root, timeout });
       if (String(text).trim()) out(String(text).trimEnd());
     } catch (err) {
+      failed++;
       out(`scheduled: ${script} stopped (${stepErrorText(err)})`);
     }
   };
   child('daily.mjs', ['--via-scheduled']);
+  // The digest has read the missed runs; a later manual daily run must not repeat them.
+  rmSync(join(dataDir, MISSED_FILE), { force: true });
   let config = null;
   try {
     config = await loadStudentConfig({ root });
@@ -92,7 +102,8 @@ export async function scheduledRun({ root, packRoot, passThrough, agent, agentPa
   // every Chrome step depends on that answer; before then the schedule runs the discovery and triage steps only.
   if (config && config.automation !== 'manual' && ['yes', 'no'].includes(config.chrome_in_schedule)) child('autopilot.mjs');
   try {
-    await recordRun(dataDir, { start, end: new Date().toISOString(), kind: 'daily', status: 'ok' });
+    // A run whose every step stopped is not a success, so the next run lists this day as missed.
+    await recordRun(dataDir, { start, end: new Date().toISOString(), kind: 'daily', status: ran && failed === ran ? 'failed' : 'ok' });
   } catch (err) {
     out(`scheduled: run not recorded (${oneLine(err.message)})`);
   }
