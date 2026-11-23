@@ -233,7 +233,7 @@ test('M-007-fix5-N5-5a inside the application form a type=button or untyped butt
     el('form', { id: 'application_form' }, [input('first_name'), input('last_name'), input('email', 'email'), input('phone', 'tel'), el('input', { id: 'submit_app', type: 'button', value: 'Submit Application' })]),
   ]);
   assert.equal(classic.form, '#application_form', JSON.stringify(classic));
-  assert.equal(classic.submit, '#submit_app');
+  assert.equal(classic.submit, null, 'rule v3 item 7: the resume upload sits outside the form read, so no submit is saved');
   const typed = await read([el('form', { id: 'gh' }, [input('first_name'), input('email', 'email'), input('resume', 'file'), btn('apply_btn', 'button', 'Apply'), btn('real', 'submit', 'Submit application')])]);
   assert.equal(typed.submit, '#real', 'an explicit type=submit still wins');
   const linky = await read([el('form', { id: 'gh' }, [input('first_name'), input('email', 'email'), input('resume', 'file'), btn('li', 'button', 'Apply with LinkedIn')])]);

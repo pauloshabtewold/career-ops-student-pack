@@ -228,6 +228,7 @@ async function submitApproved({ paths, today, child, tally }) {
   const done = submittedLinks(paths.dataDir, await readActionLog(join(paths.dataDir, 'action-log.tsv')));
   let submitted = 0;
   let olderFinish = 0;
+  let finishCount = 0;
   const notes = [];
   const wait = (line) => {
     tally.fillWaiting++;
@@ -243,6 +244,7 @@ async function submitApproved({ paths, today, child, tally }) {
     // A job on finish these yourself is the student's now: it is neither filled nor submitted again. It is named in full
     // for FINISH_FULL_DAYS after it was added, then counted in one line, since approvals never expire.
     if (it.finish) {
+      finishCount++;
       if (it.finishAdded && daysBetween(it.finishAdded, today) >= FINISH_FULL_DAYS) olderFinish++;
       else notes.push(`${name} not submitted: finish these yourself: ${it.finish} (${it.link})`);
       continue;
@@ -280,7 +282,7 @@ async function submitApproved({ paths, today, child, tally }) {
     }
   }
   if (olderFinish) notes.push(`${olderFinish} older jobs to finish yourself: type ${FINISH_REPLY}`);
-  return [`submitted ${submitted} of ${items.length} approved item(s)`, ...notes];
+  return [`submitted ${submitted} of ${items.length - finishCount} approved item(s)`, ...notes];
 }
 
 // Gmail list rows with their thread ids (the legacy hex id, or the decimal thread-f id turned into hex) and row text.

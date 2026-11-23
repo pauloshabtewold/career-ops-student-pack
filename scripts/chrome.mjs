@@ -582,7 +582,7 @@ const FORM_POLL_MS = 500;
 
 async function readFormPage(client, sessionId, wait) {
   let read = await readApplicationForm(client, sessionId);
-  for (let waited = 0; !read.fields.length && waited < FORM_WAIT_MS; waited += FORM_POLL_MS) {
+  for (let waited = 0; !read.fields.length && !read.account && waited < FORM_WAIT_MS; waited += FORM_POLL_MS) {
     await wait(FORM_POLL_MS);
     read = await readApplicationForm(client, sessionId);
   }
@@ -606,7 +606,8 @@ async function postingText(client, url, sessionId) {
 }
 
 // Reads the application form at url in a new tab and closes it again: read-only, it never types, clicks or submits. A
-// visible CAPTCHA or bot check, or a password field (a sign-in or account page), stops it before the fields are read.
+// visible CAPTCHA or bot check, or a password field (a sign-in or create-account page, including one whose form does not
+// qualify), stops it before the fields are read.
 // The page opened is the posting's form page (formUrl). The posting's job text is read only when opts.jobText is true
 // (no text is saved for it yet). Returns { fields, form?, submit?, jobText? } (form and submit name the form read and
 // its button) or { stop: 'captcha', detail }, { stop: 'password' } or { stop: 'empty' }. opts.wait(ms) paces the poll.
@@ -617,7 +618,7 @@ export async function readForm(client, url, { jobText = true, wait = sleep } = {
     if (captcha) return { stop: 'captcha', detail: captcha };
     const read = await readFormPage(client, sessionId, wait);
     const { fields } = read;
-    if (fields.some(isPasswordField)) return { stop: 'password' };
+    if (read.account || fields.some(isPasswordField)) return { stop: 'password' };
     if (!fields.length) return { stop: 'empty' };
     const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null } : {};
     const text = jobText ? await postingText(client, url, sessionId) : '';
@@ -658,7 +659,7 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
     return EXIT.captcha;
   }
   if (res.stop === 'password') {
-    say(`chrome: blocked-on-user: ${siteOf(flags.url)} shows a password field (a sign-in or account page); sign-ins stay with you, nothing was typed. Read the form again once you are signed in.`);
+    say(`chrome: blocked-on-user: ${siteOf(flags.url)} asks for a password (a sign-in or a new account); signing in and creating the account stay with you, nothing was typed or saved. Next step: sign in or create the account on that page in the automation Chrome yourself, then type: apply. The next run reads this form again, since a sign-in page does not count as an empty read.`);
     return EXIT.needsUser;
   }
   if (res.stop === 'empty') {
