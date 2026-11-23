@@ -171,11 +171,14 @@ async function clickWith(ctx, extra) {
 const searchHeader = () => el('header', {}, [el('form', { id: 'search' }, [input('q'), btn('go', 'submit', 'Search')])]);
 
 // M-007-fix5-N5-2a
-test('M-007-fix5-N5-2a a plan with no saved form never clicks the header Search button; it clicks the submit of the form holding its fields', async () => {
-  const ctx = domCtx([searchHeader(), el('main', {}, [el('form', { id: 'app' }, [input('first_name'), input('email', 'email'), btn('send', 'submit', 'Submit application')])])]);
-  const res = await clickWith(ctx, {});
-  assert.ok(!res.clicked.includes('go'), `the header Search button is never clicked: ${JSON.stringify(res)}`);
-  assert.deepEqual(res.clicked, ['send']);
+test('M-007-fix5-N5-2a the header Search button is never clicked: a plan with no saved form is a stale read (fix8 N7-1), and a plan with its saved form clicks that form\'s submit', async () => {
+  const ctx = () => domCtx([searchHeader(), el('main', {}, [el('form', { id: 'app' }, [input('first_name'), input('email', 'email'), btn('send', 'submit', 'Submit application')])])]);
+  const legacy = await clickWith(ctx(), {});
+  assert.equal(legacy.state, 'stale-read', JSON.stringify(legacy));
+  assert.deepEqual(legacy.clicked, [], `nothing is clicked: ${JSON.stringify(legacy)}`);
+  const scoped = await clickWith(ctx(), { formSelector: '#app', submitSelector: '#send' });
+  assert.ok(!scoped.clicked.includes('go'), `the header Search button is never clicked: ${JSON.stringify(scoped)}`);
+  assert.deepEqual(scoped.clicked, ['send']);
 });
 
 // M-007-fix5-N5-2b

@@ -111,6 +111,56 @@ const classicGh = () => [
 ];
 const guided = (text) => ['Next:', 'Type:', 'Why:'].every((w) => text.includes(w));
 
+// A fake tab client for clickSubmit on classic Greenhouse markup: every page check passes, and any click is recorded.
+function legacyTab() {
+  const clicks = [];
+  const send = async (method, params = {}) => {
+    if (method === 'Target.attachToTarget') return { sessionId: 'S1' };
+    if (method !== 'Runtime.evaluate') return {};
+    const e = String(params.expression);
+    if (e.includes('.click()')) { clicks.push(e); return { result: { value: true } }; }
+    if (e.includes('location.href')) return { result: { value: GH } };
+    if (e.includes('const forFields')) return { result: { value: '#submit_app' } };
+    return { result: { value: null } };
+  };
+  return { client: { send, waitFor: () => Object.assign(Promise.resolve({}), { cancel: () => {} }), close: () => {}, opened: Promise.resolve() }, clicks };
+}
+
+// M-007-fix8-N7-1
+test('M-007-fix8-N7-1 a plan with no formSelector key is a stale read: 0 clicks, 0 budget calls, exit 3, finish these yourself', async () => {
+  const r = scratch();
+  try {
+    const made = await fillPlan.fillPlans({ paths: r.paths, rows: [{ url: GH, company: 'Example Robotics', title: 'Software Engineering Intern', score: 41, triage: 3.8, jobText: POSTING }], today: TODAY, deps: planDeps(r, [], { fieldsFor: () => FIELDS }), say: () => {} });
+    const id = made.ids[0];
+    const planFile = readBatch(r.dataDir, id).items[0].plan;
+    const legacy = JSON.parse(readFileSync(planFile, 'utf8'));
+    assert.equal('formSelector' in legacy, false, 'a plan from a bare-list read has no formSelector key');
+    writeFileSync(planFile, JSON.stringify({ ...legacy, tab: { targetId: 'T1', url: GH, sentinel: { selector: '#email', value: 'jordan.testwell@example.com' } } }));
+    await appendTsv(join(r.dataDir, 'action-log.tsv'), LOG_HEADER, [logRow({ ts: `${TODAY}T18:00:00.000Z`, action: 'batch.approve', approval: 'approve all', detail: `batch=${id};items=1` })]);
+    updateBatch(r.dataDir, id, (b) => ({ ...b, approved: { items: [1], words: 'approve all' } }));
+    const budget = [];
+    const lines = [];
+    const code = await chrome.main(['submit', '--batch-id', id, '--item', '1', '--root', r.root, '--data-dir', r.dataDir], {
+      say: (l) => lines.push(String(l)),
+      runner: (cmd, args) => (budget.push(args.slice(1, 3).join(' ')), { code: 0, stdout: 'ok', stderr: '' }),
+    });
+    const text = lines.join('\n');
+    assert.equal(code, chrome.EXIT.refused, text);
+    assert.deepEqual(budget, [], `no budget call: ${JSON.stringify(budget)}`);
+    assert.match(text, /nothing was clicked/, text);
+    const finish = readBatch(r.dataDir, id).finishYourself ?? [];
+    assert.ok(finish.some((f) => f.link === GH && f.reason === 'saved form read is too old; read the form again'), `finish these yourself: ${JSON.stringify(finish)}`);
+    const tab = legacyTab();
+    const pending = [];
+    const res = await chrome.clickSubmit(tab.client, { plan: { ...legacy, planFile, tab: { targetId: 'T1', url: GH } }, paths: r.paths, item: 1, runner: (cmd, args) => (pending.push(args), { code: 0, stdout: '', stderr: '' }), wait: async () => {} });
+    assert.equal(res.state, 'stale-read', JSON.stringify(res));
+    assert.deepEqual(tab.clicks, [], 'clickSubmit clicks nothing');
+    assert.deepEqual(pending, [], 'no apply.pending row');
+  } finally {
+    r.cleanup();
+  }
+});
+
 // M-007-fix8-N7-2-read
 test('M-007-fix8-N7-2-read a rule 7 read says uploadOutside, and the saved read keeps it', async () => {
   const res = await read(classicGh());

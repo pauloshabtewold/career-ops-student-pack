@@ -25,7 +25,7 @@ async function approvedPlan(plan) {
   const [id] = writeBatches(dataDir, { date: '2026-11-03', kind: 'apply', items: [{ company: 'Example Robotics', role: 'Intern', score: 4.1, preview: 'Fake.', link: LINK }] });
   const file = join(dataDir, 'fill-plans', id, '1.json');
   mkdirSync(join(dataDir, 'fill-plans', id), { recursive: true });
-  writeFileSync(file, JSON.stringify({ batchId: id, item: 1, url: LINK, link: LINK, company: 'Example Robotics', role: 'Intern', score: 4.1, ...plan }));
+  writeFileSync(file, JSON.stringify({ batchId: id, item: 1, url: LINK, link: LINK, company: 'Example Robotics', role: 'Intern', score: 4.1, formSelector: '#application_form', submitSelector: '#submit_app', ...plan }));
   updateBatch(dataDir, id, (b) => ({ ...b, items: b.items.map((it) => ({ ...it, plan: file })) }));
   await appendTsv(join(dataDir, 'action-log.tsv'), LOG_HEADER, [row({ ts: '2026-11-03T18:00:00.000Z', action: 'batch.approve', approval: 'approve all', detail: `batch=${id};items=1` })]);
   return { root, dataDir, id, cleanup: () => rmSync(root, { recursive: true, force: true }) };

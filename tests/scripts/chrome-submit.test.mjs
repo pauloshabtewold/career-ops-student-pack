@@ -68,8 +68,6 @@ function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.te
     if (e.includes('grecaptcha-badge')) return { result: { value: captcha } };
     if (e.includes("el.type === 'file'")) return { result: { value: fieldValue } };
     if (e.includes('autocomplete: (el.autocomplete')) return { result: { value: { tag: 'button', type: 'submit', autocomplete: '' } } };
-    // The plan names no form, so submit looks for the submit of the form holding its fields, then checks that button.
-    if (e.includes('forFields')) return { result: { value: '#send' } };
     if (e.includes('formHasField')) return { result: { value: { typed: true, text: 'Submit application', inForm: true, formHasField: true } } };
     return { result: { value: true } };
   };
@@ -85,7 +83,7 @@ const fakeRunner = (codes = {}) => {
   return { run, calls };
 };
 
-const plan = (d, tab) => ({ batchId: 'b1', item: 1, url: 'https://x.test/form', link: 'https://x.test/form', company: 'Example Robotics', role: 'Intern', planFile: join(d, '1.json'), tab, fields: [{ selector: '#first_name', type: 'text' }] });
+const plan = (d, tab) => ({ batchId: 'b1', item: 1, url: 'https://x.test/form', link: 'https://x.test/form', company: 'Example Robotics', role: 'Intern', planFile: join(d, '1.json'), tab, formSelector: '#apply_form', submitSelector: '#send', fields: [{ selector: '#first_name', type: 'text' }] });
 const TAB = { targetId: 'T1', url: 'https://x.test/form', sentinel: { selector: '#first_name', value: 'Jordan' } };
 const noWait = async () => {};
 
@@ -252,7 +250,7 @@ function vmTab({ before, after }) {
     get body() {
       return { innerText: state.page.text };
     },
-    querySelector: (sel) => (sel === '#first_name' ? field('Jordan') : sel === '#send' ? (state.page.button === false ? null : button) : null),
+    querySelector: (sel) => (sel === '#first_name' ? field('Jordan') : sel === '#apply_form' ? form : sel === '#send' ? (state.page.button === false ? null : button) : null),
     querySelectorAll: (sel) => {
       if (sel === 'input[type=password]') return Array.from({ length: state.page.password }, () => ({}));
       if (sel === 'input, select, textarea') return state.page.invalid.map((name) => ({ name, id: '', disabled: false, type: 'text', matches: () => true, getAttribute: () => null, closest: () => null }));

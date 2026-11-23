@@ -24,8 +24,8 @@ function evaluatePage(expr) {
     return empty.length ? { state: 'invalid', detail: empty.join('; ') } : { state: 'confirmed', detail: 'confirmation text' };
   }
   if (expr.includes('return signs; })()')) return { confirm: 0, signin: 0, password: 0 };
-  // A plan with no saved form: the submit of the form holding the filled fields is #submit, a typed submit in that form.
-  if (expr.includes('forFields')) return s.submitButton ? SUBMIT : null;
+  // The saved form #application_form holds the typed submit #submit and the filled fields.
+  if (expr.includes('f.contains(el)') && expr.includes('#application_form')) return s.submitButton && sel === '#application_form';
   if (expr.includes('formHasField')) return s.submitButton && sel === SUBMIT ? { typed: true, text: 'Submit application', inForm: true, formHasField: true } : null;
   if (expr.includes("'captcha frame'")) return null;
   if (expr.includes('getOwnPropertyDescriptor')) {

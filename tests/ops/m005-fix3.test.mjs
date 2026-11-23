@@ -36,7 +36,7 @@ async function realChildrenRun(plan, present) {
     mkdirSync(join(r.data, 'fill-plans', id), { recursive: true });
     const resume = join(r.data, 'resume.pdf');
     writeFileSync(resume, 'fake pdf');
-    writeFileSync(planFile, JSON.stringify({ company: 'Fake Co', role: 'Analyst', url: LINK, link: LINK, score: 4.5, batchId: id, item: 1, unknown: [], uploads: [], ...plan(resume) }));
+    writeFileSync(planFile, JSON.stringify({ company: 'Fake Co', role: 'Analyst', url: LINK, link: LINK, score: 4.5, batchId: id, item: 1, unknown: [], uploads: [], formSelector: '#application_form', submitSelector: '#submit', ...plan(resume) }));
     updateBatch(r.data, id, (b) => ({ ...b, items: b.items.map((it) => ({ ...it, plan: planFile })) }));
     await appendTsv(join(r.data, 'action-log.tsv'), LOG_HEADER, [row({ ts: `${YESTERDAY}T20:00:00.000Z`, action: 'batch.approve', approval: 'approve all', detail: `batch=${id};items=1` })]);
     writeFileSync(join(r.data, STATE_FILE), JSON.stringify({ pid: process.pid, port: 9 }));
