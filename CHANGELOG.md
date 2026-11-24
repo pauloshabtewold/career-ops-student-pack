@@ -4,6 +4,10 @@ One section per pack release, newest first. The release workflow writes each sec
 
 ## Unreleased
 
+## v0.13.1 (2026-11-23)
+
+- Merge branch 'claude/ci-pin'
+
 ## v0.13.0 (2026-11-23)
 
 - M-007 live test: G11 PASS from the Windows CI run on 6486c00 (30 PASS, 1 FAIL)
