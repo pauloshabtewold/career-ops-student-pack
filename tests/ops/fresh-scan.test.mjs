@@ -330,3 +330,49 @@ test('fresh-scan linkedinJobs resolves a classic card title cut to 60 characters
     ],
   );
 });
+
+test('fresh-scan linkedinJobs resolves classic cards in link order, so two cards with one title or one 60-character prefix keep their own title and company and splitNew keeps both', async () => {
+  const { linkedinJobs, splitNew } = await import('../../scripts/fresh-scan.mjs');
+  const cut = (title) => `${title} ${title} with verification`.slice(0, 60).trim();
+  const PHD = 'Machine Learning Engineer Intern (Knowledge Graph) - 2027 Start (PhD)';
+  const BSMS = 'Machine Learning Engineer Intern (Knowledge Graph) - 2027 Start (BS/MS)';
+  assert.equal(cut(PHD), cut(BSMS), 'the two titles share their first 60 characters');
+  const page = [
+    'Software Engineer Intern',
+    'Software Engineer Intern with verification',
+    'Acme Robotics',
+    'Austin, TX',
+    'Software Engineer Intern',
+    'Software Engineer Intern with verification',
+    'Beta Labs',
+    'Denver, CO',
+    PHD,
+    `${PHD} with verification`,
+    'Example Media',
+    'San Jose, CA',
+    BSMS,
+    `${BSMS} with verification`,
+    'Example Media',
+    'San Jose, CA',
+    '',
+  ];
+  const jobs = linkedinJobs([
+    ...page,
+    '[1] Software Engineer Intern Software Engineer Intern with verification -> https://www.linkedin.com/jobs/view/4434210024/',
+    '[2] Software Engineer Intern Software Engineer Intern with verification -> https://www.linkedin.com/jobs/view/4459777883/',
+    `[3] ${cut(PHD)} -> https://www.linkedin.com/jobs/view/4490435027/`,
+    `[4] ${cut(BSMS)} -> https://www.linkedin.com/jobs/view/4466964573/`,
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: 'Software Engineer Intern', company: 'Acme Robotics' },
+      { url: LI(4459777883), title: 'Software Engineer Intern', company: 'Beta Labs' },
+      { url: LI(4490435027), title: PHD, company: 'Example Media' },
+      { url: LI(4466964573), title: BSMS, company: 'Example Media' },
+    ],
+  );
+  const split = splitNew(jobs, { seen: new Set(), pipelineRows: [] });
+  assert.deepEqual(split.fresh.map((j) => j.url), [LI(4434210024), LI(4459777883), LI(4490435027), LI(4466964573)]);
+  assert.deepEqual(split.repeats, []);
+});

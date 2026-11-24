@@ -62,8 +62,8 @@ export function boardsFrom(portalsText) {
 
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d ?? '');
 const knownCompany = (c) => Boolean(String(c ?? '').trim()) && !/^unknown$/i.test(String(c).trim());
-// Company plus title, or null when the company is unknown (a LinkedIn card with no company link): those rows dedupe on
-// their job id alone, so two different postings with one common title both stay.
+// Company plus title, or null when the company is unknown (a LinkedIn card whose company neither a company link nor the
+// page text named): those rows dedupe on their job id alone, so two different postings with one common title both stay.
 export const titleKey = (r) => (knownCompany(r.company) ? `${String(r.company).toLowerCase().trim()}|${String(r.title).toLowerCase().trim()}` : null);
 
 // Splits postings not seen by an earlier scan and not in the pipeline by url key into new rows and title repeats (T13).
@@ -149,27 +149,25 @@ function cleanTitle(text) {
 
 const sane = (s) => Boolean(s) && s.length < 100 && !s.includes('://');
 
-// chrome.mjs linkRefs cuts link text to 60 characters, so a classic card's doubled title arrives cut inside the first
-// copy, the hidden copy or the badge. The card's own title line in the page text names it whole: the longest line that
-// the link text starts with (at a word boundary) or that starts with the link text. Badge lines are never a title.
-function titleFromText(pageLines, text) {
+// Finds a card in the page text, searching only from `from` on: cards and their anchors come in the same order, so a
+// cursor keeps two cards with one title (or one 60-character prefix) on their own lines. chrome.mjs linkRefs cuts link
+// text to 60 characters, so a classic card's doubled title arrives cut inside the first copy, the hidden copy or the
+// badge; the card's title line names it whole. The first line from the cursor on that equals the cleaned title, that
+// the link text starts with at a word boundary, or that starts with the link text is the card. Badge lines are never a
+// title. Returns the title, the company line after it (or '') and where the next card's search starts; with no match,
+// the cleaned title, no company and the same cursor.
+function cardFromText(pageLines, text, from) {
   const cleaned = cleanTitle(text);
-  if (pageLines.includes(cleaned)) return cleaned;
   const t = String(text ?? '').replace(/\s+/g, ' ').trim();
-  const fits = (l) => l.length >= 3 && !VERIFIED.test(l) && ((t.startsWith(l) && (t.length === l.length || t[l.length] === ' ')) || l.startsWith(t));
-  return pageLines.filter(fits).reduce((best, l) => (l.length > best.length ? l : best), '') || cleaned;
-}
-
-// Classic cards name the employer in a plain span, not a /company/ link, so the page text is the only source: each card
-// is the title line, its hidden copy or badge line, then the company line.
-function companyFromText(pageLines, title) {
-  const at = pageLines.indexOf(title);
-  if (at < 0) return '';
+  const fits = (l) => l === cleaned || (l.length >= 3 && !VERIFIED.test(l) && ((t.startsWith(l) && (t.length === l.length || t[l.length] === ' ')) || l.startsWith(t)));
+  let at = from;
+  while (at < pageLines.length && !fits(pageLines[at])) at++;
+  if (at >= pageLines.length) return { title: cleaned, company: '', next: from };
+  const title = pageLines[at];
   const repeats = new Set([title.toLowerCase(), `${title} with verification`.toLowerCase()]);
   let i = at + 1;
-  while (i < pageLines.length && repeats.has(pageLines[i].toLowerCase())) i++;
-  const company = pageLines.slice(i).find(Boolean);
-  return sane(company) ? company : '';
+  while (i < pageLines.length && (!pageLines[i] || repeats.has(pageLines[i].toLowerCase()))) i++;
+  return sane(pageLines[i]) ? { title, company: pageLines[i], next: i + 1 } : { title, company: '', next: i };
 }
 
 // Job cards from chrome.mjs read --links output: a jobs/view link opens a card and the next company link names its
@@ -195,9 +193,11 @@ export function linkedinJobs(readOutput) {
     const last = jobs[jobs.length - 1];
     if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1];
   }
+  let cursor = 0;
   return jobs.map((j) => {
-    const title = titleFromText(pageLines, j.title);
-    return { ...j, title, company: j.company || companyFromText(pageLines, title) || 'unknown' };
+    const card = cardFromText(pageLines, j.title, cursor);
+    cursor = card.next;
+    return { ...j, title: card.title, company: j.company || card.company || 'unknown' };
   });
 }
 
