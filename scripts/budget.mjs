@@ -507,14 +507,22 @@ function submitRules({ rows, args, config, L, session, nowMs, isToday, cap, refu
     if (used >= p.max) return refuse(`employer policy allows ${p.max} per ${p.period_days} days at ${p.company}`);
   }
   if (args.track && sameCompany.length) {
+    const track = sameTrack(args.track);
     const existing = [...new Set(sameCompany.map((r) => detailValue(r.detail, 'track')).filter(Boolean))];
-    const confirmed = rows.some((r) => r.action === 'apply.track-confirm' && (r.company ?? '').toLowerCase() === company && detailValue(r.detail, 'track') === args.track);
-    if (existing.length && !existing.includes(args.track) && !confirmed) {
-      return { status: 'needs-user', reason: `${args.company} already has track ${existing.join(', ')}; confirm ${args.track} with the user`, remaining: null, earliest: null };
+    const confirmed = rows.some((r) => r.action === 'apply.track-confirm' && (r.company ?? '').toLowerCase() === company && sameTrack(detailValue(r.detail, 'track')) === track);
+    if (existing.length && !existing.some((t) => sameTrack(t) === track) && !confirmed) {
+      return { status: 'needs-user', reason: `${args.company} already has track ${existing.join(', ')}; I'll record ${args.company} as ${args.track}, approve? Type: confirm ${args.company} track ${args.track} (then budget.mjs log apply.track-confirm --company "${args.company}" --track ${args.track})`, remaining: null, earliest: null };
     }
   }
   return null;
 }
+
+// The v0.4 apply loop logged --track internship or newgrad; rank-queue now writes intern or fulltime for the same tracks.
+const LEGACY_TRACKS = Object.freeze({ internship: 'intern', newgrad: 'fulltime' });
+export const sameTrack = (track) => {
+  const t = String(track ?? '').trim().toLowerCase();
+  return LEGACY_TRACKS[t] ?? t;
+};
 
 // ---------------------------------------------------------------------------------------------------------
 // CLI

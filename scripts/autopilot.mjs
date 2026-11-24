@@ -5,8 +5,9 @@
 // again. When the schedule reaches Chrome (chrome_in_schedule yes and the automation Chrome is up) it also fills and
 // submits approved, unsent items of apply batches through `chrome.mjs fill --plan` and `chrome.mjs submit`, whose
 // budget.mjs check (with the plan's score) refuses any item not approved or already used, and never submits a link that
-// was already submitted. Only a plan that carries the form's fields (today those come from a session that read the form)
-// is filled and submitted; any other approved item waits for a fill in a session. It also reads outcome mail through the
+// was already submitted. Before the fill plans are built it reads each ranked posting's form with `chrome.mjs read-form`
+// into data/form-fields. Only a plan that carries the form's fields is filled and submitted; any other approved item
+// waits for a fill in a session. It also reads outcome mail through the
 // Gmail path into inbox.mjs. Without Chrome those steps wait and the digest names them. On the weekly lessons day it runs the outreach lessons step (lib/outreach-lessons.mjs).
 // A failing step becomes one digest line; the section ends with the guided footer; the run always exits 0.
 // Usage: autopilot.mjs [--root R] [--data-dir D] [--today YYYY-MM-DD] [--log-file F]
@@ -15,28 +16,34 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { detailValue, readActionLog } from '../lib/action-log.mjs';
-import { listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, formFieldsFile, formGaveUp, readFormDoc } from '../lib/ats-fields.mjs';
+import { addFinishYourself, listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
 import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
-import { footerLines } from '../lib/digest.mjs';
+import { footerLines, waitingCounts } from '../lib/digest.mjs';
 import { replyKey, searchUrl } from '../lib/gmail-chrome.mjs';
 import { weeklyLessons } from '../lib/outreach-lessons.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { RECHECK_OFFER, probeUnsure } from '../lib/probe-state.mjs';
 import { runText } from '../lib/run.mjs';
 import { stepErrorText } from '../lib/text.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
+import { FINISH_REPLY, KEPT_OUT_OFFER, NO_JOB_TEXT, NO_SUBMIT_REASONS, daysBetween, finishGuide, keptOutCount, keptOutReason, noSubmitReason, planFinishReason } from '../lib/kept-out.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
+import { fitScore } from './fill-plan.mjs';
 
 // Positive terms only: a negated phrase once hid real rejection mail. regret, candidates, selected, invitation, invited and
 // call reach outcome mails that name no application, interview or offer (tests/fixtures/quality/outcome-mails.json).
 export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps" OR regret OR candidates OR selected OR invitation OR invited OR call)';
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 const FILL_REPORT = /^fill-plan: \d+ of \d+ ready/m;
+const KEPT_OUT_MARK = 'kept out: ';
+const KEPT_OUT_FINISH = /: kept out: finish these yourself: /;
 const DRAFTS_REPORT = /^outreach-drafts: .*(draft\(s\) in|already waiting|outreach is)/;
 const INBOX_REPORT = /^inbox: (\d+) read, (\d+) proposal\(s\), (\d+) set$/m;
 // At most this many outcome conversations are opened per run; the list read is bounded by LIST_MAX rows.
@@ -51,20 +58,29 @@ const FILL_PROBLEM = /^chrome: (?:could not fill (.+)|blocked-on-user: (.+?) is 
 const GMAIL_PAGE = 50;
 // Gmail's standard page sizes: a list exactly this long may be one page of more, so its count is a lower bound.
 const GMAIL_PAGE_SIZES = [25, 50, 100];
-// Form fields per posting, read by fill-plan --fields-dir (<url key>.json); plans without a file there carry no fields.
-export const FIELDS_DIR = 'form-fields';
+// Form fields per posting (chrome.mjs read-form writes them), read by fill-plan --fields-dir; plans without a file there
+// carry no fields.
+export { FIELDS_DIR };
 const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pending']);
+// A finish-yourself item is named in full in the digest for this many days after it was added; older ones are folded
+// into one count line offering FINISH_REPLY (mapped in AGENTS.student.md to modes/apply-loop.md).
+const FINISH_FULL_DAYS = 7;
+export { FINISH_REPLY };
 
 // Approved apply items not yet submitted, in batch order: the same rule budget.mjs checks (a logged batch.approve lists
-// the item and no send or pending row spent it yet). kind is apply or easy-apply; plan is the item's fill plan file.
+// the item and no send or pending row spent it yet). kind is apply or easy-apply; plan is the item's fill plan file;
+// finish is the reason of the batch's finish these yourself entry for the item's link, or null, and finishAdded the date
+// that entry was added (the batch date for an entry saved without one).
 export async function approvedUnsent(dataDir) {
   const rows = await readActionLog(join(dataDir, 'action-log.tsv'));
   const out = [];
   for (const id of listBatches(dataDir)) {
     const b = readBatch(dataDir, id);
     if (b?.kind !== 'apply') continue;
+    const finish = new Map((b.finishYourself ?? []).map((f) => [f.link, f]));
     b.items.forEach((it, i) => {
-      if (approvedItem(rows, id, i + 1)) out.push({ batchId: id, item: i + 1, company: it.company, link: it.link ?? '', plan: it.plan ?? '', kind: it.kind === 'easy-apply' ? 'easy-apply' : 'apply' });
+      const f = finish.get(it.link);
+      if (approvedItem(rows, id, i + 1)) out.push({ batchId: id, item: i + 1, company: it.company, link: it.link ?? '', plan: it.plan ?? '', kind: it.kind === 'easy-apply' ? 'easy-apply' : 'apply', finish: f ? f.reason ?? 'CAPTCHA' : null, finishAdded: f ? f.added ?? b.date ?? null : null });
     });
   }
   return out;
@@ -111,6 +127,29 @@ function childRunner({ paths, today, runner }) {
   return (script, extra = []) => String(runner(process.execPath, [join(paths.packRoot, 'scripts', script), ...extra, '--root', paths.root, '--data-dir', paths.dataDir, '--today', today], { cwd: paths.root, timeout: CHILD_TIMEOUT_MS }) ?? '');
 }
 
+// While the automation Chrome is up, each ranked posting with no saved form yet gets its form read by `chrome.mjs
+// read-form` (read-only: it never types or clicks), so fill-plan maps real fields with selectors, writes a cover letter
+// for a form with a cover slot and plans the resume upload. A row whose form cannot be read keeps a plan without fields,
+// which waits for a fill in a session.
+// A page with no application form saves no file and is read again on the next run; after EMPTY_READ_TRIES such reads
+// the posting is listed under finish these yourself and not read again.
+function readForms({ paths, child, rows }) {
+  const dir = join(paths.dataDir, FIELDS_DIR);
+  const unread = rows.filter((r) => /^https?:\/\//i.test(String(r.url ?? '')) && !existsSync(formFieldsFile(dir, r.url)));
+  const todo = unread.filter((r) => !formGaveUp(dir, r.url));
+  const notes = unread.filter((r) => formGaveUp(dir, r.url)).map((r) => `finish these yourself: ${r.company} (${r.url}): no application form found in ${EMPTY_READ_TRIES} reads; apply on the page yourself`);
+  let read = 0;
+  for (const r of todo) {
+    try {
+      child('chrome.mjs', ['read-form', '--url', r.url]);
+      read++;
+    } catch (err) {
+      notes.push(`${r.company}: form not read (${stepErrorText(err)}); its plan waits for a fill in a session`);
+    }
+  }
+  return [`read ${read} of ${todo.length} form(s)${rows.length > todo.length ? `; ${rows.length - todo.length} already read or with no link` : ''}`, ...notes];
+}
+
 // fill-plan writes today's apply batches. When it printed no ready count (a fill-plan that could not report, so nothing
 // says which rows it prepared), the ranked rows go into one review batch with no fill plans: the student still sees the
 // day's picks, and chrome.mjs submit refuses any item without a fill plan, so nothing can be submitted from it.
@@ -126,8 +165,11 @@ function prepareApplications({ paths, today, child, rows }) {
     return [`fill-plan.mjs failed (${stepErrorText(err)})`];
   }
   const made = listBatches(paths.dataDir).filter((id) => !before.has(id) && readBatch(paths.dataDir, id)?.kind === 'apply');
-  if (made.length || FILL_REPORT.test(text)) return [lastLine(text) || `apply batches: ${made.join(', ')}`];
-  const items = rows.map((r) => ({ company: r.company, role: r.title, score: r.score, preview: 'fill plan not ready yet; open the link to apply yourself, or ask me to prepare it', link: r.url }));
+  // fill-plan's finish lines (a read that can never be submitted, often saved by read-form this same run) keep their
+  // link and reason in the digest, ahead of its summary line.
+  const finish = String(text ?? '').split('\n').filter((l) => KEPT_OUT_FINISH.test(l)).map((l) => l.slice(l.indexOf(KEPT_OUT_MARK) + KEPT_OUT_MARK.length));
+  if (made.length || FILL_REPORT.test(text)) return [...finish, lastLine(text) || `apply batches: ${made.join(', ')}`];
+  const items = rows.map((r) => ({ company: r.company, role: r.title, score: fitScore(r), preview: 'fill plan not ready yet; open the link to apply yourself, or ask me to prepare it', link: r.url }));
   const ids = writeBatches(paths.dataDir, { date: today, kind: 'apply', items });
   return [`review batch ${ids.join(', ')} with ${items.length} ranked row(s) and no fill plans yet`];
 }
@@ -143,9 +185,13 @@ const readPlan = (file) => {
 // Why a plan cannot be filled and submitted by the autopilot, as the waiting line's tail, or null when it can: it must
 // carry the form's fields, no field only the student fills (plan.blocked, named by label, never by value), no unknown
 // question, and every resume or cover letter upload it names on disk. fill-plan writes fields only from a form that was
-// read (data/form-fields, written today by a session), so a plan without fields means no form was read for that posting.
+// read (data/form-fields, written by chrome.mjs read-form), so a plan without fields means no form was read for it. A
+// plan whose read recorded its form but saved no submit, or whose read is too old to name its form, is never ready: it
+// is the student's to finish.
 export function planWait(plan) {
   if (!Array.isArray(plan?.fields) || !plan.fields.length) return 'waits for a fill in a session (no form was read for it)';
+  const finish = planFinishReason(plan);
+  if (finish) return `not submitted: finish these yourself: ${finish}`;
   if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).replace(/\s+/g, ' ').trim().slice(0, 60)).join(', ')})`;
   if (plan.unknown?.length) return `waits for a fill in a session (it has ${plan.unknown.length} question(s) to answer)`;
   const files = [...(plan.uploads ?? []).map((u) => u?.path), ...(plan.cover ? [plan.cover] : [])];
@@ -154,6 +200,17 @@ export function planWait(plan) {
 }
 
 export const planReady = (plan) => planWait(plan) === null;
+
+// Moves an approved item that can never be submitted by script to its batch's finish these yourself list and returns
+// the guided line; a batch file that cannot be updated is named in the line instead.
+function moveToFinish(dataDir, it, role, reason) {
+  try {
+    addFinishYourself(dataDir, it.batchId, { company: it.company, role, link: it.link, reason });
+  } catch (err) {
+    return `${finishGuide(it.company, it.link, reason)} It could not be added to the batch's finish-yourself list (${stepErrorText(err)}).`;
+  }
+  return finishGuide(it.company, it.link, reason, { onBatch: true });
+}
 
 // Why a finished fill must not be submitted, or null: chrome.mjs printed a field it could not fill or one only the
 // student fills, or it typed no text field (the plan's tab has no sentinel; an upload alone does not count).
@@ -164,15 +221,38 @@ function fillHold(text, plan) {
   return null;
 }
 
+// An approved plan built while its form was not read has no fields (the batch line said "form not read yet"): its form is
+// read now (unless a saved read exists) and `fill-plan.mjs --replan` rebuilds that item's plan in place, with the cover
+// letter when the form has a slot, before any fill. A posting whose form was given up is not read again (until a read
+// in a session saves its fields). A read that can never be submitted (noSubmitReason) is not replanned: { finish } names
+// its reason. Returns why the item waits, { finish }, or null when the plan has fields.
+function replanUnread({ paths, child, it }) {
+  if (readPlan(it.plan)?.fields?.length) return null;
+  const dir = join(paths.dataDir, FIELDS_DIR);
+  if (formGaveUp(dir, it.link)) return `not submitted: finish these yourself: no application form found in ${EMPTY_READ_TRIES} reads of ${it.link}; apply on the page yourself, or ${KEPT_OUT_OFFER}`;
+  try {
+    if (!existsSync(formFieldsFile(dir, it.link))) child('chrome.mjs', ['read-form', '--url', it.link]);
+    const read = readFormDoc(dir, it.link);
+    const finish = read.fields.length ? noSubmitReason(read) : null;
+    if (finish) return { finish };
+    child('fill-plan.mjs', ['--replan', '--batch-id', it.batchId, '--item', String(it.item)]);
+  } catch (err) {
+    return `not submitted: its form could not be read and the plan rebuilt (${stepErrorText(err)}); it waits for a session`;
+  }
+  return readPlan(it.plan)?.fields?.length ? null : 'not submitted: the rebuilt plan still has no form fields; it waits for a session';
+}
+
 // Each approved, unsent item whose plan is ready: chrome.mjs fill --plan, then chrome.mjs submit, whose budget.mjs check
 // passes the plan's score and refuses an item not approved or already used. The batch approval covers both. Submit runs
 // only after a clean fill that typed a text field (fillHold); an item whose plan is not ready (planWait), whose fill
 // needs the student or failed, or whose fill is held waits with its reason and is counted in tally.fillWaiting. An item with no plan file still goes to chrome.mjs submit, which refuses it before any click. A link
 // already submitted, or submitted earlier in this run, is skipped, so a posting approved on two pages goes out once.
-async function submitApproved({ paths, child, tally }) {
+async function submitApproved({ paths, today, child, tally }) {
   const items = await approvedUnsent(paths.dataDir);
   const done = submittedLinks(paths.dataDir, await readActionLog(join(paths.dataDir, 'action-log.tsv')));
   let submitted = 0;
+  let olderFinish = 0;
+  let finishCount = 0;
   const notes = [];
   const wait = (line) => {
     tally.fillWaiting++;
@@ -185,7 +265,28 @@ async function submitApproved({ paths, child, tally }) {
       notes.push(`${name} not submitted: ${it.link} was already submitted`);
       continue;
     }
+    // A job on finish these yourself is the student's now: it is neither filled nor submitted again. It is named in full
+    // for FINISH_FULL_DAYS after it was added, then counted in one line, since approvals never expire.
+    if (it.finish) {
+      finishCount++;
+      if (it.finishAdded && daysBetween(it.finishAdded, today) >= FINISH_FULL_DAYS) olderFinish++;
+      else notes.push(`${name} not submitted: finish these yourself: ${it.finish} (${it.link})`);
+      continue;
+    }
     if (it.plan && existsSync(it.plan)) {
+      const unread = replanUnread({ paths, child, it });
+      if (typeof unread === 'string') {
+        wait(`${name} ${unread}`);
+        continue;
+      }
+      // A plan (or a fresh read) that can never be submitted is never filled: it moves to the batch's finish these
+      // yourself list.
+      const finish = unread?.finish ?? planFinishReason(readPlan(it.plan));
+      if (finish) {
+        finishCount++;
+        notes.push(`${name} not submitted: ${moveToFinish(paths.dataDir, it, readPlan(it.plan)?.role, finish)}`);
+        continue;
+      }
       const why = planWait(readPlan(it.plan));
       if (why) {
         wait(`${name} ${why}`);
@@ -212,7 +313,8 @@ async function submitApproved({ paths, child, tally }) {
       notes.push(`${name} not submitted (${stepErrorText(err)})`);
     }
   }
-  return [`submitted ${submitted} of ${items.length} approved item(s)`, ...notes];
+  if (olderFinish) notes.push(`${olderFinish} older jobs to finish yourself: type ${FINISH_REPLY}`);
+  return [`submitted ${submitted} of ${items.length - finishCount} approved item(s)`, ...notes];
 }
 
 // Gmail list rows with their thread ids (the legacy hex id, or the decimal thread-f id turned into hex) and row text.
@@ -353,19 +455,21 @@ export async function autopilot({ paths, today, deps = {} }) {
   await step('rank', async () => {
     const cap = effectiveLimits(config).values.submit_per_day;
     const waitingSet = waitingLinks(paths.dataDir, await readActionLog(join(paths.dataDir, 'action-log.tsv')));
-    const ranked = JSON.parse(child('rank-queue.mjs', ['--json', '--n', String(cap + waitingSet.size)]) || '[]');
+    const ranked = JSON.parse(child('rank-queue.mjs', ['--json', '--n', String(cap + waitingSet.size + keptOutCount(paths.dataDir))]) || '[]');
     const fresh = ranked.filter((r) => !waitingSet.has(linkKey(r.url)));
-    rows = fresh.slice(0, cap);
+    // A row kept out for no job text or a given-up form takes no slot: the cap is filled from the next rows, and the
+    // digest names it with the guided offer.
+    const kept = fresh.map((r) => ({ r, why: keptOutReason(paths.dataDir, r.url, today) })).filter((k) => k.why);
+    rows = fresh.filter((r) => !kept.some((k) => k.r === r)).slice(0, cap);
     const already = ranked.length - fresh.length;
-    return [`${rows.length} row(s) ranked for today${already ? `; ${already} already waiting for your approval` : ''}`];
+    const keptLine = (r, why) => {
+      if (why === NO_JOB_TEXT) return `kept out: ${r.company} (${r.url}): no job text found; ${KEPT_OUT_OFFER}`;
+      if (NO_SUBMIT_REASONS.includes(why)) return finishGuide(r.company, r.url, why);
+      return `finish these yourself: ${r.company} (${r.url}): ${why}; apply on the page yourself, or ${KEPT_OUT_OFFER}`;
+    };
+    const keptLines = kept.map(({ r, why }) => keptLine(r, why));
+    return [`${rows.length} row(s) ranked for today${already ? `; ${already} already waiting for your approval` : ''}${kept.length ? `; ${kept.length} kept out` : ''}`, ...keptLines];
   });
-  await step('prepare applications', () => prepareApplications({ paths, today, child, rows }));
-  await step('outreach drafts', async () => {
-    const text = child('outreach-drafts.mjs', ['--source', 'scheduled', '--skip-waiting']);
-    const report = String(text).split('\n').filter((l) => DRAFTS_REPORT.test(l)).map((l) => l.replace(/^outreach-drafts: /, ''));
-    return report.length ? report : [lastLine(text) || 'done'];
-  });
-  await step('outreach lessons', () => lessonsStep({ paths, today, config, deps }));
   let live = false;
   if (config.chrome_in_schedule === 'yes') {
     try {
@@ -374,14 +478,23 @@ export async function autopilot({ paths, today, deps = {} }) {
       live = false;
     }
   }
+  if (live && rows.length) await step('read forms', () => readForms({ paths, child, rows }));
+  await step('prepare applications', () => prepareApplications({ paths, today, child, rows }));
+  await step('outreach drafts', async () => {
+    const text = child('outreach-drafts.mjs', ['--source', 'scheduled', '--skip-waiting']);
+    const report = String(text).split('\n').filter((l) => DRAFTS_REPORT.test(l)).map((l) => l.replace(/^outreach-drafts: /, ''));
+    return report.length ? report : [lastLine(text) || 'done'];
+  });
+  await step('outreach lessons', () => lessonsStep({ paths, today, config, deps }));
   const waiting = [];
   const tally = { fillWaiting: 0 };
   if (live) {
-    await step('submit approved', () => submitApproved({ paths, child, tally }));
+    await step('submit approved', () => submitApproved({ paths, today, child, tally }));
     await step('outcome mail', () => readOutcomes({ paths, today, child, deps }));
   } else {
     waiting.push('submitting approved applications', 'reading outcome mail');
-    lines.push(`waiting for Chrome: ${waiting.join(', ')}${config.chrome_in_schedule === 'yes' ? ' (the automation Chrome was not open)' : ' (chrome_in_schedule is no)'}`);
+    const recheck = config.chrome_in_schedule !== 'yes' && probeUnsure(paths.dataDir) ? `; the schedule probe could not tell, so ${RECHECK_OFFER}` : '';
+    lines.push(`waiting for Chrome: ${waiting.join(', ')}${config.chrome_in_schedule === 'yes' ? ' (the automation Chrome was not open)' : ' (chrome_in_schedule is no)'}${recheck}`);
   }
   let footer = [];
   try {
@@ -397,9 +510,10 @@ export async function autopilot({ paths, today, deps = {} }) {
 
 // The guided footer that ends the autopilot section, from the same state the digest summary takes (lib/digest.mjs).
 async function sectionFooter({ paths, config, waiting, fillWaiting }) {
-  const batches = listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)).filter((b) => b && !b.approved && b.items.length);
-  const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).length : 0;
-  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule, approvedWaiting, fillWaiting, batchesWaiting: batches.length });
+  const counts = waitingCounts(listBatches(paths.dataDir).map((id) => readBatch(paths.dataDir, id)));
+  const approvedWaiting = waiting.length ? (await approvedUnsent(paths.dataDir)).filter((it) => !it.finish).length : 0;
+  // An unset chrome_in_schedule counts as no (scheduled.mjs runsAutopilot).
+  return footerLines({ waitingChrome: waiting, chromeInSchedule: config.chrome_in_schedule === 'yes' ? 'yes' : 'no', chromeProbeUnsure: probeUnsure(paths.dataDir), approvedWaiting, fillWaiting, ...counts });
 }
 
 async function main() {

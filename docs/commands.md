@@ -10,6 +10,8 @@ Everything career-ops itself does works when asked in plain words. Say any phras
 ## Applying
 
 - "apply" or "start applying": picks today's list and fills the forms in batches of 3, never submitting on its own (`modes/apply-loop.md`).
+- "read my kept-out postings": reads the application form of each posting the digest kept out, so the next run can plan it (`modes/apply-loop.md`).
+- "read my finish-yourself list": lists every job left for you to finish by hand, with its reason and link (`modes/apply-loop.md`).
 - "submit all" or "submit 1,3": submits only the numbered forms you name (`modes/apply-loop.md`).
 - "change a saved answer": changes one saved answer, such as work authorization or an EEO item (`AGENTS.student.md`).
 
@@ -31,6 +33,7 @@ Everything career-ops itself does works when asked in plain words. Say any phras
 - "redo my setup", "set me up" or "personalize": runs the four-part interview again (`interview/interview.md`).
 - "find more job sources": researches job lists and boards for your field again (`AGENTS.student.md`).
 - "change my schedule" or "check my schedule": changes the time, or proves the schedule works (`AGENTS.student.md`).
+- "check my schedule's Chrome": runs the schedule probe again when the last one could not tell whether a scheduled run reaches the automation Chrome (`AGENTS.student.md`).
 - "pause my schedule" or "resume my schedule": stops scheduled runs and keeps the schedule, then turns them back on (`AGENTS.student.md`).
 - "remove my schedule": uninstalls the schedule (`AGENTS.student.md`).
 - "change my triage budget": shows the cost estimate before changing the number of rows scored (`AGENTS.student.md`).

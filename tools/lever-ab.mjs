@@ -1710,6 +1710,7 @@ export const FEATURE_ROWS = Object.freeze([
   { id: 'G4', step: 'reply rates', noAi: 'reply rates come from the tracker by code', levers: [] },
   { id: 'G5', step: 'catch-up', noAi: 'the run ledger is written by code', levers: [] },
   { id: 'G6', step: 'follow-up drafts', baseline: 'outreach', levers: ['T10'] },
+  { id: 'G4', step: 'outreach lessons (weekly)', baseline: null, levers: [], why: 'one call a week over new or changed threads only, no lever' },
   { id: 'G7', step: 'tailor resume', baseline: null, levers: ['T4'] },
   { id: 'G7', step: 'ATS check', noAi: 'the ATS text checks run by code', levers: [] },
   { id: 'G9', step: 'posting risk', noAi: 'posting-risk rules run by code (T16 moves them before the model)', levers: ['T16'] },
@@ -1719,6 +1720,19 @@ export const FEATURE_ROWS = Object.freeze([
   { id: 'H4', step: 'job text', noAi: 'job text is saved by code', levers: [] },
   { id: 'H5', step: 'skill gap', noAi: 'phrases are counted by code', levers: [] },
 ]);
+
+// Real-use tokens per call (input + cache read + cache write + output) from the pack's live verify on a fake student
+// with the real model (sonnet), keyed by feature id and step; every other row says "not in the live verify".
+export const LIVE_VERIFY = Object.freeze({
+  date: '2026-11-23',
+  rows: Object.freeze({
+    'M1|triage of unchanged postings': '6,821 (titles only) to 11,681 (with posting text) per call of 20 postings',
+    'G3|outcome classify': 'no call (no outcome mail in the run)',
+    'G4|outreach lessons (weekly)': '3,794 per call',
+    'G7|tailor resume': '3,339 and 3,491 per call',
+  }),
+});
+const liveCell = (f) => LIVE_VERIFY.rows[`${f.id}|${f.step}`] ?? 'not in the live verify';
 
 // Tokens per call of a step after the levers: the completed stacked pass's per-step mean, else not measured.
 function afterPerCall(data, step, agent) {
@@ -1750,19 +1764,21 @@ function plumbingRow(data, ledger, f) {
   };
   const unit = v?.tokens?.unit ? ` (${v.tokens.unit}, whole fixture sample)` : ' (not measured yet)';
   const what = f.noAi ? `no AI cost of its own: ${f.noAi}; ${f.plumbing} saving${unit}` : `${f.plumbing} (plumbing): rows it keeps out of triage${unit}`;
-  return `| ${f.id} | ${f.step} | ${cell('claude', 'before')} | ${cell('claude', 'after')} | ${cell('codex', 'before')} | ${cell('codex', 'after')} | ${ledger} | ${what} | ${leverCell(data, [f.plumbing])} |`;
+  return `| ${f.id} | ${f.step} | ${cell('claude', 'before')} | ${cell('claude', 'after')} | ${cell('codex', 'before')} | ${cell('codex', 'after')} | ${liveCell(f)} | ${ledger} | ${what} | ${leverCell(data, [f.plumbing])} |`;
 }
 
 function featureRow(root, data, ledgerRows, f) {
   const ledger = ledgerCell(ledgerRows, f.id);
+  const live = liveCell(f);
   if (f.plumbing) return plumbingRow(data, ledger, f);
   const verdictCell = f.levers.length ? `mechanical; ${leverCell(data, f.levers)}` : 'mechanical: zero agent calls';
-  if (f.session) return `| ${f.id} | ${f.step} | session tokens, not measured | session tokens, not measured | session tokens, not measured | session tokens, not measured | ${ledger} | no AI cost of its own: ${f.noAi} | ${leverCell(data, f.levers)} |`;
-  if (f.noAi) return `| ${f.id} | ${f.step} | 0 | 0 | 0 | 0 | ${ledger} | no AI cost: ${f.noAi} | ${verdictCell} |`;
+  if (f.session) return `| ${f.id} | ${f.step} | session tokens, not measured | session tokens, not measured | session tokens, not measured | session tokens, not measured | ${live} | ${ledger} | no AI cost of its own: ${f.noAi} | ${leverCell(data, f.levers)} |`;
+  if (f.noAi) return `| ${f.id} | ${f.step} | 0 | 0 | 0 | 0 | ${live} | ${ledger} | no AI cost: ${f.noAi} | ${verdictCell} |`;
   const before = (agent) => (f.baseline ? fmtNum(p0PerCall(root, f.baseline, agent)) : 'not measured');
   const after = (agent) => (f.baseline ? afterPerCall(data, f.baseline, agent) : 'not measured');
+  if (!f.levers.length) return `| ${f.id} | ${f.step} | ${before('claude')} | ${after('claude')} | ${before('codex')} | ${after('codex')} | ${live} | ${ledger} | ${f.why} | no lever to verdict |`;
   const quality = f.levers.every((id) => !passed(data.levers?.[id]) && !['fail'].includes(data.levers?.[id]?.verdict)) ? `pending A/B: ${leverCell(data, f.levers)}` : leverCell(data, f.levers);
-  return `| ${f.id} | ${f.step} | ${before('claude')} | ${after('claude')} | ${before('codex')} | ${after('codex')} | ${ledger} | ${f.levers.join(', ')} | ${quality} |`;
+  return `| ${f.id} | ${f.step} | ${before('claude')} | ${after('claude')} | ${before('codex')} | ${after('codex')} | ${live} | ${ledger} | ${f.levers.join(', ')} | ${quality} |`;
 }
 
 // Rebuilds docs/token-report.md from the P0 baseline, data/usage-ledger.tsv and data/triage-usage.tsv (when a data
@@ -1775,18 +1791,27 @@ export async function writeReport({ root = PACK_ROOT, ledgerDir = null }) {
   const status = (k) => data[k]?.status ?? 'no run yet';
   const spend = Object.entries(data.levers).filter(([, v]) => v.estimate).map(([id, v]) => `| ${id} | ${estTotal(v.estimate)} | ${v.actual_tokens ? estTotal(v.actual_tokens) : 'not measured'} |`);
   const levered = (step) => Object.entries(LEVER_SPECS).filter(([, s]) => s.steps?.includes(step) || s.step === step).map(([id]) => id).join(', ') || 'none';
+  const live = `Real use (live verify, ${LIVE_VERIFY.date})`;
   return [
     '# Token report',
     '',
-    'One row per feature built in P1 to P4, split by step where one part calls a model and another does not. Tokens per call before the levers come from the frozen P0 baseline (`tests/fixtures/quality/baseline`, arm A); after the levers they come from a completed stacked pass in `docs/lever-verdicts.json` and say `not measured` until the A/B has run. The ledger column is tokens per row from `data/usage-ledger.tsv` (`unmeasured` when a call reported no usage). Steps an agent session pays for (its page reads) are not in the ledger and say so. The plumbing rows (setup, M1, M12) hold whole-fixture-sample totals from the zero-call plumbing trial, not tokens per call. Rebuild with `node tools/lever-ab.mjs report [--ledger <data folder>]`.',
+    'The daily per-call model steps the student pays for (triage, cover letter, outreach, reply) cost the same per call as before: every lever that would cut their tokens per call failed a bar and ships off. The savings come from calls avoided (T1, T13, T4, T7, T16).',
+    '',
+    `One row per feature built in P1 to P4, split by step where one part calls a model and another does not. Tokens per call before the levers come from the frozen P0 baseline (\`tests/fixtures/quality/baseline\`, arm A); after the levers they come from a completed stacked pass in \`docs/lever-verdicts.json\` and say \`not measured\` until the A/B has run. The real-use column holds tokens per call (input, cache read, cache write and output) measured on ${LIVE_VERIFY.date} in the live verify of the pack with the real model (sonnet) on a fake student. The ledger column is tokens per row from \`data/usage-ledger.tsv\` (\`unmeasured\` when a call reported no usage). Steps an agent session pays for (its page reads) are not in the ledger and say so. The plumbing rows (setup, M1, M12) are in their own table: they hold whole-fixture-sample totals from the zero-call plumbing trial, not tokens per call. Rebuild with \`node tools/lever-ab.mjs report [--ledger <data folder>]\`.`,
     '',
     `Solo run status: ${status('solo')}. Stacked run status: ${status('stacked')}. Invented facts rule: ${INVENTED_FACTS_RULE}.`,
     '',
     '<!-- rows:start -->',
-    '| Feature | Step | Claude tokens per call before | Claude after | Codex tokens per call before | Codex after | Ledger tokens per row | Levers or no AI cost | Quality verdict |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-    ...FEATURE_ROWS.map((f) => featureRow(root, data, ledgerRows, f)),
+    `| Feature | Step | Claude tokens per call before | Claude after | Codex tokens per call before | Codex after | ${live} | Ledger tokens per row | Levers or no AI cost | Quality verdict |`,
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...FEATURE_ROWS.filter((f) => !f.plumbing).map((f) => featureRow(root, data, ledgerRows, f)),
     '<!-- rows:end -->',
+    '',
+    '## Plumbing rows',
+    '',
+    `| Feature | Step | Claude tokens per fixture sample before | Claude after | Codex tokens per fixture sample before | Codex after | ${live} | Ledger tokens per row | Levers or no AI cost | Quality verdict |`,
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    ...FEATURE_ROWS.filter((f) => f.plumbing).map((f) => featureRow(root, data, ledgerRows, f)),
     '',
     '## Per step',
     '',

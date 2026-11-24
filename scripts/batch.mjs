@@ -35,6 +35,17 @@ export function logApproval({ paths, id, items, words, runner = runResult }) {
   return runner(process.execPath, args, { cwd: paths.root });
 }
 
+// The footer after an approval: the approval is the submit (or send) decision, so it says what happens now and asks
+// nothing more; Type is only a way to check on it.
+export function afterApproval(batch, id, items) {
+  const doing = batch.kind === 'apply' ? 'submitting' : 'sending';
+  return {
+    step: `I'm ${doing} items ${items.join(', ')} of ${id} now; nothing else goes out`,
+    prompt: `show the status of ${id}`,
+    why: `you approved them, so I go ahead without asking again; each is checked by budget.mjs first, and batch.mjs status ${id} shows what went out.`,
+  };
+}
+
 async function cmdApprove({ paths, positionals, say, today, runner }) {
   const [id, words] = positionals;
   if (!id || !words) throw new UsageError('usage: batch.mjs approve <id> "<your words>"');
@@ -54,8 +65,7 @@ async function cmdApprove({ paths, positionals, say, today, runner }) {
   updateBatch(paths.dataDir, id, (b) => ({ ...b, approved: { items: [...new Set([...(b.approved?.items ?? []), ...res.items])].sort((x, y) => x - y), words } }));
   await append(paths.dataDir, zeroRow({ date: today, step: 'batch-approve', feature: 'H3', rows: res.items.length, source: 'session' }));
   say(`batch: approved items ${res.items.join(', ')} of ${id}`);
-  const verb = batch.kind === 'apply' ? 'submit' : 'send';
-  for (const line of guidedFooter({ step: `${verb} the approved items of ${id}`, prompt: `${verb} the approved items`, why: `only the items you approved go out, each checked by budget.mjs first; batch.mjs status ${id} shows what went out.` })) say(line);
+  for (const line of guidedFooter(afterApproval(batch, id, res.items))) say(line);
   return 0;
 }
 

@@ -22,7 +22,7 @@ import { defaultRunner } from '../lib/upstream.mjs';
 import { effectiveLimits } from './budget.mjs';
 import { readActionLog } from '../lib/action-log.mjs';
 import { listBatches, readBatch } from '../lib/batch-file.mjs';
-import { summaryLines } from '../lib/digest.mjs';
+import { summaryLines, waitingCounts } from '../lib/digest.mjs';
 import { weeklySentBy } from '../lib/outreach-state.mjs';
 import { skillGaps } from '../lib/skill-gap.mjs';
 import { perDayEstimate } from '../lib/usage-cost.mjs';
@@ -182,7 +182,7 @@ async function digestSummary({ root, dataDir, today, nowMs, config, limits }) {
       estimate: perDayEstimate(config, { ledgerRows: await readLedger(dataDir).catch(() => []), today }),
       sunday,
       skillGaps: sunday ? skillGaps(recentMatchedTexts(dataDir, nowMs), readIf(join(root, 'cv.md'))) : [],
-      batchesWaiting: listBatches(dataDir).map((id) => readBatch(dataDir, id)).filter((b) => b && !b.approved && b.items.length).length,
+      ...waitingCounts(listBatches(dataDir).map((id) => readBatch(dataDir, id))),
     });
   } catch (err) {
     return ['## Today', `- summary not built (${oneLine(err.message)})`, ''];
@@ -272,7 +272,7 @@ export async function dailyRun({ root, dataDir, packRoot, today, now, logFile, r
   }
   // scheduled.mjs passes --via-scheduled; without it this is a manual run or a schedule from before the triage wrapper, and neither triages.
   const notes = !viaScheduled && config?.automation === 'scheduled-discovery-plus-triage'
-    ? ['this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, run node student/scripts/schedule.mjs install again']
+    ? ["this run did not triage: triage runs only when the schedule starts scheduled.mjs; if update.mjs says the schedule is from an older pack, I'll reinstall the schedule (node student/scripts/schedule.mjs install), approve? Type: reinstall my schedule"]
     : [];
   try {
     log(`START ${stamp()} student-daily ${today}`);

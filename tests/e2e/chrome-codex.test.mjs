@@ -5,13 +5,15 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENT_TIMEOUT_MS, resolveAgentPath } from '../../lib/agent.mjs';
+import { AGENT_TIMEOUT_MS, CODEX_EXTRA_FLAGS, resolveAgentPath } from '../../lib/agent.mjs';
 import { gate, openChrome, stopAll } from '../helpers/chrome-harness.mjs';
 import { PACK_ROOT, makeRoot } from '../helpers/script-harness.mjs';
 
 function runCodex(codex, prompt) {
   return new Promise((resolve) => {
-    const child = spawn(codex, ['exec', '--skip-git-repo-check', '--sandbox', 'danger-full-access', prompt], { cwd: PACK_ROOT, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    // Same flags as the pack's own codex calls (lib/headless.mjs): without --ignore-user-config the
+    // student's ~/.codex model is used, which a ChatGPT account may refuse before any turn runs.
+    const child = spawn(codex, ['exec', ...CODEX_EXTRA_FLAGS, '--skip-git-repo-check', '--sandbox', 'danger-full-access', prompt], { cwd: PACK_ROOT, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => (stdout += d));

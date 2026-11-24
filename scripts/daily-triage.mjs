@@ -29,6 +29,7 @@ import { loadStudentConfig } from '../lib/config.mjs';
 import { aiSummaryLine } from '../lib/digest.mjs';
 import { HeadlessError, runHeadless } from '../lib/headless.mjs';
 import { jdRule, studentFromConfig } from '../lib/jd-rules.mjs';
+import { save as saveJd } from '../lib/jd-store.mjs';
 import { trimJobText, DEFAULT_WORDS as TRIM_WORDS } from '../lib/jd-trim.mjs';
 import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
 import { isRisky, riskReason, riskRules } from '../lib/posting-risk.mjs';
@@ -131,7 +132,7 @@ const isAtsApiHost = (url) => ATS_API_HOSTS.some((re) => re.test(hostOf(url)));
 // Returns mayFetch(url): true when fetch-jd may fetch the url now. A public ATS host always may. Any other host must pass
 // robots.txt (an unreachable robots.txt refuses, as lib/robots.mjs decides), and calls to one host start at least the
 // longer of the pack's request gap and the host's Crawl-delay apart.
-function createFetchGate({ robots, sleep, now, gapMs }) {
+export function createFetchGate({ robots, sleep, now, gapMs }) {
   const lastByHost = new Map();
   return async (url) => {
     if (isAtsApiHost(url)) return true;
@@ -152,7 +153,7 @@ const CLOSED_RE = /^CLOSED_POSTING\b\s*([\s\S]*)$/;
 // A refused or failed fetch gives empty text and the posting is judged on title and company alone; a closed posting
 // carries `closed` (its evidence) instead. The text goes through the posting guard (lib/posting-guard.mjs) first and is
 // then cut to JD_CHARS to bound the prompt, so a hidden or disguised line past the cut still counts as a flag.
-async function fetchPosting({ root, row, runner, mayFetch }) {
+export async function fetchPosting({ root, row, runner, mayFetch }) {
   const none = { text: '', removed: { ...EMPTY_REMOVED }, flagged: [] };
   if (!(await mayFetch(row.url))) return none;
   try {
@@ -244,7 +245,7 @@ function runApplyTriage({ lines, root, dataDir, packRoot, runner }) {
 function resolveTriageAgent({ config, agent, agentPath, claude, platform }) {
   const configured = config.agent ?? 'claude';
   const changed = Boolean(agent) && agent !== configured;
-  const hint = changed ? [`agent changed to ${configured} since the schedule was installed; run node student/scripts/schedule.mjs install again`] : [];
+  const hint = changed ? [`agent changed to ${configured} since the schedule was installed; run node student/scripts/schedule.mjs install again to switch it. I'll reinstall the schedule for you, approve? Type: reinstall my schedule`] : [];
   const file = (changed ? null : agentPath) ?? (configured === 'claude' ? claude : null) ?? resolveAgentPath(configured, { platform });
   return { configured, hint, file };
 }
@@ -410,9 +411,12 @@ export function triageChildTimeoutMs({ chunks, runLockHours }) {
 // failure { kind, reason }.
 // Fetches the chunk's postings and runs the free rules; returns the rows still bound for the model and the lines decided
 // without one.
-async function prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today, levers }) {
+// The guarded text of each fetched posting is kept in data/jds (lib/jd-store.mjs), where fill-plan reads it for the
+// tailored resume and the cover letter instead of fetching the posting again.
+async function prepareChunk({ chunk, config, root, dataDir, runner, mayFetch, cache, recheck, today, levers }) {
   const fetched = [];
   for (const row of chunk) fetched.push({ row, ...(await fetchPosting({ root, row, runner, mayFetch })) });
+  for (const f of fetched) if (f.text?.trim() && dataDir) saveJd(dataDir, f.row.url, f.text);
   const closed = fetched.filter((f) => f.closed !== undefined).map((f) => expiredLine(f.row.url, f.closed));
   const pre = preModel(fetched.filter((f) => f.closed === undefined), { student: studentFromConfig(config), cache, t1On: resolveLever('T1', levers).on, t16On: resolveLever('T16', levers).on, recheck, today });
   const guard = { removed: fetched.reduce((acc, f) => addRemoved(acc, f.removed), {}), flagged: fetched.filter((f) => f.flagged.length).length };
@@ -430,7 +434,7 @@ async function finishChunk({ held, expired, open, lines, passed, ignored, guard,
 }
 
 async function triageChunk({ chunk, configured, file, config, root, dataDir, packRoot, today, runner, platform, mayFetch, cache, recheck, levers }) {
-  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, runner, mayFetch, cache, recheck, today, levers });
+  const { pre, open, expired, guard } = await prepareChunk({ chunk, config, root, dataDir, runner, mayFetch, cache, recheck, today, levers });
   // A chunk of unchanged rechecks decides nothing, so apply-triage is not started for it.
   const apply = (lines) => (lines.length ? runApplyTriage({ lines, root, dataDir, packRoot, runner }) : null);
   if (!open.length) {
@@ -583,7 +587,7 @@ async function triageToday({ config, configured, file, note, root, dataDir, pack
     return { ran: true, triaged: 0 };
   }
   if (!file) {
-    note([`daily triage skipped: ${configured} was not found; install it, ${signInHint(configured)}, then run node student/scripts/schedule.mjs install again`]);
+    note([`daily triage skipped: ${configured} was not found; install it and ${signInHint(configured)}, then I'll reinstall the schedule (node student/scripts/schedule.mjs install), approve? Type: reinstall my schedule`]);
     return { ran: false };
   }
   const size = chunkRows(levers);

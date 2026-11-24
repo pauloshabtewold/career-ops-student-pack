@@ -75,7 +75,16 @@ test('M-001-S17-osdr [e2e] a plain node process with a launchd-like environment 
     const status = await new Promise((resolve) => {
       const child = spawn(process.execPath, [join(PACK_ROOT, 'scripts', 'chrome.mjs'), 'status', '--json', '--root', r.root, '--data-dir', r.data], {
         cwd: PACK_ROOT,
-        env: { HOME: r.root, PATH: '/usr/bin:/bin' },
+        // Windows sockets fail to start without SystemRoot (WSAEPROVIDERFAILEDINIT), so carry the
+        // OS variables a bare Windows process needs; macOS/Linux keep the launchd-like minimum.
+        env: {
+          HOME: r.root,
+          PATH: '/usr/bin:/bin',
+          ...(process.platform === 'win32'
+            ? Object.fromEntries(['SystemRoot', 'windir', 'ProgramFiles', 'LOCALAPPDATA', 'TEMP', 'TMP', 'USERPROFILE']
+              .filter((k) => process.env[k] !== undefined).map((k) => [k, process.env[k]]))
+            : {}),
+        },
       });
       let stdout = '';
       child.stdout.on('data', (d) => (stdout += d));

@@ -3,16 +3,25 @@
 // (LinkedIn, Gmail, Handshake), driven over the DevTools port by lib/cdp.mjs. Chrome 136+ refuses remote debugging on the
 // default profile, and a separate profile keeps the student's everyday browsing out of reach, so the default profile is
 // never touched. Claude Code, Codex and a scheduled run all reach the same browser through this one CLI.
-// Usage: chrome.mjs open [--headless] | status [--json] | read <url> [--links] | close
+// Usage: chrome.mjs open [--headless] | status [--json] | read <url> [--links] | read-form --url URL | close
 //        chrome.mjs fill --plan FILE | submit --batch-id ID --item N [--kind apply|easy-apply]   [--root R] [--data-dir D]
 // read --links lists only the page's LinkedIn job and company links (jobs/view and company hrefs), up to 200.
+// read-form reads the posting's application form (labels, names, types and selectors, never values) into
+// data/form-fields/<url key>.json for fill-plan; it never types or clicks, and a CAPTCHA (exit 6) or a password field
+// (exit 5, a sign-in page) stops it before anything is saved. Only the application form's inputs count (lib/cdp.mjs
+// readApplicationForm), and the form read and its button are saved with them so submit clicks only that button. A form
+// that renders late is polled for a few seconds; a page with none saves nothing (exit 3), counts the try in
+// data/form-fields/empty-reads.json and is read again on the next run, up to 3 tries, and a later read that works
+// clears the count. When no job text is saved for the posting yet (daily triage's text is never replaced), it saves
+// the job text (the JSON-LD JobPosting description, else the posting page's main text without its forms, never a form
+// route's labels) through the posting guard into data/jds, where fill-plan reads it.
 // fill types into the form by field map and never into a password field or an SSN, card or bank field (those are listed
 // as blocked-on-user and the fill exits 5 after the rest is filled); a visible CAPTCHA or bot check stops it and moves
 // the job to the batch's finish-yourself list. fill records its tab in the plan file. submit clicks only in that tab,
 // only after budget.mjs check passes for the approved item, and logs apply.submit only when the page confirms it.
-// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (budget.mjs
-// refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
-// changed, no submit button), 4 wait (browser slot or budget.mjs wait), 5 needs the
+// Exit codes: 0 ok, 1 close could not stop Chrome, 2 usage (or no plan for the approved line), 3 refused (an item with no
+// unspent approval, checked before its plan is looked up; budget.mjs refused, a plan for another link than the approved line, a job on finish these yourself, the filled tab is gone or
+// changed, a plan with text fields that no fill typed, no submit button or one outside the form read), 4 wait (browser slot or budget.mjs wait), 5 needs the
 // user (budget.mjs exit 5 passed through, a password or sensitive field left for the student, a form that refused the
 // submit or a submit with no new confirmation, both added to finish these yourself, or a confirmed submit that could not
 // be logged), 6 CAPTCHA or bot check
@@ -21,11 +30,15 @@ import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
-import { SENSITIVE_KEY } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { attachById, attachTo, chooseRadio, click, describeField, evaluate, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, withBrowser } from '../lib/cdp.mjs';
+import { APPLY_SUBMIT, LINK_STYLE, allowedLabel, attachById, attachTo, checkedClick, chooseRadio, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, submitGate, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
+import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
+import { trimJobText } from '../lib/jd-trim.mjs';
+import { guardPosting } from '../lib/posting-guard.mjs';
 import { leverOpts, resolve as resolveLever } from '../lib/levers.mjs';
 import { isSensitive } from '../lib/profile-answers.mjs';
 import { LockTimeoutError, isPidAlive, withLock } from '../lib/dir-lock.mjs';
@@ -33,6 +46,8 @@ import { resolvePaths } from '../lib/paths.mjs';
 import { runResult } from '../lib/run.mjs';
 import { writeAtomic } from '../lib/tsv.mjs';
 import { which } from '../lib/which.mjs';
+import { approvedItem } from './budget.mjs';
+import { trimWords } from './daily-triage.mjs';
 
 export const STATE_FILE = '.chrome-automation';
 export const PROFILE_DIR = 'chrome-automation';
@@ -239,7 +254,9 @@ async function waitForDevtools(profile, pid, deps = {}) {
 }
 
 // Chrome flags: dedicated profile directory, debugging port bound to loopback only.
-export function launchArgs(profile, { headless = false } = {}) {
+export function launchArgs(profile, { headless = false, platform = process.platform, env = process.env, keychainExists = existsSync } = {}) {
+  // Mock keychain only for a HOME with none (no macOS popup); a real one keeps it so saved sign-ins still decrypt.
+  const noKeychain = platform === 'darwin' && !keychainExists(join(env.HOME || homedir(), 'Library', 'Keychains'));
   return [
     `--user-data-dir=${profile}`,
     '--remote-debugging-port=0',
@@ -247,6 +264,7 @@ export function launchArgs(profile, { headless = false } = {}) {
     '--no-first-run',
     '--no-default-browser-check',
     ...(headless ? ['--headless=new'] : []),
+    ...(noKeychain ? ['--use-mock-keychain', '--password-store=basic'] : []),
   ];
 }
 
@@ -290,7 +308,7 @@ async function openLocked({ dataDir, config, flags, deps, say }) {
     return EXIT.notRunning;
   }
   rmSync(join(profile, 'DevToolsActivePort'), { force: true });
-  const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless) }), { detached: true, stdio: 'ignore', windowsHide: true });
+  const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless), env: deps.env ?? process.env, platform: deps.platform, keychainExists: deps.keychainExists }), { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref?.();
   const { port, ready, exited } = await waitForDevtools(profile, child.pid, deps);
   if (!ready) {
@@ -472,7 +490,8 @@ const pageUrl = async (client, sessionId) => {
 // Fills one plan; returns { code, filled, problems, tab }. The tab stays open for submit, and tab = { targetId, url,
 // sentinel } names it, so submit clicks in this exact tab and checks that it still holds the filled form.
 export async function fillPlan(client, plan, { dataDir }) {
-  const page = (await attachTo(client, plan.url)) ?? (await openPage(client, plan.url));
+  const form = formUrl(plan.url);
+  const page = (await attachTo(client, form)) ?? (await openPage(client, form));
   const { sessionId } = page;
   const captcha = await detectCaptcha(client, sessionId);
   if (captcha) {
@@ -508,6 +527,168 @@ export async function fillPlan(client, plan, { dataDir }) {
   }
   const tab = { targetId: page.targetId, url: await pageUrl(client, sessionId), sentinel };
   return { code: blocked.length ? EXIT.needsUser : EXIT.ok, filled, problems: [...problems, ...blocked], tab };
+}
+
+// Page script for the job text: the raw JSON-LD blocks and the visible text of main (else article, else body). Read-only.
+// The text of every form inside main is left out, so form labels and questions never count as job text.
+export const PAGE_JOB_SCRIPT = `(() => {
+  const root = document.querySelector('main') || document.querySelector('article') || document.body;
+  let main = root ? String(root.innerText || '') : '';
+  if (root && typeof root.querySelectorAll === 'function') {
+    for (const f of root.querySelectorAll('form')) { const t = String(f.innerText || '').trim(); if (t) main = main.split(t).join(' '); }
+  }
+  return { ld: [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => s.textContent || ''), main };
+})()`;
+
+// Fewer words than this is a form or a page shell, not a posting.
+export const MIN_PAGE_JOB_WORDS = 80;
+// Job text kept from a page when the jd_trim lever is off, the same cut daily triage applies.
+const PAGE_JOB_CHARS = 6000;
+const wordCount = (text) => String(text ?? '').split(/\s+/).filter(Boolean).length;
+// Entities are decoded before tags are stripped, so an entity-encoded description (&lt;p&gt;) loses its tags too; &amp;
+// is decoded last so it never forms a new entity.
+const stripHtml = (html) => String(html ?? '')
+  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/<\s*(br|\/p|\/li|\/h[1-6]|\/div)\b[^>]*>/gi, '\n')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&amp;/g, '&')
+  .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+
+// The JobPosting nodes of one JSON-LD block (a node, an array, or an @graph); [] for a block that does not parse.
+function jobPostings(block) {
+  let data;
+  try {
+    data = JSON.parse(block);
+  } catch {
+    return [];
+  }
+  const nodes = (Array.isArray(data) ? data : [data]).flatMap((n) => (Array.isArray(n?.['@graph']) ? n['@graph'] : [n]));
+  return nodes.filter((n) => [].concat(n?.['@type'] ?? []).includes('JobPosting'));
+}
+
+// Job text from a page read by PAGE_JOB_SCRIPT: the description of the page's one JSON-LD JobPosting, else (unless main
+// is false) the visible main text, cut to the resolved jd_trim words (lib/jd-trim.mjs) or, with the lever off, to the
+// characters daily triage keeps; '' when neither reaches MIN_PAGE_JOB_WORDS or the page names several postings.
+export function pageJobText(raw, { main: useMain = true, words = trimWords() } = {}) {
+  const postings = (raw?.ld ?? []).flatMap(jobPostings);
+  if (postings.length > 1) return '';
+  const ld = postings.length ? stripHtml(postings[0].description) : '';
+  if (wordCount(ld) >= MIN_PAGE_JOB_WORDS) return postings[0].title ? `${postings[0].title}\n\n${ld}` : ld;
+  const main = useMain ? String(raw?.main ?? '').trim() : '';
+  if (wordCount(main) < MIN_PAGE_JOB_WORDS) return '';
+  return words ? trimJobText(main, { words }) : main.slice(0, PAGE_JOB_CHARS);
+}
+
+// A form rendered after the load event (a client-side route) is polled for up to FORM_WAIT_MS before a read is empty.
+export const FORM_WAIT_MS = 3000;
+const FORM_POLL_MS = 500;
+
+async function readFormPage(client, sessionId, wait) {
+  let read = await readApplicationForm(client, sessionId);
+  for (let waited = 0; !read.fields.length && !read.account && waited < FORM_WAIT_MS; waited += FORM_POLL_MS) {
+    await wait(FORM_POLL_MS);
+    read = await readApplicationForm(client, sessionId);
+  }
+  return read;
+}
+
+// The posting's job text for read-form: the JSON-LD JobPosting of the opened form page, else the posting page itself.
+// On a form route (Lever /apply) the posting page is read in its own tab, and the form route's visible text (form labels
+// and questions) never counts. A posting page that is its own form page (Greenhouse) counts its main text without forms.
+async function postingText(client, url, sessionId) {
+  const raw = await evaluate(client, sessionId, PAGE_JOB_SCRIPT);
+  if (formUrl(url) === url) return pageJobText(raw);
+  const fromLd = pageJobText(raw, { main: false });
+  if (fromLd) return fromLd;
+  const tab = await openPage(client, url);
+  try {
+    return pageJobText(await evaluate(client, tab.sessionId, PAGE_JOB_SCRIPT));
+  } finally {
+    await client.send('Target.closeTarget', { targetId: tab.targetId }).catch(() => {});
+  }
+}
+
+// Reads the application form at url in a new tab and closes it again: read-only, it never types, clicks or submits. A
+// visible CAPTCHA or bot check, or a password field (a sign-in or create-account page, including one whose form does not
+// qualify), stops it before the fields are read.
+// The page opened is the posting's form page (formUrl). The posting's job text is read only when opts.jobText is true
+// (no text is saved for it yet). Returns { fields, form?, submit?, jobText? } (form and submit name the form read and
+// its button) or { stop: 'captcha', detail }, { stop: 'password' } or { stop: 'empty' }. opts.wait(ms) paces the poll.
+export async function readForm(client, url, { jobText = true, wait = sleep } = {}) {
+  const { sessionId, targetId } = await openPage(client, formUrl(url));
+  try {
+    const captcha = await detectCaptcha(client, sessionId);
+    if (captcha) return { stop: 'captcha', detail: captcha };
+    const read = await readFormPage(client, sessionId, wait);
+    const { fields } = read;
+    if (read.account || fields.some(isPasswordField)) return { stop: 'password' };
+    if (!fields.length) return { stop: 'empty' };
+    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null, ...(read.submitText !== undefined ? { submitText: read.submitText } : {}), ...(read.submitSignature ? { submitSignature: read.submitSignature } : {}), ...(read.submitRefusal ? { submitRefusal: read.submitRefusal } : {}), ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
+    const text = jobText ? await postingText(client, url, sessionId) : '';
+    return { fields, ...form, ...(text ? { jobText: text } : {}) };
+  } finally {
+    await client.send('Target.closeTarget', { targetId }).catch(() => {});
+  }
+}
+
+// True when no job text is saved for the posting yet (data/jds), so read-form may save the page's.
+export const needsJobText = (dataDir, url) => !loadJd(dataDir, url).trim();
+
+// After a read that found fields: saves them with the form read, clears the posting's empty-read count (a later read
+// that works lifts a give-up), and saves the page's job text only when no text is saved yet, so the text daily triage
+// saved is never replaced.
+export function keepRead({ dataDir, url, res, say }) {
+  const file = saveFormFields(dataDir, url, res.fields, res);
+  clearEmptyReads(join(dataDir, FIELDS_DIR), url);
+  say(`chrome: read ${res.fields.length} form field(s) on ${siteOf(url)} into ${file}`);
+  const guarded = res.jobText ? guardPosting(res.jobText).text.trim() : '';
+  if (!needsJobText(dataDir, url)) say(`chrome: kept the posting text already saved for ${siteOf(url)}`);
+  else if (guarded) say(`chrome: saved the posting text from ${siteOf(url)} (${saveJdIfAbsent(dataDir, url, guarded)})`);
+  else say(`chrome: no posting text found on ${siteOf(url)}`);
+}
+
+// read-form: the posting's form fields (with selectors) into data/form-fields/<url key>.json as { ats, url, form,
+// submit, fields }, which fill-plan reads.
+async function cmdReadForm({ dataDir, flags, deps, say }) {
+  if (!flags.url) throw new UsageError('read-form needs --url URL');
+  const live = await liveState(dataDir, deps);
+  if (!live) {
+    say('chrome: automation Chrome is not running; run node student/scripts/chrome.mjs open');
+    return EXIT.notRunning;
+  }
+  const res = await withBrowser(live.port, (client) => readForm(client, flags.url, { jobText: needsJobText(dataDir, flags.url) }), deps);
+  if (res.stop === 'captcha') {
+    say(`chrome: blocked: ${siteOf(flags.url)} shows a ${res.detail}; the form was not read and nothing was typed`);
+    return EXIT.captcha;
+  }
+  if (res.stop === 'password') {
+    say(`chrome: blocked-on-user: ${siteOf(flags.url)} asks for a password (a sign-in or a new account); signing in and creating the account stay with you, nothing was typed or saved. Next step: sign in or create the account on that page in the automation Chrome yourself, then type: apply. The next run reads this form again, since a sign-in page does not count as an empty read.`);
+    return EXIT.needsUser;
+  }
+  if (res.stop === 'empty') {
+    const tries = recordEmptyRead(join(dataDir, FIELDS_DIR), flags.url);
+    const left = tries >= EMPTY_READ_TRIES ? 'it is left for you to finish yourself' : 'it is read again on the next run';
+    say(`chrome: no application form found on ${siteOf(flags.url)} (read ${tries} of ${EMPTY_READ_TRIES}); nothing was saved and ${left}`);
+    return EXIT.refused;
+  }
+  keepRead({ dataDir, url: flags.url, res, say });
+  return EXIT.ok;
+}
+
+// Writes data/form-fields/<url key>.json as { ats, url, form, submit, submitText?, submitSignature?, submitRefusal?,
+// uploadOutside?, fields } and returns its path. form and submit (from read, when the read recorded them) are the
+// selectors of the form read and its button; submit clicks only that, and only while the button still reads submitText
+// and the live form still gives submitSignature (rule v7 F2). submitRefusal is the rule v7 reason code of a read that
+// saved no submit. uploadOutside: true says the submit is null because the resume upload sits outside that form.
+export function saveFormFields(dataDir, url, fields, read = {}) {
+  const file = formFieldsFile(join(dataDir, FIELDS_DIR), url);
+  mkdirSync(dirname(file), { recursive: true });
+  const text = read.submit && typeof read.submitText === 'string' ? { submitText: read.submitText } : {};
+  const signature = read.submit && read.submitSignature && typeof read.submitSignature === 'object' ? { submitSignature: read.submitSignature } : {};
+  const refusal = !read.submit && typeof read.submitRefusal === 'string' ? { submitRefusal: read.submitRefusal } : {};
+  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null, ...text, ...signature, ...refusal, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
+  writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, ...form, fields }, null, 2)}\n`);
+  return file;
 }
 
 async function cmdFill({ dataDir, flags, deps, say }) {
@@ -562,6 +743,17 @@ export function resolveSubmitPlan(dataDir, batchId, item) {
   return { plan };
 }
 
+// Why a numbered line with no unspent logged approval is refused, or null. Checked before the fill-plan lookup, so an item
+// left out of the approval exits 3 whether or not it has a plan. A missing batch or line, or a line on finish these
+// yourself, is left to resolveSubmitPlan, which names that problem.
+export async function approvalProblem(dataDir, batchId, item) {
+  const batch = readBatch(dataDir, batchId);
+  const line = batch?.items?.[item - 1];
+  if (!line || (batch.finishYourself ?? []).some((f) => f.link === line.link)) return null;
+  const rows = await readActionLog(join(dataDir, 'action-log.tsv'));
+  return approvedItem(rows, batchId, item) ? null : `item ${item} of batch ${batchId} has no unspent approval`;
+}
+
 // Easy Apply is checked and logged as apply.easy_apply, which has its own daily cap and LinkedIn pacing in budget.mjs.
 export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit', 'easy-apply': 'apply.easy_apply' });
 
@@ -569,7 +761,6 @@ export const SUBMIT_KINDS = Object.freeze({ apply: 'apply.submit', 'easy-apply':
 // non-zero is a refusal.
 export const budgetExit = (code) => (code === 4 ? EXIT.wait : code === 5 ? EXIT.needsUser : EXIT.refused);
 
-const SUBMIT_SELECTOR = 'button[type=submit], input[type=submit]';
 const OUTCOME_POLL_MS = 500;
 const OUTCOME_TRIES = 20;
 
@@ -588,11 +779,59 @@ async function submitOutcome(client, sessionId, before, wait) {
   return { state: 'unconfirmed' };
 }
 
+// Why the saved submit button must not be clicked, as a clickSubmit state, or null: it is gone, it reads as another
+// action (LINK_STYLE), it is an untyped button outside any form (it submits nothing), or its form holds none of the
+// filled fields.
+function unsafeButton(b, selector) {
+  if (!b || typeof b !== 'object') return { state: 'no-button', detail: `${selector} is gone` };
+  if (LINK_STYLE.test(String(b.text ?? ''))) return { state: 'no-button', detail: `${selector} reads "${String(b.text).trim()}"` };
+  if (!b.inForm && !b.typed) return { state: 'no-button', detail: `${selector} is an untyped button outside any form` };
+  if (b.inForm && !b.formHasField) return { state: 'other-form', detail: selector };
+  return null;
+}
+
+export const BUTTON_CHANGED = 'the submit button changed since the form was read; read the form again';
+export const STALE_READ = 'saved form read is too old; read the form again';
+// Rule v7 F3: the finish-yourself reason of a click refused because the form no longer looks as it did at the read.
+export const CHANGED_SINCE_READ = `${BUTTON_CHANGED} (changed-since-read)`;
+
+// Submit-pick rule v4 item D: a saved submit whose read saved no text, or an empty one (an older read), cannot be
+// checked against the page, so it is refused as a stale read.
+const textless = (saved, selector) => (typeof saved === 'string' && saved ? null : { state: 'no-button', detail: `the form read saved no text for ${selector}`, reason: STALE_READ });
+
+// Submit-pick rule v6 item 3, checked before the pending row: the read must have saved the button's label, the live
+// button's label (normalized as lib/cdp.mjs controlLabel) must still pass rule 1 and the button be the only control of
+// its form that does (submitButton only), it must be a typed submit or an APPLY_SUBMIT-worded one, and its label must
+// equal the saved one. checkedClick runs the same check again on the element it clicks.
+function changedButton(b, saved, selector) {
+  const missing = textless(saved, selector);
+  if (missing) return missing;
+  const now = String(b.text ?? '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80).trimEnd();
+  if (!allowedLabel(now) || b.only !== true) return { state: 'no-button', detail: `${selector} reads "${now}", which is no application submit or not the only one in its form`, reason: CHANGED_SINCE_READ };
+  if (!b.typed && !APPLY_SUBMIT.test(now)) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: CHANGED_SINCE_READ };
+  if (now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: CHANGED_SINCE_READ };
+  return null;
+}
+
+// Rule v7 F3/F4, the last step before the pending row: the submit decision re-run on the live form must pick the saved
+// button with the saved signature. A refusal, an error or any answer but { ok: true } refuses with changed-since-read.
+async function gateRefusal(client, sessionId, plan, selector) {
+  let res;
+  try {
+    res = await submitGate(client, sessionId, plan.formSelector, selector, plan.submitSignature);
+  } catch (err) {
+    res = { refused: `changed-since-read (${err.message})` };
+  }
+  if (res && res.ok === true) return null;
+  return { state: 'no-button', detail: `${selector} ${res?.refused ?? 'changed-since-read'}`, reason: CHANGED_SINCE_READ };
+}
+
 // On the page: the filled tab by its recorded id (never a fresh or look-alike tab), its address and a filled value, the
 // CAPTCHA check and the button, then the pending row, the click and the page's answer. The pending row is logged before
 // the click so a click whose apply.submit log later fails still leaves the item used; budget.mjs refuses a second
 // pending row for the same item under the action-log lock.
 export async function clickSubmit(client, { plan, paths, item, runner, wait = sleep }) {
+  if (!('formSelector' in plan)) return { state: 'stale-read' };
   const page = await attachById(client, plan.tab?.targetId);
   if (!page) return { state: 'no-tab' };
   const before = await pageUrl(client, page.sessionId);
@@ -600,14 +839,30 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const s = plan.tab.sentinel;
   if (s && (await readValue(client, page.sessionId, s.selector)) !== s.value) return { state: 'not-filled', detail: s.selector };
   if (await detectCaptcha(client, page.sessionId)) return { state: 'captcha' };
-  const selector = plan.submitSelector ?? SUBMIT_SELECTOR;
+  // A plan clicks only the button its form read found (formSelector, null for a whole-page read, which saves no submit),
+  // only inside that form; a plan with no formSelector key was refused above as a stale read. Every button must also be
+  // a real submit of a form holding a filled field.
+  const fieldSelectors = (plan.fields ?? []).map((f) => f.selector).filter(Boolean);
+  if (!plan.submitSelector) return { state: 'no-button', detail: 'the form read saved none' };
+  const selector = plan.submitSelector;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
+  if (plan.formSelector && !(await insideForm(client, page.sessionId, plan.formSelector, selector))) return { state: 'outside-form', detail: selector };
+  const button = await submitButton(client, page.sessionId, selector, fieldSelectors);
+  const unsafe = unsafeButton(button, selector) || changedButton(button, plan.submitText, selector);
+  if (unsafe) return unsafe;
+  // Rule v5 item 4: the button must sit inside the form the read named; a saved submit with no saved form is refused.
+  if (!plan.formSelector) return { state: 'no-button', detail: 'the form read saved no form for its submit' };
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
   if (!signs) return { state: 'no-signs' };
+  const gated = await gateRefusal(client, page.sessionId, plan, selector);
+  if (gated) return gated;
   const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
   if (pending.code !== 0) return { state: 'pending-failed', res: pending };
-  if (!(await click(client, page.sessionId, selector))) return { state: 'clicked', outcome: { state: 'unconfirmed', detail: 'the button was gone at the click' } };
+  // Rule v6 item 3 and v7 F3: the click re-runs the gate and the whole check on the element it clicks (one lookup, no
+  // second path resolution). A refusal here comes after the pending row, which then keeps the item from being clicked again.
+  const done = await checkedClick(client, page.sessionId, plan.formSelector, selector, plan.submitText, plan.submitSignature);
+  if (done !== true) return { state: 'no-button', detail: `${selector} ${done?.refused ?? 'was not clicked'}`, reason: CHANGED_SINCE_READ };
   const outcome = await submitOutcome(client, page.sessionId, signs, wait);
   // A screenshot is taken only here, to prove what the submit showed; every other read is text. A failed screenshot
   // never stops the outcome from being handled and logged.
@@ -625,12 +880,23 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   if (!flags.batchId || !Number.isInteger(flags.item)) throw new UsageError('submit needs --batch-id ID --item N');
   const action = SUBMIT_KINDS[flags.kind ?? 'apply'];
   if (!action) throw new UsageError(`--kind must be one of ${Object.keys(SUBMIT_KINDS).join(', ')}`);
-  const found = resolveSubmitPlan(dataDir, flags.batchId, flags.item);
+  const unapproved = await approvalProblem(dataDir, flags.batchId, flags.item);
+  if (unapproved) {
+    say(`chrome: ${unapproved}; nothing was clicked`);
+    return EXIT.refused;
+  }
+  const found =resolveSubmitPlan(dataDir, flags.batchId, flags.item);
   if (found.problem) {
     say(`chrome: ${found.problem}; nothing was clicked`);
     return found.refused ? EXIT.refused : EXIT.usage;
   }
   const { plan } = found;
+  // A plan with fields but no formSelector key comes from a read saved before the form was recorded: a stale read,
+  // refused before any budget call, pick or click, and moved to finish these yourself.
+  if (plan.fields?.length && !('formSelector' in plan)) return afterClick({ clicked: { state: 'stale-read' }, plan, paths, flags, action, dataDir, deps, say });
+  // A saved submit with no saved text is refused the same way before the budget check, the browser or any click.
+  const textMissing = plan.submitSelector ? textless(plan.submitText, plan.submitSelector) : null;
+  if (textMissing) return afterClick({ clicked: textMissing, plan, paths, flags, action, dataDir, deps, say });
   const scoreArgs = ['--score', String(plan.score ?? 0), '--batch', '1', ...(plan.track ? ['--track', plan.track] : [])];
   const check = budgetCall(paths, 'check', action, plan, scoreArgs, deps.runner);
   if (check.code !== 0) {
@@ -639,6 +905,14 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   }
   if (found.unverified) {
     say(`chrome: batch ${flags.batchId} has no batch file, so item ${flags.item} cannot be matched to the approved line; nothing was clicked`);
+    return EXIT.refused;
+  }
+  if (!plan.fields?.length) {
+    say(`chrome: item ${flags.item} of ${flags.batchId} has no form fields: read the form first (node student/scripts/chrome.mjs read-form --url ${plan.link ?? plan.url}), rebuild the plan (node student/scripts/fill-plan.mjs --replan --batch-id ${flags.batchId} --item ${flags.item}), fill, then submit; nothing was clicked`);
+    return EXIT.refused;
+  }
+  if (unfilled(plan)) {
+    say(`chrome: item ${flags.item} of ${flags.batchId} has text fields but no fill typed one (no fill sentinel); ${REFILL(plan)}; nothing was clicked`);
     return EXIT.refused;
   }
   const live = await liveState(dataDir, deps);
@@ -663,7 +937,22 @@ function finishAfterClick(addFinish, dataDir, flags, entry, say) {
   }
 }
 
+// Adds a refused job (nothing clicked) to finish these yourself and says how that went: a missing batch file or one
+// that stays locked is named, not thrown, since the refusal itself already stands.
+function finishRefused(addFinish, dataDir, flags, entry) {
+  try {
+    addFinish(dataDir, flags.batchId, entry);
+    return `added to finish these yourself (${entry.reason}: ${entry.link})`;
+  } catch (err) {
+    return `it could not be added to finish these yourself (${err.message}); finish it by hand (${entry.link})`;
+  }
+}
+
 const REFILL = (plan) => `fill it again with node student/scripts/chrome.mjs fill --plan ${plan.planFile}, then submit`;
+
+// A plan with a text field to type whose last fill typed none (its tab has no sentinel): submitting would click on a
+// blank or half-filled form, the same rule the autopilot's fill hold applies.
+export const unfilled = (plan) => !plan.tab?.sentinel && (plan.fields ?? []).some((f) => f.selector && !f.slot && TEXT_TYPES.has(String(f.type ?? '').toLowerCase()));
 
 export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps = {}, say }) {
   const link = plan.link ?? plan.url;
@@ -671,12 +960,24 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     'no-tab': () => `the tab filled for item ${flags.item} is gone; ${REFILL(plan)}`,
     'tab-moved': () => `the tab filled for item ${flags.item} now shows ${clicked.detail ?? 'another page'}; ${REFILL(plan)}`,
     'not-filled': () => `the tab for item ${flags.item} no longer holds its filled ${clicked.detail}; ${REFILL(plan)}`,
-    'no-button': () => 'no submit button found',
     'no-signs': () => `the page wording for item ${flags.item} could not be read before the click, so a submit could never be confirmed`,
     'pending-failed': () => `budget.mjs refused or could not record the pending submit (${childLine(clicked.res)})`,
   };
   if (stops[clicked.state]) {
     say(`chrome: ${stops[clicked.state]()}; nothing was clicked`);
+    return EXIT.refused;
+  }
+  // No safe submit button: the same markup refuses on every run, so the job goes to finish these yourself with its
+  // reason and link (the autopilot then leaves it alone) instead of being refilled and refused each day.
+  const unsafe = {
+    'no-button': () => [`no safe submit button${clicked.detail ? ` (${clicked.detail})` : ''}`, clicked.reason ?? 'no safe submit button in the form read'],
+    'outside-form': () => [`the submit button ${clicked.detail ?? ''} is outside the form that was read`, 'the submit button is outside the form read'],
+    'other-form': () => [`the submit button ${clicked.detail ?? ''} is in a form holding none of the filled fields`, 'the submit button is in a form holding none of the filled fields'],
+    'stale-read': () => [`the saved form read names no form, so no submit is clicked; read the form again (node student/scripts/chrome.mjs read-form --url ${link})`, STALE_READ],
+  };
+  if (unsafe[clicked.state]) {
+    const [why, reason] = unsafe[clicked.state]();
+    say(`chrome: ${why}; ${finishRefused(deps.addFinishYourself ?? addFinishYourself, dataDir, flags, { company: plan.company, role: plan.role, link, reason })}; nothing was clicked`);
     return EXIT.refused;
   }
   if (clicked.state === 'captcha') {
@@ -711,9 +1012,9 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
   return EXIT.ok;
 }
 
-export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, close: cmdClose, fill: cmdFill, submit: cmdSubmit };
+export const HANDLERS = { open: cmdOpen, status: cmdStatus, read: cmdRead, 'read-form': cmdReadForm, close: cmdClose, fill: cmdFill, submit: cmdSubmit };
 export const COMMANDS = Object.keys(HANDLERS);
-export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string', links: 'boolean' };
+export const FLAGS = { headless: 'boolean', plan: 'string', 'batch-id': 'string', item: 'int', kind: 'string', links: 'boolean', url: 'string' };
 
 // Config is optional: status must work before setup has written config/student.yml.
 async function readConfig(root) {

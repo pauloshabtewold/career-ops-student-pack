@@ -36,7 +36,7 @@ async function approvedBatch(r, plans) {
     items: b.items.map((it, k) => {
       const file = join(r.data, 'fill-plans', id, `${k + 1}.json`);
       mkdirSync(join(r.data, 'fill-plans', id), { recursive: true });
-      writeFileSync(file, `${JSON.stringify({ company: it.company, role: it.role, url: it.link, link: it.link, score: 4.5, batchId: id, item: k + 1, unknown: [], uploads: [], ...plans[k] })}\n`);
+      writeFileSync(file, `${JSON.stringify({ company: it.company, role: it.role, url: it.link, link: it.link, score: 4.5, batchId: id, item: k + 1, unknown: [], uploads: [], formSelector: '#application_form', submitSelector: '#submit_app', submitText: 'submit application', ...plans[k] })}\n`);
       return { ...it, plan: file };
     }),
   }));
@@ -76,8 +76,9 @@ test('R2-M1 an approved plan with no read fields gets no fill and no submit, a w
     const id = await approvedBatch(r, [{ fields: [] }]);
     const c = chromeRunner();
     const res = await runPilot(r, c.runner);
-    assert.deepEqual(c.calls, [], 'no chrome.mjs fill or submit');
-    assert.ok(res.lines.includes(`submit approved: item 1 of ${id} waits for a fill in a session (no form was read for it)`), res.lines.join('\n'));
+    // M-007 fix2 N2-2: the form is read and the plan rebuilt first; this runner's read gives no fields, so it still waits.
+    assert.deepEqual(c.verbs(), ['chrome.mjs read-form'], 'no chrome.mjs fill or submit');
+    assert.ok(res.lines.includes(`submit approved: item 1 of ${id} not submitted: the rebuilt plan still has no form fields; it waits for a session`), res.lines.join('\n'));
     assert.equal(res.footer[0], 'Next: fill and submit the 1 approved application(s) in a session');
     assert.equal(res.footer[1], 'Type: submit all');
     assert.match(res.footer[2], /^Why: .*I'll fill each form first, approve\?$/);

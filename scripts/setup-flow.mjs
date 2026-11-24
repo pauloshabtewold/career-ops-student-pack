@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // The setup checklist after install, run by plain code with zero model calls: install state, interview done, resume
 // built from the template and passing check-resume, automation Chrome open, the student's one-time sign-ins (LinkedIn,
-// Gmail, Handshake), schedule installed. It fixes what it can itself (folders, defaults, the resume build) and stops only
-// at a step that is the student's: a sign-in. Every run ends with the Next/Type/Why block.
+// Gmail, Handshake), schedule installed (then the schedule probe records chrome_in_schedule, and an answer it could not
+// give is recorded as no). It fixes what it can itself (folders, defaults, the resume build) and stops only at a step
+// that is the student's: a sign-in. Every run ends with the Next/Type/Why block.
 // Usage: setup-flow.mjs [--signed-in LinkedIn,Gmail,Handshake] [--slot-cmd CMD] [--root R] [--data-dir D] [--today D]
 // Exit 0 always; the block says what is next.
 import { createHash } from 'node:crypto';
@@ -15,6 +16,7 @@ import { loadStudentConfig, writeConfigKey } from '../lib/config.mjs';
 import { isOn, readOverrides } from '../lib/levers.mjs';
 import { SIGN_IN_SITES, guidedFooter, nextStep } from '../lib/next-step.mjs';
 import { resolvePaths } from '../lib/paths.mjs';
+import { RECHECK_OFFER, probeUnsure, readProbeState, writeProbeState } from '../lib/probe-state.mjs';
 import { matchQuestion, normalize, readProfileAnswers } from '../lib/profile-answers.mjs';
 import { runResult } from '../lib/run.mjs';
 import { append, zeroRow } from '../lib/usage-ledger.mjs';
@@ -62,22 +64,30 @@ export function cachedProfile({ root, dataDir, cacheOn = true }) {
   return { ...facts, fromCache: false };
 }
 
-// The pipeline half of the next-step state: batches waiting, finish-yourself items.
+// The pipeline half of the next-step state: batches waiting with their job and message counts, unknown questions (the
+// count and the questions as asked), finish-yourself items.
 // Unknown questions are read from the fill plans of batches still waiting for approval; with answers given, a question
 // the answer bank now covers no longer counts.
 export function pipelineState(dataDir, { answers = null } = {}) {
   const batches = listBatches(dataDir).map((id) => readBatch(dataDir, id)).filter(Boolean);
   const waiting = batches.filter((b) => !b.approved && b.items.length);
-  const unknown = new Set();
+  // Normalized question -> the question as the form asked it, for the guided line.
+  const unknown = new Map();
   for (const it of waiting.flatMap((b) => b.items)) {
     if (!it.plan || !existsSync(it.plan)) continue;
     try {
-      for (const q of JSON.parse(readFileSync(it.plan, 'utf8')).unknown ?? []) if (!answers || matchQuestion(answers, q) === undefined) unknown.add(normalize(q));
+      for (const q of JSON.parse(readFileSync(it.plan, 'utf8')).unknown ?? []) {
+        if (!unknown.has(normalize(q)) && (!answers || matchQuestion(answers, q) === undefined)) unknown.set(normalize(q), q);
+      }
     } catch {
       // an unreadable plan adds no question
     }
   }
-  return { batchesWaiting: waiting.length, unknownQuestions: unknown.size, finishYourself: batches.reduce((n, b) => n + (b.finishYourself?.length ?? 0), 0) };
+  const items = (kind) => waiting.filter((b) => (kind === 'apply' ? b.kind === 'apply' : b.kind !== 'apply')).reduce((n, b) => n + b.items.length, 0);
+  return {
+    batchesWaiting: waiting.length, jobsWaiting: items('apply'), messagesWaiting: items('outreach'), unknownQuestions: unknown.size, questions: [...unknown.values()],
+    finishYourself: batches.reduce((n, b) => n + (b.finishYourself?.length ?? 0), 0),
+  };
 }
 
 export const setupComplete = (state) => Boolean(state.installed && state.interview && state.resume && state.chrome && state.schedule && SIGN_IN_SITES.every((s) => state.signins?.[s]));
@@ -91,9 +101,44 @@ function defaultDeps({ paths, config }) {
     // chrome.mjs open runs the browser-slot gate itself and returns at once when the automation Chrome is already up.
     chrome: async () => runResult(process.execPath, [script('chrome.mjs'), 'open', '--root', paths.root, '--data-dir', paths.dataDir], { cwd: paths.root }),
     // Only checks: installing the schedule picks a time, which is the interview's Part D answer.
-    schedule: async () => ({ code: (await import('./schedule.mjs')).readJob() ? 0 : 1 }),
+    schedule: async () => scheduleStep({
+      config,
+      readJob: async () => (await import('./schedule.mjs')).readJob(),
+      runProbe: async () => {
+        const probe = join(paths.packRoot, 'tools', 'schedule-probe.mjs');
+        return existsSync(probe) ? runResult(process.execPath, [probe, '--root', paths.root, '--data-dir', paths.dataDir], { cwd: paths.root }) : null;
+      },
+    }),
     say: (line) => console.log(line),
   };
+}
+
+// The schedule step: done when a daily job is installed. While chrome_in_schedule is not recorded yet it then runs
+// tools/schedule-probe.mjs once (a one-shot scheduled job that checks whether a scheduled run reaches the automation
+// Chrome and writes yes or no). Returns { code, probe } with the probe's last line, or null when it did not run.
+export async function scheduleStep({ config, readJob, runProbe }) {
+  if (!(await readJob())) return { code: 1, probe: null };
+  if (CHROME_REACH.includes(config?.chrome_in_schedule)) return { code: 0, probe: null };
+  const res = await runProbe();
+  return { code: 0, probe: res ? lastLine(res) || `exit ${res.code}` : null };
+}
+
+const CHROME_REACH = ['yes', 'no'];
+
+// After the schedule step: a chrome_in_schedule the probe could not answer (no scheduler on Linux, the probe job could
+// not be installed or timed out, the automation Chrome was closed) becomes no, never stays unset, so the daily autopilot
+// runs and its Chrome steps wait for a session. Returns the line to say, or null when the key was already recorded.
+// The probe's own reason (lib/probe-state.mjs) stays when it ran; without one the reason is no-probe.
+export async function recordChromeReach(root, dataDir = null) {
+  const config = await loadStudentConfig({ root }).catch(() => null);
+  if (!config || CHROME_REACH.includes(config.chrome_in_schedule)) return null;
+  writeConfigKey({ root }, 'chrome_in_schedule', 'no');
+  if (dataDir) {
+    const reason = readProbeState(dataDir)?.reason ?? 'no-probe';
+    writeProbeState(dataDir, { value: 'no', reason, date: new Date().toISOString().slice(0, 10) });
+    if (probeUnsure(dataDir)) return `setup: the schedule probe could not tell whether a scheduled run reaches the automation Chrome (${reason}), so chrome_in_schedule is no for now: the daily autopilot prepares your batches and its Chrome steps wait for a session. ${RECHECK_OFFER}`;
+  }
+  return 'setup: the schedule probe could not tell whether a scheduled run reaches the automation Chrome, so chrome_in_schedule is no: the daily autopilot prepares your batches and its Chrome steps wait for a session';
 }
 
 const lastLine = (res) => String(res?.error || res?.stdout || res?.stderr || '').trim().split('\n').pop();
@@ -148,7 +193,14 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
     }],
     // Sign-ins are the student's: recorded from --signed-in, never attempted.
     ['signins', async () => SIGN_IN_SITES.every((s) => state.signins[s])],
-    ['schedule', async () => (await d.schedule({ root: paths.root }))?.code === 0],
+    ['schedule', async () => {
+      const res = await d.schedule({ root: paths.root });
+      if (res?.code !== 0) return false;
+      if (res.probe) say(`setup: ${res.probe}`);
+      const reach = await recordChromeReach(paths.root, paths.dataDir);
+      if (reach) say(reach);
+      return true;
+    }],
   ];
   // Steps after the first one not done are not re-run; they keep the result saved by an earlier run.
   let stopped = false;
@@ -167,7 +219,7 @@ export async function setupFlow({ paths: given, flags = {}, today, deps = {} }) 
   try {
     answers = readProfileAnswers(paths.root) ?? {};
   } catch (err) {
-    say(`setup: config/profile.yml could not be read (${err.message}); fix it or move it aside, then run setup again. Saved answers are not counted until then.`);
+    say(`setup: config/profile.yml could not be read (${err.message}). I'll move the broken profile.yml aside and rebuild it from your answers, approve? Type: rebuild my profile. Saved answers are not counted until then.`);
   }
   const next = nextStep({ setup: state, pipeline: pipelineState(paths.dataDir, { answers }) });
   say('');

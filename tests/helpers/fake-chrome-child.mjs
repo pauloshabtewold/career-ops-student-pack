@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { main } from '../../scripts/chrome.mjs';
 
 const pageFile = process.env.FAKE_PAGE;
+const SUBMIT = '#submit';
 const load = () => JSON.parse(readFileSync(pageFile, 'utf8'));
 const save = (s) => writeFileSync(pageFile, JSON.stringify(s));
 const selectorOf = (expr) => {
@@ -23,6 +24,11 @@ function evaluatePage(expr) {
     return empty.length ? { state: 'invalid', detail: empty.join('; ') } : { state: 'confirmed', detail: 'confirmation text' };
   }
   if (expr.includes('return signs; })()')) return { confirm: 0, signin: 0, password: 0 };
+  // The saved form #application_form holds the typed submit #submit and the filled fields.
+  if (expr.includes('f.contains(el)') && expr.includes('#application_form')) return s.submitButton && sel === '#application_form';
+  if (expr.includes('formHasField')) return s.submitButton && sel === SUBMIT ? { typed: true, text: 'Submit application', inForm: true, formHasField: true, only: true } : null;
+  // The rule v7 gate (lib/cdp.mjs submitGate) before the pending row: the fake form still looks as it did at the read.
+  if (expr.includes('{ ok: true }')) return s.submitButton ? { ok: true } : null;
   if (expr.includes("'captcha frame'")) return null;
   if (expr.includes('getOwnPropertyDescriptor')) {
     if (!s.present[sel]) return false;
@@ -32,7 +38,7 @@ function evaluatePage(expr) {
   }
   if (expr.includes('el.files')) return s.present[sel] ? (s.values[sel] ?? '') : null;
   if (expr.includes('autocomplete: (el.autocomplete')) {
-    if (sel === 'button[type=submit], input[type=submit]') return s.submitButton ? { tag: 'button', type: 'submit', autocomplete: '' } : null;
+    if (sel === SUBMIT) return s.submitButton ? { tag: 'button', type: 'submit', autocomplete: '' } : null;
     return s.present[sel] ? { tag: 'input', type: s.present[sel].type ?? 'text', autocomplete: '' } : null;
   }
   if (expr.includes('el.click(); return true;') && !expr.includes('el.checked')) {
