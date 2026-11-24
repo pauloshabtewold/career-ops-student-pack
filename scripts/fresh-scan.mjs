@@ -153,13 +153,17 @@ const sane = (s) => Boolean(s) && s.length < 100 && !s.includes('://');
 // cursor keeps two cards with one title (or one 60-character prefix) on their own lines. chrome.mjs linkRefs cuts link
 // text to 60 characters, so a classic card's doubled title arrives cut inside the first copy, the hidden copy or the
 // badge; the card's title line names it whole. The first line from the cursor on that equals the cleaned title, that
-// the link text starts with at a word boundary, or that starts with the link text is the card. Badge lines are never a
-// title. Returns the title, the company line after it (or '') and where the next card's search starts; with no match,
-// the cleaned title, no company and the same cursor.
+// starts with the link text, or that the link text starts with at a word boundary is the card. In that last case the
+// rest of the link text must start the line's hidden copy and badge, so a short nav or location line ("Home", "Remote")
+// is never the title of a card whose title merely begins with it. Badge lines are never a title. Returns the title, the
+// company line after it (or '') and where the next card's search starts; with no match, the cleaned title, no company
+// and the same cursor.
 function cardFromText(pageLines, text, from) {
   const cleaned = cleanTitle(text);
   const t = String(text ?? '').replace(/\s+/g, ' ').trim();
-  const fits = (l) => l === cleaned || (l.length >= 3 && !VERIFIED.test(l) && ((t.startsWith(l) && (t.length === l.length || t[l.length] === ' ')) || l.startsWith(t)));
+  const cutInCopy = (l) =>
+    t.startsWith(l) && (t.length === l.length || (t[l.length] === ' ' && `${l} with verification`.toLowerCase().startsWith(t.slice(l.length + 1).toLowerCase())));
+  const fits = (l) => l === cleaned || (l.length >= 3 && !VERIFIED.test(l) && (cutInCopy(l) || l.startsWith(t)));
   let at = from;
   while (at < pageLines.length && !fits(pageLines[at])) at++;
   if (at >= pageLines.length) return { title: cleaned, company: '', next: from };
