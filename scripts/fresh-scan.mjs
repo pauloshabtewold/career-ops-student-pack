@@ -174,9 +174,10 @@ function cardFromText(pageLines, text, from) {
   return sane(pageLines[i]) ? { title, company: pageLines[i], next: i + 1 } : { title, company: '', next: i };
 }
 
-// Job cards from chrome.mjs read --links output: a jobs/view link opens a card and the next company link names its
-// employer, else the page text before the refs does. Only url, company and title are kept; a posting's own text is read
-// later, for new rows only.
+// Job cards from chrome.mjs read --links output: a jobs/view link opens a card, and the page text before the refs names
+// its employer. A company link after the card names the employer only when the page text gives none: links after the
+// last card belong to the selected card's detail pane, not to that card. A trailing " logo" (image alt text) is dropped
+// from a link's name. Only url, company and title are kept; a posting's own text is read later, for new rows only.
 export function linkedinJobs(readOutput) {
   const jobs = [];
   const ids = new Set();
@@ -195,13 +196,13 @@ export function linkedinJobs(readOutput) {
       continue;
     }
     const last = jobs[jobs.length - 1];
-    if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1];
+    if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1].replace(/\s+logo$/i, '');
   }
   let cursor = 0;
   return jobs.map((j) => {
     const card = cardFromText(pageLines, j.title, cursor);
     cursor = card.next;
-    return { ...j, title: card.title, company: j.company || card.company || 'unknown' };
+    return { ...j, title: card.title, company: card.company || j.company || 'unknown' };
   });
 }
 

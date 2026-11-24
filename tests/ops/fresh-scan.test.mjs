@@ -281,21 +281,51 @@ test('fresh-scan linkedinJobs on a classic search read cleans doubled titles and
   );
 });
 
-test('fresh-scan linkedinJobs keeps a /company/ link over the page text and leaves a plain title unchanged', async () => {
+test('fresh-scan linkedinJobs takes the page text over a /company/ link, keeps the link when the page text gives none, and leaves a plain title unchanged', async () => {
   const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
   const jobs = linkedinJobs([
     ...CLASSIC_PAGE,
     '[1] Data Analyst Intern -> https://www.linkedin.com/jobs/view/4466964573/',
     '[2] Demo Health -> https://www.linkedin.com/company/demo-health/',
     '[3] Data Data Analyst -> https://www.linkedin.com/jobs/view/4486804846/',
+    '[4] Quant Intern -> https://www.linkedin.com/jobs/view/4490435027/',
+    '[5] Demo Health -> https://www.linkedin.com/company/demo-health/',
   ].join('\n'));
   assert.deepEqual(
     jobs.map((j) => ({ title: j.title, company: j.company })),
     [
-      { title: 'Data Analyst Intern', company: 'Demo Health' },
+      { title: 'Data Analyst Intern', company: 'Example Robotics' },
       { title: 'Data Data Analyst', company: 'unknown' },
+      { title: 'Quant Intern', company: 'Demo Health' },
     ],
   );
+});
+
+test('fresh-scan linkedinJobs never lets the detail pane\'s company links after the last classic card replace that card\'s page-text company', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs([
+    'Software Engineer (AI/ML) Intern', 'Software Engineer (AI/ML) Intern with verification', 'KLA', 'Milpitas, CA', 'Viewed',
+    '2027 Summer Intern - System Safety', '2027 Summer Intern - System Safety with verification', 'General Motors', 'Warren, MI (Hybrid)',
+    'Junior Cloud Backend Engineer', 'Junior Cloud Backend Engineer with verification', 'Waites', 'Huntsville, AL (On-site)', '4 benefits',
+    'Are these results helpful?', '1', 'KLA', 'Share', 'Software Engineer (AI/ML) Intern ', 'Milpitas, CA · Reposted 17 minutes ago',
+    '',
+    '[1] Software Engineer (AI/ML) Intern Software Engineer (AI/ML) Intern with verification -> https://www.linkedin.com/jobs/view/4484612532/?eBP=x',
+    '[2] 2027 Summer Intern - System Safety 2027 Summer Intern - System Safety with verification -> https://www.linkedin.com/jobs/view/4478704310/',
+    '[3] Junior Cloud Backend Engineer Junior Cloud Backend Engineer with verification -> https://www.linkedin.com/jobs/view/4478708577/?eBP=y',
+    '[4] KLA logo -> https://www.linkedin.com/company/klacorp/life',
+    '[5] KLA -> https://www.linkedin.com/company/klacorp/life',
+    '[6] Software Engineer (AI/ML) Intern -> https://www.linkedin.com/jobs/view/4484612532/?alternateChannel=search',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, company: j.company })),
+    [
+      { url: LI(4484612532), company: 'KLA' },
+      { url: LI(4478704310), company: 'General Motors' },
+      { url: LI(4478708577), company: 'Waites' },
+    ],
+  );
+  const unplaced = linkedinJobs(['[1] Quant Intern -> https://www.linkedin.com/jobs/view/4478708577/', '[2] KLA logo -> https://www.linkedin.com/company/klacorp/life'].join('\n'));
+  assert.deepEqual(unplaced.map((j) => j.company), ['KLA'], 'a link-derived name drops its trailing " logo"');
 });
 
 test('fresh-scan linkedinJobs resolves a classic card title cut to 60 characters by linkRefs from the page text, cut inside the first copy or inside the hidden copy', async () => {
