@@ -8,6 +8,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PACK_ROOT } from '../helpers/script-harness.mjs';
+import { freshSearchUrl } from '../../scripts/alert-plan.mjs';
 
 const NO_NETWORK = `data:text/javascript,${encodeURIComponent("import net from 'node:net'; globalThis.fetch = () => { throw new Error('network request attempted'); }; net.Socket.prototype.connect = () => { throw new Error('network request attempted'); };")}`;
 
@@ -38,6 +39,7 @@ function parse(stdout) {
 const enc = (text) => text.split('').map((c) => (c === ' ' ? '(?:%20|\\+)' : c === ',' ? '(?:%2C|,)' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('');
 
 // M-001-S11-cdel
+
 test('M-001-S11-cdel alert-plan prints numbered LinkedIn, Handshake, Simplify and Indeed items for a byo student, each with purpose, recommendation and URL', () => {
   const s = setup({ presets: ['byo-employer-list'] });
   try {
@@ -113,4 +115,12 @@ test('extra check: a student whose presets lack policy-government gets no USAJOB
   } finally {
     s.cleanup();
   }
+});
+
+test('extra check: the fresh past-hour URL keeps classic search (skipRedirect) with the past-hour filter and newest first', () => {
+  const url = new URL(freshSearchUrl({ config: { tracks: [{ kind: 'internship' }], locations: ['Austin, TX'] }, archetypes: ['Brand Strategist'] }));
+  assert.equal(url.pathname, '/jobs/search/');
+  assert.equal(url.searchParams.get('skipRedirect'), 'true');
+  assert.equal(url.searchParams.get('f_TPR'), 'r3600');
+  assert.equal(url.searchParams.get('sortBy'), 'DD');
 });
