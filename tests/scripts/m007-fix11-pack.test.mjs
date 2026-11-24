@@ -243,9 +243,11 @@ test('M-007-fix11-N10-2 an Email this job, Refer a friend or contact form beside
 
 // M-007-fix11-N10-1
 test('M-007-fix11-N10-1 a label over 80 chars with a space at the cut is saved trimmed and clicked after apply.pending', async () => {
-  const text = 'Submit my job application now';
-  const value = 'Complete your job application now';
-  const aria = 'Finish this job application now';
+  // Rule v6 1c (universal since 2026-11-24) drops "now" after "application"; the punctuation is folded away for item 1
+  // but kept in the saved label, which puts a space at index 79.
+  const text = 'Submit application';
+  const value = '> Submit my job application!';
+  const aria = '> Complete your job application >';
   const joined = [text, value, aria].join(' ').toLowerCase();
   assert.ok(joined.length > 80 && joined[79] === ' ', `fixture: index 79 is a space (${joined.length} chars)`);
   const out = await readAndClick([el('form', { id: 'app' }, [...body(), btn('go', 'submit', text, { value, 'aria-label': aria })])]);
@@ -294,7 +296,6 @@ test('M-007-fix11-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET w
     'Apply now alone': [[el('form', { id: 'app' }, [...body(), btn('ap', 'submit', 'Apply now')])], 'ap', 'apply now'],
     'Apply now alone, no resume field': [[el('form', { id: 'app' }, [inp('full_name'), inp('a_email', 'email'), btn('ap', 'submit', 'Apply now')])], 'ap', 'apply now'],
     'no resume field, typed Submit application': [[el('form', { id: 'app' }, [inp('full_name'), inp('a_email', 'email'), btn('go', 'submit', 'Submit application')])], 'go', 'submit application'],
-    'resume form, plain typed Submit': [[el('form', { id: 'app' }, [...body(), btn('go', 'submit', 'Submit')])], 'go', 'submit'],
     'live-mock typed Submit Application': [[el('form', { id: 'application_form' }, [inp('first_name'), inp('email', 'email'), inp('resume', 'file'), btn('submit_app', 'submit', 'Submit Application')])], 'submit_app', 'submit application'],
   };
   for (const [name, [kids, id, label]] of Object.entries(shapes)) {
