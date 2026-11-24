@@ -129,10 +129,11 @@ test('M-007-fix9-N8-1-reject a newsletter or job-alert form whose typed Subscrib
 // M-007-fix9-N8-1-typed
 test('M-007-fix9-N8-1-typed a typed submit beats a body type=button or typeless control, wherever it sits; r7 and r8 KEEP shapes keep their submit', async () => {
   const a1 = (extra, footer = true) => [el('main', {}, [el('form', { id: 'app' }, [...body(), ...extra, ...(footer ? [el('footer', {}, [btn('go', 'submit', 'Submit application')])] : [])])])];
-  // Rule v5 item 2: a pick in the form's footer beside an allowlisted body control (Apply, Submit code) is doubt.
+  // Rule v6 item 2: a body Apply beside the footer submit makes two passing controls; item 2c: a body "Submit code" looks
+  // like the real submit but fails item 1, which is doubt. Neither saves a submit.
   expect(await read([el('main', {}, [el('form', { id: 'app' }, [...body(), inp('promo'), btn('ap', 'button', 'Apply'), el('footer', {}, [btn('go', 'submit', 'Submit application')])])])]), '#app', null, ['first_name', 'a_email', 'cv', 'promo'], 'A2 body type=button Apply vs typed footer submit');
   expect(await read([el('main', {}, [el('form', { id: 'app' }, [...body(), inp('code'), btn('sc', undefined, 'Submit code'), el('footer', {}, [btn('go', 'submit', 'Submit application')])])])]), '#app', null, ['first_name', 'a_email', 'cv', 'code'], 'A2 body typeless Submit code vs typed footer submit');
-  expect(await read([el('main', {}, [el('form', { id: 'app' }, [...body(), inp('promo'), btn('ap', 'button', 'Apply'), btn('go', 'submit', 'Submit application')])])]), '#app', '#go', ['first_name', 'a_email', 'cv', 'promo'], 'A2 control without a footer');
+  expect(await read([el('main', {}, [el('form', { id: 'app' }, [...body(), inp('promo'), btn('ap', 'button', 'Apply'), btn('go', 'submit', 'Submit application')])])]), '#app', null, ['first_name', 'a_email', 'cv', 'promo'], 'A2 control without a footer (rule v6 item 2: two passing controls)');
   for (const [id, text] of [['add', 'Add another'], ['rm', 'Remove'], ['x', 'Close'], ['more', 'Show more']]) {
     expect(await read(a1([btn(id, undefined, text)])), '#app', '#go', ['first_name', 'a_email', 'cv'], `A1 body typeless ${text}`);
   }

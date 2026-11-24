@@ -68,7 +68,7 @@ function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.te
     if (e.includes('grecaptcha-badge')) return { result: { value: captcha } };
     if (e.includes("el.type === 'file'")) return { result: { value: fieldValue } };
     if (e.includes('autocomplete: (el.autocomplete')) return { result: { value: { tag: 'button', type: 'submit', autocomplete: '' } } };
-    if (e.includes('formHasField')) return { result: { value: { typed: true, text: 'Submit application', inForm: true, formHasField: true } } };
+    if (e.includes('formHasField')) return { result: { value: { typed: true, text: 'Submit application', inForm: true, formHasField: true, only: true } } };
     return { result: { value: true } };
   };
   return { send, calls };

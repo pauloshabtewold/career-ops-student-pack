@@ -26,7 +26,7 @@ function evaluatePage(expr) {
   if (expr.includes('return signs; })()')) return { confirm: 0, signin: 0, password: 0 };
   // The saved form #application_form holds the typed submit #submit and the filled fields.
   if (expr.includes('f.contains(el)') && expr.includes('#application_form')) return s.submitButton && sel === '#application_form';
-  if (expr.includes('formHasField')) return s.submitButton && sel === SUBMIT ? { typed: true, text: 'Submit application', inForm: true, formHasField: true } : null;
+  if (expr.includes('formHasField')) return s.submitButton && sel === SUBMIT ? { typed: true, text: 'Submit application', inForm: true, formHasField: true, only: true } : null;
   if (expr.includes("'captcha frame'")) return null;
   if (expr.includes('getOwnPropertyDescriptor')) {
     if (!s.present[sel]) return false;

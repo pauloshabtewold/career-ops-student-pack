@@ -34,7 +34,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { APPLY_SUBMIT, LINK_STYLE, allowedLabel, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
+import { APPLY_SUBMIT, LINK_STYLE, allowedLabel, attachById, attachTo, checkedClick, chooseRadio, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
@@ -791,14 +791,15 @@ export const STALE_READ = 'saved form read is too old; read the form again';
 // checked against the page, so it is refused as a stale read.
 const textless = (saved, selector) => (typeof saved === 'string' && saved ? null : { state: 'no-button', detail: `the form read saved no text for ${selector}`, reason: STALE_READ });
 
-// Submit-pick rule v5 item 4, checked before the pending row: the read must have saved the button's label, the live
-// button's label (normalized as lib/cdp.mjs controlLabel) must still pass the rule 1 allowlist, the button must be a
-// typed submit or an APPLY_SUBMIT-worded one, and its label must equal the saved one.
+// Submit-pick rule v6 item 3, checked before the pending row: the read must have saved the button's label, the live
+// button's label (normalized as lib/cdp.mjs controlLabel) must still pass rule 1 and the button be the only control of
+// its form that does (submitButton only), it must be a typed submit or an APPLY_SUBMIT-worded one, and its label must
+// equal the saved one. checkedClick runs the same check again on the element it clicks.
 function changedButton(b, saved, selector) {
   const missing = textless(saved, selector);
   if (missing) return missing;
-  const now = String(b.text ?? '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
-  if (!allowedLabel(now)) return { state: 'no-button', detail: `${selector} reads "${now}", which is no application submit`, reason: BUTTON_CHANGED };
+  const now = String(b.text ?? '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80).trimEnd();
+  if (!allowedLabel(now) || b.only !== true) return { state: 'no-button', detail: `${selector} reads "${now}", which is no application submit or not the only one in its form`, reason: BUTTON_CHANGED };
   if (!b.typed && !APPLY_SUBMIT.test(now)) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: BUTTON_CHANGED };
   if (now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: BUTTON_CHANGED };
   return null;
@@ -835,7 +836,10 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   if (!signs) return { state: 'no-signs' };
   const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
   if (pending.code !== 0) return { state: 'pending-failed', res: pending };
-  if (!(await click(client, page.sessionId, selector))) return { state: 'clicked', outcome: { state: 'unconfirmed', detail: 'the button was gone at the click' } };
+  // Rule v6 item 3: the click re-runs the whole check on the element it clicks (one lookup, no second path resolution).
+  // A refusal here comes after the pending row, which then keeps the item from being clicked again.
+  const done = await checkedClick(client, page.sessionId, plan.formSelector, selector, plan.submitText);
+  if (done !== true) return { state: 'no-button', detail: `${selector} ${done?.refused ?? 'was not clicked'}`, reason: BUTTON_CHANGED };
   const outcome = await submitOutcome(client, page.sessionId, signs, wait);
   // A screenshot is taken only here, to prove what the submit showed; every other read is text. A failed screenshot
   // never stops the outcome from being handled and logged.
