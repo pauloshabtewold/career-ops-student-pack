@@ -323,7 +323,7 @@ test('M-007-fix3-N3-8 submit clicks only the read form\'s button: a submit outsi
 test('M-007-fix3-N3-2e the read form and its submit are saved with the fields and carried into the fill plan', async () => {
   const r = scratch();
   try {
-    chrome.saveFormFields(r.dataDir, GH, FIELDS, { form: '#apply_form', submit: '#apply_btn' });
+    chrome.saveFormFields(r.dataDir, GH, FIELDS, { form: '#apply_form', submit: '#apply_btn', submitText: 'submit application' });
     assert.equal(typeof atsFields.readFormDoc, 'function', 'ats-fields exports readFormDoc');
     const doc = atsFields.readFormDoc(join(r.dataDir, atsFields.FIELDS_DIR), GH);
     assert.equal(doc.form, '#apply_form');

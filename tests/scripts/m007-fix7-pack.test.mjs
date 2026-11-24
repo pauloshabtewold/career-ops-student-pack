@@ -186,7 +186,7 @@ test('M-007-fix7-KEEP real application forms still qualify with the right submit
   ])]), '#aspnetForm', '#btnSubmit', 'page-wrapping server form with a footer Subscribe after the real submit');
   pick(await read([el('main', {}, [el('form', { id: 'app' }, [input('full_name'), input('a_email', 'email'), input('cv', 'file'), btn('tc', 'button', '', { role: 'switch', 'aria-label': 'Join our talent community' }), btn('go', 'submit', 'Submit application')])])]), '#app', '#go', 'role=switch talent-community toggle');
   pick(await read([el('main', {}, [el('form', { id: 'app' }, [input('full_name'), input('a_email', 'email'), input('cv', 'file'), btn('alerts', 'button', 'Get job alerts'), btn('go', 'submit', 'Submit application')])])]), '#app', '#go', 'optional in-form Get job alerts button beside the real submit');
-  pick(await read([el('main', {}, [el('form', { id: 'app' }, [input('full_name'), input('a_email', 'email'), input('cv', 'file'), btn('go', 'submit', 'Join our team')])])]), '#app', '#go', 'Join our team');
+  pick(await read([el('main', {}, [el('form', { id: 'app' }, [input('full_name'), input('a_email', 'email'), input('cv', 'file'), btn('go', 'submit', 'Join our team')])])]), '#app', null, 'Join our team (qualifies; rule v5 item 1a saves no submit)');
 });
 
 // M-007-fix7-REJECT

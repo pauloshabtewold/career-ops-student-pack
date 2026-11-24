@@ -26,7 +26,7 @@ import { withLock } from '../lib/dir-lock.mjs';
 import { check as factCheck } from '../lib/fact-gate.mjs';
 import { runHeadless } from '../lib/headless.mjs';
 import { load as loadJd, save as saveJd } from '../lib/jd-store.mjs';
-import { NO_JOB_TEXT, finishGuide, noSubmitReason, recordKeptOut } from '../lib/kept-out.mjs';
+import { NO_JOB_TEXT, finishGuide, planFinishReason, recordKeptOut } from '../lib/kept-out.mjs';
 import { createRobotsChecker } from '../lib/robots.mjs';
 import { defaultRunner } from '../lib/upstream.mjs';
 import { isOn, readOverrides, resolve as resolveLever } from '../lib/levers.mjs';
@@ -270,9 +270,10 @@ export async function planRow(row, ctx) {
   const flags = [];
   // The form read and its button go with the plan, so chrome.mjs submit clicks only inside the form that was read.
   const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null, ...(typeof ctx.form.submitText === 'string' ? { submitText: ctx.form.submitText } : {}), ...(ctx.form.uploadOutside ? { uploadOutside: true } : {}) } : {};
-  // A read that recorded its form but saved no submit can never be submitted by script, so the row is never batch-ready:
-  // finish is the reason it goes to finish these yourself, before any render or call.
-  const finish = noSubmitReason(formRead);
+  // A read that recorded its form but saved no submit, or a submit with no saved text (a stale read), can never be
+  // submitted by script, so the row is never batch-ready: finish is the reason it goes to finish these yourself, before
+  // any render or call.
+  const finish = planFinishReason(formRead);
   if (finish) {
     return { batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, finish, flags, unknown, blocked, selfCheck: { ok: false, fixed: [], flags: [] }, inBatch: false };
   }

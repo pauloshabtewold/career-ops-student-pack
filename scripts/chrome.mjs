@@ -34,7 +34,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { APPLY_SUBMIT, LINK_STYLE, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
+import { APPLY_SUBMIT, LINK_STYLE, allowedLabel, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
@@ -791,14 +791,15 @@ export const STALE_READ = 'saved form read is too old; read the form again';
 // checked against the page, so it is refused as a stale read.
 const textless = (saved, selector) => (typeof saved === 'string' && saved ? null : { state: 'no-button', detail: `the form read saved no text for ${selector}`, reason: STALE_READ });
 
-// Submit-pick rule v4 item D, checked before the pending row: the read must have saved the button's text, the button
-// must be a typed submit or an APPLY_SUBMIT-worded one, and its text must equal the saved text.
+// Submit-pick rule v5 item 4, checked before the pending row: the read must have saved the button's label, the live
+// button's label (normalized as lib/cdp.mjs controlLabel) must still pass the rule 1 allowlist, the button must be a
+// typed submit or an APPLY_SUBMIT-worded one, and its label must equal the saved one.
 function changedButton(b, saved, selector) {
   const missing = textless(saved, selector);
   if (missing) return missing;
-  const text = String(b.text ?? '');
-  const now = text.trim().toLowerCase().slice(0, 80);
-  if (!b.typed && !(APPLY_SUBMIT.test(text) && !LINK_STYLE.test(text))) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: BUTTON_CHANGED };
+  const now = String(b.text ?? '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
+  if (!allowedLabel(now)) return { state: 'no-button', detail: `${selector} reads "${now}", which is no application submit`, reason: BUTTON_CHANGED };
+  if (!b.typed && !APPLY_SUBMIT.test(now)) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: BUTTON_CHANGED };
   if (now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: BUTTON_CHANGED };
   return null;
 }
@@ -827,6 +828,8 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const button = await submitButton(client, page.sessionId, selector, fieldSelectors);
   const unsafe = unsafeButton(button, selector) || changedButton(button, plan.submitText, selector);
   if (unsafe) return unsafe;
+  // Rule v5 item 4: the button must sit inside the form the read named; a saved submit with no saved form is refused.
+  if (!plan.formSelector) return { state: 'no-button', detail: 'the form read saved no form for its submit' };
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
   if (!signs) return { state: 'no-signs' };

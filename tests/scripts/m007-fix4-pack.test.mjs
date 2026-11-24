@@ -206,7 +206,7 @@ test('M-007-fix4-N4-2a a one-email job-alert or newsletter form in the body is n
 test('M-007-fix4-N4-2b a form with a file input, or with two identity fields (name and email, or a phone), qualifies', async () => {
   const twoIds = await read([el('main', {}, [el('form', { id: 'apply_form' }, [input('full_name'), input('phone', 'tel'), btn('go', 'submit')])])]);
   assert.equal(twoIds.form, '#apply_form');
-  assert.equal(twoIds.submit, '#go');
+  assert.equal(twoIds.submit, null, 'rule v5 item 1d: an unlabelled button is never the saved submit');
   const file = await read([el('main', {}, [el('form', { id: 'cv_form' }, [input('cv', 'file'), btn('up', 'submit')])])]);
   assert.equal(file.form, '#cv_form');
 });
