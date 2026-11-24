@@ -299,3 +299,22 @@ test('M-007-fix13-keep Greenhouse new board, Ashby, ASP.NET wrapper, Send applic
     'Lever type=button Submit application beside Apply with LinkedIn': [[el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])], 'extra-submit-control'],
   });
 });
+
+// M-007-fix13b-F1f2
+test('M-007-fix13b-F1f2 a bare Apply pick beside a link with no real href (any label or none) saves no submit (bare-apply); Apply and Apply now alone still click once', async () => {
+  await assertRefusedAtRead({
+    'Q1 resume form, typed promo Apply + real submit link href=# Confirm': [[el('form', { id: 'q1' }, [...body(), inp('q1_promo'), btn('q1_ap', 'submit', 'Apply'), link('q1_go', '#', 'Confirm')])], 'bare-apply'],
+    'Q2 typed promo Apply + icon-only link href=#': [[el('form', { id: 'q2' }, [...body(), inp('q2_promo'), btn('q2_ap', 'submit', 'Apply'), link('q2_go', '#', '')])], 'bare-apply'],
+    'Q4 typed promo Apply + role=link Done': [[el('form', { id: 'q4' }, [...body(), inp('q4_promo'), btn('q4_ap', 'submit', 'Apply'), el('span', { id: 'q4_go', role: 'link', text: 'Done' })])], 'bare-apply'],
+    'Q5 typed promo Apply + footer link href=# Register': [[el('form', { id: 'q5' }, [...body(), inp('q5_promo'), btn('q5_ap', 'submit', 'Apply'), el('footer', {}, [link('q5_go', '#', 'Register')])])], 'bare-apply'],
+    'typed Apply now + link with no href Done': [[el('form', { id: 'q6' }, [...body(), btn('q6_ap', 'submit', 'Apply now'), el('a', { id: 'q6_go', text: 'Done' })])], 'bare-apply'],
+    'typed Apply + fragment-only link #step2 Confirm': [[el('form', { id: 'q7' }, [...body(), btn('q7_ap', 'submit', 'Apply'), link('q7_go', '#step2', 'Confirm')])], 'bare-apply'],
+    'typed Apply + empty href link Confirm': [[el('form', { id: 'q8' }, [...body(), btn('q8_ap', 'submit', 'Apply'), link('q8_go', '', 'Confirm')])], 'bare-apply'],
+  });
+  await assertKeep({
+    'Apply alone': [[el('form', { id: 'app' }, [...body(), btn('ap', 'submit', 'Apply')])], 'ap', 'apply'],
+    'Apply now alone, no resume field': [[el('form', { id: 'app' }, [inp('full_name'), inp('a_email', 'email'), btn('ap', 'submit', 'Apply now')])], 'ap', 'apply now'],
+    'Apply beside a real-href link Review our privacy policy': [[el('form', { id: 'app' }, [...body(), link('pp', '/privacy', 'Review our privacy policy'), btn('ap', 'submit', 'Apply')])], 'ap', 'apply'],
+    'live-mock typed Submit Application': [[el('form', { id: 'application_form' }, [inp('first_name'), inp('last_name'), inp('email', 'email'), inp('phone', 'tel'), inp('resume', 'file'), inp('cover_letter', 'file'), inp('question_fav'), btn('submit_app', 'submit', 'Submit Application')])], 'submit_app', 'submit application'],
+  });
+});
