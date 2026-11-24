@@ -239,3 +239,61 @@ test('M-003-S14-osdr a LinkedIn job card already in data/fresh-seen.tsv or the p
       assert.equal(anyUrls(r).filter((u) => u === LI(4200000001)).length, 1, 'the pipeline card is not duplicated');
     },
   ));
+
+// Classic search (/jobs/search/?...&skipRedirect=true) card shape from a live read: the title anchor's innerText is the
+// visible title, a hidden copy and a "with verification" badge, and the company is a plain span with no /company/ link.
+const CLASSIC_PAGE = [
+  'software engineer intern in United States',
+  '3 results',
+  'Data Analyst Intern',
+  'Data Analyst Intern with verification',
+  'Example Robotics',
+  'Austin, TX (On-site)',
+  'Viewed',
+  'Software Developer',
+  'Software Developer',
+  'Sample Labs',
+  'Boone, NC (On-site)',
+  'Easy Apply',
+  'ML Intern',
+  'ML Intern with verification',
+  'https://example.com/not-a-company',
+  '',
+];
+
+test('fresh-scan linkedinJobs on a classic search read cleans doubled titles and the verification badge and takes the company from the page text', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs([
+    ...CLASSIC_PAGE,
+    '[1] Data Analyst Intern Data Analyst Intern with verification -> https://www.linkedin.com/jobs/view/4434210024/?eBP=x',
+    '[2] Software Developer Software Developer -> https://www.linkedin.com/jobs/view/4484369864/',
+    '[3] ML Intern ML Intern With Verification -> https://www.linkedin.com/jobs/view/4459777883/',
+    '[4] Quant Intern -> https://www.linkedin.com/jobs/view/4490435027/',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: 'Data Analyst Intern', company: 'Example Robotics' },
+      { url: LI(4484369864), title: 'Software Developer', company: 'Sample Labs' },
+      { url: LI(4459777883), title: 'ML Intern', company: 'unknown' },
+      { url: LI(4490435027), title: 'Quant Intern', company: 'unknown' },
+    ],
+  );
+});
+
+test('fresh-scan linkedinJobs keeps a /company/ link over the page text and leaves a plain title unchanged', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs([
+    ...CLASSIC_PAGE,
+    '[1] Data Analyst Intern -> https://www.linkedin.com/jobs/view/4466964573/',
+    '[2] Demo Health -> https://www.linkedin.com/company/demo-health/',
+    '[3] Data Data Analyst -> https://www.linkedin.com/jobs/view/4486804846/',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ title: j.title, company: j.company })),
+    [
+      { title: 'Data Analyst Intern', company: 'Demo Health' },
+      { title: 'Data Data Analyst', company: 'unknown' },
+    ],
+  );
+});

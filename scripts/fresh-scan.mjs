@@ -137,24 +137,54 @@ export const rowLine = (j, today) => `- [ ] ${j.url} | ${cell(j.company)} | ${ce
 
 const JOB_VIEW = /\/jobs\/view\/(?:[^/?#\s]*-)?(\d{6,})/;
 
+const LINK_REF = /^\[\d+\]\s*(.*?)\s*->\s*(\S+)$/;
+const VERIFIED = /\s+with verification$/i;
+
+// Classic search cards put the visible title, a hidden copy and a "with verification" badge in one anchor's innerText.
+function cleanTitle(text) {
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim().replace(VERIFIED, '');
+  const half = (t.length - 1) / 2;
+  return Number.isInteger(half) && t[half] === ' ' && t.slice(0, half) === t.slice(half + 1) ? t.slice(0, half) : t;
+}
+
+const sane = (s) => Boolean(s) && s.length < 100 && !s.includes('://');
+
+// Classic cards name the employer in a plain span, not a /company/ link, so the page text is the only source: each card
+// is the title line, its hidden copy or badge line, then the company line.
+function companyFromText(pageLines, title) {
+  const at = pageLines.indexOf(title);
+  if (at < 0) return '';
+  const repeats = new Set([title.toLowerCase(), `${title} with verification`.toLowerCase()]);
+  let i = at + 1;
+  while (i < pageLines.length && repeats.has(pageLines[i].toLowerCase())) i++;
+  const company = pageLines.slice(i).find(Boolean);
+  return sane(company) ? company : '';
+}
+
 // Job cards from chrome.mjs read --links output: a jobs/view link opens a card and the next company link names its
-// employer. Only url, company and title are kept; a posting's own text is read later, for new rows only.
+// employer, else the page text before the refs does. Only url, company and title are kept; a posting's own text is read
+// later, for new rows only.
 export function linkedinJobs(readOutput) {
   const jobs = [];
   const ids = new Set();
+  const pageLines = [];
   for (const line of String(readOutput ?? '').split('\n')) {
-    const m = /^\[\d+\]\s*(.*?)\s*->\s*(\S+)$/.exec(line.trim());
-    if (!m || !m[1]) continue;
+    const m = LINK_REF.exec(line.trim());
+    if (!m) {
+      pageLines.push(line.trim());
+      continue;
+    }
+    if (!m[1]) continue;
     const id = JOB_VIEW.exec(m[2])?.[1];
     if (id) {
-      if (!ids.has(id)) jobs.push({ url: `https://www.linkedin.com/jobs/view/${id}/`, title: m[1], company: '', src: 'fresh-linkedin' });
+      if (!ids.has(id)) jobs.push({ url: `https://www.linkedin.com/jobs/view/${id}/`, title: cleanTitle(m[1]), company: '', src: 'fresh-linkedin' });
       ids.add(id);
       continue;
     }
     const last = jobs[jobs.length - 1];
     if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1];
   }
-  return jobs.map((j) => ({ ...j, company: j.company || 'unknown' }));
+  return jobs.map((j) => ({ ...j, company: j.company || companyFromText(pageLines, j.title) || 'unknown' }));
 }
 
 // Adds the new rows to Pending and, for each title repeated in this scan, refreshes the reposts= and title_since= notes of
