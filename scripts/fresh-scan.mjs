@@ -149,6 +149,17 @@ function cleanTitle(text) {
 
 const sane = (s) => Boolean(s) && s.length < 100 && !s.includes('://');
 
+// chrome.mjs linkRefs cuts link text to 60 characters, so a classic card's doubled title arrives cut inside the first
+// copy, the hidden copy or the badge. The card's own title line in the page text names it whole: the longest line that
+// the link text starts with (at a word boundary) or that starts with the link text. Badge lines are never a title.
+function titleFromText(pageLines, text) {
+  const cleaned = cleanTitle(text);
+  if (pageLines.includes(cleaned)) return cleaned;
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim();
+  const fits = (l) => l.length >= 3 && !VERIFIED.test(l) && ((t.startsWith(l) && (t.length === l.length || t[l.length] === ' ')) || l.startsWith(t));
+  return pageLines.filter(fits).reduce((best, l) => (l.length > best.length ? l : best), '') || cleaned;
+}
+
 // Classic cards name the employer in a plain span, not a /company/ link, so the page text is the only source: each card
 // is the title line, its hidden copy or badge line, then the company line.
 function companyFromText(pageLines, title) {
@@ -177,14 +188,17 @@ export function linkedinJobs(readOutput) {
     if (!m[1]) continue;
     const id = JOB_VIEW.exec(m[2])?.[1];
     if (id) {
-      if (!ids.has(id)) jobs.push({ url: `https://www.linkedin.com/jobs/view/${id}/`, title: cleanTitle(m[1]), company: '', src: 'fresh-linkedin' });
+      if (!ids.has(id)) jobs.push({ url: `https://www.linkedin.com/jobs/view/${id}/`, title: m[1], company: '', src: 'fresh-linkedin' });
       ids.add(id);
       continue;
     }
     const last = jobs[jobs.length - 1];
     if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1];
   }
-  return jobs.map((j) => ({ ...j, company: j.company || companyFromText(pageLines, j.title) || 'unknown' }));
+  return jobs.map((j) => {
+    const title = titleFromText(pageLines, j.title);
+    return { ...j, title, company: j.company || companyFromText(pageLines, title) || 'unknown' };
+  });
 }
 
 // Adds the new rows to Pending and, for each title repeated in this scan, refreshes the reposts= and title_since= notes of

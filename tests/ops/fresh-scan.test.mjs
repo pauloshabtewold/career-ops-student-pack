@@ -297,3 +297,36 @@ test('fresh-scan linkedinJobs keeps a /company/ link over the page text and leav
     ],
   );
 });
+
+test('fresh-scan linkedinJobs resolves a classic card title cut to 60 characters by linkRefs from the page text, cut inside the first copy or inside the hidden copy', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const LONG = 'Machine Learning Engineer Intern (Knowledge Graph) - 2027 Start (PhD)';
+  const MID = 'Electric Vehicle Charging Data Analysis Intern';
+  const cut = (title) => `${title} ${title} with verification`.slice(0, 60).trim();
+  assert.ok(LONG.startsWith(cut(LONG)) && cut(LONG).length < LONG.length, 'the cut falls inside the first copy');
+  assert.ok(cut(MID).startsWith(`${MID} `) && cut(MID).length > MID.length, 'the cut falls inside the hidden copy');
+  const page = [
+    'software engineer intern in United States',
+    LONG,
+    `${LONG} with verification`,
+    'Example Robotics',
+    'San Jose, CA',
+    MID,
+    `${MID} with verification`,
+    'Sample Labs',
+    'Idaho Falls, ID (On-site)',
+    '',
+  ];
+  const jobs = linkedinJobs([
+    ...page,
+    `[1] ${cut(LONG)} -> https://www.linkedin.com/jobs/view/4434210024/`,
+    `[2] ${cut(MID)} -> https://www.linkedin.com/jobs/view/4466964573/`,
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: LONG, company: 'Example Robotics' },
+      { url: LI(4466964573), title: MID, company: 'Sample Labs' },
+    ],
+  );
+});
