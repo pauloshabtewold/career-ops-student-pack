@@ -6,8 +6,9 @@
 // deps used here (ruling): { fetchFn, robots, sleep, runner }. fetchFn(url, init) is fetch-shaped and returns a Response;
 // robots is a { check } robots checker; runner(cmd, args, opts) runs child processes (chrome.mjs, budget.mjs) and returns
 // stdout or throws like execFileSync. The digest is any file under data/digest/; rows land in data/pipeline.md.
-// LinkedIn card shape in the read output (ruling): a numbered /jobs/view/ link ref carries the title and the next
-// /company/ link ref carries the company.
+// LinkedIn card shape in the read output: a numbered /jobs/view/ link ref carries the title. A /company/ link ref before
+// the next card's ref is that card's own and wins over the page text; /company/ refs after the last card belong to the
+// detail pane and name the last card's company only when the page text gives none.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -281,7 +282,7 @@ test('fresh-scan linkedinJobs on a classic search read cleans doubled titles and
   );
 });
 
-test('fresh-scan linkedinJobs takes the page text over a /company/ link, keeps the link when the page text gives none, and leaves a plain title unchanged', async () => {
+test('fresh-scan linkedinJobs keeps a card\'s own /company/ link over the page text, takes a link after the last card only when the page text gives none, and leaves a plain title unchanged', async () => {
   const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
   const jobs = linkedinJobs([
     ...CLASSIC_PAGE,
@@ -294,10 +295,19 @@ test('fresh-scan linkedinJobs takes the page text over a /company/ link, keeps t
   assert.deepEqual(
     jobs.map((j) => ({ title: j.title, company: j.company })),
     [
-      { title: 'Data Analyst Intern', company: 'Example Robotics' },
+      { title: 'Data Analyst Intern', company: 'Demo Health' },
       { title: 'Data Data Analyst', company: 'unknown' },
       { title: 'Quant Intern', company: 'Demo Health' },
     ],
+  );
+});
+
+test('fresh-scan linkedinJobs never takes a header line that merely starts with a short card title as that card, so the card keeps its title and company link', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs(liPage([[4100000003, 'Software engineering intern', 'Example Robotics', 'example-robotics']]));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [{ url: LI(4100000003), title: 'Software engineering intern', company: 'Example Robotics' }],
   );
 });
 
