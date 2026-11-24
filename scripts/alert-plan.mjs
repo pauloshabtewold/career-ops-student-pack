@@ -24,10 +24,13 @@ function queryFor(archetype, kind, override) {
 }
 
 // LinkedIn's posted-in-the-last-hour filter; fresh-scan reads one page of this search per hour.
+// skipRedirect=true: since 2026-11 LinkedIn redirects /jobs/search/ to the AI /jobs/search-results/ page, which drops the
+// past-hour and location filters and renders cards with no /jobs/view anchors, so fresh-scan found 0 cards. LinkedIn
+// says it is retiring classic search, so a 0-card read later means this page is gone too.
 export function freshSearchUrl({ config, archetypes }) {
   const kind = config.tracks?.[0]?.kind ?? 'internship';
   const q = queryFor(archetypes[0] ?? 'entry level', kind);
-  return `https://www.linkedin.com/jobs/search/?keywords=${enc(q)}&location=${enc(config.locations?.[0] ?? '')}&f_E=${LINKEDIN_LEVEL[kind] ?? 1}&f_TPR=r3600&sortBy=DD`;
+  return `https://www.linkedin.com/jobs/search/?keywords=${enc(q)}&location=${enc(config.locations?.[0] ?? '')}&f_E=${LINKEDIN_LEVEL[kind] ?? 1}&f_TPR=r3600&sortBy=DD&skipRedirect=true`;
 }
 
 export const INSTANT_ALERT_STEPS = Object.freeze([

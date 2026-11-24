@@ -239,3 +239,202 @@ test('M-003-S14-osdr a LinkedIn job card already in data/fresh-seen.tsv or the p
       assert.equal(anyUrls(r).filter((u) => u === LI(4200000001)).length, 1, 'the pipeline card is not duplicated');
     },
   ));
+
+// Classic search (/jobs/search/?...&skipRedirect=true) card shape from a live read: the title anchor's innerText is the
+// visible title, a hidden copy and a "with verification" badge, and the company is a plain span with no /company/ link.
+const CLASSIC_PAGE = [
+  'software engineer intern in United States',
+  '3 results',
+  'Data Analyst Intern',
+  'Data Analyst Intern with verification',
+  'Example Robotics',
+  'Austin, TX (On-site)',
+  'Viewed',
+  'Software Developer',
+  'Software Developer',
+  'Sample Labs',
+  'Boone, NC (On-site)',
+  'Easy Apply',
+  'ML Intern',
+  'ML Intern with verification',
+  'https://example.com/not-a-company',
+  '',
+];
+
+test('fresh-scan linkedinJobs on a classic search read cleans doubled titles and the verification badge and takes the company from the page text', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs([
+    ...CLASSIC_PAGE,
+    '[1] Data Analyst Intern Data Analyst Intern with verification -> https://www.linkedin.com/jobs/view/4434210024/?eBP=x',
+    '[2] Software Developer Software Developer -> https://www.linkedin.com/jobs/view/4484369864/',
+    '[3] ML Intern ML Intern With Verification -> https://www.linkedin.com/jobs/view/4459777883/',
+    '[4] Quant Intern -> https://www.linkedin.com/jobs/view/4490435027/',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: 'Data Analyst Intern', company: 'Example Robotics' },
+      { url: LI(4484369864), title: 'Software Developer', company: 'Sample Labs' },
+      { url: LI(4459777883), title: 'ML Intern', company: 'unknown' },
+      { url: LI(4490435027), title: 'Quant Intern', company: 'unknown' },
+    ],
+  );
+});
+
+test('fresh-scan linkedinJobs keeps a /company/ link over the page text and leaves a plain title unchanged', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs([
+    ...CLASSIC_PAGE,
+    '[1] Data Analyst Intern -> https://www.linkedin.com/jobs/view/4466964573/',
+    '[2] Demo Health -> https://www.linkedin.com/company/demo-health/',
+    '[3] Data Data Analyst -> https://www.linkedin.com/jobs/view/4486804846/',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ title: j.title, company: j.company })),
+    [
+      { title: 'Data Analyst Intern', company: 'Demo Health' },
+      { title: 'Data Data Analyst', company: 'unknown' },
+    ],
+  );
+});
+
+test('fresh-scan linkedinJobs resolves a classic card title cut to 60 characters by linkRefs from the page text, cut inside the first copy or inside the hidden copy', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const LONG = 'Machine Learning Engineer Intern (Knowledge Graph) - 2027 Start (PhD)';
+  const MID = 'Electric Vehicle Charging Data Analysis Intern';
+  const cut = (title) => `${title} ${title} with verification`.slice(0, 60).trim();
+  assert.ok(LONG.startsWith(cut(LONG)) && cut(LONG).length < LONG.length, 'the cut falls inside the first copy');
+  assert.ok(cut(MID).startsWith(`${MID} `) && cut(MID).length > MID.length, 'the cut falls inside the hidden copy');
+  const page = [
+    'software engineer intern in United States',
+    LONG,
+    `${LONG} with verification`,
+    'Example Robotics',
+    'San Jose, CA',
+    MID,
+    `${MID} with verification`,
+    'Sample Labs',
+    'Idaho Falls, ID (On-site)',
+    '',
+  ];
+  const jobs = linkedinJobs([
+    ...page,
+    `[1] ${cut(LONG)} -> https://www.linkedin.com/jobs/view/4434210024/`,
+    `[2] ${cut(MID)} -> https://www.linkedin.com/jobs/view/4466964573/`,
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: LONG, company: 'Example Robotics' },
+      { url: LI(4466964573), title: MID, company: 'Sample Labs' },
+    ],
+  );
+});
+
+test('fresh-scan linkedinJobs resolves classic cards in link order, so two cards with one title or one 60-character prefix keep their own title and company and splitNew keeps both', async () => {
+  const { linkedinJobs, splitNew } = await import('../../scripts/fresh-scan.mjs');
+  const cut = (title) => `${title} ${title} with verification`.slice(0, 60).trim();
+  const PHD = 'Machine Learning Engineer Intern (Knowledge Graph) - 2027 Start (PhD)';
+  const BSMS = 'Machine Learning Engineer Intern (Knowledge Graph) - 2027 Start (BS/MS)';
+  assert.equal(cut(PHD), cut(BSMS), 'the two titles share their first 60 characters');
+  const page = [
+    'Software Engineer Intern',
+    'Software Engineer Intern with verification',
+    'Acme Robotics',
+    'Austin, TX',
+    'Software Engineer Intern',
+    'Software Engineer Intern with verification',
+    'Beta Labs',
+    'Denver, CO',
+    PHD,
+    `${PHD} with verification`,
+    'Example Media',
+    'San Jose, CA',
+    BSMS,
+    `${BSMS} with verification`,
+    'Example Media',
+    'San Jose, CA',
+    '',
+  ];
+  const jobs = linkedinJobs([
+    ...page,
+    '[1] Software Engineer Intern Software Engineer Intern with verification -> https://www.linkedin.com/jobs/view/4434210024/',
+    '[2] Software Engineer Intern Software Engineer Intern with verification -> https://www.linkedin.com/jobs/view/4459777883/',
+    `[3] ${cut(PHD)} -> https://www.linkedin.com/jobs/view/4490435027/`,
+    `[4] ${cut(BSMS)} -> https://www.linkedin.com/jobs/view/4466964573/`,
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: 'Software Engineer Intern', company: 'Acme Robotics' },
+      { url: LI(4459777883), title: 'Software Engineer Intern', company: 'Beta Labs' },
+      { url: LI(4490435027), title: PHD, company: 'Example Media' },
+      { url: LI(4466964573), title: BSMS, company: 'Example Media' },
+    ],
+  );
+  const split = splitNew(jobs, { seen: new Set(), pipelineRows: [] });
+  assert.deepEqual(split.fresh.map((j) => j.url), [LI(4434210024), LI(4459777883), LI(4490435027), LI(4466964573)]);
+  assert.deepEqual(split.repeats, []);
+});
+
+test('fresh-scan linkedinJobs never takes a header nav line as the title of a first card whose title starts with it', async () => {
+  const { linkedinJobs } = await import('../../scripts/fresh-scan.mjs');
+  const nav = ['Skip to main content', 'Search by title, skill, or company', 'Search', 'new feed updates notifications', 'Home', '3', 'My Network', 'Jobs', 'Company', 'All filters', ''];
+  const jobs = linkedinJobs([
+    ...nav,
+    'Home Health Aide Intern',
+    'Home Health Aide Intern with verification',
+    'CarePlus',
+    'Austin, TX',
+    'Search Quality Intern',
+    'Search Quality Intern',
+    'Acme Search',
+    'Boston, MA',
+    '',
+    '[1] Home Health Aide Intern Home Health Aide Intern with verif -> https://www.linkedin.com/jobs/view/4434210024/',
+    '[2] Search Quality Intern Search Quality Intern -> https://www.linkedin.com/jobs/view/4459777883/',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: 'Home Health Aide Intern', company: 'CarePlus' },
+      { url: LI(4459777883), title: 'Search Quality Intern', company: 'Acme Search' },
+    ],
+  );
+});
+
+test('fresh-scan linkedinJobs never takes the previous card\'s Remote location as the title of a Remote Sensing Intern card, and splitNew queues two such cards', async () => {
+  const { linkedinJobs, splitNew } = await import('../../scripts/fresh-scan.mjs');
+  const jobs = linkedinJobs([
+    'software engineer intern in United States',
+    'Data Intern',
+    'Data Intern with verification',
+    'Acme',
+    'Remote',
+    'Easy Apply',
+    'Remote Sensing Intern',
+    'Remote Sensing Intern with verification',
+    'GeoCo',
+    'Remote',
+    'Easy Apply',
+    'Remote Sensing Intern',
+    'Remote Sensing Intern with verification',
+    'Orbit Labs',
+    'Denver, CO',
+    '',
+    '[1] Data Intern Data Intern with verification -> https://www.linkedin.com/jobs/view/4434210024/',
+    '[2] Remote Sensing Intern Remote Sensing Intern with verificati -> https://www.linkedin.com/jobs/view/4459777883/',
+    '[3] Remote Sensing Intern Remote Sensing Intern with verificati -> https://www.linkedin.com/jobs/view/4490435027/',
+  ].join('\n'));
+  assert.deepEqual(
+    jobs.map((j) => ({ url: j.url, title: j.title, company: j.company })),
+    [
+      { url: LI(4434210024), title: 'Data Intern', company: 'Acme' },
+      { url: LI(4459777883), title: 'Remote Sensing Intern', company: 'GeoCo' },
+      { url: LI(4490435027), title: 'Remote Sensing Intern', company: 'Orbit Labs' },
+    ],
+  );
+  const split = splitNew(jobs, { seen: new Set(), pipelineRows: [] });
+  assert.deepEqual(split.fresh.map((j) => j.url), [LI(4434210024), LI(4459777883), LI(4490435027)]);
+  assert.deepEqual(split.repeats, []);
+});
