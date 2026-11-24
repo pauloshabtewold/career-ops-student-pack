@@ -139,6 +139,8 @@ const JOB_VIEW = /\/jobs\/view\/(?:[^/?#\s]*-)?(\d{6,})/;
 
 const LINK_REF = /^\[\d+\]\s*(.*?)\s*->\s*(\S+)$/;
 const VERIFIED = /\s+with verification$/i;
+// chrome.mjs linkRefs keeps 60 characters of link text; a cut that ends on a space loses it to LINK_REF's trim.
+const LINK_TEXT_CUT = 59;
 
 // Classic search cards put the visible title, a hidden copy and a "with verification" badge in one anchor's innerText.
 function cleanTitle(text) {
@@ -153,9 +155,11 @@ const sane = (s) => Boolean(s) && s.length < 100 && !s.includes('://');
 // cursor keeps two cards with one title (or one 60-character prefix) on their own lines. chrome.mjs linkRefs cuts link
 // text to 60 characters, so a classic card's doubled title arrives cut inside the first copy, the hidden copy or the
 // badge; the card's title line names it whole. The first line from the cursor on that equals the cleaned title, that
-// starts with the link text, or that the link text starts with at a word boundary is the card. In that last case the
-// rest of the link text must start the line's hidden copy and badge, so a short nav or location line ("Home", "Remote")
-// is never the title of a card whose title merely begins with it. Badge lines are never a title. Returns the title, the
+// starts with link text cut at the 60-character limit, or that the link text starts with at a word boundary is the
+// card. A line that starts with uncut link text is never the card, so a header line ("Software engineering intern jobs
+// in United States") is never the title of a short card ("Software engineering intern"). When the link text starts with
+// the line, the rest of the link text must start the line's hidden copy and badge, so a short nav or location line
+// ("Home", "Remote") is never the title of a card whose title merely begins with it. Badge lines are never a title. Returns the title, the
 // company line after it (or '') and where the next card's search starts; with no match, the cleaned title, no company
 // and the same cursor.
 function cardFromText(pageLines, text, from) {
@@ -163,7 +167,7 @@ function cardFromText(pageLines, text, from) {
   const t = String(text ?? '').replace(/\s+/g, ' ').trim();
   const cutInCopy = (l) =>
     t.startsWith(l) && (t.length === l.length || (t[l.length] === ' ' && `${l} with verification`.toLowerCase().startsWith(t.slice(l.length + 1).toLowerCase())));
-  const fits = (l) => l === cleaned || (l.length >= 3 && !VERIFIED.test(l) && (cutInCopy(l) || l.startsWith(t)));
+  const fits = (l) => l === cleaned || (l.length >= 3 && !VERIFIED.test(l) && (cutInCopy(l) || (t.length >= LINK_TEXT_CUT && l.startsWith(t))));
   let at = from;
   while (at < pageLines.length && !fits(pageLines[at])) at++;
   if (at >= pageLines.length) return { title: cleaned, company: '', next: from };
@@ -174,9 +178,11 @@ function cardFromText(pageLines, text, from) {
   return sane(pageLines[i]) ? { title, company: pageLines[i], next: i + 1 } : { title, company: '', next: i };
 }
 
-// Job cards from chrome.mjs read --links output: a jobs/view link opens a card and the next company link names its
-// employer, else the page text before the refs does. Only url, company and title are kept; a posting's own text is read
-// later, for new rows only.
+// Job cards from chrome.mjs read --links output: a jobs/view link opens a card. A company link between a card's link and
+// the next card's link is that card's own and names its employer. Otherwise the page text before the refs does, and a
+// company link after the last card names it only when the page text gives none: those links belong to the selected
+// card's detail pane, not to the last card. A trailing " logo" (image alt text) is dropped from a link's name. Only url,
+// company and title are kept; a posting's own text is read later, for new rows only.
 export function linkedinJobs(readOutput) {
   const jobs = [];
   const ids = new Set();
@@ -195,13 +201,14 @@ export function linkedinJobs(readOutput) {
       continue;
     }
     const last = jobs[jobs.length - 1];
-    if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1];
+    if (last && !last.company && /linkedin\.com\/company\//.test(m[2])) last.company = m[1].replace(/\s+logo$/i, '');
   }
   let cursor = 0;
-  return jobs.map((j) => {
+  return jobs.map((j, n) => {
     const card = cardFromText(pageLines, j.title, cursor);
     cursor = card.next;
-    return { ...j, title: card.title, company: j.company || card.company || 'unknown' };
+    const own = n < jobs.length - 1 && j.company;
+    return { ...j, title: card.title, company: own || card.company || j.company || 'unknown' };
   });
 }
 
