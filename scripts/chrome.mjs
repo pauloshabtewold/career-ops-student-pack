@@ -34,7 +34,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { APPLY_SUBMIT, LINK_STYLE, allowedLabel, attachById, attachTo, checkedClick, chooseRadio, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
+import { APPLY_SUBMIT, LINK_STYLE, allowedLabel, attachById, attachTo, checkedClick, chooseRadio, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, submitGate, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
@@ -620,7 +620,7 @@ export async function readForm(client, url, { jobText = true, wait = sleep } = {
     const { fields } = read;
     if (read.account || fields.some(isPasswordField)) return { stop: 'password' };
     if (!fields.length) return { stop: 'empty' };
-    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null, ...(read.submitText !== undefined ? { submitText: read.submitText } : {}), ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
+    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null, ...(read.submitText !== undefined ? { submitText: read.submitText } : {}), ...(read.submitSignature ? { submitSignature: read.submitSignature } : {}), ...(read.submitRefusal ? { submitRefusal: read.submitRefusal } : {}), ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
     const text = jobText ? await postingText(client, url, sessionId) : '';
     return { fields, ...form, ...(text ? { jobText: text } : {}) };
   } finally {
@@ -672,15 +672,18 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
   return EXIT.ok;
 }
 
-// Writes data/form-fields/<url key>.json as { ats, url, form, submit, submitText?, uploadOutside?, fields } and returns
-// its path. form and submit (from read, when the read recorded them) are the selectors of the form read and its button;
-// submit clicks only that, and only while the button still reads submitText. uploadOutside: true says the submit is
-// null because the resume upload sits outside that form.
+// Writes data/form-fields/<url key>.json as { ats, url, form, submit, submitText?, submitSignature?, submitRefusal?,
+// uploadOutside?, fields } and returns its path. form and submit (from read, when the read recorded them) are the
+// selectors of the form read and its button; submit clicks only that, and only while the button still reads submitText
+// and the live form still gives submitSignature (rule v7 F2). submitRefusal is the rule v7 reason code of a read that
+// saved no submit. uploadOutside: true says the submit is null because the resume upload sits outside that form.
 export function saveFormFields(dataDir, url, fields, read = {}) {
   const file = formFieldsFile(join(dataDir, FIELDS_DIR), url);
   mkdirSync(dirname(file), { recursive: true });
   const text = read.submit && typeof read.submitText === 'string' ? { submitText: read.submitText } : {};
-  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null, ...text, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
+  const signature = read.submit && read.submitSignature && typeof read.submitSignature === 'object' ? { submitSignature: read.submitSignature } : {};
+  const refusal = !read.submit && typeof read.submitRefusal === 'string' ? { submitRefusal: read.submitRefusal } : {};
+  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null, ...text, ...signature, ...refusal, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
   writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, ...form, fields }, null, 2)}\n`);
   return file;
 }
@@ -786,6 +789,8 @@ function unsafeButton(b, selector) {
 
 export const BUTTON_CHANGED = 'the submit button changed since the form was read; read the form again';
 export const STALE_READ = 'saved form read is too old; read the form again';
+// Rule v7 F3: the finish-yourself reason of a click refused because the form no longer looks as it did at the read.
+export const CHANGED_SINCE_READ = `${BUTTON_CHANGED} (changed-since-read)`;
 
 // Submit-pick rule v4 item D: a saved submit whose read saved no text, or an empty one (an older read), cannot be
 // checked against the page, so it is refused as a stale read.
@@ -799,10 +804,23 @@ function changedButton(b, saved, selector) {
   const missing = textless(saved, selector);
   if (missing) return missing;
   const now = String(b.text ?? '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80).trimEnd();
-  if (!allowedLabel(now) || b.only !== true) return { state: 'no-button', detail: `${selector} reads "${now}", which is no application submit or not the only one in its form`, reason: BUTTON_CHANGED };
-  if (!b.typed && !APPLY_SUBMIT.test(now)) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: BUTTON_CHANGED };
-  if (now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: BUTTON_CHANGED };
+  if (!allowedLabel(now) || b.only !== true) return { state: 'no-button', detail: `${selector} reads "${now}", which is no application submit or not the only one in its form`, reason: CHANGED_SINCE_READ };
+  if (!b.typed && !APPLY_SUBMIT.test(now)) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: CHANGED_SINCE_READ };
+  if (now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: CHANGED_SINCE_READ };
   return null;
+}
+
+// Rule v7 F3/F4, the last step before the pending row: the submit decision re-run on the live form must pick the saved
+// button with the saved signature. A refusal, an error or any answer but { ok: true } refuses with changed-since-read.
+async function gateRefusal(client, sessionId, plan, selector) {
+  let res;
+  try {
+    res = await submitGate(client, sessionId, plan.formSelector, selector, plan.submitSignature);
+  } catch (err) {
+    res = { refused: `changed-since-read (${err.message})` };
+  }
+  if (res && res.ok === true) return null;
+  return { state: 'no-button', detail: `${selector} ${res?.refused ?? 'changed-since-read'}`, reason: CHANGED_SINCE_READ };
 }
 
 // On the page: the filled tab by its recorded id (never a fresh or look-alike tab), its address and a filled value, the
@@ -834,12 +852,14 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
   if (!signs) return { state: 'no-signs' };
+  const gated = await gateRefusal(client, page.sessionId, plan, selector);
+  if (gated) return gated;
   const pending = budgetCall(paths, 'log', 'apply.pending', plan, ['--target', plan.url], runner);
   if (pending.code !== 0) return { state: 'pending-failed', res: pending };
-  // Rule v6 item 3: the click re-runs the whole check on the element it clicks (one lookup, no second path resolution).
-  // A refusal here comes after the pending row, which then keeps the item from being clicked again.
-  const done = await checkedClick(client, page.sessionId, plan.formSelector, selector, plan.submitText);
-  if (done !== true) return { state: 'no-button', detail: `${selector} ${done?.refused ?? 'was not clicked'}`, reason: BUTTON_CHANGED };
+  // Rule v6 item 3 and v7 F3: the click re-runs the gate and the whole check on the element it clicks (one lookup, no
+  // second path resolution). A refusal here comes after the pending row, which then keeps the item from being clicked again.
+  const done = await checkedClick(client, page.sessionId, plan.formSelector, selector, plan.submitText, plan.submitSignature);
+  if (done !== true) return { state: 'no-button', detail: `${selector} ${done?.refused ?? 'was not clicked'}`, reason: CHANGED_SINCE_READ };
   const outcome = await submitOutcome(client, page.sessionId, signs, wait);
   // A screenshot is taken only here, to prove what the submit showed; every other read is text. A failed screenshot
   // never stops the outcome from being handled and logged.

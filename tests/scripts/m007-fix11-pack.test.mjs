@@ -22,7 +22,7 @@ const TODAY = '2026-11-24';
 const GH = 'https://boards.greenhouse.io/examplerobotics/jobs/8101';
 const words = (n, w = 'robotics') => Array.from({ length: n }, (_, i) => `${w}${i}`).join(' ');
 const POSTING = `Example Robotics hires a Software Engineering Intern. Requirements: Python, SQL, testing. ${words(90)}`;
-const CHANGED = 'the submit button changed since the form was read; read the form again';
+const CHANGED = 'the submit button changed since the form was read; read the form again (changed-since-read)';
 
 function scratch() {
   const root = mkdtempSync(join(tmpdir(), 'pack-m007-fix11-'));
@@ -225,8 +225,11 @@ test('M-007-fix11-2c a one-word widget is not saved when another control of the 
     'Submit for review next to Submit': [el('form', { id: 'sr' }, [...body(), btn('sr_go', 'submit', 'Submit'), btn('sr_rv', 'button', 'Submit for review')])],
   });
   // Secondary actions after the pick keep it: Save draft, Back, Cancel, a link-style or helper control, a toggle.
-  const kept = await read([el('form', { id: 'ok' }, [...body(), btn('ok_go', 'submit', 'Submit application'), btn('ok_sd', 'button', 'Save draft'), btn('ok_bk', 'button', 'Go back'), btn('ok_li', 'button', 'Apply with LinkedIn'), btn('ok_tg', 'button', 'Remote', { role: 'switch' })])]);
+  const kept = await read([el('form', { id: 'ok' }, [...body(), btn('ok_go', 'submit', 'Submit application'), btn('ok_sd', 'button', 'Save draft'), btn('ok_bk', 'button', 'Go back'), btn('ok_tg', 'button', 'Remote', { role: 'switch' })])]);
   assert.equal(kept.submit, '#ok_go', show(kept));
+  // Rule v7 F1b: a link-style Apply with LinkedIn after the pick is a submit-worded control, so no submit is saved.
+  const linkedIn = await read([el('form', { id: 'ok' }, [...body(), btn('ok_go', 'submit', 'Submit application'), btn('ok_sd', 'button', 'Save draft'), btn('ok_bk', 'button', 'Go back'), btn('ok_li', 'button', 'Apply with LinkedIn'), btn('ok_tg', 'button', 'Remote', { role: 'switch' })])]);
+  assert.equal(linkedIn.submit, null, show(linkedIn));
 });
 
 // M-007-fix11-N10-2
@@ -288,7 +291,6 @@ test('M-007-fix11-S20 the click lands only on the element just checked: a path d
 test('M-007-fix11-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET wrapper, Send application, icon-only aria-label, Apply now and the live-mock form keep their submit and click it', async () => {
   const shapes = {
     'Greenhouse new board': [[el('main', {}, [el('div', { 'aria-label': 'Apply' }, [el('form', { id: 'application-form' }, [inp('first_name'), inp('email', 'email'), inp('resume', 'file'), btn('attach', 'button', 'Attach'), btn('gh_submit', 'submit', 'Submit application')])])])], 'gh_submit', 'submit application'],
-    'Lever type=button Submit application': [[el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])], 'btn-submit', 'submit application'],
     Ashby: [[el('main', {}, [el('form', { id: 'ashby_application' }, [inp('_systemfield_name'), inp('_systemfield_email', 'email'), inp('_systemfield_resume', 'file'), btn('up', 'button', 'Upload File'), btn('ashby_submit', 'submit', 'Submit Application')])])], 'ashby_submit', 'submit application'],
     'ASP.NET wrapper with a footer Subscribe': [[el('form', { id: 'aspnetForm' }, [el('main', {}, [inp('first_name'), inp('a_email', 'email'), inp('cv', 'file'), el('input', { id: 'btnSubmit', type: 'submit', value: 'Submit application' })]), el('footer', {}, [inp('nl_email2', 'email'), el('input', { id: 'nl', type: 'submit', value: 'Subscribe' })])])], 'btnSubmit', 'submit application'],
     'a lone typed Send application': [[el('form', { id: 'app' }, [...body(), btn('send', 'submit', 'Send application')])], 'send', 'send application'],
@@ -305,6 +307,10 @@ test('M-007-fix11-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET w
     assert.equal(out.clicked.state, 'clicked', `${name}: ${JSON.stringify(out.clicked)}`);
     assert.deepEqual([out.clicks, out.budget], [[id], ['log apply.pending']], name);
   }
+  // Rule v7 F1b: Lever's Apply with LinkedIn is a submit-worded control beside the pick, so Lever now saves no submit.
+  await assertNull({
+    'Lever type=button Submit application beside Apply with LinkedIn': [el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])],
+  });
   const lm = await read([el('form', { id: 'application_form' }, [inp('first_name'), inp('email', 'email'), inp('resume', 'file'), btn('submit_app', 'submit', 'Submit Application')])]);
   assert.equal(lm.submitText, 'submit application', 'the locked live-mock fixture saves submitText "submit application"');
 });

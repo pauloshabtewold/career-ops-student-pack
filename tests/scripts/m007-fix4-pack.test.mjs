@@ -122,7 +122,13 @@ test('M-007-fix4-N4-1b inside the read form an explicit submit button wins over 
     btn('attach', undefined, 'Attach'), btn('li', 'submit', 'Apply with LinkedIn'), input('first_name'), input('email', 'email'), input('resume', 'file'), btn('send', 'submit', 'Submit application'),
   ])])]);
   assert.equal(res.form, '#apply_form');
-  assert.equal(res.submit, '#send');
+  // Rule v7 F1b: the typed Apply with LinkedIn is a submit-worded control beside the pick, so no submit is saved.
+  assert.equal(res.submit, null);
+  const plain = await read([el('main', {}, [el('form', { id: 'apply_form' }, [
+    btn('attach', undefined, 'Attach'), input('first_name'), input('email', 'email'), input('resume', 'file'), btn('send', 'submit', 'Submit application'),
+  ])])]);
+  assert.equal(plain.form, '#apply_form');
+  assert.equal(plain.submit, '#send');
 });
 
 // A filled tab for clickSubmit whose submit-button check runs against a fake DOM; every other script answers like the

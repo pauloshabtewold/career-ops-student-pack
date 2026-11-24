@@ -208,13 +208,14 @@ test('M-007-fix12-N11-1 a no-resume form with a bare Submit or Send in a nested 
     'A2 no-resume form, header typeless feedback Send + Apply now': [el('form', { id: 'a2' }, [el('header', {}, [inp('fb_text'), btn('fb_send', undefined, 'Send')]), ...noResume(), btn('ap', 'submit', 'Apply now')])],
     'A3 no-resume form, nav input Submit + Submit application': [el('form', { id: 'a3' }, [el('nav', {}, [inp('nav_q'), el('input', { id: 'nav_go', type: 'submit', value: 'Submit' })]), ...noResume(), btn('go', 'submit', 'Submit application')])],
   });
-  // Read and click count one set: a bare footer Submit counts at neither (the unchanged form is clicked), and a footer
-  // control passing item 1 counts at both (added before the click, it is refused before apply.pending).
+  // Read and click decide alike (rule v7 F3 re-runs the decision at click time): a bare footer Submit or a footer
+  // control passing item 1, added before the click, is refused before apply.pending.
   const kids = () => [el('form', { id: 'a4' }, [el('main', {}, [...noResume(), btn('go', 'submit', 'Submit application')])])];
   const addFooter = (label) => (ctx) => { const f = ctx.document.querySelector('#a4'); const foot = el('footer', {}, [btn('ft_go', 'submit', label)]); foot.parentElement = f; f.children.push(foot); return ctx; };
   const plain = await readAndClick(kids(), { drift: addFooter('Submit') });
   assert.equal(plain.res.submit, '#go', show(plain.res));
-  assert.deepEqual([plain.clicked.state, plain.clicks, plain.budget], ['clicked', ['go'], ['log apply.pending']], JSON.stringify(plain.clicked));
+  assert.equal(plain.clicked.state, 'no-button', JSON.stringify(plain.clicked));
+  assert.deepEqual([plain.clicks, plain.budget], [[], []], 'refused before apply.pending');
   const out = await readAndClick(kids(), { drift: addFooter('Apply now') });
   assert.equal(out.res.submit, '#go', show(out.res));
   assert.equal(out.clicked.state, 'no-button', JSON.stringify(out.clicked));
@@ -275,7 +276,6 @@ test('M-007-fix12-M08 a step or near-miss control in a nested footer or header r
 test('M-007-fix12-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET wrapper, Send application, Apply, Apply now, icon-only, live-mock, a privacy link and a footer Back keep their submit and click it', async () => {
   await assertKeep({
     'Greenhouse new board': [[el('main', {}, [el('div', { 'aria-label': 'Apply' }, [el('form', { id: 'application-form' }, [inp('first_name'), inp('email', 'email'), inp('resume', 'file'), btn('attach', 'button', 'Attach'), btn('gh_submit', 'submit', 'Submit application')])])])], 'gh_submit', 'submit application'],
-    'Lever type=button Submit application': [[el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])], 'btn-submit', 'submit application'],
     Ashby: [[el('main', {}, [el('form', { id: 'ashby_application' }, [inp('_systemfield_name'), inp('_systemfield_email', 'email'), inp('_systemfield_resume', 'file'), btn('up', 'button', 'Upload File'), btn('ashby_submit', 'submit', 'Submit Application')])])], 'ashby_submit', 'submit application'],
     'X4 ASP.NET wrapper with a footer Subscribe': [[el('form', { id: 'aspnetForm' }, [el('main', {}, [inp('first_name'), inp('a_email', 'email'), inp('cv', 'file'), el('input', { id: 'btnSubmit', type: 'submit', value: 'Submit application' })]), el('footer', {}, [inp('nl_email2', 'email'), el('input', { id: 'nl', type: 'submit', value: 'Subscribe' })])])], 'btnSubmit', 'submit application'],
     'a lone typed Send application': [[el('form', { id: 'app' }, [...body(), btn('send', 'submit', 'Send application')])], 'send', 'send application'],
@@ -286,5 +286,9 @@ test('M-007-fix12-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET w
     'live-mock typed Submit Application': [[el('form', { id: 'application_form' }, [inp('first_name'), inp('email', 'email'), inp('resume', 'file'), btn('submit_app', 'submit', 'Submit Application')])], 'submit_app', 'submit application'],
     'Y2 a link Review our privacy policy': [[el('form', { id: 'app' }, [...body(), link('pp', '/privacy', 'Review our privacy policy'), btn('go', 'submit', 'Submit application')])], 'go', 'submit application'],
     'X4c footer action bar with Back': [[el('form', { id: 'app' }, [...body(), el('footer', {}, [btn('bk', 'button', 'Back'), btn('go', 'submit', 'Submit application')])])], 'go', 'submit application'],
+  });
+  // Rule v7 F1b: Lever's Apply with LinkedIn is a submit-worded control beside the pick, so Lever now saves no submit.
+  await assertNull({
+    'Lever type=button Submit application beside Apply with LinkedIn': [el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])],
   });
 });

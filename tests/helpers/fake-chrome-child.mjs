@@ -27,6 +27,8 @@ function evaluatePage(expr) {
   // The saved form #application_form holds the typed submit #submit and the filled fields.
   if (expr.includes('f.contains(el)') && expr.includes('#application_form')) return s.submitButton && sel === '#application_form';
   if (expr.includes('formHasField')) return s.submitButton && sel === SUBMIT ? { typed: true, text: 'Submit application', inForm: true, formHasField: true, only: true } : null;
+  // The rule v7 gate (lib/cdp.mjs submitGate) before the pending row: the fake form still looks as it did at the read.
+  if (expr.includes('{ ok: true }')) return s.submitButton ? { ok: true } : null;
   if (expr.includes("'captcha frame'")) return null;
   if (expr.includes('getOwnPropertyDescriptor')) {
     if (!s.present[sel]) return false;

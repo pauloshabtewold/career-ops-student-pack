@@ -69,6 +69,8 @@ function fakeTab({ targets = [{ targetId: 'T1', type: 'page', url: 'https://x.te
     if (e.includes("el.type === 'file'")) return { result: { value: fieldValue } };
     if (e.includes('autocomplete: (el.autocomplete')) return { result: { value: { tag: 'button', type: 'submit', autocomplete: '' } } };
     if (e.includes('formHasField')) return { result: { value: { typed: true, text: 'Submit application', inForm: true, formHasField: true, only: true } } };
+    // The rule v7 gate (lib/cdp.mjs submitGate): the fake form still looks as it did at the read.
+    if (e.includes('{ ok: true }')) return { result: { value: { ok: true } } };
     return { result: { value: true } };
   };
   return { send, calls };

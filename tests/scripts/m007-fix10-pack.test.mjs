@@ -264,7 +264,6 @@ test('M-007-fix10-click the click re-checks rule 1 and the label on the live ele
 test('M-007-fix10-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET wrapper, Send application, icon-only aria-label and the live-mock form keep their submit and click it', async () => {
   const shapes = {
     'Greenhouse new board': [[el('main', {}, [el('div', { 'aria-label': 'Apply' }, [el('form', { id: 'application-form' }, [inp('first_name'), inp('email', 'email'), inp('resume', 'file'), btn('attach', 'button', 'Attach'), btn('gh_submit', 'submit', 'Submit application')])])])], 'gh_submit', 'submit application'],
-    'Lever type=button Submit application': [[el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])], 'btn-submit', 'submit application'],
     Ashby: [[el('main', {}, [el('form', { id: 'ashby_application' }, [inp('_systemfield_name'), inp('_systemfield_email', 'email'), inp('_systemfield_resume', 'file'), btn('up', 'button', 'Upload File'), btn('ashby_submit', 'submit', 'Submit Application')])])], 'ashby_submit', 'submit application'],
     'ASP.NET wrapper with a footer Subscribe': [[el('form', { id: 'aspnetForm' }, [el('main', {}, [inp('first_name'), inp('a_email', 'email'), inp('cv', 'file'), el('input', { id: 'btnSubmit', type: 'submit', value: 'Submit application' })]), el('footer', {}, [inp('nl_email2', 'email'), el('input', { id: 'nl', type: 'submit', value: 'Subscribe' })])])], 'btnSubmit', 'submit application'],
     'a lone typed Send application': [[el('form', { id: 'app' }, [...body(), btn('send', 'submit', 'Send application')])], 'send', 'send application'],
@@ -279,6 +278,10 @@ test('M-007-fix10-keep Greenhouse new board, Lever type=button, Ashby, ASP.NET w
     assert.equal(out.clicked.state, 'clicked', `${name}: ${JSON.stringify(out.clicked)}`);
     assert.deepEqual([out.clicks, out.budget], [[id], ['log apply.pending']], name);
   }
+  // Rule v7 F1b: Lever's Apply with LinkedIn is a submit-worded control beside the pick, so Lever now saves no submit.
+  await assertNull({
+    'Lever type=button Submit application beside Apply with LinkedIn': [el('form', { id: 'application-form' }, [inp('resume-upload-input', 'file', { name: 'resume' }), inp('n', 'text', { name: 'name' }), inp('e', 'email', { name: 'email' }), btn('li', 'button', 'Apply with LinkedIn'), btn('btn-submit', 'button', 'Submit application')])],
+  });
 });
 
 // M-007-fix10-N9-3

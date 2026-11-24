@@ -269,11 +269,12 @@ export async function planRow(row, ctx) {
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
   // The form read and its button go with the plan, so chrome.mjs submit clicks only inside the form that was read.
-  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null, ...(typeof ctx.form.submitText === 'string' ? { submitText: ctx.form.submitText } : {}), ...(ctx.form.uploadOutside ? { uploadOutside: true } : {}) } : {};
+  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null, ...(typeof ctx.form.submitText === 'string' ? { submitText: ctx.form.submitText } : {}), ...(ctx.form.submit && ctx.form.submitSignature ? { submitSignature: ctx.form.submitSignature } : {}), ...(ctx.form.uploadOutside ? { uploadOutside: true } : {}) } : {};
   // A read that recorded its form but saved no submit, or a submit with no saved text (a stale read), can never be
   // submitted by script, so the row is never batch-ready: finish is the reason it goes to finish these yourself, before
-  // any render or call.
-  const finish = planFinishReason(formRead);
+  // any render or call. A read the rule v7 decision refused names its reason code.
+  const why = planFinishReason(formRead);
+  const finish = why && !formRead.submitSelector && typeof ctx.form?.submitRefusal === 'string' ? `${why} (${ctx.form.submitRefusal})` : why;
   if (finish) {
     return { batchId: ctx.batchId ?? null, item: ctx.item ?? null, url: row.url, link: row.url, company: row.company, role, finish, flags, unknown, blocked, selfCheck: { ok: false, fixed: [], flags: [] }, inBatch: false };
   }
