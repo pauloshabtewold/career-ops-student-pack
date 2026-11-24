@@ -254,7 +254,9 @@ async function waitForDevtools(profile, pid, deps = {}) {
 }
 
 // Chrome flags: dedicated profile directory, debugging port bound to loopback only.
-export function launchArgs(profile, { headless = false } = {}) {
+export function launchArgs(profile, { headless = false, platform = process.platform, env = process.env, keychainExists = existsSync } = {}) {
+  // Mock keychain only for a HOME with none (no macOS popup); a real one keeps it so saved sign-ins still decrypt.
+  const noKeychain = platform === 'darwin' && !keychainExists(join(env.HOME || homedir(), 'Library', 'Keychains'));
   return [
     `--user-data-dir=${profile}`,
     '--remote-debugging-port=0',
@@ -262,6 +264,7 @@ export function launchArgs(profile, { headless = false } = {}) {
     '--no-first-run',
     '--no-default-browser-check',
     ...(headless ? ['--headless=new'] : []),
+    ...(noKeychain ? ['--use-mock-keychain', '--password-store=basic'] : []),
   ];
 }
 
@@ -305,7 +308,7 @@ async function openLocked({ dataDir, config, flags, deps, say }) {
     return EXIT.notRunning;
   }
   rmSync(join(profile, 'DevToolsActivePort'), { force: true });
-  const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless) }), { detached: true, stdio: 'ignore', windowsHide: true });
+  const child = (deps.spawn ?? spawn)(binary, launchArgs(profile, { headless: Boolean(flags.headless), env: deps.env ?? process.env, platform: deps.platform, keychainExists: deps.keychainExists }), { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref?.();
   const { port, ready, exited } = await waitForDevtools(profile, child.pid, deps);
   if (!ready) {
