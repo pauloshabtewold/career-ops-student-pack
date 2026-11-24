@@ -224,7 +224,7 @@ test('M-007-fix3-N3-2a the application form is read, not a header search or foot
       el('form', { id: 'apply_form' }, [
         input('first_name'), input('email', 'email'), input('token', 'hidden'), input('resume', 'file'),
         el('footer', {}, [input('consent', 'checkbox')]),
-        el('button', { id: 'apply_btn' }),
+        el('button', { id: 'apply_btn', text: 'Submit application' }),
       ]),
     ]),
     el('footer', {}, [el('form', { id: 'newsletter' }, [input('news_email', 'email'), el('button', { id: 'join', type: 'submit' })])]),

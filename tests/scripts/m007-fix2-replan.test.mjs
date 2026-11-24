@@ -148,10 +148,10 @@ test('M-007-fix2-N2-2e the autopilot reads the form and replans an approved unre
       const script = basename(String(args[0]));
       order.push(script === 'chrome.mjs' || script === 'fill-plan.mjs' ? `${script} ${args[1]}` : script);
       if (script === 'rank-queue.mjs') return '[]';
-      if (script === 'chrome.mjs' && args[1] === 'read-form') saveFormFields(r.dataDir, LINK, FORM);
+      if (script === 'chrome.mjs' && args[1] === 'read-form') saveFormFields(r.dataDir, LINK, FORM, { form: '#application_form', submit: '#submit_app', submitText: 'submit application' });
       if (script === 'fill-plan.mjs' && args[1] === '--replan') {
         const plan = JSON.parse(readFileSync(planFile, 'utf8'));
-        writeFileSync(planFile, JSON.stringify({ ...plan, fields: FORM.map((f) => ({ ...f, value: f.type === 'file' ? undefined : 'x' })), uploads: [] }));
+        writeFileSync(planFile, JSON.stringify({ ...plan, formSelector: '#application_form', submitSelector: '#submit_app', submitText: 'submit application', fields: FORM.map((f) => ({ ...f, value: f.type === 'file' ? undefined : 'x' })), uploads: [] }));
       }
       if (script === 'chrome.mjs' && args[1] === 'fill') {
         const plan = JSON.parse(readFileSync(planFile, 'utf8'));

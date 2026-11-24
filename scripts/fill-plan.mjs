@@ -269,7 +269,7 @@ export async function planRow(row, ctx) {
   const outDir = ctx.outDir ?? join(dataDir, 'fill-plans', ctx.batchId ? `${ctx.batchId}-work` : `${today}-work`, String(ctx.item ?? 1));
   const flags = [];
   // The form read and its button go with the plan, so chrome.mjs submit clicks only inside the form that was read.
-  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null, ...(ctx.form.uploadOutside ? { uploadOutside: true } : {}) } : {};
+  const formRead = ctx.form?.form !== undefined ? { formSelector: ctx.form.form ?? null, submitSelector: ctx.form.submit ?? null, ...(typeof ctx.form.submitText === 'string' ? { submitText: ctx.form.submitText } : {}), ...(ctx.form.uploadOutside ? { uploadOutside: true } : {}) } : {};
   // A read that recorded its form but saved no submit can never be submitted by script, so the row is never batch-ready:
   // finish is the reason it goes to finish these yourself, before any render or call.
   const finish = noSubmitReason(formRead);

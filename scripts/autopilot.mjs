@@ -16,7 +16,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { detailValue, readActionLog } from '../lib/action-log.mjs';
-import { EMPTY_READ_TRIES, FIELDS_DIR, formFieldsFile, formGaveUp } from '../lib/ats-fields.mjs';
+import { EMPTY_READ_TRIES, FIELDS_DIR, formFieldsFile, formGaveUp, readFormDoc } from '../lib/ats-fields.mjs';
 import { addFinishYourself, listBatches, readBatch, writeBatches } from '../lib/batch-file.mjs';
 import { evaluate, openPage, withBrowser } from '../lib/cdp.mjs';
 import { createClock } from '../lib/clock.mjs';
@@ -31,7 +31,7 @@ import { stepErrorText } from '../lib/text.mjs';
 import { urlKey } from '../lib/url-key.mjs';
 import { appendDigestLines } from '../lib/triage-budget.mjs';
 import { readTsv, writeAtomic } from '../lib/tsv.mjs';
-import { KEPT_OUT_OFFER, NO_JOB_TEXT, NO_SAFE_SUBMIT, UPLOAD_OUTSIDE, daysBetween, finishGuide, keptOutCount, keptOutReason, noSubmitReason } from '../lib/kept-out.mjs';
+import { FINISH_REPLY, KEPT_OUT_OFFER, NO_JOB_TEXT, NO_SUBMIT_REASONS, daysBetween, finishGuide, keptOutCount, keptOutReason, noSubmitReason, planFinishReason } from '../lib/kept-out.mjs';
 import { append as appendLedger, zeroRow } from '../lib/usage-ledger.mjs';
 import { approvedItem, effectiveLimits } from './budget.mjs';
 import { liveState } from './chrome.mjs';
@@ -42,6 +42,8 @@ import { fitScore } from './fill-plan.mjs';
 export const OUTCOME_QUERY = 'newer_than:2d (application OR interview OR offer OR unfortunately OR "next steps" OR regret OR candidates OR selected OR invitation OR invited OR call)';
 const CHILD_TIMEOUT_MS = 60 * 60 * 1000;
 const FILL_REPORT = /^fill-plan: \d+ of \d+ ready/m;
+const KEPT_OUT_MARK = 'kept out: ';
+const KEPT_OUT_FINISH = /: kept out: finish these yourself: /;
 const DRAFTS_REPORT = /^outreach-drafts: .*(draft\(s\) in|already waiting|outreach is)/;
 const INBOX_REPORT = /^inbox: (\d+) read, (\d+) proposal\(s\), (\d+) set$/m;
 // At most this many outcome conversations are opened per run; the list read is bounded by LIST_MAX rows.
@@ -63,7 +65,7 @@ const SPENT_ACTIONS = new Set(['apply.submit', 'apply.easy_apply', 'apply.pendin
 // A finish-yourself item is named in full in the digest for this many days after it was added; older ones are folded
 // into one count line offering FINISH_REPLY (mapped in AGENTS.student.md to modes/apply-loop.md).
 const FINISH_FULL_DAYS = 7;
-export const FINISH_REPLY = 'read my finish-yourself list';
+export { FINISH_REPLY };
 
 // Approved apply items not yet submitted, in batch order: the same rule budget.mjs checks (a logged batch.approve lists
 // the item and no send or pending row spent it yet). kind is apply or easy-apply; plan is the item's fill plan file;
@@ -163,7 +165,10 @@ function prepareApplications({ paths, today, child, rows }) {
     return [`fill-plan.mjs failed (${stepErrorText(err)})`];
   }
   const made = listBatches(paths.dataDir).filter((id) => !before.has(id) && readBatch(paths.dataDir, id)?.kind === 'apply');
-  if (made.length || FILL_REPORT.test(text)) return [lastLine(text) || `apply batches: ${made.join(', ')}`];
+  // fill-plan's finish lines (a read that can never be submitted, often saved by read-form this same run) keep their
+  // link and reason in the digest, ahead of its summary line.
+  const finish = String(text ?? '').split('\n').filter((l) => KEPT_OUT_FINISH.test(l)).map((l) => l.slice(l.indexOf(KEPT_OUT_MARK) + KEPT_OUT_MARK.length));
+  if (made.length || FILL_REPORT.test(text)) return [...finish, lastLine(text) || `apply batches: ${made.join(', ')}`];
   const items = rows.map((r) => ({ company: r.company, role: r.title, score: fitScore(r), preview: 'fill plan not ready yet; open the link to apply yourself, or ask me to prepare it', link: r.url }));
   const ids = writeBatches(paths.dataDir, { date: today, kind: 'apply', items });
   return [`review batch ${ids.join(', ')} with ${items.length} ranked row(s) and no fill plans yet`];
@@ -181,10 +186,11 @@ const readPlan = (file) => {
 // carry the form's fields, no field only the student fills (plan.blocked, named by label, never by value), no unknown
 // question, and every resume or cover letter upload it names on disk. fill-plan writes fields only from a form that was
 // read (data/form-fields, written by chrome.mjs read-form), so a plan without fields means no form was read for it. A
-// plan whose read recorded its form but saved no submit is never ready: it is the student's to finish.
+// plan whose read recorded its form but saved no submit, or whose read is too old to name its form, is never ready: it
+// is the student's to finish.
 export function planWait(plan) {
   if (!Array.isArray(plan?.fields) || !plan.fields.length) return 'waits for a fill in a session (no form was read for it)';
-  const finish = noSubmitReason(plan);
+  const finish = planFinishReason(plan);
   if (finish) return `not submitted: finish these yourself: ${finish}`;
   if (plan.blocked?.length) return `waits for you: fields only you fill (${plan.blocked.map((b) => String(b).replace(/\s+/g, ' ').trim().slice(0, 60)).join(', ')})`;
   if (plan.unknown?.length) return `waits for a fill in a session (it has ${plan.unknown.length} question(s) to answer)`;
@@ -203,7 +209,7 @@ function moveToFinish(dataDir, it, role, reason) {
   } catch (err) {
     return `${finishGuide(it.company, it.link, reason)} It could not be added to the batch's finish-yourself list (${stepErrorText(err)}).`;
   }
-  return finishGuide(it.company, it.link, reason);
+  return finishGuide(it.company, it.link, reason, { onBatch: true });
 }
 
 // Why a finished fill must not be submitted, or null: chrome.mjs printed a field it could not fill or one only the
@@ -218,13 +224,17 @@ function fillHold(text, plan) {
 // An approved plan built while its form was not read has no fields (the batch line said "form not read yet"): its form is
 // read now (unless a saved read exists) and `fill-plan.mjs --replan` rebuilds that item's plan in place, with the cover
 // letter when the form has a slot, before any fill. A posting whose form was given up is not read again (until a read
-// in a session saves its fields). Returns why the item waits, or null when the plan has fields.
+// in a session saves its fields). A read that can never be submitted (noSubmitReason) is not replanned: { finish } names
+// its reason. Returns why the item waits, { finish }, or null when the plan has fields.
 function replanUnread({ paths, child, it }) {
   if (readPlan(it.plan)?.fields?.length) return null;
   const dir = join(paths.dataDir, FIELDS_DIR);
   if (formGaveUp(dir, it.link)) return `not submitted: finish these yourself: no application form found in ${EMPTY_READ_TRIES} reads of ${it.link}; apply on the page yourself, or ${KEPT_OUT_OFFER}`;
   try {
     if (!existsSync(formFieldsFile(dir, it.link))) child('chrome.mjs', ['read-form', '--url', it.link]);
+    const read = readFormDoc(dir, it.link);
+    const finish = read.fields.length ? noSubmitReason(read) : null;
+    if (finish) return { finish };
     child('fill-plan.mjs', ['--replan', '--batch-id', it.batchId, '--item', String(it.item)]);
   } catch (err) {
     return `not submitted: its form could not be read and the plan rebuilt (${stepErrorText(err)}); it waits for a session`;
@@ -265,12 +275,13 @@ async function submitApproved({ paths, today, child, tally }) {
     }
     if (it.plan && existsSync(it.plan)) {
       const unread = replanUnread({ paths, child, it });
-      if (unread) {
+      if (typeof unread === 'string') {
         wait(`${name} ${unread}`);
         continue;
       }
-      // A plan whose read saved no submit is never filled: it moves to the batch's finish these yourself list.
-      const finish = noSubmitReason(readPlan(it.plan));
+      // A plan (or a fresh read) that can never be submitted is never filled: it moves to the batch's finish these
+      // yourself list.
+      const finish = unread?.finish ?? planFinishReason(readPlan(it.plan));
       if (finish) {
         finishCount++;
         notes.push(`${name} not submitted: ${moveToFinish(paths.dataDir, it, readPlan(it.plan)?.role, finish)}`);
@@ -453,7 +464,7 @@ export async function autopilot({ paths, today, deps = {} }) {
     const already = ranked.length - fresh.length;
     const keptLine = (r, why) => {
       if (why === NO_JOB_TEXT) return `kept out: ${r.company} (${r.url}): no job text found; ${KEPT_OUT_OFFER}`;
-      if (why === UPLOAD_OUTSIDE || why === NO_SAFE_SUBMIT) return finishGuide(r.company, r.url, why);
+      if (NO_SUBMIT_REASONS.includes(why)) return finishGuide(r.company, r.url, why);
       return `finish these yourself: ${r.company} (${r.url}): ${why}; apply on the page yourself, or ${KEPT_OUT_OFFER}`;
     };
     const keptLines = kept.map(({ r, why }) => keptLine(r, why));

@@ -218,7 +218,7 @@ test('M-007-fix8-N7-2-wait planWait never calls a null-submit plan ready; a plan
     const upload = ap.planWait({ ...base, formSelector: '#application_form', submitSelector: null, uploadOutside: true });
     assert.ok(upload && upload.includes('finish these yourself') && upload.includes(UPLOAD_REASON), String(upload));
     const none = ap.planWait({ ...base, formSelector: null, submitSelector: null });
-    assert.ok(none && none.includes(NO_SUBMIT_REASON), String(none));
+    assert.ok(none && none.includes('no application form found on the page read'), String(none));
     assert.equal(ap.planWait({ ...base, formSelector: '#app', submitSelector: '#go' }), null);
   } finally {
     r.cleanup();

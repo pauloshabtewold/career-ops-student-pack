@@ -34,7 +34,7 @@ import { readActionLog } from '../lib/action-log.mjs';
 import { UsageError, isMain, parseArgs, runCli } from '../lib/args.mjs';
 import { EMPTY_READ_TRIES, FIELDS_DIR, SENSITIVE_KEY, atsOf, clearEmptyReads, formFieldsFile, formUrl, recordEmptyRead } from '../lib/ats-fields.mjs';
 import { addFinishYourself, readBatch } from '../lib/batch-file.mjs';
-import { LINK_STYLE, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
+import { APPLY_SUBMIT, LINK_STYLE, attachById, attachTo, chooseRadio, click, describeField, evaluate, insideForm, readApplicationForm, readText, openPage, readValue, screenshot, selectOption, setChecked, setFileInputFiles, setValue, submitButton, withBrowser } from '../lib/cdp.mjs';
 import { loadStudentConfig } from '../lib/config.mjs';
 import { load as loadJd, saveIfAbsent as saveJdIfAbsent } from '../lib/jd-store.mjs';
 import { trimJobText } from '../lib/jd-trim.mjs';
@@ -620,7 +620,7 @@ export async function readForm(client, url, { jobText = true, wait = sleep } = {
     const { fields } = read;
     if (read.account || fields.some(isPasswordField)) return { stop: 'password' };
     if (!fields.length) return { stop: 'empty' };
-    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
+    const form = read.form !== undefined ? { form: read.form, submit: read.submit ?? null, ...(read.submitText !== undefined ? { submitText: read.submitText } : {}), ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
     const text = jobText ? await postingText(client, url, sessionId) : '';
     return { fields, ...form, ...(text ? { jobText: text } : {}) };
   } finally {
@@ -672,13 +672,15 @@ async function cmdReadForm({ dataDir, flags, deps, say }) {
   return EXIT.ok;
 }
 
-// Writes data/form-fields/<url key>.json as { ats, url, form, submit, uploadOutside?, fields } and returns its path. form
-// and submit (from read, when the read recorded them) are the selectors of the form read and its button; submit clicks
-// only that. uploadOutside: true says the submit is null because the resume upload sits outside that form.
+// Writes data/form-fields/<url key>.json as { ats, url, form, submit, submitText?, uploadOutside?, fields } and returns
+// its path. form and submit (from read, when the read recorded them) are the selectors of the form read and its button;
+// submit clicks only that, and only while the button still reads submitText. uploadOutside: true says the submit is
+// null because the resume upload sits outside that form.
 export function saveFormFields(dataDir, url, fields, read = {}) {
   const file = formFieldsFile(join(dataDir, FIELDS_DIR), url);
   mkdirSync(dirname(file), { recursive: true });
-  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
+  const text = read.submit && typeof read.submitText === 'string' ? { submitText: read.submitText } : {};
+  const form = read.form !== undefined ? { form: read.form ?? null, submit: read.submit ?? null, ...text, ...(read.uploadOutside ? { uploadOutside: true } : {}) } : {};
   writeAtomic(file, `${JSON.stringify({ ats: atsOf(url), url, ...form, fields }, null, 2)}\n`);
   return file;
 }
@@ -782,6 +784,19 @@ function unsafeButton(b, selector) {
   return null;
 }
 
+export const BUTTON_CHANGED = 'the submit button changed since the form was read; read the form again';
+
+// Submit-pick rule v4 item D, checked before the pending row: the button must be a typed submit or an
+// APPLY_SUBMIT-worded one, and its text must equal the text the read saved. A plan from a read that saved no text skips
+// only the text comparison.
+function changedButton(b, saved, selector) {
+  const text = String(b.text ?? '');
+  const now = text.trim().toLowerCase().slice(0, 80);
+  if (!b.typed && !(APPLY_SUBMIT.test(text) && !LINK_STYLE.test(text))) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: BUTTON_CHANGED };
+  if (typeof saved === 'string' && now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: BUTTON_CHANGED };
+  return null;
+}
+
 // On the page: the filled tab by its recorded id (never a fresh or look-alike tab), its address and a filled value, the
 // CAPTCHA check and the button, then the pending row, the click and the page's answer. The pending row is logged before
 // the click so a click whose apply.submit log later fails still leaves the item used; budget.mjs refuses a second
@@ -803,7 +818,8 @@ export async function clickSubmit(client, { plan, paths, item, runner, wait = sl
   const selector = plan.submitSelector;
   if (!(await describeField(client, page.sessionId, selector))) return { state: 'no-button' };
   if (plan.formSelector && !(await insideForm(client, page.sessionId, plan.formSelector, selector))) return { state: 'outside-form', detail: selector };
-  const unsafe = unsafeButton(await submitButton(client, page.sessionId, selector, fieldSelectors), selector);
+  const button = await submitButton(client, page.sessionId, selector, fieldSelectors);
+  const unsafe = unsafeButton(button, selector) || changedButton(button, plan.submitText, selector);
   if (unsafe) return unsafe;
   const signs = signsOf(await evaluate(client, page.sessionId, PAGE_SIGNS));
   // Without the wording before the click no confirmation could ever be shown to be new, so nothing is clicked.
@@ -915,7 +931,7 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
   // No safe submit button: the same markup refuses on every run, so the job goes to finish these yourself with its
   // reason and link (the autopilot then leaves it alone) instead of being refilled and refused each day.
   const unsafe = {
-    'no-button': () => [`no safe submit button${clicked.detail ? ` (${clicked.detail})` : ''}`, 'no safe submit button in the form read'],
+    'no-button': () => [`no safe submit button${clicked.detail ? ` (${clicked.detail})` : ''}`, clicked.reason ?? 'no safe submit button in the form read'],
     'outside-form': () => [`the submit button ${clicked.detail ?? ''} is outside the form that was read`, 'the submit button is outside the form read'],
     'other-form': () => [`the submit button ${clicked.detail ?? ''} is in a form holding none of the filled fields`, 'the submit button is in a form holding none of the filled fields'],
     'stale-read': () => [`the saved form read names no form, so no submit is clicked; read the form again (node student/scripts/chrome.mjs read-form --url ${link})`, 'saved form read is too old; read the form again'],

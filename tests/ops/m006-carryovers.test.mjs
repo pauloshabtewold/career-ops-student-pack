@@ -50,7 +50,7 @@ test('N-r4-1: the held-items footer no longer says no form was read', () => {
 });
 
 test('N-r4-4: a field label with page line breaks stays on one waiting line', () => {
-  const line = planWait({ fields: [{ id: 'a' }], blocked: ['Social\nSecurity\n  number'] });
+  const line = planWait({ fields: [{ id: 'a' }], formSelector: '#f', submitSelector: '#go', blocked: ['Social\nSecurity\n  number'] });
   assert.equal(line, 'waits for you: fields only you fill (Social Security number)');
 });
 
