@@ -180,7 +180,7 @@ test('M-007-fix4-N4-1c submit refuses before any pending row: no saved submit, a
     // A typed submit inside the form holding the filled fields passes the button check (it stops later, at the page
     // wording this fake does not give).
     const good = appDom(el('form', { id: 'apply_form' }, [input('first_name'), input('email', 'email'), btn('send', 'submit', 'Submit application')]));
-    assert.equal(await run({ formSelector: '#apply_form', submitSelector: '#send' }, good), 'no-signs');
+    assert.equal(await run({ formSelector: '#apply_form', submitSelector: '#send', submitText: 'submit application' }, good), 'no-signs');
   } finally {
     rmSync(d, { recursive: true, force: true });
   }

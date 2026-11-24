@@ -42,7 +42,7 @@ async function approvedWithPlans(r, links, { date = YESTERDAY } = {}) {
     items: b.items.map((it, k) => {
       const file = join(r.data, 'fill-plans', id, `${k + 1}.json`);
       mkdirSync(join(r.data, 'fill-plans', id), { recursive: true });
-      writeFileSync(file, `${JSON.stringify({ company: it.company, role: it.role, url: it.link, link: it.link, score: 4.5, batchId: id, item: k + 1, fields: [{ selector: '#first_name', key: 'first_name', label: 'First name', type: 'text', value: 'Test' }], formSelector: '#application_form', submitSelector: '#submit_app', unknown: [], uploads: [] })}\n`);
+      writeFileSync(file, `${JSON.stringify({ company: it.company, role: it.role, url: it.link, link: it.link, score: 4.5, batchId: id, item: k + 1, fields: [{ selector: '#first_name', key: 'first_name', label: 'First name', type: 'text', value: 'Test' }], formSelector: '#application_form', submitSelector: '#submit_app', submitText: 'submit application', unknown: [], uploads: [] })}\n`);
       return { ...it, plan: file };
     }),
   }));

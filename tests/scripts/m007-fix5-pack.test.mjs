@@ -176,7 +176,7 @@ test('M-007-fix5-N5-2a the header Search button is never clicked: a plan with no
   const legacy = await clickWith(ctx(), {});
   assert.equal(legacy.state, 'stale-read', JSON.stringify(legacy));
   assert.deepEqual(legacy.clicked, [], `nothing is clicked: ${JSON.stringify(legacy)}`);
-  const scoped = await clickWith(ctx(), { formSelector: '#app', submitSelector: '#send' });
+  const scoped = await clickWith(ctx(), { formSelector: '#app', submitSelector: '#send', submitText: 'submit application' });
   assert.ok(!scoped.clicked.includes('go'), `the header Search button is never clicked: ${JSON.stringify(scoped)}`);
   assert.deepEqual(scoped.clicked, ['send']);
 });
@@ -248,7 +248,7 @@ test('M-007-fix5-N5-5a inside the application form a type=button or untyped butt
 // M-007-fix5-N5-5b
 test('M-007-fix5-N5-5b submit clicks a saved type=button submit inside the form read', async () => {
   const ctx = domCtx([el('main', {}, [el('form', { id: 'lever' }, [input('first_name'), input('email', 'email'), btn('btn-submit', 'button', 'Submit application')])])]);
-  const res = await clickWith(ctx, { formSelector: '#lever', submitSelector: '#btn-submit' });
+  const res = await clickWith(ctx, { formSelector: '#lever', submitSelector: '#btn-submit', submitText: 'submit application' });
   assert.deepEqual(res.clicked, ['btn-submit'], JSON.stringify(res));
   const outside = domCtx([el('main', {}, [el('div', {}, [input('first_name'), input('email', 'email'), btn('loose', 'button', 'Submit application')])])]);
   const refused = await clickWith(outside, { formSelector: null, submitSelector: '#loose' });

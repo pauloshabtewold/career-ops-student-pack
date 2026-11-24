@@ -785,15 +785,21 @@ function unsafeButton(b, selector) {
 }
 
 export const BUTTON_CHANGED = 'the submit button changed since the form was read; read the form again';
+export const STALE_READ = 'saved form read is too old; read the form again';
 
-// Submit-pick rule v4 item D, checked before the pending row: the button must be a typed submit or an
-// APPLY_SUBMIT-worded one, and its text must equal the text the read saved. A plan from a read that saved no text skips
-// only the text comparison.
+// Submit-pick rule v4 item D: a saved submit whose read saved no text, or an empty one (an older read), cannot be
+// checked against the page, so it is refused as a stale read.
+const textless = (saved, selector) => (typeof saved === 'string' && saved ? null : { state: 'no-button', detail: `the form read saved no text for ${selector}`, reason: STALE_READ });
+
+// Submit-pick rule v4 item D, checked before the pending row: the read must have saved the button's text, the button
+// must be a typed submit or an APPLY_SUBMIT-worded one, and its text must equal the saved text.
 function changedButton(b, saved, selector) {
+  const missing = textless(saved, selector);
+  if (missing) return missing;
   const text = String(b.text ?? '');
   const now = text.trim().toLowerCase().slice(0, 80);
   if (!b.typed && !(APPLY_SUBMIT.test(text) && !LINK_STYLE.test(text))) return { state: 'no-button', detail: `${selector} is no typed or application-worded submit`, reason: BUTTON_CHANGED };
-  if (typeof saved === 'string' && now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: BUTTON_CHANGED };
+  if (now !== saved) return { state: 'no-button', detail: `${selector} now reads "${now}", the read saved "${saved}"`, reason: BUTTON_CHANGED };
   return null;
 }
 
@@ -858,6 +864,9 @@ async function cmdSubmit({ dataDir, paths, flags, deps, say }) {
   // A plan with fields but no formSelector key comes from a read saved before the form was recorded: a stale read,
   // refused before any budget call, pick or click, and moved to finish these yourself.
   if (plan.fields?.length && !('formSelector' in plan)) return afterClick({ clicked: { state: 'stale-read' }, plan, paths, flags, action, dataDir, deps, say });
+  // A saved submit with no saved text is refused the same way before the budget check, the browser or any click.
+  const textMissing = plan.submitSelector ? textless(plan.submitText, plan.submitSelector) : null;
+  if (textMissing) return afterClick({ clicked: textMissing, plan, paths, flags, action, dataDir, deps, say });
   const scoreArgs = ['--score', String(plan.score ?? 0), '--batch', '1', ...(plan.track ? ['--track', plan.track] : [])];
   const check = budgetCall(paths, 'check', action, plan, scoreArgs, deps.runner);
   if (check.code !== 0) {
@@ -934,7 +943,7 @@ export function afterClick({ clicked, plan, paths, flags, action, dataDir, deps 
     'no-button': () => [`no safe submit button${clicked.detail ? ` (${clicked.detail})` : ''}`, clicked.reason ?? 'no safe submit button in the form read'],
     'outside-form': () => [`the submit button ${clicked.detail ?? ''} is outside the form that was read`, 'the submit button is outside the form read'],
     'other-form': () => [`the submit button ${clicked.detail ?? ''} is in a form holding none of the filled fields`, 'the submit button is in a form holding none of the filled fields'],
-    'stale-read': () => [`the saved form read names no form, so no submit is clicked; read the form again (node student/scripts/chrome.mjs read-form --url ${link})`, 'saved form read is too old; read the form again'],
+    'stale-read': () => [`the saved form read names no form, so no submit is clicked; read the form again (node student/scripts/chrome.mjs read-form --url ${link})`, STALE_READ],
   };
   if (unsafe[clicked.state]) {
     const [why, reason] = unsafe[clicked.state]();

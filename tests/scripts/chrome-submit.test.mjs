@@ -83,7 +83,7 @@ const fakeRunner = (codes = {}) => {
   return { run, calls };
 };
 
-const plan = (d, tab) => ({ batchId: 'b1', item: 1, url: 'https://x.test/form', link: 'https://x.test/form', company: 'Example Robotics', role: 'Intern', planFile: join(d, '1.json'), tab, formSelector: '#apply_form', submitSelector: '#send', fields: [{ selector: '#first_name', type: 'text' }] });
+const plan = (d, tab) => ({ batchId: 'b1', item: 1, url: 'https://x.test/form', link: 'https://x.test/form', company: 'Example Robotics', role: 'Intern', planFile: join(d, '1.json'), tab, formSelector: '#apply_form', submitSelector: '#send', submitText: 'submit application', fields: [{ selector: '#first_name', type: 'text' }] });
 const TAB = { targetId: 'T1', url: 'https://x.test/form', sentinel: { selector: '#first_name', value: 'Jordan' } };
 const noWait = async () => {};
 

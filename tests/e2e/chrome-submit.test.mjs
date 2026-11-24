@@ -32,7 +32,7 @@ function prepare(r, url, company) {
   const [id] = writeBatches(r.data, { date: '2026-11-03', kind: 'apply', items: [{ company, role: 'Software Engineering Intern', score: 4.2, preview: 'Fake.', link: url }] });
   const file = join(r.data, 'fill-plans', id, '1.json');
   mkdirSync(join(r.data, 'fill-plans', id), { recursive: true });
-  writeFileSync(file, JSON.stringify({ batchId: id, item: 1, url, link: url, company, role: 'Software Engineering Intern', score: 4.2, formSelector: '#application_form', submitSelector: '#submit_app', fields: fields(r) }));
+  writeFileSync(file, JSON.stringify({ batchId: id, item: 1, url, link: url, company, role: 'Software Engineering Intern', score: 4.2, formSelector: '#application_form', submitSelector: '#submit_app', submitText: 'submit application', fields: fields(r) }));
   updateBatch(r.data, id, (b) => ({ ...b, items: b.items.map((it) => ({ ...it, plan: file })) }));
   const ap = spawnSync(process.execPath, [join(W, 'scripts', 'budget.mjs'), 'log', 'batch.approve', '--batch-id', id, '--items', '1', '--approval', 'approve all', '--root', r.root, '--data-dir', r.data], { cwd: W, encoding: 'utf8' });
   assert.equal(ap.status, 0, ap.stdout + ap.stderr);
